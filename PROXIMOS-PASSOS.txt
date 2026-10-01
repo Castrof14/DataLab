@@ -1,0 +1,99 @@
+DataLab — Construção, Personagens e Equipe trabalhando
+Estado em 01/10/2026 (trabalho interrompido no meio)
+=======================================================
+
+COMO RETOMAR
+Abra o Claude Code nesta pasta e diga:
+  "Leia PROXIMOS-PASSOS.txt e continue a implementação de onde parou."
+
+-------------------------------------------------------
+O QUE JÁ FOI FEITO (o jogo e a landing continuam funcionando, testado sem erros)
+-------------------------------------------------------
+1. assets/js/scene.js  (mudanças compatíveis com a landing)
+   - opções novas: world, renderFloor, zoom
+   - refreshWorld(floorChanged): redesenha o piso e a lista de desenho depois de editar o mapa
+   - screenToWorld(x, y): converte o mouse para coordenadas do mundo
+   - scene.actors (personagens criados), actor.sortKey, actor.hidden
+   - ganchos scene.underlay (grid embaixo dos objetos) e scene.lights (luz das luminárias)
+
+2. assets/js/sprites.js  (aditivo; os visuais atuais não mudaram)
+   - Personagens: poses sentadas (DL.makeSitSheet: digitando A/B, descanso, olhar para o lado, piscar),
+     de frente (down) e de costas (up)
+   - Cabelos novos: buzz, ponytail, afro, bob (+ os antigos short, bun, long, curly, cap)
+   - Aparência: L.body = 'f' | 'm' | 'n' (cintura e cílios / sobrancelhas)
+   - Roupas: L.outfit = 'tee' | 'shirt' | 'hoodie' | 'blazer' (+ L.vest para colete)
+   - Acessórios: L.glasses, L.beard, L.hat = 'cap' | 'beanie' (L.capColor), L.headset
+   - Item por função (L.role + L.roleColor): redes = cabo no ombro, servidores = cinto de ferramentas,
+     sysadmin = notebook, seguranca = rádio + dragonas, gerente = gravata, funcionario = só o crachá
+   - Objetos novos: rack modular (e.units com 9 slots), mesa (horizontal/vertical), monitor sobre mesa
+     (frente/costas), cadeira girada (rot 1), computador girado (rot 1, trabalhador de frente), sofá,
+     estante, bebedouro, quadro branco, tapete, luminária, cafeteira, vaso, lixeira, divisória de vidro horizontal
+   - DL.workScreen: tela animada por função ('net','srv','code','cam','doc','kpi'), ativada por e.work / e.typing
+   - DL.floorTile e DL.carpet expostos
+
+3. assets/js/build.js  (NOVO — ainda NÃO está ligado no demo.html)
+   - Salas como retângulos: DL.initRooms(world) converte o mapa DC-01 (NOC fixo + Salão)
+   - Paredes, divisórias de vidro e portas geradas automaticamente; DL.renderRooms desenha o piso
+   - Redimensionar sala, adicionar espaço a leste/ao sul, remover espaço vazio, trocar piso
+   - Catálogo (DL.CATALOG), grid, fantasma verde/laranja, validação (parede, porta, ocupado, pessoa no lugar)
+   - Selecionar, posicionar, mover (clique ou arrastar), girar (R), remover (Del/X), servidor/switch em rack,
+     monitor/cafeteira/vaso em cima de mesa
+   - DL.createBuilder(game) devolve: enter, exit, pointerMove/Down/Up, key, underlay, overlay, updateUi
+   - Espera um objeto "game" com: scene, toast(tom, titulo, texto), lockReason(item), actors(),
+     emit/on('world'), setMode(m), setCursor(c), focus(x, y), sfx(nome) (pode ser função vazia)
+
+-------------------------------------------------------
+O QUE FALTA
+-------------------------------------------------------
+A. demo.html
+   - Carregar build.js e crew.js depois de scene.js (antes de demo.js)
+   - Botões no HUD: Explorar / Construir (B) / Equipe (C)
+   - Dock de construção: <section class="build" id="build" hidden> com abas data-tab
+     (equip, furn, deco, room), ferramentas data-tool (select, remove), #buildItems, #buildRoom, #buildHint
+   - #inspector e #ghostTip dentro de .world-ui
+   - Modal de criação de personagem (#creator) e painel da equipe (#crewPanel)
+   - Atualizar textos de controles (intro/ajuda): B, C, mouse, R, Del
+
+B. assets/css/demo.css  (seguir o DESIGN: fundo escuro, pílulas com borda translúcida, cards 8px, Geist Mono em caixa alta)
+   - .build (dock embaixo), .tab, .tool, .cat-item, .chip, .stepper, .room-list, .room-ctl
+   - .inspector (+ .insp__head/.insp__actions/.insp__note, .linkbtn), .ghost-tip
+   - modal do criador: preview, amostras de cor (círculos), chips, cards de função
+   - painel da equipe e nametag acima do personagem
+   - .game.is-build esconde objetivo/minimapa/dica
+
+C. assets/js/crew.js  (NOVO, ainda não existe)
+   - Funções e cores: redes #a0c3ec, servidores #ffc285, sysadmin #c4b5fd, seguranca #ff7a17,
+     funcionario #dadbdf, gerente #7ee0a1; lanyard e crachá na cor da função
+   - Criador: nome, aparência, pele, cabelo + cor, roupa + cor, calça, acessórios, função,
+     botão "Aleatório", preview girando (em pé / andando / trabalhando)
+   - Pathfinding A* no grid (world.solid), com diagonais e suavização (scene.hits)
+   - Estações: computador (desk + desk.chair) e cadeira solta em frente a mesa com monitor
+   - Estados: ocioso (passeia) → indo até o PC → sentar (0,3 s) → trabalhando (alterna digitar/descansar/
+     olhar, pisca, e.work = modo da função, e.typing) → levantar → sair
+   - Tarefa com duração (≈45 s) ou "turno contínuo"; botão "Levantar"; toast ao concluir
+   - Posição sentado (ajustar vendo na tela): rot 0 → y = desk.py + 20, cadeira desenhada na frente;
+     rot 1 → y = desk.py - 2, sortKey = desk.sortY + 0.5
+   - Se a estação for movida/removida (evento 'world'), o personagem levanta
+   - NPCs antigos (Marina, Rafael, Júlia): sobrescrever scene.updateNpc para usar pathfinding
+     (hoje andam em linha reta e atravessariam objetos novos); adicionar 1-2 NPCs extras que passeiam por todos os espaços
+   - Card do personagem ao clicar: nome, função (cor), status, progresso, Atribuir / Levantar / Editar / Dispensar
+
+D. assets/js/demo.js (integração)
+   - Depois de criar a cena: DL.initRooms(W); scene.o.renderFloor = DL.renderRooms; scene.refreshWorld(true)
+     (ou passar world/renderFloor no construtor do DL.Scene)
+   - Criar o objeto "game" e instanciar builder e crew
+   - Eventos de mouse no canvas (pointerdown/move/up, contextmenu, wheel = zoom com scene.o.zoom + resize)
+   - No modo construção: WASD move a câmera, o jogador fica parado; esconder painel de equipamento
+   - scene.underlay / scene.overlay chamando builder.underlay/overlay (manter o overlay atual do objetivo)
+   - Ao mudar o mundo: refazer minimapa (tamanho variável), rótulos ("Fileira A/B" somem se a fileira mudar),
+     nomes dos espaços novos
+   - lockReason: bloquear SW-ACC-B, SW-CORE-01, PC-NOC-01/03, racks da fileira B e NOC-WALL até o incidente ser resolvido
+   - linkOf('rack') sem e.row deve mostrar "Uplink 10 Gb/s" (hoje mostraria "SW-ACC-undefined")
+   - findTarget/prompt: personagens criados → "Gerenciar"
+   - Texto final do objetivo / resumo: convidar a montar o datacenter (B) e contratar a equipe (C)
+
+E. Testes finais
+   - Movimento, construção (colocar/mover/girar/remover, redimensionar sala, novo espaço),
+     criação de personagem, ida até o computador, sentar e animação, NPCs desviando de objetos,
+     landing (index.html) sem alterações visuais
+   - Teste automático rápido: node smoke.js com puppeteer-core e o Chrome instalado

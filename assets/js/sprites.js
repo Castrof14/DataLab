@@ -64,10 +64,79 @@
   const FW = 22, FH = 31, AX = 11, AY = 29;
   DL.CHAR = { FW, FH, AX, AY };
 
+  // Coil of patch cable, worn on the shoulder by network technicians.
+  function coil(g, x, y, c) {
+    R(g, x, y, 3, 1, c);
+    R(g, x, y + 2, 3, 1, c);
+    R(g, x, y + 1, 1, 1, c);
+    R(g, x + 2, y + 1, 1, 1, c);
+  }
+
+  // Clothing details layered on the base torso (new characters only; legacy looks have no outfit).
+  function outfitDetails(g, dir, ty, L, shirt, shirtD, shirtL) {
+    const ax = AX, o = L.outfit;
+    if (!o || o === 'tee') return;
+    const white = '#e9e9e6';
+    if (dir === 'down') {
+      if (o === 'shirt') { R(g, ax - 2, ty, 1, 2, shirtL); R(g, ax + 1, ty, 1, 2, shirtL); }
+      if (o === 'hoodie') { R(g, ax - 3, ty, 6, 1, shirtD); R(g, ax - 3, ty + 5, 6, 2, shirtD); R(g, ax - 3, ty + 5, 6, 1, shade(shirt, -0.45)); }
+      if (o === 'blazer') { R(g, ax - 1, ty, 2, 7, white); R(g, ax - 2, ty, 1, 4, shirtD); R(g, ax + 1, ty, 1, 4, shirtD); }
+    } else if (dir === 'up') {
+      if (o === 'hoodie') { R(g, ax - 4, ty, 8, 3, shirtD); R(g, ax - 3, ty, 6, 1, shirtL); }
+      if (o === 'shirt') R(g, ax - 3, ty, 6, 1, shirtL);
+    } else {
+      if (o === 'hoodie') { R(g, ax - 3, ty, 3, 3, shirtD); }
+      if (o === 'blazer') R(g, ax + 1, ty, 1, 6, white);
+      if (o === 'shirt') R(g, ax + 1, ty, 1, 1, shirtL);
+    }
+  }
+
+  // Role gear: what makes each job readable at sprite scale.
+  function roleGear(g, dir, ty, L, sit) {
+    const ax = AX, c = L.roleColor || '#ffffff';
+    switch (L.role) {
+      case 'redes':
+        if (dir === 'down') coil(g, ax + 3, ty, c);
+        else if (dir === 'up') coil(g, ax - 6, ty, c);
+        else coil(g, ax - 2, ty + 1, c);
+        break;
+      case 'servidores':
+        if (sit) break;
+        if (dir === 'right') { R(g, ax - 3, ty + 6, 6, 1, '#6b5233'); R(g, ax - 3, ty + 6, 2, 2, '#8a6a42'); }
+        else {
+          R(g, ax - 4, ty + 6, 8, 1, '#6b5233');
+          if (dir === 'down') { R(g, ax + 1, ty + 6, 2, 2, '#8a6a42'); R(g, ax - 3, ty + 6, 1, 2, '#9aa3b0'); }
+        }
+        break;
+      case 'sysadmin':
+        if (sit) break;
+        if (dir === 'down') { R(g, ax + 6, ty + 2, 2, 6, '#3a3f49'); R(g, ax + 6, ty + 2, 2, 1, '#7d8187'); R(g, ax + 7, ty + 3, 1, 4, c); }
+        else if (dir === 'up') { R(g, ax - 8, ty + 2, 2, 6, '#3a3f49'); R(g, ax - 8, ty + 2, 2, 1, '#7d8187'); }
+        else { R(g, ax - 3, ty + 3, 6, 2, '#3a3f49'); R(g, ax - 3, ty + 3, 6, 1, '#7d8187'); }
+        break;
+      case 'seguranca':
+        if (dir === 'right') R(g, ax - 1, ty + 1, 2, 1, c);
+        else { R(g, ax - 6, ty + 1, 2, 1, c); R(g, ax + 4, ty + 1, 2, 1, c); }
+        if (sit) break;
+        if (dir === 'down') { R(g, ax + 2, ty + 5, 2, 3, '#121418'); R(g, ax + 3, ty + 3, 1, 2, '#121418'); R(g, ax + 2, ty + 5, 1, 1, C.warn); }
+        else if (dir === 'right') { R(g, ax - 3, ty + 5, 2, 3, '#121418'); R(g, ax - 3, ty + 3, 1, 2, '#121418'); }
+        break;
+      case 'gerente':
+        if (dir === 'down') {
+          R(g, ax - 1, ty, 2, 1, shade(c, -0.35));
+          R(g, ax - 1, ty + 1, 2, 4, c);
+          R(g, ax - 1, ty + 5, 1, 1, c);
+          R(g, ax, ty + 1, 1, 4, shade(c, -0.2));
+        } else if (dir === 'right') R(g, ax + 2, ty + 1, 1, 3, c);
+        break;
+    }
+  }
+
   function drawChar(g, dir, pose, L, closed) {
     const ax = AX, ay = AY;
     const side = dir === 'right';
-    const bob = pose === 'pass' ? -1 : 0;
+    const sit = pose.indexOf('sit') === 0;
+    const bob = pose === 'pass' ? -1 : sit ? 4 : 0;
     const skinD = shade(L.skin, -0.16);
     const shirt = L.shirt, shirtD = shade(shirt, -0.3), shirtL = shade(shirt, 0.14);
     const pantsD = shade(L.pants, -0.35);
@@ -82,8 +151,10 @@
       R(g, x, ay - 1 + dy, 3, 1, shoeD);
     };
 
-    // legs
-    if (!side) {
+    // legs (hidden by the desk or chair while seated)
+    if (sit) {
+      // no legs
+    } else if (!side) {
       const lDy = pose === 'B' ? -1 : 0;
       const rDy = pose === 'A' ? -1 : 0;
       leg(ax - 3, lDy, L.pants);
@@ -113,11 +184,35 @@
         R(g, x, ty + 6 + dy, 2, 2, L.skin);
         R(g, x, ty + 7 + dy, 2, 1, skinD);
       };
-      arm(ax - 6, sw);
-      arm(ax + 4, -sw);
-      R(g, ax + 5, ty + 1 - sw, 1, 5, shirtD);
+      if (!sit) {
+        arm(ax - 6, sw);
+        arm(ax + 4, -sw);
+        R(g, ax + 5, ty + 1 - sw, 1, 5, shirtD);
+      } else if (dir === 'down') {
+        // facing the viewer: upper arms at the sides, hands forward on the keyboard
+        const ly = pose === 'sitA' ? -1 : 0, ry = pose === 'sitB' ? -1 : 0;
+        R(g, ax - 6, ty + 1, 2, 5, shirt);
+        R(g, ax - 6, ty + 1, 2, 1, shirtL);
+        R(g, ax + 4, ty + 1, 2, 5, shirt);
+        R(g, ax + 4, ty + 1, 2, 1, shirtL);
+        R(g, ax + 5, ty + 1, 1, 5, shirtD);
+        R(g, ax - 5, ty + 6 + ly, 2, 2, L.skin);
+        R(g, ax - 5, ty + 7 + ly, 2, 1, skinD);
+        R(g, ax + 3, ty + 6 + ry, 2, 2, L.skin);
+        R(g, ax + 3, ty + 7 + ry, 2, 1, skinD);
+      } else {
+        // seen from behind: elbows out, alternating as the hands type
+        const ly = pose === 'sitA' ? -1 : 0, ry = pose === 'sitB' ? -1 : 0;
+        R(g, ax - 6, ty + 1 + ly, 2, 4, shirt);
+        R(g, ax - 6, ty + 1 + ly, 2, 1, shirtL);
+        R(g, ax - 7, ty + 3 + ly, 1, 2, shirtD);
+        R(g, ax + 4, ty + 1 + ry, 2, 4, shirt);
+        R(g, ax + 4, ty + 1 + ry, 2, 1, shirtL);
+        R(g, ax + 6, ty + 3 + ry, 1, 2, shirtD);
+      }
       if (dir === 'down') {
         R(g, ax - 2, ty, 4, 1, shirtD);
+        outfitDetails(g, dir, ty, L, shirt, shirtD, shirtL);
         if (L.vest) {
           R(g, ax - 4, ty + 1, 2, 6, L.vest);
           R(g, ax + 2, ty + 1, 2, 6, L.vest);
@@ -133,7 +228,12 @@
         }
       } else {
         R(g, ax - 3, ty, 6, 2, shirtD);
+        outfitDetails(g, dir, ty, L, shirt, shirtD, shirtL);
         if (L.vest) R(g, ax - 4, ty + 3, 8, 1, shade(L.vest, 0.35));
+      }
+      if (L.body === 'f') {
+        g.clearRect(ax - 4, ty + 4, 1, 2);
+        g.clearRect(ax + 3, ty + 4, 1, 2);
       }
     } else {
       const sw = pose === 'A' ? 1 : pose === 'B' ? -1 : 0;
@@ -141,6 +241,7 @@
       R(g, ax - 3, ty, 1, 8, shirtD);
       R(g, ax + 2, ty, 1, 8, shirtL);
       R(g, ax - 3, ty + 7, 6, 1, shirtD);
+      outfitDetails(g, dir, ty, L, shirt, shirtD, shirtL);
       if (L.vest) R(g, ax - 3, ty + 4, 6, 1, shade(L.vest, 0.35));
       if (L.badge) R(g, ax + 2, ty + 3, 1, 2, L.badge);
       R(g, ax - 1 + sw, ty + 1, 2, 5, shirt);
@@ -148,34 +249,64 @@
       R(g, ax - 1 + sw, ty + 1, 2, 1, shirtL);
       R(g, ax - 1 + sw, ty + 6, 2, 2, L.skin);
     }
+    if (L.role) roleGear(g, dir, ty, L, sit);
 
-    // head
+    // head (a seated worker glancing at the side monitor shifts it a pixel)
+    const hx = ax + (pose === 'sitL' && dir === 'up' ? 1 : 0);
     const hy = ay - 23 + bob;
-    R(g, ax - 4, hy, 8, 10, L.skin);
-    R(g, ax - 5, hy + 1, 10, 8, L.skin);
-    R(g, ax - 4, hy + 9, 8, 1, skinD);
+    const look = pose === 'sitL' && dir === 'down' ? 1 : 0;
+    R(g, hx - 4, hy, 8, 10, L.skin);
+    R(g, hx - 5, hy + 1, 10, 8, L.skin);
+    R(g, hx - 4, hy + 9, 8, 1, skinD);
     if (dir === 'down') {
       R(g, ax + 4, hy + 2, 1, 6, skinD);
       if (closed) {
         R(g, ax - 3, hy + 6, 2, 1, eye);
         R(g, ax + 1, hy + 6, 2, 1, eye);
       } else {
-        R(g, ax - 3, hy + 5, 1, 2, eye);
-        R(g, ax + 2, hy + 5, 1, 2, eye);
+        R(g, ax - 3 + look, hy + 5, 1, 2, eye);
+        R(g, ax + 2 + look, hy + 5, 1, 2, eye);
+        if (L.body === 'f') {
+          R(g, ax - 4 + look, hy + 5, 1, 1, eye);
+          R(g, ax + 3 + look, hy + 5, 1, 1, eye);
+        }
       }
       R(g, ax - 4, hy + 7, 1, 1, blush);
       R(g, ax + 3, hy + 7, 1, 1, blush);
       R(g, ax - 1, hy + 8, 2, 1, skinD);
     } else if (side) {
       if (closed) R(g, ax + 2, hy + 6, 2, 1, eye);
-      else R(g, ax + 2, hy + 5, 1, 2, eye);
+      else {
+        R(g, ax + 2, hy + 5, 1, 2, eye);
+        if (L.body === 'f') R(g, ax + 3, hy + 4, 1, 1, eye);
+      }
       R(g, ax + 3, hy + 7, 1, 1, blush);
       R(g, ax + 5, hy + 5, 1, 2, L.skin);
       R(g, ax - 1, hy + 5, 1, 2, skinD);
     }
+    if (L.beard) {
+      if (dir === 'down') {
+        R(g, ax - 5, hy + 5, 1, 4, hairD);
+        R(g, ax + 4, hy + 5, 1, 4, hairD);
+        R(g, ax - 4, hy + 8, 8, 2, hair);
+        R(g, ax - 1, hy + 8, 2, 1, hairD);
+      } else if (side) {
+        R(g, ax, hy + 6, 1, 3, hairD);
+        R(g, ax, hy + 8, 5, 2, hair);
+      } else {
+        R(g, hx - 5, hy + 5, 1, 4, hairD);
+        R(g, hx + 4, hy + 5, 1, 4, hairD);
+      }
+    }
+    if (L.body === 'm' && !closed) {
+      if (dir === 'down') {
+        R(g, ax - 3 + look, hy + 4, 2, 1, hairD);
+        R(g, ax + 1 + look, hy + 4, 2, 1, hairD);
+      } else if (side) R(g, ax + 2, hy + 4, 2, 1, hairD);
+    }
 
     // hair
-    const H = (x, y, w, h, c) => R(g, ax + x, hy + y, w, h, c || hair);
+    const H = (x, y, w, h, c) => R(g, hx + x, hy + y, w, h, c || hair);
     const style = L.hairStyle;
     if (style === 'short' || style === 'bun' || style === 'long') {
       if (dir === 'down') {
@@ -216,6 +347,54 @@
         H(-5, -2, 10, 2); H(-6, -1, 12, 4); H(-6, 3, 6, 5); H(2, 3, 2, 1);
       }
       dots();
+    } else if (style === 'buzz') {
+      if (dir === 'down') { H(-4, 0, 8, 1); H(-5, 1, 10, 1); H(-5, 2, 1, 2); H(4, 2, 1, 2); H(-2, 0, 3, 1, hairL); }
+      else if (dir === 'up') { H(-4, 0, 8, 1); H(-5, 1, 10, 6); H(-4, 7, 8, 1, hairD); H(-2, 0, 3, 1, hairL); }
+      else { H(-4, 0, 8, 1); H(-5, 1, 10, 1); H(-5, 2, 4, 4); H(-1, 0, 3, 1, hairL); }
+    } else if (style === 'ponytail') {
+      if (dir === 'down') {
+        H(-4, -1, 8, 1); H(-5, 0, 10, 3); H(-5, 3, 1, 2); H(4, 3, 1, 2); H(-4, 3, 2, 1); H(-3, 0, 4, 1, hairL);
+      } else if (dir === 'up') {
+        H(-4, -1, 8, 1); H(-5, 0, 10, 7); H(-4, 7, 8, 1, hairD); H(-1, 6, 2, 1, L.roleColor || hairL); H(-1, 7, 2, 6); H(-1, 12, 2, 1, hairD); H(-3, 0, 4, 1, hairL);
+      } else {
+        H(-4, -1, 8, 1); H(-5, 0, 10, 3); H(-5, 3, 4, 3); H(-7, 2, 2, 7); H(-7, 8, 2, 1, hairD); H(-5, 3, 1, 1, L.roleColor || hairL); H(-2, 0, 4, 1, hairL);
+      }
+    } else if (style === 'afro') {
+      if (dir === 'down') { H(-5, -3, 10, 2); H(-7, -1, 14, 4); H(-7, 3, 2, 5); H(5, 3, 2, 5); H(-4, 3, 2, 1); H(2, 3, 2, 1); }
+      else if (dir === 'up') { H(-5, -3, 10, 2); H(-7, -1, 14, 10); H(-6, 9, 12, 1, hairD); }
+      else { H(-5, -3, 10, 2); H(-7, -1, 13, 4); H(-7, 3, 7, 6); H(2, 3, 2, 1); }
+      for (let i = 0; i < 5; i++) H(-5 + i * 2 + (i % 2), -2 + (i % 2), 1, 1, hairL);
+    } else if (style === 'bob') {
+      if (dir === 'down') { H(-4, -1, 8, 1); H(-5, 0, 10, 3); H(-6, 2, 2, 7); H(4, 2, 2, 7); H(-4, 3, 3, 1); H(-6, 8, 2, 1, hairD); H(4, 8, 2, 1, hairD); H(-3, 0, 4, 1, hairL); }
+      else if (dir === 'up') { H(-4, -1, 8, 1); H(-5, 0, 10, 9); H(-6, 2, 1, 7); H(5, 2, 1, 7); H(-5, 8, 10, 1, hairD); H(-3, 0, 4, 1, hairL); }
+      else { H(-4, -1, 8, 1); H(-5, 0, 10, 3); H(-6, 2, 6, 7); H(1, 3, 3, 1); H(-6, 8, 6, 1, hairD); H(-2, 0, 4, 1, hairL); }
+    }
+
+    // hats sit on top of any hairstyle
+    if (L.hat === 'cap') {
+      const cap = L.capColor || '#3b4250', capD = shade(cap, -0.3), capL = shade(cap, 0.22);
+      if (dir === 'down') { H(-4, -1, 8, 1, cap); H(-5, 0, 10, 3, cap); H(-3, 0, 3, 1, capL); H(-5, 3, 10, 1, capD); }
+      else if (dir === 'up') { H(-4, -1, 8, 1, cap); H(-5, 0, 10, 3, cap); H(-2, 3, 4, 1, capD); }
+      else { H(-4, -1, 8, 1, cap); H(-5, 0, 10, 3, cap); H(-2, 0, 3, 1, capL); H(1, 3, 6, 1, capD); }
+    } else if (L.hat === 'beanie') {
+      const b = L.capColor || '#3b4250', bD = shade(b, -0.3), bL = shade(b, 0.2);
+      H(-4, -2, 8, 1, b); H(-5, -1, 10, 3, b); H(-5, 2, 10, 2, bD);
+      for (let i = 0; i < 5; i++) H(-4 + i * 2, 2, 1, 2, b);
+      H(-3, -1, 3, 1, bL);
+    }
+    if (L.glasses) {
+      const f = '#1c1f26', lens = 'rgba(160,195,236,0.35)';
+      if (dir === 'down') {
+        R(g, ax - 4, hy + 4, 8, 1, f);
+        R(g, ax - 4, hy + 5, 1, 2, f); R(g, ax - 1, hy + 5, 1, 1, f); R(g, ax, hy + 5, 1, 1, f); R(g, ax + 3, hy + 5, 1, 2, f);
+        R(g, ax - 4, hy + 7, 3, 1, f); R(g, ax + 1, hy + 7, 3, 1, f);
+        R(g, ax - 2, hy + 5, 1, 1, lens); R(g, ax + 1, hy + 5, 1, 1, lens);
+      } else if (side) {
+        R(g, ax + 1, hy + 4, 4, 1, f); R(g, ax + 1, hy + 7, 3, 1, f); R(g, ax + 4, hy + 5, 1, 2, f);
+        R(g, ax - 2, hy + 5, 3, 1, f); R(g, ax + 3, hy + 5, 1, 1, lens);
+      } else {
+        R(g, hx - 5, hy + 5, 1, 1, f); R(g, hx + 4, hy + 5, 1, 1, f);
+      }
     }
 
     if (L.headset) {
@@ -272,16 +451,32 @@
     return sheet;
   };
 
+  // Seated frames for a workstation: A/B = typing hands, R = resting, L = glancing at the side screen.
+  DL.makeSitSheet = function (L) {
+    const build = (dir, pose, closed) => {
+      const c = mk(FW, FH);
+      drawChar(c.getContext('2d'), dir, pose, L, closed);
+      return outline(c);
+    };
+    const set = (dir) => ({ A: build(dir, 'sitA'), B: build(dir, 'sitB'), R: build(dir, 'sitR'), L: build(dir, 'sitL'), blink: build(dir, 'sitR', true) });
+    return { down: set('down'), up: set('up') };
+  };
+
   // S = device pixels per world pixel; positions snap to device pixels, not world pixels,
   // so characters glide smoothly while every sprite pixel stays crisp.
   DL.drawActor = function (g, a, S) {
     const x = Math.round(a.x * S) / S;
     const y = Math.round(a.y * S) / S;
-    g.fillStyle = 'rgba(0,0,0,0.32)';
-    g.fillRect(x - 4, y - 2, 8, 1);
-    g.fillRect(x - 5, y - 1, 10, 1);
-    g.fillRect(x - 4, y, 8, 1);
+    const alpha = a.alpha == null ? 1 : a.alpha;
+    if (alpha < 1) g.globalAlpha = alpha;
+    if (!a.noShadow) {
+      g.fillStyle = 'rgba(0,0,0,0.32)';
+      g.fillRect(x - 4, y - 2, 8, 1);
+      g.fillRect(x - 5, y - 1, 10, 1);
+      g.fillRect(x - 4, y, 8, 1);
+    }
     g.drawImage(a.frame(), x - AX, y - AY);
+    if (alpha < 1) g.globalAlpha = 1;
   };
 
   /* ------------------------------------------------------------------ */
@@ -422,7 +617,105 @@
     }
   }
 
+  // What a screen shows while someone works at it — one look per role.
+  function workScreen(g, x, y, w, h, t, mode, seed, typing) {
+    R(g, x, y, w, h, C.midnight);
+    switch (mode) {
+      case 'net': {
+        R(g, x + 1, y + 1, 3, 1, C.screenInk);
+        for (let i = 0; i < w; i++) {
+          const v = (Math.sin(i * 0.8 - t * 3 + seed) + 1) / 2;
+          R(g, x + i, y + h - 1 - Math.round(v * (h - 3)), 1, 1, C.breeze);
+        }
+        R(g, x + Math.floor((t * 7 + seed) % w), y + 1, 1, 1, '#ffffff');
+        break;
+      }
+      case 'srv':
+        for (let r = 0; r < 3; r++) {
+          for (let c = 0; c < Math.floor(w / 3); c++) {
+            R(g, x + 1 + c * 3, y + 1 + r * 2, 2, 1, '#1d2a3c');
+            R(g, x + 1 + c * 3, y + 1 + r * 2, 1, 1, flick(t, seed * 5 + r * 7 + c, 3 + c) ? C.ok : C.okDim);
+          }
+        }
+        R(g, x + 1, y + h - 1, Math.floor(((t * 0.4 + seed) % 1) * (w - 2)) + 1, 1, C.warnSoft);
+        break;
+      case 'code': {
+        const off = Math.floor(t * (typing ? 1.6 : 0.3));
+        const rows = Math.floor((h - 1) / 2) + 1;
+        for (let j = 0; j < rows; j++) {
+          const k = off + j;
+          let len = 2 + Math.floor(hash(seed * 31 + k) * (w - 3));
+          if (j === rows - 1) len = Math.max(1, Math.min(len, Math.floor(((t * (typing ? 6 : 1)) % 1) * len) + 1));
+          R(g, x + 1 + (k % 3 === 0 ? 0 : 1), y + 1 + j * 2, len, 1, k % 4 === 0 ? C.twilight : k % 3 === 0 ? C.ok : '#5a7398');
+        }
+        if (blink(t, 1.6, 0)) R(g, x + w - 2, y + h - 2, 1, 1, '#ffffff');
+        break;
+      }
+      case 'cam': {
+        const cw = Math.floor((w - 1) / 2), chh = Math.floor((h - 1) / 2);
+        for (let k = 0; k < 4; k++) {
+          const cx = x + (k % 2) * (cw + 1), cy = y + Math.floor(k / 2) * (chh + 1);
+          R(g, cx, cy, cw, chh, '#132033');
+          const ph = (t * (0.3 + k * 0.07) + k * 0.31 + seed * 0.1) % 1;
+          R(g, cx + Math.floor(ph * cw), cy + chh - 2, 1, 1, k === 2 ? C.warnSoft : '#c9d6e8');
+        }
+        if (blink(t, 1, 0)) R(g, x + w - 1, y, 1, 1, C.warn);
+        break;
+      }
+      case 'doc': {
+        R(g, x + 1, y, w - 2, h, '#1c2534');
+        const n = Math.floor(t * (typing ? 1.2 : 0.2) + seed) % 4;
+        for (let j = 0; j < Math.floor(h / 2); j++) {
+          const len = j === n ? Math.floor(((t * 2) % 1) * (w - 4)) + 1 : 3 + Math.floor(hash(seed + j * 13) * (w - 6));
+          R(g, x + 2, y + 1 + j * 2, len, 1, '#8ea3c2');
+        }
+        break;
+      }
+      case 'kpi': {
+        for (let i = 0; i < 4; i++) {
+          const v = 0.35 + 0.5 * (Math.sin(t * 0.7 + i * 1.3 + seed) + 1) / 2;
+          const hh = Math.max(1, Math.round(v * (h - 2)));
+          R(g, x + 1 + i * 2, y + h - hh, 1, hh, i === 3 ? C.ok : C.breeze);
+        }
+        R(g, x + 1, y + 1, 3, 1, C.screenInk);
+        break;
+      }
+      default:
+        screen(g, x, y, w, h, t, seed, false);
+    }
+  }
+  DL.workScreen = workScreen;
+
+  function idleScreen(g, x, y, w, h, t, seed) {
+    R(g, x, y, w, h, '#080c14');
+    R(g, x + 1, y + 1, 2, 1, '#152238');
+    if (blink(t, 0.4, seed * 0.1)) R(g, x + w - 2, y + h - 2, 1, 1, C.breezeDim);
+  }
+
+  function drawDeskBack(g, e, t) {
+    // rotated: the worker sits on the far side, facing the viewer
+    const px = e.px, py = e.py;
+    R(g, px + 1, py + 14, 30, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 2, py + 6, 2, 8, '#15181d');
+    R(g, px + 28, py + 6, 2, 8, '#15181d');
+    R(g, px, py - 4, 32, 9, '#2a2e36');
+    R(g, px, py - 4, 32, 1, '#383d47');
+    R(g, px, py + 5, 32, 2, '#1d2027');
+    R(g, px + 11, py - 4, 10, 2, '#3c424c');
+    R(g, px + 11, py - 4, 10, 1, '#4a515d');
+    for (const mx of [px + 1, px + 22]) {
+      R(g, mx + 3, py - 5, 3, 3, '#16191f');
+      R(g, mx, py - 14, 9, 10, '#1a1d23');
+      R(g, mx, py - 14, 9, 1, '#262a31');
+      R(g, mx + 1, py - 12, 7, 1, '#20242b');
+      if (e.work) R(g, mx - 1, py - 14, 1, 9, 'rgba(160,195,236,0.28)');
+    }
+    R(g, px + 2, py + 1, 3, 3, '#d9d9d6');
+    R(g, px + 2, py + 1, 3, 1, '#5a3a25');
+  }
+
   function drawDesk(g, e, t) {
+    if (e.rot === 1) return drawDeskBack(g, e, t);
     const px = e.px, py = e.py;
     R(g, px + 1, py + 14, 30, 2, 'rgba(0,0,0,0.3)');
     R(g, px + 2, py + 6, 2, 8, '#15181d');
@@ -434,7 +727,8 @@
       const mx = px + 4 + m * 13;
       R(g, mx + 4, py - 6, 3, 3, '#16191f');
       R(g, mx, py - 16, 11, 10, '#0c0e12');
-      screen(g, mx + 1, py - 15, 9, 7, t, e.seed + m * 3, e.alert && m === 0);
+      if (e.work && m === (e.alert ? 1 : 0)) workScreen(g, mx + 1, py - 15, 9, 7, t, e.work, e.seed, e.typing);
+      else screen(g, mx + 1, py - 15, 9, 7, t, e.seed + m * 3, e.alert && m === 0);
       R(g, mx, py - 3, 11, 1, 'rgba(160,195,236,0.08)');
     }
     R(g, px + 10, py - 1, 11, 2, '#3c424c');
@@ -446,6 +740,19 @@
 
   function drawChair(g, e) {
     const x = e.cx, y = e.cy;
+    if (e.rot === 1) {
+      // facing the viewer: the backrest rises behind whoever sits here
+      R(g, x - 4, y - 1, 8, 1, 'rgba(0,0,0,0.3)');
+      R(g, x - 1, y - 4, 2, 3, '#121418');
+      R(g, x - 4, y - 2, 8, 1, '#15171c');
+      R(g, x - 6, y - 19, 12, 9, '#1d2028');
+      R(g, x - 6, y - 19, 12, 1, '#2c313b');
+      R(g, x - 5, y - 17, 10, 1, '#242832');
+      R(g, x - 1, y - 10, 2, 2, '#121418');
+      R(g, x - 5, y - 8, 10, 4, '#262a33');
+      R(g, x - 5, y - 8, 10, 1, '#30353f');
+      return;
+    }
     R(g, x - 4, y - 1, 8, 1, 'rgba(0,0,0,0.3)');
     R(g, x - 1, y - 4, 2, 3, '#121418');
     R(g, x - 4, y - 2, 8, 1, '#15171c');
@@ -519,15 +826,249 @@
     if (e.capBottom) R(g, x - 1, top + 16, 5, 1, '#2a3039');
   }
 
+  /* ---------- buildable furniture & decoration ---------- */
+
+  // Modular rack: e.units holds what is installed in each of its 9 slots (top to bottom).
+  function drawUnitRack(g, e, t) {
+    const px = e.px, py = e.py;
+    rackBody(g, px, py, e.tag);
+    for (let k = 0; k < 9; k++) {
+      const uy = py - 15 + k * 3, u = e.units[k];
+      if (!u) {
+        R(g, px + 3, uy, 10, 2, '#0f1216');
+        R(g, px + 3, uy, 1, 2, '#1a1f26');
+        R(g, px + 12, uy, 1, 2, '#1a1f26');
+      } else if (u === 'switch') {
+        R(g, px + 3, uy, 10, 2, '#2a313b');
+        R(g, px + 3, uy, 10, 1, '#39414d');
+        for (let i = 0; i < 4; i++) R(g, px + 4 + i * 2, uy + 1, 1, 1, flick(t, e.seed * 7 + k * 5 + i, 5 + i) ? C.ok : C.okDim);
+        R(g, px + 12, uy, 1, 2, flick(t, e.seed + k, 8) ? C.breeze : C.breezeDim);
+      } else {
+        R(g, px + 3, uy, 10, 2, '#1c222b');
+        R(g, px + 3, uy, 10, 1, '#262d38');
+        R(g, px + 4, uy + 1, 5, 1, '#141920');
+        const s = ledState(e.state, t, e.seed * 13 + k);
+        R(g, px + 10, uy, 1, 1, s.pwr);
+        R(g, px + 12, uy, 1, 1, s.act);
+      }
+    }
+    R(g, px + 13, py - 3, 1, 4, '#3a414c');
+  }
+
+  // Single rack units, used for catalog thumbnails.
+  function drawUnitThumb(g, e, t) {
+    const x = e.px, y = e.py;
+    R(g, x, y + 4, 16, 6, '#1c222b');
+    R(g, x, y + 4, 16, 1, '#2d3542');
+    R(g, x, y + 9, 16, 1, '#11151b');
+    if (e.kind === 'unit-switch') {
+      for (let i = 0; i < 6; i++) R(g, x + 2 + i * 2, y + 6, 1, 2, flick(t, i * 3, 5 + i) ? C.ok : C.okDim);
+      R(g, x + 14, y + 6, 1, 2, C.breeze);
+    } else {
+      R(g, x + 2, y + 6, 8, 2, '#141920');
+      R(g, x + 12, y + 6, 1, 1, C.ok);
+      R(g, x + 14, y + 6, 1, 1, flick(t, 5, 7) ? C.breeze : C.breezeDim);
+    }
+  }
+
+  function drawTable(g, e) {
+    const px = e.px, py = e.py, w = e.tw * T, h = e.th * T;
+    const top = h - T + 9;
+    R(g, px + 1, py + h - 2, w - 2, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 2, py + h - 10, 2, 8, '#15181d');
+    R(g, px + w - 4, py + h - 10, 2, 8, '#15181d');
+    R(g, px, py - 4, w, top, '#323842');
+    R(g, px, py - 4, w, 1, '#434a56');
+    R(g, px, py - 4, 1, top, '#3a414c');
+    R(g, px, py - 4 + top, w, 2, '#22262d');
+  }
+
+  function drawMonitor(g, e, t) {
+    const px = e.px, py = e.py;
+    if (e.rot === 1) {
+      R(g, px + 6, py - 5, 4, 3, '#16191f');
+      R(g, px + 2, py - 14, 12, 10, '#1a1d23');
+      R(g, px + 2, py - 14, 12, 1, '#262a31');
+      R(g, px + 4, py - 12, 8, 1, '#20242b');
+      if (e.work) R(g, px + 1, py - 14, 1, 9, 'rgba(160,195,236,0.28)');
+      return;
+    }
+    R(g, px + 6, py - 6, 3, 3, '#16191f');
+    R(g, px + 4, py - 4, 7, 1, '#16191f');
+    R(g, px + 2, py - 16, 12, 10, '#0c0e12');
+    if (e.work) workScreen(g, px + 3, py - 15, 10, 8, t, e.work, e.seed, e.typing);
+    else idleScreen(g, px + 3, py - 15, 10, 8, t, e.seed);
+    R(g, px + 2, py - 3, 12, 1, 'rgba(160,195,236,0.08)');
+    R(g, px + 3, py - 2, 10, 2, '#3c424c');
+    R(g, px + 3, py - 2, 10, 1, '#4a515d');
+  }
+
+  function drawSofa(g, e) {
+    const px = e.px, py = e.py;
+    const base = e.color || '#2f3a4d', d = shade(base, -0.3), l = shade(base, 0.12);
+    R(g, px + 1, py + 13, 30, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 1, py - 10, 30, 9, d);
+    R(g, px + 1, py - 10, 30, 1, l);
+    R(g, px, py - 4, 4, 15, base);
+    R(g, px + 28, py - 4, 4, 15, base);
+    R(g, px, py - 4, 4, 1, l);
+    R(g, px + 28, py - 4, 4, 1, l);
+    R(g, px + 4, py - 2, 12, 7, l);
+    R(g, px + 16, py - 2, 12, 7, l);
+    R(g, px + 16, py - 2, 1, 7, d);
+    R(g, px + 4, py + 5, 24, 6, base);
+    R(g, px + 2, py + 11, 2, 2, '#121418');
+    R(g, px + 28, py + 11, 2, 2, '#121418');
+  }
+
+  function drawShelf(g, e) {
+    const px = e.px, py = e.py;
+    R(g, px + 1, py + 13, 15, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 1, py - 20, 14, 34, '#2a2f38');
+    R(g, px + 1, py - 20, 14, 1, '#383e49');
+    R(g, px + 3, py - 18, 10, 30, '#14171c');
+    const cols = [C.breeze, C.twilight, C.warnSoft, '#5d6878', '#7d8187', C.breezeDim];
+    for (let s = 0; s < 3; s++) {
+      const sy = py - 18 + s * 10;
+      R(g, px + 3, sy + 9, 10, 1, '#2a2f38');
+      let x = px + 3;
+      for (let k = 0; k < 5 && x < px + 13; k++) {
+        const w = 1 + Math.floor(hash(e.seed * 7 + s * 5 + k) * 2), hh = 5 + Math.floor(hash(e.seed + s * 3 + k) * 3);
+        R(g, x, sy + 9 - hh, w, hh, cols[(s * 2 + k + e.seed) % cols.length]);
+        x += w + 1;
+      }
+    }
+  }
+
+  function drawWater(g, e, t) {
+    const px = e.px, py = e.py;
+    R(g, px + 3, py + 12, 10, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 4, py - 4, 8, 16, '#c9ced6');
+    R(g, px + 4, py - 4, 8, 1, '#e3e6ea');
+    R(g, px + 11, py - 4, 1, 16, '#9aa1ab');
+    R(g, px + 6, py, 4, 2, '#2a2f38');
+    R(g, px + 7, py + 2, 1, 1, C.breeze);
+    R(g, px + 9, py + 2, 1, 1, C.warn);
+    R(g, px + 5, py - 15, 6, 11, 'rgba(160,195,236,0.55)');
+    R(g, px + 5, py - 15, 6, 1, 'rgba(220,235,255,0.7)');
+    R(g, px + 6, py - 16, 4, 1, '#3d5a80');
+    const b = Math.floor((t * 0.8 + e.seed) % 3);
+    R(g, px + 7, py - 6 - b * 3, 1, 1, 'rgba(255,255,255,0.7)');
+  }
+
+  function drawWhiteboard(g, e) {
+    const px = e.px, py = e.py;
+    R(g, px + 2, py + 12, 28, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 4, py - 4, 1, 17, '#3a414c');
+    R(g, px + 27, py - 4, 1, 17, '#3a414c');
+    R(g, px + 2, py + 12, 5, 1, '#3a414c');
+    R(g, px + 25, py + 12, 5, 1, '#3a414c');
+    R(g, px + 1, py - 21, 30, 18, '#9aa3b0');
+    R(g, px + 2, py - 20, 28, 16, '#e4e7eb');
+    // a little topology sketch
+    R(g, px + 5, py - 17, 5, 3, C.breeze);
+    R(g, px + 13, py - 17, 5, 3, C.breeze);
+    R(g, px + 21, py - 17, 5, 3, C.dusk);
+    R(g, px + 7, py - 14, 1, 4, '#5d6878');
+    R(g, px + 7, py - 10, 16, 1, '#5d6878');
+    R(g, px + 15, py - 14, 1, 4, '#5d6878');
+    R(g, px + 23, py - 14, 1, 4, '#5d6878');
+    R(g, px + 5, py - 8, 8, 1, C.warn);
+    R(g, px + 5, py - 6, 12, 1, '#7d8187');
+    R(g, px + 22, py - 8, 4, 3, C.warnSoft);
+    R(g, px + 2, py - 4, 28, 1, '#7d8187');
+  }
+
+  function drawRug(g, e) {
+    const px = e.px, py = e.py, w = e.tw * T, h = e.th * T;
+    const base = e.color || '#1d2433';
+    R(g, px + 1, py + 1, w - 2, h - 2, base);
+    R(g, px + 2, py + 2, w - 4, 1, shade(base, 0.18));
+    R(g, px + 2, py + h - 3, w - 4, 1, shade(base, 0.18));
+    R(g, px + 2, py + 2, 1, h - 4, shade(base, 0.18));
+    R(g, px + w - 3, py + 2, 1, h - 4, shade(base, 0.18));
+    for (let i = 6; i < w - 6; i += 4) R(g, px + i, py + 6, 2, h - 12, shade(base, 0.08));
+  }
+
+  function drawLamp(g, e) {
+    const px = e.px, py = e.py;
+    R(g, px + 4, py + 11, 8, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 5, py + 10, 6, 2, '#20242c');
+    R(g, px + 7, py - 13, 2, 23, '#2a2f38');
+    R(g, px + 3, py - 20, 10, 7, '#ffc285');
+    R(g, px + 3, py - 20, 10, 1, '#ffe2c2');
+    R(g, px + 3, py - 14, 10, 1, '#c98f57');
+    R(g, px + 5, py - 13, 6, 1, 'rgba(255,194,133,0.35)');
+  }
+
+  function drawCoffee(g, e, t) {
+    const px = e.px, py = e.py;
+    R(g, px + 4, py - 13, 8, 10, '#22262d');
+    R(g, px + 4, py - 13, 8, 1, '#353b45');
+    R(g, px + 5, py - 11, 6, 2, '#11141a');
+    R(g, px + 10, py - 11, 1, 1, C.warn);
+    R(g, px + 6, py - 6, 4, 3, '#e8e8e4');
+    R(g, px + 6, py - 6, 4, 1, '#5a3a25');
+    for (let k = 0; k < 2; k++) {
+      const ph = (t * 0.7 + k * 0.5) % 1;
+      g.fillStyle = 'rgba(255,255,255,' + (0.35 * Math.sin(ph * Math.PI)).toFixed(3) + ')';
+      g.fillRect(px + 7 + k, py - 8 - Math.round(ph * 6), 1, 1);
+    }
+  }
+
+  function drawVase(g, e) {
+    const px = e.px, py = e.py;
+    R(g, px + 5, py - 6, 6, 5, '#3d434d');
+    R(g, px + 5, py - 6, 6, 1, '#4a515c');
+    R(g, px + 7, py - 12, 2, 6, '#2c5f45');
+    R(g, px + 4, py - 11, 3, 2, '#3c8059');
+    R(g, px + 9, py - 13, 3, 2, '#58a578');
+    R(g, px + 6, py - 14, 2, 2, '#3c8059');
+  }
+
+  function drawBin(g, e) {
+    const px = e.px, py = e.py;
+    R(g, px + 4, py + 11, 8, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 5, py + 2, 6, 10, '#2a2f38');
+    R(g, px + 4, py + 1, 8, 2, '#3a404b');
+    R(g, px + 10, py + 3, 1, 9, '#20242c');
+  }
+
+  // Glass partition running east–west between two stacked rooms.
+  function drawGlassH(g, e) {
+    const x = e.px, top = e.py - 6;
+    R(g, x, top, 16, 16, 'rgba(160,195,236,0.08)');
+    R(g, x, top, 16, 1, '#2a3039');
+    R(g, x, top + 16, 16, 1, '#2a3039');
+    R(g, x + 3 + (e.tx % 3) * 3, top + 3, 1, 1, 'rgba(220,235,255,0.18)');
+    R(g, x + 4 + (e.tx % 3) * 3, top + 2, 1, 1, 'rgba(220,235,255,0.12)');
+    if (e.capLeft) R(g, x, top, 1, 17, '#2a3039');
+    if (e.capRight) R(g, x + 15, top, 1, 17, '#2a3039');
+  }
+
   DL.drawItem = function (g, e, t) {
     switch (e.kind) {
-      case 'rack': case 'switch': case 'router': case 'core': case 'storage': drawRack(g, e, t); break;
+      case 'rack': if (e.units) { drawUnitRack(g, e, t); break; } // falls through
+      case 'switch': case 'router': case 'core': case 'storage': drawRack(g, e, t); break;
       case 'desk': drawDesk(g, e, t); break;
       case 'chair': drawChair(g, e); break;
       case 'crac': drawCrac(g, e, t); break;
       case 'ups': drawUps(g, e, t); break;
       case 'plant': drawPlant(g, e); break;
       case 'glass': drawGlass(g, e); break;
+      case 'glassH': drawGlassH(g, e); break;
+      case 'table': drawTable(g, e); break;
+      case 'monitor': drawMonitor(g, e, t); break;
+      case 'sofa': drawSofa(g, e); break;
+      case 'shelf': drawShelf(g, e); break;
+      case 'water': drawWater(g, e, t); break;
+      case 'whiteboard': drawWhiteboard(g, e); break;
+      case 'rug': drawRug(g, e); break;
+      case 'lamp': drawLamp(g, e); break;
+      case 'coffee': drawCoffee(g, e, t); break;
+      case 'vase': drawVase(g, e); break;
+      case 'bin': drawBin(g, e); break;
+      case 'unit-server': case 'unit-switch': drawUnitThumb(g, e, t); break;
     }
   };
 
@@ -541,6 +1082,18 @@
       case 'crac': e.bounds = { x: px - 1, y: py - 25, w: 18, h: 41 }; break;
       case 'ups': e.bounds = { x: px - 1, y: py - 21, w: 34, h: 37 }; break;
       case 'plant': e.bounds = { x: px + 1, y: py - 14, w: 14, h: 30 }; break;
+      case 'chair': e.bounds = { x: e.cx - 7, y: e.cy - (e.rot === 1 ? 20 : 14), w: 14, h: e.rot === 1 ? 21 : 15 }; break;
+      case 'table': e.bounds = { x: px - 1, y: py - 5, w: e.tw * T + 2, h: e.th * T + 5 }; break;
+      case 'monitor': e.bounds = { x: px + 1, y: py - 17, w: 14, h: 17 }; break;
+      case 'sofa': e.bounds = { x: px - 1, y: py - 11, w: 34, h: 26 }; break;
+      case 'shelf': e.bounds = { x: px, y: py - 21, w: 16, h: 36 }; break;
+      case 'water': e.bounds = { x: px + 3, y: py - 17, w: 10, h: 31 }; break;
+      case 'whiteboard': e.bounds = { x: px, y: py - 22, w: 32, h: 36 }; break;
+      case 'rug': e.bounds = { x: px, y: py, w: e.tw * T, h: e.th * T }; break;
+      case 'lamp': e.bounds = { x: px + 2, y: py - 21, w: 12, h: 35 }; break;
+      case 'coffee': e.bounds = { x: px + 3, y: py - 15, w: 10, h: 13 }; break;
+      case 'vase': e.bounds = { x: px + 3, y: py - 15, w: 10, h: 15 }; break;
+      case 'bin': e.bounds = { x: px + 3, y: py, w: 10, h: 13 }; break;
       case 'videowall':
         e.bounds = { x: 31, y: 5, w: 116, h: 26 };
         e.ix = 88; e.iy = 40;
@@ -580,6 +1133,9 @@
       R(g, px + Math.floor(h1 * 16), py + Math.floor(h2 * 15), 1, 1, '#151824');
     }
   }
+
+  DL.floorTile = floorTile;
+  DL.carpet = carpet;
 
   DL.renderStatic = function (w) {
     const c = mk(w.W * T, w.H * T), g = c.getContext('2d');

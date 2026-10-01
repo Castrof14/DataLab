@@ -42,15 +42,16 @@
     constructor(canvas, opts) {
       this.canvas = canvas;
       this.ctx = canvas.getContext('2d');
-      this.o = Object.assign({ tilesWide: 22, minTilesHigh: 11, attract: false }, opts);
-      this.world = DL.buildWorld();
-      this.floor = DL.renderStatic(this.world);
+      this.o = Object.assign({ tilesWide: 22, minTilesHigh: 11, attract: false, zoom: 0 }, opts);
+      this.world = this.o.world || DL.buildWorld();
+      this.floor = (this.o.renderFloor || DL.renderStatic)(this.world);
       this.mapW = this.world.W * T;
       this.mapH = this.world.H * T;
       this.t = 0;
       this.simAcc = 0;
       this.cam = { x: this.mapW / 2, y: this.mapH / 2 };
       this.npcs = [];
+      this.actors = [];
       this.player = null;
       this.incident = { active: false, resolved: false, flash: 0 };
       this.overlay = null;
@@ -85,7 +86,23 @@
       this.canvas.height = Math.max(1, Math.round(r.height * dpr));
       const sW = Math.round(this.canvas.width / (this.o.tilesWide * T));
       const sH = Math.floor(this.canvas.height / (this.o.minTilesHigh * T));
-      this.S = Math.max(2, Math.min(sW, sH || sW));
+      this.autoS = Math.max(2, Math.min(sW, sH || sW));
+      this.S = Math.max(2, this.autoS + (this.o.zoom || 0));
+    }
+
+    // Re-render the floor and rebuild the draw list after the map or its items change.
+    refreshWorld(floorChanged) {
+      if (floorChanged) {
+        this.floor = (this.o.renderFloor || DL.renderStatic)(this.world);
+        this.mapW = this.world.W * T;
+        this.mapH = this.world.H * T;
+      }
+      this.drawables = this.world.items.filter((e) => e.kind !== 'videowall').concat(this.npcs, this.actors);
+      if (this.player) this.drawables.push(this.player);
+    }
+
+    screenToWorld(sx, sy) {
+      return { x: (sx * this.dpr + this.ox) / this.S, y: (sy * this.dpr + this.oy) / this.S };
     }
 
     /* ---------- collision ---------- */
@@ -273,11 +290,12 @@
       const x0 = this.ox / S - 40, x1 = (this.ox + cw) / S + 40;
       const y0 = this.oy / S - 20, y1 = (this.oy + ch) / S + 40;
       const list = this.drawables;
-      for (const d of list) d._k = d instanceof Actor ? d.y + 0.1 : d.sortY;
+      for (const d of list) d._k = d instanceof Actor ? (d.sortKey != null ? d.sortKey : d.y + 0.1) : d.sortY;
       list.sort((a, b) => a._k - b._k);
+      if (this.underlay) this.underlay(g, this);
       for (const d of list) {
         if (d instanceof Actor) {
-          if (d.x < x0 || d.x > x1 || d.y < y0 || d.y > y1 + 30) continue;
+          if (d.hidden || d.x < x0 || d.x > x1 || d.y < y0 || d.y > y1 + 30) continue;
           DL.drawActor(g, d, S);
         } else {
           if (d.px > x1 || d.px + d.tw * T < x0 || d.py > y1 || d.py + T < y0) continue;
@@ -297,6 +315,7 @@
         const a = 0.16 * this.incident.flash;
         DL.pool(g, 16 * T, 10 * T, 90, 'rgba(126,224,161,' + a.toFixed(3) + ')');
       }
+      if (this.lights) this.lights(g, this);
       g.globalCompositeOperation = 'source-over';
 
       if (this.overlay) this.overlay(g, this);
