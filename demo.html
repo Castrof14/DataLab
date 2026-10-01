@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>DataLab — Demo</title>
+  <meta name="description" content="Demonstração jogável do DataLab: caminhe pelo datacenter DC-01, inspecione equipamentos e resolva um incidente de rede.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%221%22 width=%2214%22 height=%2214%22 rx=%223%22 fill=%22%230a0a0a%22 stroke=%22%23fff%22/%3E%3Crect x=%224%22 y=%227%22 width=%228%22 height=%222%22 fill=%22%23ff7a17%22/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#0a0a0a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono&family=Inter:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/base.css">
+  <link rel="stylesheet" href="assets/css/demo.css">
+</head>
+<body class="demo">
+  <main class="game" id="game">
+    <canvas id="world" aria-label="Datacenter DC-01 — visão do jogo"></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+    <div class="alert-edge" id="alertEdge" aria-hidden="true"></div>
+
+    <div class="world-ui" id="worldUi">
+      <div class="world-labels" id="worldLabels" aria-hidden="true"></div>
+      <button class="prompt" id="prompt" type="button" tabindex="-1">
+        <kbd>E</kbd><span class="prompt__verb" id="promptVerb">Inspecionar</span><span class="prompt__name" id="promptName"></span>
+      </button>
+      <div class="bubble" id="bubble" role="status">
+        <span class="eyebrow-sm" id="bubbleWho"></span>
+        <p id="bubbleText"></p>
+      </div>
+    </div>
+
+    <header class="hud-top">
+      <a class="brand" href="index.html" aria-label="Voltar para a página inicial do DataLab">
+        <span class="brand__mark" aria-hidden="true"></span>DataLab
+      </a>
+      <span class="hud-chip eyebrow-sm">Demo</span>
+      <div class="hud-meta eyebrow-sm">
+        <span>DC-01 · Sala principal</span>
+        <span class="hud-meta__clock"><span class="dot dot--live" id="clockDot"></span><span id="clock">02:00</span></span>
+      </div>
+      <div class="hud-actions">
+        <button class="btn btn--sm" id="helpBtn" type="button">Controles</button>
+        <a class="btn btn--sm" href="index.html">Sair</a>
+      </div>
+    </header>
+
+    <section class="objective" id="objective" aria-live="polite">
+      <div class="objective__head">
+        <span class="eyebrow-sm">Objetivo</span>
+        <span class="eyebrow-sm objective__step" id="objStep"></span>
+      </div>
+      <p class="objective__title" id="objTitle">Explore o datacenter</p>
+      <p class="objective__text" id="objText">Caminhe até o salão e inspecione um equipamento.</p>
+      <div class="objective__progress" aria-hidden="true"><i></i><i></i><i></i></div>
+      <p class="objective__timer eyebrow-sm" id="objTimer" hidden></p>
+    </section>
+
+    <aside class="panel" id="panel" aria-hidden="true" aria-labelledby="panelTitle">
+      <div class="panel__inner" id="panelInner"></div>
+    </aside>
+
+    <div class="minimap" aria-hidden="true">
+      <canvas id="minimap"></canvas>
+    </div>
+
+    <div class="hint" id="hint">
+      <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover</span>
+      <span><kbd>E</kbd> interagir</span>
+      <span><kbd>Esc</kbd> fechar</span>
+    </div>
+
+    <div class="toasts" id="toasts" aria-live="assertive"></div>
+
+    <div class="touch" id="touch" hidden>
+      <div class="touch__stick" id="stick"><span class="touch__knob" id="knob"></span></div>
+      <button class="touch__action" id="touchAction" type="button" aria-label="Interagir">E</button>
+    </div>
+
+    <div class="overlay is-open" id="intro" role="dialog" aria-modal="true" aria-labelledby="introTitle">
+      <div class="card card--modal">
+        <p class="eyebrow-sm"><span class="dot dot--live"></span>&nbsp; Turno da noite · 02:00</p>
+        <h1 class="card__title" id="introTitle">Bem-vindo ao DC-01.</h1>
+        <p class="card__text">Você é o novo técnico de plantão. Conheça o salão, inspecione os equipamentos e fique de olho no NOC — madrugadas nunca são tão calmas quanto parecem.</p>
+        <ul class="controls">
+          <li><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>ou setas para andar</span></li>
+          <li><span class="keys"><kbd>E</kbd></span><span>inspecionar equipamento ou conversar</span></li>
+          <li><span class="keys"><kbd>Esc</kbd></span><span>fechar painel</span></li>
+        </ul>
+        <div class="card__actions">
+          <button class="btn btn--primary btn--lg" id="startBtn" type="button">Começar turno <span class="arrow">→</span></button>
+          <span class="eyebrow-sm">ou pressione Enter</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="card card--modal card--narrow">
+        <p class="eyebrow-sm">Controles</p>
+        <h2 class="card__title card__title--sm" id="helpTitle">Como jogar</h2>
+        <ul class="controls">
+          <li><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>ou setas para andar</span></li>
+          <li><span class="keys"><kbd>E</kbd></span><span>inspecionar / conversar</span></li>
+          <li><span class="keys"><kbd>Esc</kbd></span><span>fechar painel</span></li>
+        </ul>
+        <div class="card__actions">
+          <button class="btn" id="helpClose" type="button">Voltar ao turno</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" id="summary" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
+      <div class="card card--modal">
+        <p class="eyebrow-sm"><span class="dot"></span>&nbsp; Incidente INC-0412 · resolvido</p>
+        <h2 class="card__title" id="summaryTitle">Fileira B de volta à rede.</h2>
+        <div class="stats" id="summaryStats"></div>
+        <div class="learned">
+          <p class="eyebrow-sm">O que você praticou</p>
+          <ul>
+            <li>Um switch top-of-rack conecta a fileira inteira ao core — sem uplink, todos ficam isolados.</li>
+            <li>Servidor ligado não é servidor alcançável: energia e conectividade são camadas diferentes.</li>
+            <li>Logs <code>LINK-3-UPDOWN</code> apontam para a camada física antes do software.</li>
+          </ul>
+        </div>
+        <div class="card__actions">
+          <a class="btn btn--primary btn--lg" href="index.html">Voltar ao DataLab <span class="arrow">→</span></a>
+          <button class="btn btn--lg" id="keepPlaying" type="button">Continuar explorando</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="assets/js/sprites.js"></script>
+  <script src="assets/js/world.js"></script>
+  <script src="assets/js/scene.js"></script>
+  <script src="assets/js/demo.js"></script>
+</body>
+</html>
