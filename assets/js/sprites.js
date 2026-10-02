@@ -77,6 +77,14 @@
     const ax = AX, o = L.outfit;
     if (!o || o === 'tee') return;
     const white = '#e9e9e6';
+    if (o === 'uniform') {
+      // work uniform: collar in the role colour and a reflective stripe
+      const rc = L.roleColor || '#dadbdf', strip = '#d9dde3';
+      if (dir === 'down') { R(g, ax - 2, ty, 4, 1, rc); R(g, ax - 3, ty, 1, 1, shade(rc, -0.3)); R(g, ax + 2, ty, 1, 1, shade(rc, -0.3)); R(g, ax - 4, ty + 6, 8, 1, strip); R(g, ax - 4, ty + 6, 1, 1, rc); R(g, ax + 3, ty + 6, 1, 1, rc); }
+      else if (dir === 'up') { R(g, ax - 3, ty, 6, 1, rc); R(g, ax - 4, ty + 6, 8, 1, strip); R(g, ax - 2, ty + 2, 4, 2, shade(shirt, -0.18)); }
+      else { R(g, ax, ty, 3, 1, rc); R(g, ax - 3, ty + 6, 6, 1, strip); }
+      return;
+    }
     if (dir === 'down') {
       if (o === 'shirt') { R(g, ax - 2, ty, 1, 2, shirtL); R(g, ax + 1, ty, 1, 2, shirtL); }
       if (o === 'hoodie') { R(g, ax - 3, ty, 6, 1, shirtD); R(g, ax - 3, ty + 5, 6, 2, shirtD); R(g, ax - 3, ty + 5, 6, 1, shade(shirt, -0.45)); }
@@ -397,6 +405,12 @@
       }
     }
 
+    if (L.earrings && !L.headset) {
+      const gold = '#f2c14e';
+      if (dir === 'down') { R(g, ax - 6, hy + 7, 1, 2, gold); R(g, ax + 5, hy + 7, 1, 2, gold); }
+      else if (side) R(g, ax - 1, hy + 7, 1, 2, gold);
+    }
+
     if (L.headset) {
       const hs = '#2b2f38';
       H(-4, -2, 8, 1, hs);
@@ -692,15 +706,19 @@
     if (blink(t, 0.4, seed * 0.1)) R(g, x + w - 2, y + h - 2, 1, 1, C.breezeDim);
   }
 
+  // optional desk/table top colour (furniture styles); default = the classic grey
+  const topCols = (c, base) => (c ? [c, shade(c, 0.16), shade(c, -0.3)] : base);
+
   function drawDeskBack(g, e, t) {
     // rotated: the worker sits on the far side, facing the viewer
     const px = e.px, py = e.py;
+    const [top, topL, topD] = topCols(e.color, ['#2a2e36', '#383d47', '#1d2027']);
     R(g, px + 1, py + 14, 30, 2, 'rgba(0,0,0,0.3)');
     R(g, px + 2, py + 6, 2, 8, '#15181d');
     R(g, px + 28, py + 6, 2, 8, '#15181d');
-    R(g, px, py - 4, 32, 9, '#2a2e36');
-    R(g, px, py - 4, 32, 1, '#383d47');
-    R(g, px, py + 5, 32, 2, '#1d2027');
+    R(g, px, py - 4, 32, 9, top);
+    R(g, px, py - 4, 32, 1, topL);
+    R(g, px, py + 5, 32, 2, topD);
     R(g, px + 11, py - 4, 10, 2, '#3c424c');
     R(g, px + 11, py - 4, 10, 1, '#4a515d');
     for (const mx of [px + 1, px + 22]) {
@@ -717,12 +735,13 @@
   function drawDesk(g, e, t) {
     if (e.rot === 1) return drawDeskBack(g, e, t);
     const px = e.px, py = e.py;
+    const [top, topL, topD] = topCols(e.color, ['#2a2e36', '#383d47', '#1d2027']);
     R(g, px + 1, py + 14, 30, 2, 'rgba(0,0,0,0.3)');
     R(g, px + 2, py + 6, 2, 8, '#15181d');
     R(g, px + 28, py + 6, 2, 8, '#15181d');
-    R(g, px, py - 4, 32, 9, '#2a2e36');
-    R(g, px, py - 4, 32, 1, '#383d47');
-    R(g, px, py + 5, 32, 2, '#1d2027');
+    R(g, px, py - 4, 32, 9, top);
+    R(g, px, py - 4, 32, 1, topL);
+    R(g, px, py + 5, 32, 2, topD);
     for (let m = 0; m < 2; m++) {
       const mx = px + 4 + m * 13;
       R(g, mx + 4, py - 6, 3, 3, '#16191f');
@@ -740,6 +759,17 @@
 
   function drawChair(g, e) {
     const x = e.cx, y = e.cy;
+    if (e.variant === 'gamer' || e.variant === 'exec') return drawChairStyled(g, e, x, y);
+    if (e.color) {
+      // same shape, coloured upholstery
+      const c = e.color, d = shade(c, -0.3), l = shade(c, 0.18);
+      R(g, x - 4, y - 1, 8, 1, 'rgba(0,0,0,0.3)');
+      R(g, x - 1, y - 4, 2, 3, '#121418');
+      R(g, x - 4, y - 2, 8, 1, '#15171c');
+      if (e.rot === 1) { R(g, x - 6, y - 19, 12, 9, d); R(g, x - 6, y - 19, 12, 1, l); R(g, x - 1, y - 10, 2, 2, '#121418'); R(g, x - 5, y - 8, 10, 4, c); R(g, x - 5, y - 8, 10, 1, l); }
+      else { R(g, x - 5, y - 8, 10, 4, c); R(g, x - 5, y - 13, 10, 6, d); R(g, x - 5, y - 13, 10, 1, l); }
+      return;
+    }
     if (e.rot === 1) {
       // facing the viewer: the backrest rises behind whoever sits here
       R(g, x - 4, y - 1, 8, 1, 'rgba(0,0,0,0.3)');
@@ -759,6 +789,33 @@
     R(g, x - 5, y - 8, 10, 4, '#262a33');
     R(g, x - 5, y - 13, 10, 6, '#1d2028');
     R(g, x - 5, y - 13, 10, 1, '#2c313b');
+  }
+
+  // gamer (racing seat with colour stripes) and executive (tall leather back) chairs
+  function drawChairStyled(g, e, x, y) {
+    const gamer = e.variant === 'gamer';
+    const c = e.color || (gamer ? '#7c3aed' : '#5a3b2e'), base = gamer ? '#16181d' : shade(c, -0.25), d = shade(base, -0.3), l = shade(c, 0.2);
+    R(g, x - 5, y - 1, 10, 1, 'rgba(0,0,0,0.3)');
+    R(g, x - 1, y - 4, 2, 3, '#121418');
+    R(g, x - 5, y - 2, 10, 1, '#15171c');
+    R(g, x - 5, y - 2, 1, 1, '#2a2f38'); R(g, x + 4, y - 2, 1, 1, '#2a2f38');
+    if (e.rot === 1) {
+      R(g, x - 6, y - 22, 12, 12, base);
+      R(g, x - 6, y - 22, 12, 1, shade(base, 0.2));
+      if (gamer) { R(g, x - 6, y - 21, 2, 11, c); R(g, x + 4, y - 21, 2, 11, c); R(g, x - 3, y - 21, 6, 2, d); R(g, x - 2, y - 20, 4, 1, c); }
+      else { R(g, x - 5, y - 20, 10, 1, shade(base, 0.1)); R(g, x - 5, y - 16, 10, 1, d); }
+      R(g, x - 1, y - 10, 2, 2, '#121418');
+      R(g, x - 5, y - 8, 10, 4, gamer ? base : c);
+      R(g, x - 5, y - 8, 10, 1, gamer ? c : l);
+      R(g, x - 7, y - 10, 2, 4, '#121418'); R(g, x + 5, y - 10, 2, 4, '#121418');
+      return;
+    }
+    R(g, x - 5, y - 8, 10, 4, gamer ? base : c);
+    R(g, x - 6, y - 17, 12, 10, base);
+    R(g, x - 6, y - 17, 12, 1, shade(base, 0.2));
+    if (gamer) { R(g, x - 6, y - 16, 2, 9, c); R(g, x + 4, y - 16, 2, 9, c); R(g, x - 2, y - 16, 4, 2, c); }
+    else { R(g, x - 5, y - 13, 10, 1, d); R(g, x - 5, y - 10, 10, 1, d); }
+    R(g, x - 7, y - 9, 2, 3, '#121418'); R(g, x + 5, y - 9, 2, 3, '#121418');
   }
 
   function drawCrac(g, e, t) {
@@ -804,6 +861,7 @@
 
   function drawPlant(g, e) {
     const px = e.px, py = e.py;
+    if (e.variant) return drawPlantVariant(g, e, px, py);
     const L1 = '#2c5f45', L2 = '#3c8059', L3 = '#58a578';
     R(g, px + 3, py + 13, 11, 2, 'rgba(0,0,0,0.3)');
     R(g, px + 7, py - 10, 2, 13, L1);
@@ -838,19 +896,52 @@
         R(g, px + 3, uy, 10, 2, '#0f1216');
         R(g, px + 3, uy, 1, 2, '#1a1f26');
         R(g, px + 12, uy, 1, 2, '#1a1f26');
+      } else if (u === 'patch') {
+        R(g, px + 3, uy, 10, 2, '#59606b');
+        R(g, px + 3, uy, 10, 1, '#6d7581');
+        for (let i = 0; i < 4; i++) R(g, px + 4 + i * 2, uy + 1, 1, 1, '#1a1d22');
       } else if (u === 'switch') {
+        // unitState (optional, per slot): 'new' | 'link' | 'fault' — set by the demo's operations layer
+        const st = e.unitState && e.unitState[k];
         R(g, px + 3, uy, 10, 2, '#2a313b');
         R(g, px + 3, uy, 10, 1, '#39414d');
-        for (let i = 0; i < 4; i++) R(g, px + 4 + i * 2, uy + 1, 1, 1, flick(t, e.seed * 7 + k * 5 + i, 5 + i) ? C.ok : C.okDim);
+        for (let i = 0; i < 4; i++) R(g, px + 4 + i * 2, uy + 1, 1, 1, st === 'fault' && i === 2 ? (blink(t, 2.2, k * 0.3) ? C.warn : '#3a2414') : flick(t, e.seed * 7 + k * 5 + i, 5 + i) ? C.ok : C.okDim);
         R(g, px + 12, uy, 1, 2, flick(t, e.seed + k, 8) ? C.breeze : C.breezeDim);
       } else {
+        const st = e.unitState && e.unitState[k];
         R(g, px + 3, uy, 10, 2, '#1c222b');
         R(g, px + 3, uy, 10, 1, '#262d38');
         R(g, px + 4, uy + 1, 5, 1, '#141920');
-        const s = ledState(e.state, t, e.seed * 13 + k);
-        R(g, px + 10, uy, 1, 1, s.pwr);
-        R(g, px + 12, uy, 1, 1, s.act);
+        if (st === 'new') {
+          R(g, px + 10, uy, 1, 1, '#c98a3c');
+          R(g, px + 12, uy, 1, 1, '#2a2f37');
+        } else if (st === 'link') {
+          R(g, px + 10, uy, 1, 1, C.ok);
+          R(g, px + 12, uy, 1, 1, blink(t, 1.2, k * 0.2) ? '#c98a3c' : '#2a2f37');
+        } else if (st === 'fault') {
+          const on = blink(t, 2.2, k * 0.3);
+          R(g, px + 10, uy, 1, 1, on ? C.warn : '#3a2414');
+          R(g, px + 12, uy, 1, 1, on ? '#3a2414' : C.warn);
+        } else {
+          const s = ledState(e.state, t, e.seed * 13 + k);
+          R(g, px + 10, uy, 1, 1, s.pwr);
+          R(g, px + 12, uy, 1, 1, s.act);
+        }
       }
+    }
+    if (e.cableLook === 'tidy') {
+      // velcro'd bundle running down the right-hand cable manager
+      R(g, px + 13, py - 15, 1, 26, '#4a7fb5');
+      for (let y = py - 13; y < py + 10; y += 6) R(g, px + 13, y, 1, 1, '#c8ccd2');
+    } else if (e.cableLook === 'messy') {
+      const c = ['#4a7fb5', '#c9a13c', '#4a7fb5', '#b0485a'];
+      for (let i = 0; i < 4; i++) {
+        const x = px + 3 + ((e.seed * 3 + i * 5) % 10), y0 = py - 12 + i * 5;
+        R(g, x, y0, 1, 3, c[i]);
+        R(g, x + 1, y0 + 3, 2, 1, c[i]);
+        R(g, x + 3, y0 + 4, 1, 2, c[i]);
+      }
+      R(g, px + 1, py + 6, 2, 1, '#c9a13c');
     }
     R(g, px + 13, py - 3, 1, 4, '#3a414c');
   }
@@ -861,6 +952,13 @@
     R(g, x, y + 4, 16, 6, '#1c222b');
     R(g, x, y + 4, 16, 1, '#2d3542');
     R(g, x, y + 9, 16, 1, '#11151b');
+    if (e.kind === 'unit-patch') {
+      R(g, x, y + 4, 16, 6, '#59606b');
+      R(g, x, y + 4, 16, 1, '#6d7581');
+      for (let i = 0; i < 6; i++) R(g, x + 2 + i * 2, y + 6, 1, 2, '#1a1d22');
+      R(g, x + 1, y + 9, 14, 1, '#3d434c');
+      return;
+    }
     if (e.kind === 'unit-switch') {
       for (let i = 0; i < 6; i++) R(g, x + 2 + i * 2, y + 6, 1, 2, flick(t, i * 3, 5 + i) ? C.ok : C.okDim);
       R(g, x + 14, y + 6, 1, 2, C.breeze);
@@ -871,16 +969,45 @@
     }
   }
 
+  function drawPlantVariant(g, e, px, py) {
+    R(g, px + 3, py + 13, 11, 2, 'rgba(0,0,0,0.3)');
+    const pot = () => { R(g, px + 4, py + 3, 8, 10, '#2d323b'); R(g, px + 4, py + 3, 8, 1, '#3d434d'); };
+    if (e.variant === 'cactus') {
+      const c = '#3c8059', l = '#58a578';
+      R(g, px + 7, py - 12, 3, 15, c); R(g, px + 7, py - 12, 1, 15, l);
+      R(g, px + 4, py - 6, 2, 5, c); R(g, px + 4, py - 2, 3, 2, c);
+      R(g, px + 11, py - 9, 2, 5, c); R(g, px + 10, py - 5, 3, 2, c);
+      R(g, px + 8, py - 13, 1, 1, '#ff7aa8');
+      R(g, px + 4, py + 3, 8, 10, '#b8562c'); R(g, px + 4, py + 3, 8, 1, '#d9784a');
+      return;
+    }
+    if (e.variant === 'palm') {
+      const L1 = '#2c5f45', L2 = '#3c8059';
+      R(g, px + 7, py - 8, 2, 11, '#6b5038');
+      R(g, px + 1, py - 13, 7, 2, L2); R(g, px + 8, py - 13, 7, 2, L2);
+      R(g, px, py - 11, 3, 3, L1); R(g, px + 13, py - 11, 3, 3, L1);
+      R(g, px + 5, py - 16, 6, 3, L2); R(g, px + 3, py - 10, 4, 2, L1); R(g, px + 9, py - 10, 4, 2, L1);
+      pot();
+      return;
+    }
+    // flowers
+    const L1 = '#2c5f45', L2 = '#3c8059';
+    R(g, px + 5, py - 6, 6, 9, L1); R(g, px + 3, py - 3, 10, 5, L2);
+    for (const [a, b, c] of [[4, -7, '#ff7aa8'], [10, -8, '#ffd23f'], [7, -10, '#c4b5fd'], [12, -4, '#ff7aa8'], [3, -3, '#ffd23f']]) { R(g, px + a, py + b, 2, 2, c); R(g, px + a, py + b, 1, 1, '#ffffff'); }
+    pot();
+  }
+
   function drawTable(g, e) {
     const px = e.px, py = e.py, w = e.tw * T, h = e.th * T;
     const top = h - T + 9;
     R(g, px + 1, py + h - 2, w - 2, 2, 'rgba(0,0,0,0.3)');
     R(g, px + 2, py + h - 10, 2, 8, '#15181d');
     R(g, px + w - 4, py + h - 10, 2, 8, '#15181d');
-    R(g, px, py - 4, w, top, '#323842');
-    R(g, px, py - 4, w, 1, '#434a56');
-    R(g, px, py - 4, 1, top, '#3a414c');
-    R(g, px, py - 4 + top, w, 2, '#22262d');
+    const [tc, tl, td] = topCols(e.color, ['#323842', '#434a56', '#22262d']);
+    R(g, px, py - 4, w, top, tc);
+    R(g, px, py - 4, w, 1, tl);
+    R(g, px, py - 4, 1, top, e.color ? shade(e.color, 0.08) : '#3a414c');
+    R(g, px, py - 4 + top, w, 2, td);
   }
 
   function drawMonitor(g, e, t) {
@@ -893,9 +1020,15 @@
       if (e.work) R(g, px + 1, py - 14, 1, 9, 'rgba(160,195,236,0.28)');
       return;
     }
-    R(g, px + 6, py - 6, 3, 3, '#16191f');
-    R(g, px + 4, py - 4, 7, 1, '#16191f');
-    R(g, px + 2, py - 16, 12, 10, '#0c0e12');
+    const white = e.variant === 'white', frame = white ? '#d9dde3' : '#0c0e12';
+    R(g, px + 6, py - 6, 3, 3, white ? '#b8bec7' : '#16191f');
+    R(g, px + 4, py - 4, 7, 1, white ? '#b8bec7' : '#16191f');
+    R(g, px + 2, py - 16, 12, 10, frame);
+    if (e.variant === 'rgb') {
+      g.fillStyle = e.color || '#ff2bd6';
+      g.fillRect(px + 1, py - 17, 14, 1); g.fillRect(px + 1, py - 6, 14, 1);
+      g.fillRect(px + 1, py - 17, 1, 12); g.fillRect(px + 14, py - 17, 1, 12);
+    }
     if (e.work) workScreen(g, px + 3, py - 15, 10, 8, t, e.work, e.seed, e.typing);
     else idleScreen(g, px + 3, py - 15, 10, 8, t, e.seed);
     R(g, px + 2, py - 3, 12, 1, 'rgba(160,195,236,0.08)');
@@ -995,10 +1128,11 @@
     R(g, px + 4, py + 11, 8, 2, 'rgba(0,0,0,0.3)');
     R(g, px + 5, py + 10, 6, 2, '#20242c');
     R(g, px + 7, py - 13, 2, 23, '#2a2f38');
-    R(g, px + 3, py - 20, 10, 7, '#ffc285');
-    R(g, px + 3, py - 20, 10, 1, '#ffe2c2');
-    R(g, px + 3, py - 14, 10, 1, '#c98f57');
-    R(g, px + 5, py - 13, 6, 1, 'rgba(255,194,133,0.35)');
+    const lc = e.color || '#ffc285';
+    R(g, px + 3, py - 20, 10, 7, lc);
+    R(g, px + 3, py - 20, 10, 1, e.color ? shade(lc, 0.45) : '#ffe2c2');
+    R(g, px + 3, py - 14, 10, 1, e.color ? shade(lc, -0.25) : '#c98f57');
+    R(g, px + 5, py - 13, 6, 1, e.color ? shade(lc, 0.2) + '59' : 'rgba(255,194,133,0.35)');
   }
 
   function drawCoffee(g, e, t) {
@@ -1068,7 +1202,7 @@
       case 'coffee': drawCoffee(g, e, t); break;
       case 'vase': drawVase(g, e); break;
       case 'bin': drawBin(g, e); break;
-      case 'unit-server': case 'unit-switch': drawUnitThumb(g, e, t); break;
+      case 'unit-server': case 'unit-switch': case 'unit-patch': drawUnitThumb(g, e, t); break;
     }
   };
 

@@ -1,5 +1,5 @@
 DataLab — Construção, Personagens e Equipe trabalhando
-Estado em 01/10/2026 (trabalho interrompido no meio)
+Estado em 01/10/2026 — implementação A–E concluída (ver STATUS no fim)
 =======================================================
 
 COMO RETOMAR
@@ -97,3 +97,184 @@ E. Testes finais
      criação de personagem, ida até o computador, sentar e animação, NPCs desviando de objetos,
      landing (index.html) sem alterações visuais
    - Teste automático rápido: node smoke.js com puppeteer-core e o Chrome instalado
+
+-------------------------------------------------------
+STATUS (01/10/2026, segunda sessão) — A, B, C, D e E FEITOS
+-------------------------------------------------------
+- demo.html: build.js + crew.js carregados; HUD Explorar / Construir (B) / Equipe (C);
+  dock de construção, #inspector, #ghostTip, #crewCard, #nametags, painel #crewPanel,
+  modal #creator; textos de controles e resumo final atualizados.
+- demo.css: estilos do dock, inspector, criador, painel/card da equipe, nametags;
+  .game.is-build esconde objetivo/minimapa/dica.
+- crew.js (novo): funções/cores, criador com prévia (em pé/andando/trabalhando), A* com
+  diagonais + suavização, estações (computador e cadeira solta + mesa com monitor),
+  estados ocioso → indo → sentar → trabalhando → levantar, tarefa de 45 s ou turno contínuo,
+  NPCs antigos com pathfinding + 2 NPCs novos (Theo, Bia) que passeiam por todos os espaços.
+- demo.js: salas via DL.initRooms/DL.renderRooms, objeto "game" (G), mouse/zoom, câmera WASD
+  fora do modo explorar, travas do incidente, minimapa/rótulos refeitos ao mudar o mundo,
+  "Gerenciar" no prompt, alerta só dispara no modo explorar.
+- Testado com puppeteer-core + Brave (sem erros de console): construir/mover/girar/remover,
+  redimensionar sala, novo espaço, contratar pela UI, mandar para o PC por clique, sentar
+  (3 orientações conferidas em captura), levantar ao girar a estação, ninguém preso em objetos,
+  landing sem alterações.
+
+IDEIAS PARA DEPOIS
+- Salvar mundo e equipe (localStorage) entre sessões
+- Construção em telas de toque (hoje é pensada para mouse)
+- Sons (game.sfx ainda é função vazia)
+
+-------------------------------------------------------
+STATUS (01/10/2026, terceira sessão) — DEMO "COMECE DO ZERO"
+-------------------------------------------------------
+- A demo nasce num terreno 10×9 com uma sala "Entrada" (DL.newWorld em build.js).
+  O mapa DC-01 e o incidente saíram da demo; continuam na landing (world.js intocado).
+- Construção (aba Espaços): terreno expansível (+/−), Nova sala (arrastar), Parede (dividir
+  sala / clicar na divisória para unir), Porta (abrir/fechar tiles da divisória), bordas da
+  sala arrastáveis, piso técnico/carpete, remover sala. Salas vizinhas ganham porta automática.
+- Tutorial (tutorial.js): Continuar | Pular na abertura; 6 passos que avançam sozinhos e
+  destacam o botão certo; pular entra direto no modo construção.
+- scene.js: opções compatíveis world.hasVideoWall (false = sem painel do NOC) e o.padBottom.
+- Teste: play.js (puppeteer-core + Brave) percorre o tutorial inteiro só com cliques/teclas.
+
+-------------------------------------------------------
+STATUS (01/10/2026, quarta sessão) — PRESETS, BOTS VIVOS, TERMINAL
+-------------------------------------------------------
+- Abertura: escolher "Do zero" ou preset (Escritório pequeno, NOC, Datacenter pequeno,
+  Datacenter médio) + Continuar | Pular tutorial. presets.js monta salas e coloca tudo
+  via builder.api.place (mesmas regras do jogador) → tudo editável depois.
+- ops.js: cada servidor/switch no rack vira equipamento (SRV-01 / SW-01, IP 10.0.1.x,
+  estado novo → cabo → online, ou falha). Falhas surgem com o tempo; os bots descobrem
+  (inspeção ou monitoramento) e avisam: "⚠️ Servidor SRV-01 apresenta falha de conexão".
+  Painel Tarefas (T) lista instalação/configuração e ocorrências + registro.
+- terminal.js: shell Linux simulado (ip addr/link/route, ping, systemctl, curl, df, du,
+  journalctl, sudo...) e CLI de switch (enable, sh int status, conf t, int, shut/no shut).
+  Lições: setup, link, service, disk, port. Passos avançam pelo efeito, não por texto exato.
+  "Precisa de ajuda?": comando, exemplo, o que faz, quando usar (pulsa após 2 tentativas).
+- crew.js: rotina automática por função (inspecionar / trabalhar no PC / circular),
+  "Rotina ligada/desligada" no card, aviso "!" no nome de quem reportou.
+- Tutorial: 9 passos (Construção 4, Equipe 2, Técnico 3).
+- Testes: tech.js (presets, tutorial completo digitando no terminal, bots achando falhas,
+  5 lições) e play.js (salas/paredes/portas) — sem erros. Landing intocada.
+
+-------------------------------------------------------
+STATUS (01/10/2026, quinta sessão) — CABOS + MONITORAMENTO
+-------------------------------------------------------
+- Patch panel no catálogo (B → Equipamentos). Portas: servidor eth0; switch gi0/1–24 + te1
+  (uplink); patch f1–12 (frente) ↔ r1–12 (trás).
+- ops.js: cabos (links), trace() servidor → (patch) → switch, classificação ok/incompleto/
+  incorreto/solto, falha "cable" (cabo solto), health() e falhas que se resolvem sozinhas
+  quando a causa é corrigida. Presets já vêm cabeados (alguns via patch panel) e um rack
+  bagunçado nos datacenters.
+- cabling.js: vista SVG dos racks da sala; clicar/arrastar entre portas; cores por estado;
+  cabo solto pendurado; "Organizar cabos" (curvas → organizadores laterais + bandeja).
+- monitor.js (M): métricas simuladas (CPU, RAM, disco, rede, temperatura, disponibilidade),
+  gatilhos estilo Zabbix (severidades), painéis estilo Grafana, Hosts, Problemas,
+  página do host com dicas progressivas de investigação. Host fora do ar = gráfico quebrado.
+- Fluxo: falha → monitor detecta (~2 s) → NPC avisa → investigar (monitor/terminal/
+  cabeamento) → resolver → problema RESOLVIDO e gráficos voltam.
+- terminal.js: NO-CARRIER no ip link/addr, lição "cable" com botão para o cabeamento,
+  progresso salvo no equipamento. Tutorial: 10 passos (+ "Veja no monitoramento").
+- Testes: cab.js (novo), tech.js e play.js — sem erros. Landing intocada.
+
+-------------------------------------------------------
+STATUS (02/10/2026, sexta sessão) — PERSONAGEM, EQUIPE AUTÔNOMA, CHAT, EVOLUÇÃO
+-------------------------------------------------------
+- Meu personagem (P ou botão no HUD): nome, aparência, pele, cabelo, roupa/uniforme, calça,
+  acessórios (óculos, barba, headset, brincos, colete, boné/gorro) e função. Salvo no localStorage
+  (datalab.player.v1). sprites.js: roupa "uniform" (gola + faixa refletiva na cor da função) e brincos.
+- jobs.js (novo): tarefas reais por função (redes: verificar switch, organizar cabos, testar conexão,
+  resolver falha de rede, documentar; servidores: instalar servidor de verdade, verificar hardware,
+  configurar serviço, resolver falha de hardware, refrigeração; sysadmin: configurar sistema, analisar
+  alertas, resolver incidente, backups, atualizações; segurança, assistente, gerente). Habilidades,
+  XP, nível (1–10) e estrelas (1–5).
+- teamchat.js (novo): chat da equipe (K) + balões sobre os bots. Falas ligadas ao estado real
+  (temperatura, cabos, servidores pendentes, falhas), pedidos de ajuda e respostas.
+- crew.js: bots sempre ocupados (falhas → tarefas da função → pausas sociais → reconhecer o espaço).
+  Clique para: parar e olhar para o jogador. Card com estrelas, nível, XP e habilidades; "Atribuir
+  tarefa" lista só as tarefas da função (indisponíveis com motivo). Dispensar: chora, anda até a
+  Entrada/Recepção e some. Falhas achadas: 45 s para o jogador resolver, depois a equipe resolve.
+- ops.js: eventos 'fault' / 'fixed' / 'observe' / 'announce' e fix(d, quem).
+- Testes: team.js (novo) + play.js, tech.js, cab.js (com o clique no menu de tarefas) — sem erros.
+
+-------------------------------------------------------
+STATUS (02/10/2026, sétima sessão) — IDENTIDADE DAS SALAS
+-------------------------------------------------------
+- decor.js (novo): estilo por sala (room.style ou room.theme do preset): piso (técnico, carpete,
+  madeira, cimento, porcelanato, xadrez, grade neon) + cor; paredes (lisa, acústica, tijolo, ripada,
+  concreto, faixa neon) + cor; teto/iluminação (automática, fria, neutra, quente, baixa, clara);
+  RGB dinâmico (cor, intensidade, áreas teto/paredes/piso/móveis, efeito estático/suave/onda/arco-íris)
+  desenhado em scene.lights, só nas bordas (não lava os equipamentos).
+- Temas: NOC, Servidores, Gamer RGB, Cyberpunk, Industrial, Minimalista, Corporativo + "Decorar com o
+  tema". Presets: NOC → noc, salas de servidores → servers, escritórios → corporate.
+- Aba "Temas" (catálogo): tapetes robô / Claude / ChatGPT / gamer, quadro/pôster, neon, relógio
+  (parede do fundo), fliperama, pufe, tubo de LED, PC gamer e bonsai (sobre mesa), holograma,
+  carrinho de ferramentas, banner.
+- Aba "Estilo da sala" no modo construção; inspetor com estilos por objeto (cor da mesa, cadeira
+  gamer/executiva, monitor branco/RGB, espécie da planta, cor do sofá/tapete/luminária, arte do pôster…).
+- build.js: itens de parede (camada própria, exigem parede alta ao norte), tapetes genéricos (e.rug),
+  renderRooms por sala. sprites.js: cor/variante opcionais (padrão idêntico).
+- Testes: decor-test.js e themes.js (novos) + team.js, play.js, tech.js, cab.js e landing — sem erros.
+
+-------------------------------------------------------
+STATUS (02/10/2026, oitava sessão) — ECONOMIA, RECOMPENSAS, CONVERSA COM BOTS
+-------------------------------------------------------
+- economy.js (novo): valores em DL.ECON (1 s real = 1 min de jogo).
+  Créditos: tarefa da equipe (6 pedida / 2 rotina), servidor configurado (50), incidente resolvido
+  (30 + até 40 se rápido; metade se a equipe resolveu), 1/h por servidor saudável, datacenter concluído (200).
+  DataCoins: saldo separado; loja simulada via DL.Payments (provider 'mock', sem cobrança) — trocar
+  por gateway real com confirmação no servidor antes de creditar.
+  Empresa: receita $18/min por servidor saudável, folha $6/min por pessoa, prejuízo por problema
+  (offline 120, porta 90, serviço 80, disco 40 $/min) que cresce até 3× quanto mais demora.
+  Etiqueta "Prejuízo: -$X/min" sobre o rack, linha no painel Tarefas, card no HUD (acima do minimapa)
+  e janela Finanças e progresso (saldos, extrato, checklist do datacenter, loja).
+  "Datacenter concluído": 2 servidores online, switch, estação, 2 pessoas, 1 servidor configurado
+  pelo jogador, sem incidentes. Marcos genéricos em DL.ECON.milestones (a cada 20 → 100 DataCoins)
+  com tela de recompensa. Carteira salva no localStorage (datalab.wallet.v1).
+- talk.js (novo): clique num funcionário → Conversar. Respostas por regras conforme função, nível,
+  tarefa atual, falhas, rede, finanças e checklist; pode descobrir falhas não registradas, mandar
+  resolver, chamar quem resolve, mostrar no mapa, abrir terminal/cabeamento. Avisos espontâneos
+  ("quer falar com você") quando acha falha ou o prejuízo passa de $3.000.
+- ops.js: eventos 'server-online' e 'fixed' com tempo aberto e prejuízo; linha de prejuízo nas Tarefas.
+- crew.js: botão Conversar no card, 💬 no nome, evento 'job-done', api.fixDefFor.
+- Testes: econ-test.js (novo) + decor-test.js, team.js, play.js, tech.js, cab.js e landing — sem erros.
+
+-------------------------------------------------------
+STATUS (02/10/2026, nona sessão) — TELA INICIAL + MENU PRINCIPAL
+-------------------------------------------------------
+- Fluxo: demo.html → tela inicial (logo DATALAB animado + INICIAR / Enter) → menu principal →
+  Novo jogo → cartão de início existente (#intro: preset + tutorial). "← Menu principal" no cartão volta.
+- menu.js (novo) + menu.css (novo): roda depois do demo.js usando window.DataLabDemo. O datacenter
+  médio vivo (scene.o.attract) é o fundo; HUD escondido com .game.is-title. Teclado do menu em
+  captura (não dispara o Enter→begin do demo.js). Esc volta, ↑/↓ navegam.
+- Carregar jogo: DL.Saves (localStorage datalab.saves.v1: list/get/put/remove). Ainda não serializa o
+  mundo: "Continuar" recomeça do preset do save. Ligar aqui quando existir salvar mundo/equipe.
+- Jogar online: tela "O modo online está em desenvolvimento." · Loja: itens com DataCoins/créditos da
+  carteira real (economy.earn) + pacotes via DL.Payments mock; comprados em datalab.shop.v1 (sem efeito
+  no jogo ainda) · Marketplace, Tabela global, Amigos, Salas da semana: mocks (avatares gerados pelo
+  criador de personagens, miniaturas desenhadas a partir dos presets; "Começar com esta base" usa o preset).
+- Testado com puppeteer-core + Brave (1440×900 e 390×844): todas as telas, Esc, compra, novo jogo,
+  voltar ao menu, tutorial, pular tutorial, carregar save — sem erros. Landing intocada.
+
+-------------------------------------------------------
+STATUS (02/10/2026, décima sessão) — PAREDES LIVRES, PORTAS INDEPENDENTES, SALAS POR REGIÃO
+-------------------------------------------------------
+- build.js (modelo novo):
+  · world.areas = retângulos de piso (o que antes era world.rooms; "Nova sala", terreno, bordas).
+  · world.wallSet = Map "x,y" → "material:eixos" (solid|glass : h, v, hv). Paredes livres na grade,
+    1 tile, tile 'w' (sólido). Divisórias entre áreas viram paredes de vidro na 1ª vez (world.gapsSeen)
+    e ganham porta centralizada; depois são paredes comuns (dá para apagar trechos).
+  · Portas = itens kind 'door' (axis h/v, len 1|2, rot 0–3 = dobradiça × lado que abre, hold).
+    Tile 'D' (parede horizontal) / 'd' (vertical) é passável; keepClear na frente. Porta sem parede
+    embaixo é descartada no layout. Abrem sozinhas quando alguém chega (tickDoors).
+  · world.rooms = regiões de piso conectadas (flood fill; paredes e portas separam). Cada sala herda
+    id/nome/tipo/visual da sala anterior com mais sobreposição; pedaço novo copia o visual com nome novo.
+    Campos: x,y,w,h (caixa), n (tiles), doors, lx/ly (rótulo), type.
+  · Ferramentas (aba Espaços): Selecionar · Nova sala · Parede (arrastar reta; Shift apaga; R material)
+    · Cômodo (retângulo de 4 paredes) · Apagar parede · Porta · Porta dupla. Fantasma verde/laranja/
+    vermelho + dica com o tamanho. Tipos de sala: NOC, Servidores, Escritório, Recepção, Sala elétrica,
+    Personalizada (nome editável). Aviso "sem porta".
+  · api: buildWall, eraseWall, placeDoor, setRoomType, renameRoom (wallClick/doorClick saíram).
+- demo.js: rótulos usam r.lx/r.ly; minimapa mostra paredes e portas. tutorial.js: sugestão usa areas.
+- Testado (puppeteer + Brave): 5 salas + corredor por arraste, portas colocar/mover/girar/remover,
+  apagar trecho une salas e refazer separa, 20 rotas entre salas ok, jogador atravessa porta e para na
+  parede, 6 NPCs por 20 s sem ficar presos, presets, tutorial, estilo de sala, menu — sem erros.

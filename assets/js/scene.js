@@ -273,7 +273,9 @@
       const cx = vw >= this.mapW ? this.mapW / 2 : clamp(this.cam.x, vw / 2, this.mapW - vw / 2);
       // padTop (css px) keeps the north wall visible below an overlaid HUD bar
       const pt = ((this.o.padTop || 0) * this.dpr) / S;
-      const cy = vh - pt >= this.mapH ? this.mapH / 2 - pt / 2 : clamp(this.cam.y, vh / 2 - pt, this.mapH - vh / 2);
+      // padBottom (css px) does the same for a panel docked at the bottom (0 unless a page sets it)
+      const pb = ((this.o.padBottom || 0) * this.dpr) / S;
+      const cy = vh - pt - pb >= this.mapH ? this.mapH / 2 - pt / 2 + pb / 2 : clamp(this.cam.y, vh / 2 - pt, this.mapH - vh / 2 + pb);
       this.ox = Math.round(cx * S - cw / 2);
       this.oy = Math.round(cy * S - ch / 2);
 
@@ -285,7 +287,9 @@
       g.drawImage(this.floor, 0, 0);
 
       const inc = this.incident.active && !this.incident.resolved;
-      DL.drawVideoWall(g, this.t, inc);
+      // the NOC wall + its light belong to the DC-01 map; worlds built from scratch opt out
+      const noc = this.world.hasVideoWall !== false;
+      if (noc) DL.drawVideoWall(g, this.t, inc);
 
       const x0 = this.ox / S - 40, x1 = (this.ox + cw) / S + 40;
       const y0 = this.oy / S - 20, y1 = (this.oy + ch) / S + 40;
@@ -305,7 +309,7 @@
 
       // dynamic light
       g.globalCompositeOperation = 'lighter';
-      DL.pool(g, 88, 44, 72, inc ? 'rgba(255,122,23,0.06)' : 'rgba(160,195,236,0.05)');
+      if (noc) DL.pool(g, 88, 44, 72, inc ? 'rgba(255,122,23,0.06)' : 'rgba(160,195,236,0.05)');
       if (inc) {
         const sw = this.world.byId['SW-ACC-B'];
         const a = 0.13 + 0.07 * Math.sin(this.t * 3);

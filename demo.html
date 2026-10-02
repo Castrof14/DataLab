@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>DataLab — Demo</title>
-  <meta name="description" content="Demonstração jogável do DataLab: caminhe pelo datacenter DC-01, inspecione equipamentos e resolva um incidente de rede.">
+  <meta name="description" content="Demonstração jogável do DataLab: construa do zero ou a partir de um preset, contrate a equipe e configure servidores num terminal simulado.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%221%22 width=%2214%22 height=%2214%22 rx=%223%22 fill=%22%230a0a0a%22 stroke=%22%23fff%22/%3E%3Crect x=%224%22 y=%227%22 width=%228%22 height=%222%22 fill=%22%23ff7a17%22/%3E%3C/svg%3E">
   <meta name="theme-color" content="#0a0a0a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,22 +12,23 @@
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono&family=Inter:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/demo.css">
+  <link rel="stylesheet" href="assets/css/menu.css">
 </head>
 <body class="demo">
   <main class="game" id="game">
-    <canvas id="world" aria-label="Datacenter DC-01 — visão do jogo"></canvas>
+    <canvas id="world" aria-label="Seu datacenter — visão do jogo"></canvas>
     <div class="vignette" aria-hidden="true"></div>
-    <div class="alert-edge" id="alertEdge" aria-hidden="true"></div>
 
     <div class="world-ui" id="worldUi">
       <div class="world-labels" id="worldLabels" aria-hidden="true"></div>
       <button class="prompt" id="prompt" type="button" tabindex="-1">
         <kbd>E</kbd><span class="prompt__verb" id="promptVerb">Inspecionar</span><span class="prompt__name" id="promptName"></span>
       </button>
-      <div class="bubble" id="bubble" role="status">
-        <span class="eyebrow-sm" id="bubbleWho"></span>
-        <p id="bubbleText"></p>
-      </div>
+      <div class="nametags" id="nametags" aria-hidden="true"></div>
+      <div class="inspector" id="inspector"></div>
+      <div class="crew-card" id="crewCard" role="dialog" aria-label="Pessoa da equipe"></div>
+      <div class="ghost-tip" id="ghostTip" role="status"></div>
+      <div class="loss-tags" id="lossTags" aria-hidden="true"></div>
     </div>
 
     <header class="hud-top">
@@ -35,42 +36,133 @@
         <span class="brand__mark" aria-hidden="true"></span>DataLab
       </a>
       <span class="hud-chip eyebrow-sm">Demo</span>
+      <button class="me-btn" id="meBtn" type="button" title="Editar meu personagem (P)">
+        <canvas id="meFace" aria-hidden="true"></canvas>
+        <span class="me-btn__txt"><b id="meName">Você</b><span class="eyebrow-sm" id="meRole"></span></span>
+        <kbd>P</kbd>
+      </button>
+      <nav class="modes" id="modes" aria-label="Modo de jogo">
+        <button class="mode is-on" type="button" data-mode="explore" aria-pressed="true">Explorar</button>
+        <button class="mode" type="button" data-mode="build" aria-pressed="false">Construir <kbd>B</kbd></button>
+        <button class="mode" type="button" data-mode="crew" aria-pressed="false">Equipe <kbd>C</kbd></button>
+      </nav>
       <div class="hud-meta eyebrow-sm">
-        <span>DC-01 · Sala principal</span>
-        <span class="hud-meta__clock"><span class="dot dot--live" id="clockDot"></span><span id="clock">02:00</span></span>
+        <span id="hudMeta">Meu datacenter</span>
+        <span class="hud-meta__clock"><span class="dot dot--live"></span><span id="clock">08:00</span></span>
       </div>
       <div class="hud-actions">
+        <button class="btn btn--sm ops-btn" id="monBtn" type="button">Monitor <kbd>M</kbd><span class="ops-badge ops-badge--mon" id="monBadge" hidden>0</span></button>
+        <button class="btn btn--sm ops-btn" id="opsBtn" type="button" aria-expanded="false" aria-controls="opsPanel">Tarefas <kbd>T</kbd><span class="ops-badge" id="opsBadge" hidden>0</span></button>
         <button class="btn btn--sm" id="helpBtn" type="button">Controles</button>
         <a class="btn btn--sm" href="index.html">Sair</a>
       </div>
     </header>
 
-    <section class="objective" id="objective" aria-live="polite">
-      <div class="objective__head">
-        <span class="eyebrow-sm">Objetivo</span>
-        <span class="eyebrow-sm objective__step" id="objStep"></span>
+    <section class="tutorial" id="tutorial" hidden aria-live="polite" aria-label="Tutorial">
+      <div class="tutorial__head">
+        <span class="eyebrow-sm" id="tutGroup">Tutorial</span>
+        <span class="eyebrow-sm tutorial__step" id="tutStep">1 / 10</span>
       </div>
-      <p class="objective__title" id="objTitle">Explore o datacenter</p>
-      <p class="objective__text" id="objText">Caminhe até o salão e inspecione um equipamento.</p>
-      <div class="objective__progress" aria-hidden="true"><i></i><i></i><i></i></div>
-      <p class="objective__timer eyebrow-sm" id="objTimer" hidden></p>
+      <p class="tutorial__title" id="tutTitle"></p>
+      <p class="tutorial__text" id="tutText"></p>
+      <p class="tutorial__do" id="tutDo"></p>
+      <div class="tutorial__progress" id="tutBars" aria-hidden="true"></div>
+      <div class="tutorial__actions">
+        <button class="linkbtn" id="tutSkip" type="button">Pular tutorial</button>
+        <button class="btn btn--sm" id="tutClose" type="button" hidden>Fechar</button>
+      </div>
     </section>
 
     <aside class="panel" id="panel" aria-hidden="true" aria-labelledby="panelTitle">
       <div class="panel__inner" id="panelInner"></div>
     </aside>
 
+    <button class="econ" id="econBtn" type="button" aria-label="Finanças, saldos e progresso">
+      <span class="econ__row econ__row--cash"><span class="eyebrow-sm">Empresa</span><b id="econCash">$0</b></span>
+      <span class="econ__flow" id="econFlow">+$0/min</span>
+      <span class="econ__row"><span class="cur cur--cr" aria-hidden="true">◆</span><b id="econCredits">0</b><span class="eyebrow-sm">créditos</span></span>
+      <span class="econ__row"><span class="cur cur--dc" aria-hidden="true">⬢</span><b id="econCoins">0</b><span class="eyebrow-sm">DataCoins</span></span>
+      <span class="econ-float" id="econFloat" aria-live="polite"></span>
+    </button>
+
     <div class="minimap" aria-hidden="true">
       <canvas id="minimap"></canvas>
     </div>
 
+    <section class="build" id="build" hidden aria-label="Modo construção">
+      <div class="build__bar">
+        <div class="tabs" role="tablist" aria-label="Catálogo">
+          <button class="tab" type="button" role="tab" data-tab="room">Espaços</button>
+          <button class="tab" type="button" role="tab" data-tab="equip">Equipamentos</button>
+          <button class="tab" type="button" role="tab" data-tab="furn">Móveis</button>
+          <button class="tab" type="button" role="tab" data-tab="deco">Decoração</button>
+          <button class="tab" type="button" role="tab" data-tab="theme">Temas</button>
+          <button class="tab" type="button" role="tab" data-tab="style">Estilo da sala</button>
+        </div>
+        <div class="tools" aria-label="Ferramentas">
+          <button class="tool" type="button" data-tool="select">Selecionar <kbd>V</kbd></button>
+          <button class="tool" type="button" data-tool="remove">Remover <kbd>X</kbd></button>
+        </div>
+      </div>
+      <div class="build__items" id="buildItems"></div>
+      <div class="build__room" id="buildRoom" hidden></div>
+      <div class="build__style" id="buildStyle" hidden></div>
+      <p class="build__hint" id="buildHint"></p>
+    </section>
+
+    <aside class="crew-panel" id="crewPanel" hidden aria-label="Equipe">
+      <div class="crew-panel__head">
+        <div><span class="eyebrow-sm">Equipe do turno</span><b class="crew-panel__count" id="crewCount">0</b></div>
+        <button class="btn btn--sm btn--primary" id="hireBtn" type="button">Contratar <kbd>N</kbd></button>
+      </div>
+      <ul class="crew-list" id="crewList"></ul>
+      <p class="crew-panel__hint">A equipe trabalha sozinha. Clique em alguém para ver o perfil e atribuir uma tarefa da função — ou num computador livre para mandá-lo até lá. Arraste para mover a câmera.</p>
+    </aside>
+
+    <aside class="ops-panel" id="opsPanel" hidden aria-label="Tarefas e ocorrências">
+      <div class="ops-panel__head">
+        <div><span class="eyebrow-sm">Operação</span><p class="ops-panel__title">Tarefas e ocorrências</p></div>
+        <button class="cc__x" type="button" data-op="close" aria-label="Fechar">×</button>
+      </div>
+      <ul class="ops-list" id="opsList"></ul>
+      <span class="eyebrow-sm ops-panel__sub">Registro</span>
+      <ul class="ops-log" id="opsLog"></ul>
+    </aside>
+
+    <aside class="team-chat" id="teamChat" aria-label="Chat da equipe">
+      <button class="team-chat__head" id="chatHead" type="button" aria-expanded="true" aria-controls="chatList">
+        <span class="dot dot--live" aria-hidden="true"></span><span class="eyebrow-sm">Chat da equipe</span>
+        <span class="team-chat__last" id="chatLast">Ninguém falou nada ainda</span>
+        <span class="ops-badge team-chat__badge" id="chatBadge" hidden>0</span><kbd>K</kbd>
+      </button>
+      <ul class="team-chat__list" id="chatList" aria-live="polite"></ul>
+    </aside>
+
     <div class="hint" id="hint">
       <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> mover</span>
-      <span><kbd>E</kbd> interagir</span>
-      <span><kbd>Esc</kbd> fechar</span>
+      <span><kbd>E</kbd> inspecionar</span>
+      <span><kbd>B</kbd> construir</span>
+      <span><kbd>C</kbd> equipe</span>
+      <span><kbd>T</kbd> tarefas</span>
+      <span><kbd>M</kbd> monitor</span>
     </div>
 
     <div class="toasts" id="toasts" aria-live="assertive"></div>
+    <div class="talk-pings" id="talkPings" aria-live="polite"></div>
+
+    <aside class="talk" id="talk" hidden aria-label="Conversa com a equipe">
+      <header class="talk__head">
+        <canvas id="talkFace" aria-hidden="true"></canvas>
+        <div class="talk__who"><b id="talkName"></b><span class="talk__meta" id="talkMeta"></span><span class="talk__status" id="talkStatus"></span></div>
+        <button class="cc__x" id="talkClose" type="button" aria-label="Fechar conversa">×</button>
+      </header>
+      <ul class="talk__log" id="talkLog" aria-live="polite"></ul>
+      <div class="talk__chips" id="talkChips"></div>
+      <form class="talk__form" id="talkForm" autocomplete="off">
+        <input class="input" id="talkIn" type="text" maxlength="160" placeholder="Pergunte algo… ex.: como está o servidor?" aria-label="Mensagem">
+        <button class="btn btn--sm" type="submit">Enviar</button>
+      </form>
+    </aside>
 
     <div class="touch" id="touch" hidden>
       <div class="touch__stick" id="stick"><span class="touch__knob" id="knob"></span></div>
@@ -78,18 +170,22 @@
     </div>
 
     <div class="overlay is-open" id="intro" role="dialog" aria-modal="true" aria-labelledby="introTitle">
-      <div class="card card--modal">
-        <p class="eyebrow-sm"><span class="dot dot--live"></span>&nbsp; Turno da noite · 02:00</p>
-        <h1 class="card__title" id="introTitle">Bem-vindo ao DC-01.</h1>
-        <p class="card__text">Você é o novo técnico de plantão. Conheça o salão, inspecione os equipamentos e fique de olho no NOC — madrugadas nunca são tão calmas quanto parecem.</p>
-        <ul class="controls">
-          <li><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>ou setas para andar</span></li>
-          <li><span class="keys"><kbd>E</kbd></span><span>inspecionar equipamento ou conversar</span></li>
-          <li><span class="keys"><kbd>Esc</kbd></span><span>fechar painel</span></li>
-        </ul>
+      <div class="card card--modal card--intro">
+        <p class="eyebrow-sm"><span class="dot dot--live"></span>&nbsp; Construção · Simulação · Aprendizado</p>
+        <h1 class="card__title" id="introTitle">Esse é o seu datacenter.</h1>
+        <p class="card__text">Construa do zero ou comece de um ambiente pronto. Depois, contrate a equipe, instale servidores e configure tudo num terminal de verdade — com ajuda sempre que travar.</p>
+        <p class="eyebrow-sm intro-label">Como começar</p>
+        <div class="start-opts" id="startChoices" role="radiogroup" aria-label="Como começar"></div>
+        <ol class="intro-steps" aria-label="O que o tutorial ensina">
+          <li><b>Construção</b>Expandir, sala, rack, computador</li>
+          <li><b>Equipe</b>Contratar e atribuir tarefa</li>
+          <li><b>Técnico</b>Instalar, ligar cabos, configurar e monitorar</li>
+        </ol>
         <div class="card__actions">
-          <button class="btn btn--primary btn--lg" id="startBtn" type="button">Começar turno <span class="arrow">→</span></button>
-          <span class="eyebrow-sm">ou pressione Enter</span>
+          <button class="btn btn--primary btn--lg" id="tutStart" type="button">Continuar tutorial <span class="arrow">→</span></button>
+          <button class="btn btn--lg" id="tutSkipIntro" type="button">Pular tutorial</button>
+          <span class="eyebrow-sm">Pular leva direto ao modo construção</span>
+          <button class="linkbtn intro-menu" id="introMenu" type="button">← Menu principal</button>
         </div>
       </div>
     </div>
@@ -99,40 +195,201 @@
         <p class="eyebrow-sm">Controles</p>
         <h2 class="card__title card__title--sm" id="helpTitle">Como jogar</h2>
         <ul class="controls">
-          <li><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>ou setas para andar</span></li>
-          <li><span class="keys"><kbd>E</kbd></span><span>inspecionar / conversar</span></li>
-          <li><span class="keys"><kbd>Esc</kbd></span><span>fechar painel</span></li>
+          <li><span class="keys"><kbd>B</kbd></span><span>construção: salas, paredes, portas, equipamentos e móveis · <b>Temas</b> e <b>Estilo da sala</b> (piso, paredes, luz, RGB)</span></li>
+          <li><span class="keys"><kbd>C</kbd></span><span>equipe: selecione alguém e clique num computador</span></li>
+          <li><span class="keys"><kbd>N</kbd></span><span>contratar alguém para a equipe</span></li>
+          <li><span class="keys"><kbd>P</kbd></span><span>editar o meu personagem: aparência, cabelo, roupa, acessórios, nome e função</span></li>
+          <li><span class="keys"><kbd>K</kbd></span><span>abrir / recolher o chat da equipe</span></li>
+          <li><span class="keys"><kbd>Mouse</kbd></span><span>clique num funcionário → <b>Conversar</b>: pergunte sobre servidores, rede, problemas e finanças</span></li>
+          <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa, créditos, DataCoins e progresso</span></li>
+          <li><span class="keys"><kbd>M</kbd></span><span>monitoramento: painéis, hosts, problemas (estilo Zabbix/Grafana)</span></li>
+          <li><span class="keys"><kbd>T</kbd></span><span>tarefas técnicas e alertas da equipe · conectar cabo · abrir terminal</span></li>
+          <li><span class="keys"><kbd>Mouse</kbd></span><span>Espaços → <b>Parede</b>: clique e arraste na grade · <b>Cômodo</b>: arraste um retângulo · <b>Apagar parede</b> (ou <kbd>Shift</kbd>+arrastar) remove só o trecho · <b>Porta</b>/<b>Porta dupla</b> vão sobre uma parede</span></li>
+          <li><span class="keys"><kbd>R</kbd></span><span>girar objeto ou porta (dobradiça / lado que abre) · na ferramenta Parede, alterna alvenaria/vidro</span></li>
+          <li><span class="keys"><kbd>Del</kbd><kbd>X</kbd></span><span>remover objeto · ferramenta remover</span></li>
+          <li><span class="keys"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span><span>câmera (construção e equipe) · andar (explorar)</span></li>
+          <li><span class="keys"><kbd>Mouse</kbd></span><span>clique posiciona e seleciona · arraste move · roda dá zoom</span></li>
+          <li><span class="keys"><kbd>E</kbd></span><span>inspecionar equipamento / gerenciar pessoa (clique também: ela para e olha para você)</span></li>
+          <li><span class="keys"><kbd>↑</kbd><kbd>Tab</kbd></span><span>no terminal: repetir comando · completar · <code>help</code> lista os comandos</span></li>
+          <li><span class="keys"><kbd>Esc</kbd></span><span>cancelar / fechar / voltar a explorar</span></li>
         </ul>
         <div class="card__actions">
-          <button class="btn" id="helpClose" type="button">Voltar ao turno</button>
+          <button class="btn" id="helpClose" type="button">Voltar</button>
         </div>
       </div>
     </div>
 
-    <div class="overlay" id="summary" role="dialog" aria-modal="true" aria-labelledby="summaryTitle">
-      <div class="card card--modal">
-        <p class="eyebrow-sm"><span class="dot"></span>&nbsp; Incidente INC-0412 · resolvido</p>
-        <h2 class="card__title" id="summaryTitle">Fileira B de volta à rede.</h2>
-        <div class="stats" id="summaryStats"></div>
-        <div class="learned">
-          <p class="eyebrow-sm">O que você praticou</p>
-          <ul>
-            <li>Um switch top-of-rack conecta a fileira inteira ao core — sem uplink, todos ficam isolados.</li>
-            <li>Servidor ligado não é servidor alcançável: energia e conectividade são camadas diferentes.</li>
-            <li>Logs <code>LINK-3-UPDOWN</code> apontam para a camada física antes do software.</li>
-          </ul>
+    <div class="overlay" id="creator" role="dialog" aria-modal="true" aria-labelledby="creatorTitle">
+      <div class="card card--modal card--creator">
+        <p class="eyebrow-sm" id="creatorSub">Equipe · meu datacenter</p>
+        <h2 class="card__title card__title--sm" id="creatorTitle">Nova contratação</h2>
+        <div class="creator">
+          <div class="creator__side">
+            <div class="creator__stage"><canvas id="creatorCanvas" aria-label="Prévia do personagem"></canvas></div>
+            <div class="seg" id="creatorPose" role="group" aria-label="Prévia">
+              <button type="button" class="seg__b" data-pose="stand">Em pé</button>
+              <button type="button" class="seg__b" data-pose="walk">Andando</button>
+              <button type="button" class="seg__b" data-pose="work">Trabalhando</button>
+            </div>
+            <button class="btn btn--sm" id="creatorRandom" type="button">Aleatório</button>
+          </div>
+          <div class="creator__form" id="creatorForm"></div>
         </div>
         <div class="card__actions">
-          <a class="btn btn--primary btn--lg" href="index.html">Voltar ao DataLab <span class="arrow">→</span></a>
-          <button class="btn btn--lg" id="keepPlaying" type="button">Continuar explorando</button>
+          <button class="btn btn--primary" id="creatorSave" type="button">Contratar <span class="arrow">→</span></button>
+          <button class="btn" id="creatorCancel" type="button">Cancelar</button>
+          <span class="eyebrow-sm">Enter confirma · Esc cancela</span>
         </div>
       </div>
     </div>
+
+    <div class="overlay" id="wallet" role="dialog" aria-modal="true" aria-labelledby="walletTitle">
+      <div class="card card--modal card--wallet">
+        <div class="wallet__head">
+          <div><p class="eyebrow-sm">Economia · meu datacenter</p><h2 class="card__title card__title--sm" id="walletTitle">Finanças e progresso</h2></div>
+          <button class="cc__x" id="walletClose" type="button" aria-label="Fechar">×</button>
+        </div>
+        <div class="wallet__body" id="walletBody"></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="reward" role="dialog" aria-modal="true" aria-label="Recompensa">
+      <div class="card card--modal card--reward">
+        <div id="rewardBody"></div>
+        <div class="card__actions"><button class="btn btn--primary" id="rewardClose" type="button">Coletar <span class="arrow">→</span></button></div>
+      </div>
+    </div>
+
+    <div class="overlay overlay--term" id="terminal" role="dialog" aria-modal="true" aria-labelledby="termTitle">
+      <div class="term">
+        <div class="term__main">
+          <div class="term__bar">
+            <span class="term__lights" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="eyebrow-sm" id="termTitle">Console</span>
+            <span class="eyebrow-sm term__where" id="termWhere"></span>
+            <button class="cc__x" id="termClose" type="button" aria-label="Fechar terminal">×</button>
+          </div>
+          <div class="term__out" id="termOut" aria-live="polite"></div>
+          <label class="term__line"><span class="term__p" id="termPrompt">$</span><input id="termIn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Comando"></label>
+        </div>
+        <aside class="term__side" id="termSide">
+          <span class="eyebrow-sm" id="termTask">Tarefa</span>
+          <p class="term__goal" id="termGoal"></p>
+          <ol class="term__steps" id="termSteps"></ol>
+          <button class="btn btn--sm term__helpbtn" id="termHelpBtn" type="button">Precisa de ajuda?</button>
+          <div class="term__help" id="termHelp" hidden></div>
+          <p class="term__note">Digite <code>help</code> para ver os comandos · <kbd>↑</kbd> histórico · <kbd>Tab</kbd> completa · <kbd>Esc</kbd> fecha</p>
+        </aside>
+      </div>
+    </div>
+
+    <div class="overlay overlay--app" id="cabling" role="dialog" aria-modal="true" aria-labelledby="cabTitle">
+      <div class="cab">
+        <header class="app__bar">
+          <span class="eyebrow-sm app__title" id="cabTitle">Cabeamento</span>
+          <span class="cab__legend" aria-label="Legenda">
+            <i style="--c:#6aa7e8">ligado</i><i style="--c:#e8c15a" class="is-dash">incompleto</i><i style="--c:#f2495c">incorreto</i><i style="--c:#ff9830">solto</i>
+          </span>
+          <button class="btn btn--sm" id="cabTidy" type="button">Organizar cabos</button>
+          <button class="cc__x" id="cabClose" type="button" aria-label="Fechar cabeamento">×</button>
+        </header>
+        <div class="cab__main">
+          <div class="cab__stage"><svg id="cabSvg" class="cab__svg" role="img" aria-label="Frente dos racks com portas e cabos"></svg></div>
+          <aside class="cab__side">
+            <span class="eyebrow-sm">Como ligar</span>
+            <p class="cab__hint" id="cabHint"></p>
+            <p class="cab__msg" id="cabMsg" aria-live="polite"></p>
+            <span class="eyebrow-sm">Servidores</span>
+            <ul class="cab__list" id="cabList"></ul>
+            <p class="cab__learn">Servidor (eth0) → switch (gi0/1–24), direto ou passando pelo patch panel: a frente <b>F</b> e a traseira <b>T</b> da mesma porta são ligadas por dentro. O uplink <b>te1</b> é só para o core.</p>
+            <button class="btn btn--sm btn--primary" id="cabBack" type="button" hidden>Voltar ao terminal</button>
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay overlay--app" id="monitor" role="dialog" aria-modal="true" aria-label="Monitoramento">
+      <div class="mon">
+        <header class="app__bar mon__bar">
+          <span class="mon__logo"><i aria-hidden="true"></i>DataLab <b>Monitor</b></span>
+          <nav class="mon__tabs" id="monTabs" aria-label="Seções">
+            <button type="button" data-tab="dash">Painel</button>
+            <button type="button" data-tab="hosts">Hosts</button>
+            <button type="button" data-tab="problems">Problemas</button>
+          </nav>
+          <span class="mon__range" id="monRange">Últimos 2 min · atualiza a cada 1 s</span>
+          <button class="cc__x" id="monClose" type="button" aria-label="Fechar monitoramento">×</button>
+        </header>
+        <div class="mon__body" id="monBody"></div>
+      </div>
+    </div>
+    <section class="title" id="title" hidden data-screen="title" aria-label="DataLab — menu principal">
+      <div class="title__bg" aria-hidden="true">
+        <div class="title__grid"></div>
+        <div class="title__glow"></div>
+        <div class="title__motes"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+
+      <div class="title__stage" id="titleStage">
+        <div class="logo" aria-label="DataLab">
+          <span class="logo__mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <h1 class="logo__word" aria-hidden="true"><span>D</span><span>A</span><span>T</span><span>A</span><span>L</span><span>A</span><span>B</span></h1>
+          <span class="logo__bar" aria-hidden="true"></span>
+        </div>
+        <p class="title__tag eyebrow">Construa · Opere · Escale</p>
+        <button class="title__start" id="titleStart" type="button"><span>Iniciar</span></button>
+        <p class="title__press eyebrow-sm">Pressione <kbd>Enter</kbd> para começar</p>
+        <footer class="title__foot eyebrow-sm"><span><span class="dot dot--live"></span>&nbsp; Demo jogável</span><span>v0.9 · pré-alpha</span></footer>
+      </div>
+
+      <div class="mm" id="mainMenu">
+        <div class="mm__side">
+          <div class="mm__brand">
+            <span class="logo__mark logo__mark--sm" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="mm__word">DATALAB</span>
+          </div>
+          <nav class="mm__list" aria-label="Menu principal">
+            <button class="mm-item mm-item--hero" type="button" data-go="new" style="--i:0"><span class="mm-item__n">01</span><span class="mm-item__t"><b>Novo jogo</b><small>Escolha um ponto de partida e comece a construir</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
+            <button class="mm-item" type="button" data-go="load" style="--i:1"><span class="mm-item__n">02</span><span class="mm-item__t"><b>Carregar jogo</b><small id="mmSaves">Nenhum save</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
+            <button class="mm-item" type="button" data-go="online" style="--i:2"><span class="mm-item__n">03</span><span class="mm-item__t"><b>Jogar online</b><small>Em breve — estamos desenvolvendo</small></span><span class="mm-item__pill">Em breve</span></button>
+            <span class="mm__sep" style="--i:3" aria-hidden="true"></span>
+            <button class="mm-item" type="button" data-go="shop" style="--i:4"><span class="mm-item__n">04</span><span class="mm-item__t"><b>Loja</b><small>Visuais, personagem e reforços</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
+            <button class="mm-item" type="button" data-go="market" style="--i:5"><span class="mm-item__n">05</span><span class="mm-item__t"><b>Marketplace</b><small>Layouts e temas da comunidade</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
+            <button class="mm-item" type="button" data-go="ranking" style="--i:6"><span class="mm-item__n">06</span><span class="mm-item__t"><b>Tabela global</b><small>Os melhores operadores da temporada</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
+            <button class="mm-item" type="button" data-go="friends" style="--i:7"><span class="mm-item__n">07</span><span class="mm-item__t"><b>Amigos</b><small>Convide, visite e jogue junto</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
+            <button class="mm-item" type="button" data-go="weekly" style="--i:8"><span class="mm-item__n">08</span><span class="mm-item__t"><b>Salas da semana</b><small>Datacenters em destaque para se inspirar</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
+          </nav>
+          <footer class="mm__foot">
+            <span class="mm__me"><canvas id="mmFace" aria-hidden="true"></canvas><span><b id="mmName">Você</b><span class="eyebrow-sm" id="mmRole">Operador(a)</span></span></span>
+            <span class="mm__bal" id="mmBal"></span>
+          </footer>
+        </div>
+        <div class="mm__view" id="menuView" hidden role="region" aria-labelledby="menuViewTitle">
+          <div class="mm__view-body" id="menuViewBody"></div>
+        </div>
+        <div class="mm__hints eyebrow-sm" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> voltar</span></div>
+      </div>
+      <p class="mm-flash" id="menuFlash" role="status" aria-live="polite"></p>
+    </section>
   </main>
 
   <script src="assets/js/sprites.js"></script>
   <script src="assets/js/world.js"></script>
   <script src="assets/js/scene.js"></script>
+  <script src="assets/js/decor.js"></script>
+  <script src="assets/js/build.js"></script>
+  <script src="assets/js/jobs.js"></script>
+  <script src="assets/js/teamchat.js"></script>
+  <script src="assets/js/crew.js"></script>
+  <script src="assets/js/terminal.js"></script>
+  <script src="assets/js/ops.js"></script>
+  <script src="assets/js/cabling.js"></script>
+  <script src="assets/js/monitor.js"></script>
+  <script src="assets/js/presets.js"></script>
+  <script src="assets/js/tutorial.js"></script>
+  <script src="assets/js/economy.js"></script>
+  <script src="assets/js/talk.js"></script>
   <script src="assets/js/demo.js"></script>
+  <script src="assets/js/menu.js"></script>
 </body>
 </html>
