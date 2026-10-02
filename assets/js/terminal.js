@@ -121,7 +121,8 @@
     };
     if (d.kind === 'switch') {
       d.sw = { mode: 'user', cur: null, bad: null, fixed: false, ports: {} };
-      for (let i = 1; i <= 24; i++) d.sw.ports['gi0/' + i] = 'notconnect';
+      const n = d.ports ? d.ports.length - 1 : 24; // access ports of this switch model
+      for (let i = 1; i <= n; i++) d.sw.ports['gi0/' + i] = 'notconnect';
       d.sw.linked = new Set();
     }
   };
@@ -146,7 +147,7 @@
           if (k) { const h = HELP[k]; out.push('<b>' + esc(h.cmd) + '</b>', h.what, 'exemplo: ' + esc(h.ex)); }
           else out.push('sem ajuda para "' + esc(a[0]) + '". Use o botão Precisa de ajuda?');
         } else {
-          out.push('comandos disponíveis:', '  ip addr | ip link | ip route     ping -c 3 <destino>', '  systemctl status|restart <serviço>   curl localhost', '  df -h   du -sh <pasta>   journalctl --vacuum-size=200M', '  hostname   hostnamectl set-hostname <nome>', '  uptime  whoami  uname -a  date  history  clear  exit', '  sudo <comando> executa como administrador', 'detalhes: help <comando>  ·  ou o botão Precisa de ajuda?');
+          out.push('comandos disponíveis:', '  ip addr | ip link | ip route     ping -c 3 <destino>', '  systemctl status|restart <serviço>   curl localhost', '  df -h   du -sh <pasta>   journalctl --vacuum-size=200M', '  hostname   hostnamectl set-hostname <nome>', '  uptime  whoami  uname -a  date  history  clear  exit', '  lscpu  nproc  free -h   (hardware do servidor)', '  sudo <comando> executa como administrador', 'detalhes: help <comando>  ·  ou o botão Precisa de ajuda?');
         }
         break;
       case 'clear': ctx.clear(); break;
@@ -161,6 +162,17 @@
           ran.push('hostname');
         } else out.push('   Static hostname: ' + os.hostname, '  Operating System: Ubuntu 24.04 LTS', '            Kernel: Linux 6.8.0-45-generic');
         break;
+      case 'lscpu': case 'nproc': case 'free': {
+        // the hardware of this server's model (hardware.js)
+        const m = DL.hwOf ? DL.hwOf(d) : null;
+        if (!m || m.cores == null) { out.push(c + ': informação indisponível'); break; }
+        if (c === 'nproc') out.push(String(m.threads));
+        else if (c === 'free') {
+          const used = Math.max(1, Math.round(m.ram * 0.31));
+          out.push('               total        used        free', 'Mem:     ' + String(DL.hwFmt.ram(m.ram)).padStart(10) + String(used + ' GB').padStart(12) + String(DL.hwFmt.ram(m.ram - used)).padStart(12));
+        } else out.push('Model name:        ' + esc(m.cpu), 'Socket(s):         ' + m.sockets, 'Core(s) total:     ' + m.cores, 'Thread(s):         ' + m.threads, 'CPU max MHz:       ' + Math.round(m.ghz * 1000), 'Mem:               ' + DL.hwFmt.ram(m.ram), 'Disk:              ' + esc(m.disk), 'NIC eth0:          ' + DL.hwFmt.gb(m.nic));
+        break;
+      }
       case 'uname': out.push(a[0] === '-a' ? 'Linux ' + os.hostname + ' 6.8.0-45-generic #45-Ubuntu SMP x86_64 GNU/Linux' : 'Linux'); break;
       case 'date': out.push(new Date().toString().split(' (')[0]); break;
       case 'uptime': out.push(' ' + new Date().toTimeString().slice(0, 8) + ' up ' + Math.max(1, Math.round((Date.now() - os.boot) / 60000)) + ' min,  1 user,  load average: 0.08, 0.12, 0.10'); break;
@@ -362,7 +374,7 @@
     if (kw(c, 'interface', 3)) {
       if (s.mode !== 'conf' && s.mode !== 'if') { bad('Comando inválido neste modo. Use "configure terminal" antes.'); return { out, ran }; }
       const p = (t.slice(1).join('') || '').toLowerCase().replace('gigabitethernet', 'gi');
-      if (!s.ports[p]) { bad('Porta inválida. Portas: gi0/1 a gi0/24'); return { out, ran }; }
+      if (!s.ports[p]) { bad('Porta inválida. Portas: gi0/1 a gi0/' + Object.keys(s.ports).length); return { out, ran }; }
       s.mode = 'if';
       s.cur = p;
       ran.push('if:' + p);

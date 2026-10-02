@@ -391,26 +391,42 @@
     /* ---------- stations ---------- */
     const itemAt = (tx, ty, pred) => world().items.find((e) => !e.host && pred(e) && tx >= e.tx && tx < e.tx + e.tw && ty >= e.ty && ty < e.ty + e.th);
 
+    // Seated poses per orientation (the way the desk / chair faces): 0 the worker faces north (back to
+    // the viewer), 1 faces the viewer, 2 sits on the east side facing west, 3 on the west facing east.
+    const SIT_DIR = ['up', 'down', 'left', 'right'];
+
     function deskStation(d) {
       if (!d.chair || world().items.indexOf(d.chair) < 0) return null;
-      const r1 = d.rot === 1, x = d.px + 16;
+      const r = d.rot | 0, c = d.chair;
+      if (r === 2 || r === 3) {
+        // hands on the keyboard at the desk's near edge, seated just above the chair's cushion
+        const x = r === 2 ? c.px + 5 : c.px + 11;
+        return {
+          key: d, seat: c, screen: d, label: d.id || 'Computador', dir: SIT_DIR[r],
+          approach: { x: c.px + 8, y: c.py + 20 }, sit: { x, y: c.py + 12 },
+          sortKey: d.sortY + 0.5, focus: d,
+        };
+      }
+      const r1 = r === 1, x = d.px + 16;
       return {
-        key: d, seat: d.chair, screen: d, label: d.id || 'Computador', dir: r1 ? 'down' : 'up',
-        approach: { x, y: d.chair.py + 12 }, sit: { x, y: r1 ? d.py - 2 : d.py + 20 },
+        key: d, seat: c, screen: d, label: d.id || 'Computador', dir: SIT_DIR[r],
+        approach: { x, y: c.py + 12 }, sit: { x, y: r1 ? d.py - 2 : d.py + 20 },
         sortKey: r1 ? d.sortY + 0.5 : null, focus: d,
       };
     }
 
     function chairStation(c) {
-      const r1 = c.rot === 1, tx = c.tx, ty = c.ty + (r1 ? 1 : -1);
+      const r = c.rot | 0;
+      const tx = c.tx + (r === 2 ? -1 : r === 3 ? 1 : 0), ty = c.ty + (r === 0 ? -1 : r === 1 ? 1 : 0);
       const table = itemAt(tx, ty, (e) => e.kind === 'table');
       if (!table) return null;
       const mon = world().items.find((e) => e.kind === 'monitor' && e.host === table && e.tx === tx && e.ty === ty);
       if (!mon) return null;
+      const sit = r === 2 ? { x: c.px + 5, y: c.py + 4 } : r === 3 ? { x: c.px + 11, y: c.py + 4 } : { x: c.px + 8, y: r === 1 ? c.py + 14 : c.py + 4 };
       return {
-        key: c, seat: c, screen: mon, label: 'Mesa com monitor', dir: r1 ? 'down' : 'up',
-        approach: { x: c.px + 8, y: c.py + 12 }, sit: { x: c.px + 8, y: r1 ? c.py + 14 : c.py + 4 },
-        sortKey: r1 ? table.sortY + 0.3 : null, focus: mon,
+        key: c, seat: c, screen: mon, label: 'Mesa com monitor', dir: SIT_DIR[r],
+        approach: { x: c.px + 8, y: c.py + 12 }, sit,
+        sortKey: r === 1 ? table.sortY + 0.3 : r >= 2 ? Math.max(table.sortY, c.sortY) + 0.3 : null, focus: mon,
       };
     }
 
@@ -609,7 +625,11 @@
         return;
       }
       const s = c.station;
-      c.glide = { from: { x: a.x, y: a.y }, to: s ? s.approach : { x: a.x, y: a.y }, t: 0, dur: 0.3 };
+      let to = s ? s.approach : { x: a.x, y: a.y };
+      // the station may have been turned or moved over its old exit: step out to the nearest free tile
+      const W = world(), tx = Math.floor(to.x / T), ty = Math.floor((to.y - 2) / T);
+      if (W.solid && W.solid[ty * W.W + tx]) { const f = nav.nearestFree(tx, ty, 6); if (f) to = nav.center(f[0], f[1]); }
+      c.glide = { from: { x: a.x, y: a.y }, to, t: 0, dur: 0.3 };
       if (s) { s.screen.work = null; s.screen.typing = false; }
       c.seated = false;
       a.sortKey = null;

@@ -1704,3 +1704,23 @@ b.is-loss { color: var(--sunset); }
   .rl-dl { grid-template-columns: 1fr; gap: 4px; }
   .rl-dl dd { margin-bottom: 8px; }
 }
+
+/* =====================================================================
+   Bigger catalog: group filter, prices, hardware specs in the inspector
+   ===================================================================== */
+.cat-groups { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 10px; }
+.cat-groups .mono { font: 400 10px/1 var(--font-mono); color: var(--mute); margin-left: 2px; }
+.cat-item { position: relative; }
+.cat-item__price { font: 400 9px/10px var(--font-mono); font-style: normal; letter-spacing: 0.6px; color: var(--breeze); opacity: 0.85; }
+.cat-item.is-on .cat-item__price { color: var(--ink); }
+.insp__units { margin-top: 6px; max-width: 300px; list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.insp__units li { display: flex; align-items: baseline; gap: 6px; font-size: 12px; line-height: 16px; color: var(--ink); }
+.insp__units .mono { font: 400 10px/16px var(--font-mono); color: var(--mute); flex: none; }
+.insp__units em { margin-left: auto; padding-left: 8px; font: 400 10px/16px var(--font-mono); font-style: normal; color: var(--mute); white-space: nowrap; }
+.insp__spec { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hairline); max-width: 300px; font-size: 12px; line-height: 16px; }
+.insp__spec dt { font: 400 10px/16px var(--font-mono); letter-spacing: 0.6px; text-transform: uppercase; color: var(--mute); }
+.insp__spec dd { margin: 0; color: var(--ink); }
+.econ-float span.is-spend { color: #ff9830; }
+.p-spec { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-size: 13px; line-height: 18px; }
+.p-spec dt { font: 400 11px/18px var(--font-mono); letter-spacing: 0.6px; text-transform: uppercase; color: var(--mute); }
+.p-spec dd { margin: 0; }

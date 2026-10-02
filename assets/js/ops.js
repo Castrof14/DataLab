@@ -17,6 +17,11 @@
     patch: Array.from({ length: PATCH_PORTS }, (_, i) => 'f' + (i + 1)).concat(Array.from({ length: PATCH_PORTS }, (_, i) => 'r' + (i + 1))),
   };
   DL.PORTS = PORTS;
+  // each switch model has its own number of access ports (hardware.js); the uplink is always te1
+  const swPortCache = {};
+  const switchPorts = (n) => swPortCache[n] || (swPortCache[n] = Array.from({ length: n }, (_, i) => 'gi0/' + (i + 1)).concat('te1'));
+  const portsOf = (d) => (d.kind === 'switch' ? d.ports || PORTS.switch : PORTS[d.kind] || []);
+  DL.portsOf = portsOf;
   const flip = (p) => (p[0] === 'f' ? 'r' : 'f') + p.slice(1);
 
   // Faults: what breaks, how it reads in an alert, and how we know it is fixed.
@@ -66,21 +71,24 @@
           const key = e.id + ':' + k;
           seen.add(key);
           let d = O.devs.get(key);
-          if (!d || d.kind !== u) {
+          const modelId = (e.unitModel && e.unitModel[k]) || u;
+          if (!d || d.kind !== u || d.model.id !== modelId) {
             const n = ++O.seq[u];
             d = {
               key, kind: u, n, rack: e, slot: k, pre: O.preinstall,
               name: (u === 'switch' ? 'SW-' : u === 'patch' ? 'PP-' : 'SRV-') + String(n).padStart(2, '0'),
               ip: u === 'switch' ? '10.0.1.' + (200 + n) : u === 'patch' ? '' : '10.0.1.' + (10 + n),
               state: O.preinstall || u !== 'server' ? 'online' : 'new', fault: null, ran: new Set(),
+              model: DL.hwModel(u, modelId),
             };
+            if (u === 'switch') d.ports = switchPorts(d.model.ports || 24);
             if (u !== 'patch') DL.newOS(d, O.preinstall || u === 'switch');
             O.devs.set(key, d);
             if (!O.preinstall) {
-              if (u === 'switch') logEvent('ok', d.name + ' instalado em ' + e.id + ' · 24 portas prontas para receber cabos');
+              if (u === 'switch') logEvent('ok', d.name + ' (' + d.model.name + ') instalado em ' + e.id + ' · ' + (d.ports.length - 1) + ' portas prontas para receber cabos');
               else if (u === 'patch') logEvent('ok', d.name + ' instalado em ' + e.id + ' · 12 portas de passagem');
               else {
-                logEvent('info', d.name + ' instalado em ' + e.id + ' · falta ligar o cabo e configurar');
+                logEvent('info', d.name + ' (' + d.model.name + ') instalado em ' + e.id + ' · falta ligar o cabo e configurar');
                 game.toast('info', 'Novo servidor', d.name + ' instalado · abra Tarefas (T) para ligar o cabo');
               }
             }
@@ -165,7 +173,7 @@
         if (!od) return { ok: false, links: path, reason: 'Equipamento removido' };
         if (od.kind === 'server') return { ok: false, links: path, reason: 'Servidor ligado em outro servidor: o cabo precisa chegar a um switch', bad: true };
         if (od.kind === 'switch') {
-          if (o.port === 'te1') return { ok: false, links: path, reason: 'Porta de uplink (te1) é reservada para o core: use uma porta gi0/1–24', bad: true };
+          if (o.port === 'te1') return { ok: false, links: path, reason: 'Porta de uplink (te1) é reservada para o core: use uma porta gi0/1–' + (portsOf(od).length - 1), bad: true };
           return { ok: true, links: path, sw: od, port: o.port };
         }
         cur = { dev: o.dev, port: flip(o.port) };
@@ -213,8 +221,9 @@
       for (const d of devices()) {
         if (d.kind !== 'switch') continue;
         d.sw.linked = new Set();
-        for (const p of PORTS.switch) if (linkAt(d.key, p)) d.sw.linked.add(p);
-        for (let i = 1; i <= SW_PORTS; i++) {
+        const list = portsOf(d);
+        for (const p of list) if (linkAt(d.key, p)) d.sw.linked.add(p);
+        for (let i = 1; i < list.length; i++) {
           const p = 'gi0/' + i;
           if (d.sw.bad === p && !d.sw.fixed) d.sw.ports[p] = 'err-disabled';
           else if (d.sw.ports[p] !== 'disabled') d.sw.ports[p] = d.sw.linked.has(p) ? 'connected' : 'notconnect';
@@ -252,9 +261,9 @@
         if (d.kind !== 'server' || linkNear(d.key, 'eth0')) continue;
         const room = roomOf(d.rack);
         const sw = switches.filter((s) => roomOf(s.rack) === room).sort((x, y) => dist(x, d) - dist(y, d))
-          .find((s) => PORTS.switch.some((p) => p !== 'te1' && !linkAt(s.key, p)));
+          .find((s) => portsOf(s).some((p) => p !== 'te1' && !linkAt(s.key, p)));
         if (!sw) continue;
-        const port = PORTS.switch.find((p) => p !== 'te1' && !linkAt(sw.key, p));
+        const port = portsOf(sw).find((p) => p !== 'te1' && !linkAt(sw.key, p));
         const pp = devices().find((p) => p.kind === 'patch' && p.rack === sw.rack && freeFront(p));
         if (pp) {
           const f = freeFront(pp);
@@ -302,6 +311,8 @@
     /* Faults                                                              */
     /* ------------------------------------------------------------------ */
     function injectFault(d, type) {
+      // err-disabled is a feature of managed switches: the simple ones never shut a port down
+      if (d.kind === 'switch' && d.model && d.model.managed === false) return null;
       const types = Object.keys(FAULTS).filter((k) => FAULTS[k].kinds.indexOf(d.kind) >= 0);
       if (!types.length) return null;
       const t = type || pick(types);
@@ -399,7 +410,7 @@
         if (l && l.loose) l.loose = null;
         else if (!l) {
           const sw = devices().find((s) => s.kind === 'switch' && s.rack === d.rack) || devices().find((s) => s.kind === 'switch');
-          const port = sw && PORTS.switch.find((p) => p !== 'te1' && !linkAt(sw.key, p));
+          const port = sw && portsOf(sw).find((p) => p !== 'te1' && !linkAt(sw.key, p));
           if (port) addLink({ dev: d.key, port: 'eth0' }, { dev: sw.key, port }, { quiet: true });
         }
       }
@@ -418,7 +429,11 @@
       const open = devices().filter((d) => d.fault).length;
       const ok = devices().filter((d) => d.state === 'online' && !d.fault && d.kind !== 'patch');
       if (open >= 2 || O.faultCd > 0 || !ok.length || game.paused()) return;
-      for (let n = 0; n < 4; n++) if (injectFault(pick(ok))) break;
+      // cheaper hardware breaks more often (model.fault: 1 = classic)
+      const weight = (d) => (d.model && d.model.fault != null ? d.model.fault : 1);
+      const total = ok.reduce((sum, d) => sum + weight(d), 0);
+      const pickW = () => { let r = rand() * total; for (const d of ok) if ((r -= weight(d)) <= 0) return d; return ok[ok.length - 1]; };
+      for (let n = 0; n < 4; n++) if (injectFault(total > 0 ? pickW() : pick(ok))) break;
     }
 
     /* ------------------------------------------------------------------ */
@@ -426,6 +441,11 @@
     /* ------------------------------------------------------------------ */
     function openTerminal(d) {
       if (d.kind === 'patch') { sys.cabling.open(d.rack, d); return; }
+      if (d.kind === 'switch' && d.model && d.model.managed === false) {
+        game.toast('info', d.name + ' · ' + d.model.name, 'Switch não gerenciável: não tem console. Para CLI, VLAN e diagnóstico de porta use um gerenciável');
+        sys.cabling.open(d.rack, d);
+        return;
+      }
       if (d.state === 'new') { game.toast('info', 'Falta o cabo', 'Ligue o ' + d.name + ' a um switch antes de configurar'); sys.cabling.open(d.rack, d); return; }
       const lesson = d.fault && d.fault.found ? d.fault.type : d.state === 'link' ? 'setup' : null;
       sys.terminal.open(d, lesson, () => complete(d, lesson));
@@ -528,7 +548,44 @@
       if (O.acc > 0.5) { O.acc = 0; resolveFixed(); render(); }
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Performance: how much of its capacity each server can deliver       */
+    /* ------------------------------------------------------------------ */
+    // A server rends perf × net: its switch port may be slower than its card, and every switch shares
+    // one uplink among its servers (each pushes ~half its card speed). Unmanaged switches lose a bit
+    // to the lack of QoS.
+    function netOf(d) {
+      const m = DL.hwOf(d), t = d.path || trace(d);
+      if (!t.ok) return { factor: 0, port: 0, uplink: 0, why: 'sem rede' };
+      const sm = DL.hwOf(t.sw);
+      const portF = Math.min(1, sm.port / m.nic);
+      const demand = devices().filter((x) => x.kind === 'server' && x.state === 'online' && !x.fault && (x.path || trace(x)).sw === t.sw)
+        .reduce((sum, x) => sum + DL.hwOf(x).nic * 0.5, 0);
+      const upF = demand > 0 ? Math.min(1, sm.uplink / demand) : 1;
+      const factor = (0.35 + 0.65 * portF) * (0.4 + 0.6 * upF) * (sm.managed === false ? 0.92 : 1);
+      return { factor, port: portF, uplink: upF, load: sm.uplink ? demand / sm.uplink : 0, sw: t.sw,
+        why: portF < 1 ? 'porta de ' + DL.hwFmt.gb(sm.port) + ' limita a placa de ' + DL.hwFmt.gb(m.nic) : upF < 1 ? 'uplink do ' + t.sw.name + ' saturado' : null };
+    }
+    // PoE: access points and cameras draw from the PoE budget of the switches in their room
+    function poeStatus() {
+      const w = world(), budget = new Map();
+      for (const d of devices()) {
+        if (d.kind !== 'switch' || !DL.hwOf(d).poe) continue;
+        const r = roomOf(d.rack), k = r ? r.id : '?';
+        budget.set(k, (budget.get(k) || 0) + DL.hwOf(d).poe);
+      }
+      const out = { ap: 0, camera: 0, off: 0, used: 0, total: Array.from(budget.values()).reduce((a, b) => a + b, 0) };
+      for (const e of w.items) {
+        if (e.kind !== 'ap' && e.kind !== 'camera') continue;
+        const r = roomOf(e), k = r ? r.id : '?', need = DL.HW.poe[e.kind].poeW, left = budget.get(k) || 0;
+        e.powered = left >= need;
+        if (e.powered) { budget.set(k, left - need); out[e.kind]++; out.used += need; } else out.off++;
+      }
+      return out;
+    }
+
     const api = {
+      netOf, poeStatus, portsOf,
       reset, sync, update, devices, get, reach, health, trace, classify, openTerminal, inspect, monitor, report, announce, injectFault, toggle, tasks, fix,
       addLink, removeLink, moveEnd, linkAt, linkNear, tidy, prewire, roomOf, logEvent, recompute,
       get links() { return O.links; },

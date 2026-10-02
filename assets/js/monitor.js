@@ -65,7 +65,11 @@
       let swTraffic = new Map();
       for (const d of devs) {
         const s = seriesOf(d.key);
-        if (!d.mb) d.mb = { cpu: 12 + rand() * 30, ram: 32 + rand() * 30, net: 40 + rand() * 260, ph: rand() * 10 };
+        if (!d.mb) {
+          // bigger servers run the same work with more headroom and move more traffic (hardware.js)
+          const m = DL.hwOf ? DL.hwOf(d) : null, perf = m && m.perf ? m.perf : 1, nic = m && m.nic ? m.nic : 1;
+          d.mb = { cpu: (12 + rand() * 30) * Math.min(1.7, 1 / Math.sqrt(perf)), ram: Math.min(88, (32 + rand() * 30) * Math.min(1.5, Math.sqrt(64 / (m && m.ram ? m.ram : 64)))), net: (40 + rand() * 260) * Math.min(6, Math.sqrt(nic) * perf), ph: rand() * 10 };
+        }
         const b = d.mb, h = O.health(d), j = () => (rand() - 0.5);
         if (d.kind === 'server' && !b.spike && rand() < 0.0012) b.spike = t + 8 + rand() * 6;
         if (b.spike && t > b.spike) b.spike = 0;

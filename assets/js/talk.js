@@ -173,7 +173,7 @@
       money(a) {
         if (!eco) return { text: 'Não tenho os números agora.' };
         const CO = eco.company, K = know(a);
-        const flow = CO.revenue - CO.payroll - CO.losses;
+        const flow = CO.revenue - CO.payroll - (CO.energy || 0) - CO.losses;
         const worst = CO.problems.slice().sort((x, y) => y.loss.rate - x.loss.rate)[0];
         let t = 'A empresa tem ' + DL.money(CO.cash) + '. ';
         if (K.role === 'gerente' || K.k >= 6) {

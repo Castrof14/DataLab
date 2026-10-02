@@ -301,6 +301,7 @@
     pcgamer: (e) => [e.px + 8, e.py - 8, 12, '#ff2bd6', 0.1],
     rug_rgb: (e) => [e.px + 16, e.py + 16, 26, '#7c5cff', 0.06],
   };
+  DL.DECOR_GLOW = GLOW; // other modules add their own lights here
 
   DL.drawRoomLights = function (g, w, t) {
     for (const r of w.rooms || []) {

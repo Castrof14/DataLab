@@ -11,6 +11,13 @@
     startCash: 100000,          // company balance at the start of a session ($)
     revenuePerServer: 18,       // $/min for each online server that answers
     payrollPerMember: 6,        // $/min for each crew member
+    // hardware (hardware.js): a server rends revenuePerServer × its model's perf × how well its network
+    // keeps up; storage rents its usable capacity; equipment pays for the power it draws
+    storagePerTB: 0.35,         // $/min per usable TB (× the array's speed)
+    wifiPerAp: 4,               // $/min for each powered access point (guest Wi-Fi)
+    cameraCut: 0.06,            // each powered camera cuts incident losses by 6%…
+    cameraCutMax: 0.3,          // …up to 30%
+    energyPerKw: 1.5,           // $/min per kW drawn by the equipment
     loss: { offline: 120, port: 90, service: 80, disk: 40 }, // $/min while the problem is open
     lossGrowth: 30,             // after this many minutes open the loss has doubled…
     lossMax: 3,                 // …up to this multiple
@@ -70,7 +77,8 @@
     const save = () => { try { localStorage.setItem(WALLET_KEY, JSON.stringify(W)); } catch (e) { /* private mode */ } };
 
     /* ---------- company ---------- */
-    const CO = { cash: E.startCash, revenue: 0, losses: 0, payroll: 0, lost: 0, earned: 0, problems: [], hourAcc: 0, acc: 0, dcChecked: 0 };
+    const CO = { cash: E.startCash, revenue: 0, losses: 0, payroll: 0, lost: 0, earned: 0, problems: [], hourAcc: 0, acc: 0, dcChecked: 0,
+      servers: 0, storage: 0, wifi: 0, energy: 0, kw: 0, camCut: 0, spent: 0, sold: 0, rateAt: -1, poe: null, slow: [] };
     const queue = []; // reward screens waiting to be shown
 
     function earn(cur, amount, why, opts) {
@@ -127,14 +135,46 @@
       return ops.devices().filter((d) => d.kind === 'server' && d.state === 'online' && !d.fault && ops.health(d).up).length;
     }
 
+    // What the hardware earns and costs per minute; recomputed a few times a second, not every frame.
+    function rates() {
+      if (CO.rateAt >= 0 && scene.t - CO.rateAt < 0.5) return;
+      CO.rateAt = scene.t;
+      let srv = 0;
+      const slow = [];
+      for (const d of ops.devices()) {
+        if (d.kind !== 'server' || d.state !== 'online' || d.fault || !ops.health(d).up) continue;
+        const m = DL.hwOf(d), net = ops.netOf(d);
+        srv += E.revenuePerServer * m.perf * net.factor;
+        if (net.why && net.factor < 0.9) slow.push({ d, why: net.why, pct: Math.round(net.factor * 100) });
+      }
+      let sto = 0, kw = 0;
+      for (const e of world().items) {
+        if (e.kind === 'storage') {
+          const m = DL.hwModel('storage', e.model);
+          sto += m.usable * E.storagePerTB * (0.7 + 0.3 * m.iops);
+        }
+        if (e.tel && e.tel.power) kw += e.tel.unit === 'W' ? e.tel.power / 1000 : e.tel.power;
+      }
+      const poe = ops.poeStatus();
+      CO.poe = poe;
+      CO.servers = srv;
+      CO.storage = sto;
+      CO.wifi = poe.ap * E.wifiPerAp;
+      CO.kw = kw;
+      CO.energy = kw * E.energyPerKw;
+      CO.camCut = Math.min(E.cameraCutMax, poe.camera * E.cameraCut);
+      CO.slow = slow;
+    }
+
     function tick(dt) {
+      rates();
       CO.problems = problems();
-      CO.losses = CO.problems.reduce((s, d) => s + d.loss.rate, 0);
-      CO.revenue = healthyServers() * E.revenuePerServer;
+      CO.losses = CO.problems.reduce((s, d) => s + d.loss.rate, 0) * (1 - CO.camCut);
+      CO.revenue = CO.servers + CO.storage + CO.wifi;
       CO.payroll = (sys.crew ? sys.crew.members.length : 0) * E.payrollPerMember;
       const mins = dt; // 1 s = 1 game minute
-      for (const d of CO.problems) d.loss.total += d.loss.rate * mins;
-      CO.cash += (CO.revenue - CO.payroll - CO.losses) * mins;
+      for (const d of CO.problems) d.loss.total += d.loss.rate * (1 - CO.camCut) * mins;
+      CO.cash += (CO.revenue - CO.payroll - CO.energy - CO.losses) * mins;
       CO.lost += CO.losses * mins;
       CO.earned += CO.revenue * mins;
       // keeping servers running pays credits every game hour
@@ -145,6 +185,23 @@
         if (n) earn('credits', n * E.credits.uptimePerServer, n + ' servidor(es) no ar por 1 h');
       }
     }
+
+    /* ---------- equipment bought and sold in build mode ---------- */
+    game.on('purchase', (info) => {
+      CO.cash -= info.price;
+      CO.spent += info.price;
+      CO.rateAt = -1;
+      floater('-' + money(info.price) + ' · ' + info.name, 'spend');
+      render();
+    });
+    game.on('refund', (info) => {
+      CO.cash += info.amount;
+      CO.sold += info.amount;
+      CO.rateAt = -1;
+      floater('+' + money(info.amount) + ' · revenda', 'cash');
+      render();
+    });
+    game.on('world', () => { CO.rateAt = -1; });
 
     /* ---------- events that pay ---------- */
     game.on('job-done', (info) => earn('credits', info.auto ? E.credits.taskAuto : E.credits.taskOrder, 'Tarefa: ' + info.name, { quiet: info.auto }));
@@ -192,7 +249,7 @@
       el.credits.textContent = fmt(W.credits);
       el.coins.textContent = fmt(W.datacoins);
       el.cash.textContent = money(CO.cash);
-      const flow = CO.revenue - CO.payroll - CO.losses;
+      const flow = CO.revenue - CO.payroll - CO.energy - CO.losses;
       el.flow.textContent = CO.losses > 0 ? 'Prejuízo -$' + fmt(CO.losses) + '/min' : (flow >= 0 ? '+' : '') + money(flow) + '/min';
       el.flow.className = 'econ__flow ' + (CO.losses > 0 ? 'is-loss' : flow >= 0 ? 'is-up' : 'is-down');
       el.btn.classList.toggle('is-loss', CO.losses > 0);
@@ -244,18 +301,27 @@
     function walletHtml() {
       const cl = checklist();
       const m = E.milestones[0], n = W.counters[m.counter] || 0, next = (Math.floor(n / m.every) + 1) * m.every;
-      const flow = CO.revenue - CO.payroll - CO.losses;
+      const flow = CO.revenue - CO.payroll - CO.energy - CO.losses;
       let h = '<div class="w-grid">';
       h += '<section class="w-card"><span class="eyebrow-sm">Empresa</span><p class="w-big' + (CO.cash < 0 ? ' is-neg' : '') + '">' + money(CO.cash) + '</p>' +
-        '<ul class="w-rows"><li><span>Receita dos servidores</span><b class="is-up">+' + money(CO.revenue) + '/min</b></li>' +
+        '<ul class="w-rows"><li><span>Receita dos servidores</span><b class="is-up">+' + money(CO.servers) + '/min</b></li>' +
+        (CO.storage ? '<li><span>Storage alugado</span><b class="is-up">+' + money(CO.storage) + '/min</b></li>' : '') +
+        (CO.wifi ? '<li><span>Wi-Fi de visitantes (' + CO.poe.ap + ' AP)</span><b class="is-up">+' + money(CO.wifi) + '/min</b></li>' : '') +
         '<li><span>Folha da equipe</span><b>-' + money(CO.payroll) + '/min</b></li>' +
-        '<li><span>Prejuízo com problemas</span><b class="' + (CO.losses ? 'is-loss' : '') + '">-' + money(CO.losses) + '/min</b></li>' +
+        '<li><span>Energia · ' + (Math.round(CO.kw * 10) / 10).toLocaleString('pt-BR') + ' kW</span><b>-' + money(CO.energy) + '/min</b></li>' +
+        '<li><span>Prejuízo com problemas' + (CO.camCut ? ' (câmeras −' + Math.round(CO.camCut * 100) + '%)' : '') + '</span><b class="' + (CO.losses ? 'is-loss' : '') + '">-' + money(CO.losses) + '/min</b></li>' +
         '<li class="w-total"><span>Resultado</span><b class="' + (flow >= 0 ? 'is-up' : 'is-loss') + '">' + (flow >= 0 ? '+' : '') + money(flow) + '/min</b></li></ul>';
       if (CO.problems.length) {
         h += '<span class="eyebrow-sm w-sub">Custando dinheiro agora</span><ul class="w-rows">' + CO.problems.map((d) =>
           '<li><span>' + esc(d.name) + ' · ' + d.loss.label + '</span><b class="is-loss">-$' + fmt(d.loss.rate) + '/min</b></li>').join('') + '</ul>' +
           '<p class="w-note">Quanto mais tempo aberto, maior o prejuízo (até ' + E.lossMax + '×). Resolver rápido também rende mais créditos.</p>';
-      } else h += '<p class="w-note">Nenhum problema custando dinheiro. Cada servidor no ar rende ' + money(E.revenuePerServer) + '/min.</p>';
+      } else h += '<p class="w-note">Nenhum problema custando dinheiro. Um servidor intermediário no ar rende ' + money(E.revenuePerServer) + '/min; básico, avançado e high-end rendem conforme o desempenho do modelo.</p>';
+      if (CO.slow.length) {
+        h += '<span class="eyebrow-sm w-sub">Gargalos de rede</span><ul class="w-rows">' + CO.slow.slice(0, 4).map((x) =>
+          '<li><span>' + esc(x.d.name) + ' · ' + esc(x.why) + '</span><b class="is-loss">' + x.pct + '%</b></li>').join('') + '</ul>';
+      }
+      if (CO.poe && CO.poe.off) h += '<p class="w-note">' + CO.poe.off + ' access point(s)/câmera(s) sem energia: instale um switch PoE na mesma sala.</p>';
+      if (CO.spent || CO.sold) h += '<p class="w-note">Investido em equipamentos: ' + money(CO.spent) + (CO.sold ? ' · revendido: ' + money(CO.sold) : '') + '</p>';
       h += '</section>';
       h += '<section class="w-card"><span class="eyebrow-sm">Saldos</span>' +
         '<div class="w-bal"><div><span class="cur cur--cr">◆</span><b>' + fmt(W.credits) + '</b><small>Créditos · ganhos jogando</small></div>' +

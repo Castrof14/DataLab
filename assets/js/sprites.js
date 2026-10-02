@@ -160,7 +160,13 @@
     };
 
     // legs (hidden by the desk or chair while seated)
-    if (sit) {
+    if (sit && side) {
+      // in profile: thigh forward on the seat, shin down to the floor
+      R(g, ax - 2, ay - 4, 7, 3, L.pants);
+      R(g, ax - 2, ay - 4, 7, 1, shade(L.pants, 0.12));
+      R(g, ax + 3, ay - 1, 3, 2, pantsD);
+      R(g, ax + 3, ay + 1, 4, 1, L.shoes);
+    } else if (sit) {
       // no legs
     } else if (!side) {
       const lDy = pose === 'B' ? -1 : 0;
@@ -252,10 +258,20 @@
       outfitDetails(g, dir, ty, L, shirt, shirtD, shirtL);
       if (L.vest) R(g, ax - 3, ty + 4, 6, 1, shade(L.vest, 0.35));
       if (L.badge) R(g, ax + 2, ty + 3, 1, 2, L.badge);
-      R(g, ax - 1 + sw, ty + 1, 2, 5, shirt);
-      R(g, ax - 2 + sw, ty + 1, 1, 5, shirtD);
-      R(g, ax - 1 + sw, ty + 1, 2, 1, shirtL);
-      R(g, ax - 1 + sw, ty + 6, 2, 2, L.skin);
+      if (sit) {
+        // seated in profile: elbow bent, forearm reaching for the keyboard (alternating while typing)
+        const dy = pose === 'sitA' ? -1 : 0, rest = pose === 'sitR' || pose === 'sitL';
+        R(g, ax - 1, ty + 1, 2, 4, shirt);
+        R(g, ax - 2, ty + 1, 1, 4, shirtD);
+        R(g, ax - 1, ty + 1, 2, 1, shirtL);
+        R(g, ax - 1, ty + 4 + dy, rest ? 3 : 5, 2, shirt);
+        R(g, ax + (rest ? 2 : 4), ty + 4 + dy, 2, 2, L.skin);
+      } else {
+        R(g, ax - 1 + sw, ty + 1, 2, 5, shirt);
+        R(g, ax - 2 + sw, ty + 1, 1, 5, shirtD);
+        R(g, ax - 1 + sw, ty + 1, 2, 1, shirtL);
+        R(g, ax - 1 + sw, ty + 6, 2, 2, L.skin);
+      }
     }
     if (L.role) roleGear(g, dir, ty, L, sit);
 
@@ -473,7 +489,10 @@
       return outline(c);
     };
     const set = (dir) => ({ A: build(dir, 'sitA'), B: build(dir, 'sitB'), R: build(dir, 'sitR'), L: build(dir, 'sitL'), blink: build(dir, 'sitR', true) });
-    return { down: set('down'), up: set('up') };
+    // profile frames for desks turned sideways (left = the right ones mirrored)
+    const right = set('right'), left = {};
+    for (const k of Object.keys(right)) left[k] = mirror(right[k]);
+    return { down: set('down'), up: set('up'), right, left };
   };
 
   // S = device pixels per world pixel; positions snap to device pixels, not world pixels,
@@ -548,8 +567,50 @@
 
   const CABLES = [C.breeze, C.twilight, '#6b8fc7', C.breeze, '#8b7fd6', C.twilight, '#6b8fc7', C.breeze];
 
+  // Any upright cabinet (rack, storage, network gear) seen from the back (rot 1) or from the side
+  // (rot 2: the front faces east, 3: west). The front edge keeps a strip of LEDs so it reads.
+  function rackTurned(g, e, t) {
+    const px = e.px, py = e.py, rot = e.rot | 0;
+    R(g, px + 1, py + 14, 15, 2, 'rgba(0,0,0,0.35)');
+    R(g, px, py - 24, 16, 6, '#272c35');
+    R(g, px, py - 24, 16, 1, '#343b46');
+    if (e.tag) R(g, rot === 2 ? px + 12 : px + 1, py - 23, 3, 2, e.tag);
+    R(g, px, py - 18, 16, 32, '#181c22');
+    R(g, px, py - 18, 1, 32, '#252b34');
+    R(g, px + 15, py - 18, 1, 32, '#0b0d11');
+    const n = e.units ? e.units.filter(Boolean).length : 9;
+    if (rot === 1) {
+      // rear door: perforated mesh, two PDUs and the cable bundle when something is installed
+      R(g, px + 2, py - 16, 12, 28, '#0f1216');
+      for (let y = py - 15; y < py + 11; y += 2) for (let x = px + 3 + ((y >> 1) & 1); x < px + 13; x += 2) R(g, x, y, 1, 1, '#1b2028');
+      R(g, px + 2, py - 16, 1, 28, '#2a2320');
+      R(g, px + 13, py - 16, 1, 28, '#2a2320');
+      for (let i = 0; i < 6; i++) { R(g, px + 2, py - 14 + i * 4, 1, 1, '#c98a3c'); R(g, px + 13, py - 13 + i * 4, 1, 1, '#c98a3c'); }
+      if (n) {
+        const cab = e.cableLook === 'messy' ? '#c9a13c' : '#4a7fb5';
+        R(g, px + 7, py - 15, 2, Math.min(26, 4 + n * 3), cab);
+        for (let k = 0; k < Math.min(9, n); k++) R(g, px + 5, py - 14 + k * 3, 2, 1, flick(t, e.seed * 5 + k, 4) ? C.ok : C.okDim);
+      }
+      R(g, px + 1, py + 13, 14, 1, '#0b0d11');
+      return;
+    }
+    // closed side panel with vents; the front edge on the side it faces
+    R(g, px + 2, py - 16, 12, 28, '#1d2229');
+    for (let i = 0; i < 6; i++) R(g, px + 4, py - 13 + i * 4, 8, 1, '#141820');
+    const fx = rot === 2 ? px + 14 : px;
+    R(g, fx, py - 18, 2, 32, '#252b34');
+    for (let k = 0; k < 9; k++) {
+      const used = e.units ? !!e.units[k] : e.kind !== 'storage' || k % 2 === 0;
+      if (!used) continue;
+      const bad = (e.unitState && e.unitState[k] === 'fault') || e.state === 'down';
+      R(g, rot === 2 ? fx + 1 : fx, py - 15 + k * 3, 1, 1, bad ? (blink(t, 2, k * 0.3) ? C.warn : C.warnDim) : flick(t, e.seed * 11 + k, 6) ? C.breeze : C.breezeDim);
+    }
+    R(g, px + 1, py + 13, 14, 1, '#0b0d11');
+  }
+
   function drawRack(g, e, t) {
     const px = e.px, py = e.py;
+    if (e.rot) return rackTurned(g, e, t);
     rackBody(g, px, py, e.tag);
     switch (e.kind) {
       case 'rack':
@@ -788,7 +849,63 @@
     if (!S.tools) { R(g, px + 2, py + 1, 3, 3, '#d9d9d6'); R(g, px + 2, py + 1, 3, 1, '#5a3a25'); }
   }
 
+  // turned sideways (rot 2: the worker sits on the east side, rot 3: on the west side): the desk runs
+  // north–south, monitors stand on the far edge and are seen edge-on, the keyboard is on the near edge.
+  function drawDeskSide(g, e, t) {
+    const px = e.px, py = e.py, S = setupOf(e), east = e.rot === 2;
+    const [top, topL, topD] = topCols(e.color, ['#2a2e36', '#383d47', '#1d2027']);
+    R(g, px + 1, py + 30, 14, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 2, py + 22, 2, 8, '#15181d');
+    R(g, px + 12, py + 22, 2, 8, '#15181d');
+    R(g, px + 2, py + 6, 1, 6, '#15181d');
+    R(g, px + 13, py + 6, 1, 6, '#15181d');
+    R(g, px, py - 4, 16, 25, top);
+    R(g, px, py - 4, 16, 1, topL);
+    R(g, east ? px : px + 15, py - 4, 1, 25, topD);
+    R(g, px, py + 21, 16, 2, topD);
+    if (S.tower !== 'rgbTop') {
+      // tower under the south end of the desk
+      const x = px + 5, y = py + 22;
+      R(g, x, y, 7, 8, '#14171c');
+      R(g, x, y, 7, 1, '#262a31');
+      if (S.tower === 'rgbUnder') R(g, x + 1, y + 2, 4, 5, 'hsla(' + ((t * 60 + (e.seed || 0) * 20) % 360) + ',90%,55%,0.55)');
+      else R(g, east ? x + 5 : x + 1, y + 6, 1, 1, e.work ? C.ok : C.okDim);
+    }
+    // monitors, spread along the desk (front-view x becomes depth) and seen from the side
+    const mx = east ? px + 2 : px + 11;
+    if (S.arm) R(g, mx + 1, py - 26, 1, 22, '#16191f');
+    S.mons.forEach(([mx0, my, mw, mh], m) => {
+      const y0 = py - 3 + Math.round(mx0 * 0.68), len = Math.max(4, Math.round(mw * 0.68));
+      const lift = my < -20 ? 11 : 0, h = Math.min(mh, 11);
+      R(g, mx + 1, y0 + len - 3, 2, 3, '#16191f');
+      R(g, mx, y0 - h - lift + len - 2, 3, h + 2, '#0c0e12');
+      R(g, mx, y0 - h - lift + len - 2, 3, 1, '#262a31');
+      const glowX = east ? mx + 3 : mx - 1;
+      const on = e.work && (m === S.main || (S.side && S.side[m]));
+      R(g, glowX, y0 - h - lift + len - 1, 1, h, on ? 'rgba(160,195,236,' + (0.35 + 0.15 * Math.sin(t * 5 + m)).toFixed(3) + ')' : 'rgba(160,195,236,0.12)');
+      if (S.rgb) R(g, mx, y0 + len - 1, 3, 1, 'hsla(' + ((t * 60 + m * 90) % 360) + ',90%,60%,0.7)');
+    });
+    if (S.tower === 'rgbTop') {
+      const x = px + 4, y = py - 13, hue = (t * 60 + (e.seed || 0) * 20) % 360;
+      R(g, x, y, 8, 13, '#101216');
+      R(g, x, y, 8, 1, '#2a2e36');
+      R(g, east ? x + 7 : x, y + 2, 1, 10, 'hsl(' + hue + ',90%,60%)');
+    }
+    // keyboard + mouse on the worker's edge
+    const kx = east ? px + 10 : px + 3;
+    R(g, kx, py + 3, 3, 11, S.rgb ? '#1a1c22' : '#3c424c');
+    R(g, east ? kx + 2 : kx, py + 3, 1, 11, S.rgb ? 'hsla(' + ((t * 80) % 360) + ',90%,60%,0.8)' : '#4a515d');
+    R(g, kx, py + 16, 2, 2, '#4a515d');
+    if (S.laptop != null) { R(g, east ? px + 7 : px + 4, py - 2, 5, 7, '#2b3039'); R(g, east ? px + 7 : px + 4, py - 2, 5, 1, '#3a404b'); }
+    if (S.phone) { R(g, east ? px + 9 : px + 2, py + 17, 5, 4, '#1d2027'); R(g, east ? px + 9 : px + 2, py + 17, 5, 1, '#2c313a'); }
+    else if (S.tools) { R(g, east ? px + 9 : px + 3, py + 17, 4, 4, '#d8b23a'); }
+    else if (S.docs) { R(g, east ? px + 8 : px + 3, py + 16, 5, 4, '#e8e8e4'); }
+    else if (S.tower !== 'rgbTop') { R(g, east ? px + 11 : px + 2, py - 2, 3, 3, '#d9d9d6'); R(g, east ? px + 11 : px + 2, py - 2, 3, 1, '#5a3a25'); }
+    if (S.rgb) R(g, east ? px + 15 : px, py - 4, 1, 25, 'hsla(' + ((t * 60) % 360) + ',90%,60%,0.6)');
+  }
+
   function drawDesk(g, e, t) {
+    if (e.rot === 2 || e.rot === 3) return drawDeskSide(g, e, t);
     if (e.rot === 1) return drawDeskBack(g, e, t);
     const px = e.px, py = e.py, S = setupOf(e);
     drawDeskTop(g, e);
@@ -844,8 +961,84 @@
     }
   }
 
-  function drawChair(g, e) {
+  // Seat colours per model (used by the side view and the newer models).
+  function chairCols(e) {
+    const v = e.variant || '';
+    const c = e.color || { gamer: '#7c3aed', exec: '#5a3b2e', mesh: '#2a2f38', stool: '#3a414c', visit: '#2f3a4d', rgb: '#141026' }[v] || '#262a33';
+    const back = v === 'gamer' ? '#16181d' : v === 'exec' ? shade(c, -0.25) : v === 'mesh' ? '#14171c' : v === 'rgb' ? '#101216' : e.color ? shade(c, -0.3) : '#1d2028';
+    return { v, c, back, l: shade(c, 0.18), d: shade(back, -0.3) };
+  }
+
+  // Chair turned sideways: rot 2 = the sitter faces west, rot 3 = east (backrest on the other side).
+  function drawChairSide(g, e, x, y, t) {
+    const { v, c, back, l } = chairCols(e), west = e.rot === 2;
+    const tall = v === 'gamer' || v === 'exec' || v === 'rgb' ? 14 : v === 'mesh' ? 12 : v === 'stool' ? 0 : 9;
+    R(g, x - 5, y - 1, 10, 1, 'rgba(0,0,0,0.3)');
+    if (v === 'visit') {
+      R(g, x - 4, y - 5, 1, 5, '#121418'); R(g, x + 3, y - 5, 1, 5, '#121418');
+    } else {
+      R(g, x - 1, y - (v === 'stool' ? 7 : 4), 2, v === 'stool' ? 6 : 3, '#121418');
+      R(g, x - 5, y - 2, 10, 1, '#15171c');
+      R(g, x - 5, y - 1, 1, 1, '#2a2f38'); R(g, x + 4, y - 1, 1, 1, '#2a2f38');
+    }
+    const sy = v === 'stool' ? y - 10 : y - 8;
+    R(g, x - 5, sy, 10, 3, c);
+    R(g, x - 5, sy, 10, 1, l);
+    if (tall) {
+      const bx = west ? x + 3 : x - 5;
+      R(g, bx, sy - tall, 2, tall + 2, back);
+      R(g, bx, sy - tall, 2, 1, shade(back, 0.25));
+      if (v === 'gamer') R(g, bx, sy - tall + 2, 2, tall - 3, c);
+      if (v === 'rgb') R(g, bx, sy - tall + 1, 1, tall, 'hsla(' + (((t || 0) * 80) % 360) + ',90%,60%,0.9)');
+      if (v === 'mesh') for (let k = 2; k < tall; k += 2) R(g, bx, sy - tall + k, 2, 1, '#2a2f38');
+      if (v === 'gamer' || v === 'exec' || v === 'rgb') R(g, x - 3, sy - 3, 6, 1, '#121418');
+    }
+  }
+
+  // Newer models seen from the front (rot 0, backrest towards the viewer… the sitter faces north) or
+  // from the back (rot 1, the sitter faces the viewer): mesh office chair, stool, visitor chair, RGB.
+  function drawChairExtra(g, e, x, y, t) {
+    const { v, c, back, l, d } = chairCols(e), faceUs = e.rot === 1;
+    R(g, x - 5, y - 1, 10, 1, 'rgba(0,0,0,0.3)');
+    if (v === 'visit') {
+      R(g, x - 5, y - 5, 1, 5, '#121418'); R(g, x + 4, y - 5, 1, 5, '#121418');
+      R(g, x - 4, y - 4, 1, 4, '#1b1e24'); R(g, x + 3, y - 4, 1, 4, '#1b1e24');
+    } else {
+      R(g, x - 1, y - (v === 'stool' ? 8 : 4), 2, v === 'stool' ? 7 : 3, '#121418');
+      R(g, x - 4, y - 2, 8, 1, '#15171c');
+      if (v === 'stool') R(g, x - 3, y - 5, 6, 1, '#2a2f38');
+    }
+    if (v === 'stool') {
+      R(g, x - 5, y - 11, 10, 4, c);
+      R(g, x - 5, y - 11, 10, 1, l);
+      return;
+    }
+    const tall = v === 'mesh' ? 12 : v === 'rgb' ? 14 : 8;
+    const hue = ((t || 0) * 80) % 360;
+    if (faceUs) {
+      R(g, x - 6, y - 8 - tall - 3, 12, tall + 1, back);
+      R(g, x - 6, y - 8 - tall - 3, 12, 1, shade(back, 0.25));
+      if (v === 'mesh') for (let k = 1; k < tall; k += 2) R(g, x - 5, y - 8 - tall - 3 + k, 10, 1, '#262b33');
+      if (v === 'rgb') { R(g, x - 6, y - 8 - tall - 3, 1, tall, 'hsla(' + hue + ',90%,60%,0.9)'); R(g, x + 5, y - 8 - tall - 3, 1, tall, 'hsla(' + ((hue + 180) % 360) + ',90%,60%,0.9)'); }
+      R(g, x - 5, y - 8, 10, 4, c);
+      R(g, x - 5, y - 8, 10, 1, l);
+      if (v !== 'visit') { R(g, x - 7, y - 10, 2, 4, '#121418'); R(g, x + 5, y - 10, 2, 4, '#121418'); }
+      return;
+    }
+    R(g, x - 5, y - 8, 10, 4, c);
+    R(g, x - 5, y - 8 - tall + 4, 10, tall - 3, back);
+    R(g, x - 5, y - 8 - tall + 4, 10, 1, shade(back, 0.25));
+    if (v === 'mesh') for (let k = 2; k < tall - 3; k += 2) R(g, x - 4, y - 8 - tall + 4 + k, 8, 1, '#2a2f38');
+    if (v === 'visit') R(g, x - 4, y - 8 - tall + 6, 8, 1, d);
+    if (v === 'rgb') { R(g, x - 5, y - 8 - tall + 4, 1, tall - 3, 'hsla(' + hue + ',90%,60%,0.9)'); R(g, x + 4, y - 8 - tall + 4, 1, tall - 3, 'hsla(' + ((hue + 180) % 360) + ',90%,60%,0.9)'); }
+  }
+
+  const CHAIR_EXTRA = { mesh: 1, stool: 1, visit: 1, rgb: 1 };
+
+  function drawChair(g, e, t) {
     const x = e.cx, y = e.cy;
+    if (e.rot === 2 || e.rot === 3) return drawChairSide(g, e, x, y, t);
+    if (CHAIR_EXTRA[e.variant]) return drawChairExtra(g, e, x, y, t);
     if (e.variant === 'gamer' || e.variant === 'exec') return drawChairStyled(g, e, x, y);
     if (e.color) {
       // same shape, coloured upholstery
@@ -906,7 +1099,36 @@
   }
 
   function drawCrac(g, e, t) {
-    const px = e.px, py = e.py;
+    const px = e.px, py = e.py, rot = e.rot | 0;
+    if (rot) {
+      R(g, px + 1, py + 14, 15, 2, 'rgba(0,0,0,0.35)');
+      R(g, px, py - 24, 16, 6, '#4a515c');
+      R(g, px, py - 24, 16, 1, '#5a626e');
+      R(g, px, py - 18, 16, 32, '#363c46');
+      R(g, px, py - 18, 1, 32, '#424955');
+      R(g, px + 15, py - 18, 1, 32, '#262a31');
+      if (rot === 1) {
+        // return-air grille on the back
+        R(g, px + 2, py - 16, 12, 24, '#2a2f38');
+        for (let i = 0; i < 12; i++) R(g, px + 3, py - 15 + i * 2, 10, 1, '#1c2027');
+        R(g, px + 3, py + 10, 3, 2, '#1c2027');
+      } else {
+        for (let i = 0; i < 5; i++) R(g, px + 4, py - 12 + i * 5, 8, 1, '#2c313a');
+        const fx = rot === 2 ? px + 14 : px;
+        R(g, fx, py - 18, 2, 32, '#424955');
+        R(g, rot === 2 ? fx + 1 : fx, py - 15, 1, 2, C.breeze);
+        R(g, rot === 2 ? fx + 1 : fx, py - 11, 1, 1, C.ok);
+      }
+      // the cold air still drifts out of the front
+      const dx = rot === 2 ? 1 : rot === 3 ? -1 : 0;
+      for (let k = 0; k < 3; k++) {
+        const ph = (t * 0.55 + k * 0.33 + e.seed * 0.1) % 1;
+        g.fillStyle = 'rgba(160,195,236,' + (0.35 * Math.sin(ph * Math.PI)).toFixed(3) + ')';
+        if (dx) g.fillRect(Math.round(px + (dx > 0 ? 17 : -2) + dx * ph * 20), py - 6 + k * 4, 3, 1);
+        else g.fillRect(px + 3 + k * 4, Math.round(py - 22 - ph * 10), 1, 2);
+      }
+      return;
+    }
     R(g, px + 1, py + 14, 15, 2, 'rgba(0,0,0,0.35)');
     R(g, px, py - 24, 16, 6, '#4a515c');
     R(g, px, py - 24, 16, 1, '#5a626e');
@@ -929,7 +1151,31 @@
   }
 
   function drawUps(g, e, t) {
-    const px = e.px, py = e.py;
+    const px = e.px, py = e.py, rot = e.rot | 0;
+    if (rot === 2 || rot === 3) {
+      // 1 × 2 footprint: the long top and the short end with a few status lights
+      R(g, px + 1, py + 30, 15, 2, 'rgba(0,0,0,0.35)');
+      R(g, px, py - 20, 16, 22, '#2a2f38');
+      R(g, px, py - 20, 16, 1, '#363c46');
+      R(g, px + 7, py - 19, 2, 20, '#232830');
+      R(g, px, py + 2, 16, 28, '#1a1e25');
+      R(g, px, py + 2, 1, 28, '#262c35');
+      R(g, px + 15, py + 2, 1, 28, '#0c0e12');
+      for (let i = 0; i < 6; i++) R(g, px + 3, py + 6 + i * 4, 10, 1, '#121519');
+      R(g, rot === 2 ? px + 13 : px + 2, py + 4, 1, 1, C.ok);
+      R(g, rot === 2 ? px + 13 : px + 2, py + 6, 1, 1, flick(t, 77, 3) ? C.breeze : C.breezeDim);
+      return;
+    }
+    if (rot === 1) {
+      R(g, px + 1, py + 14, 31, 2, 'rgba(0,0,0,0.35)');
+      R(g, px, py - 20, 32, 6, '#2a2f38');
+      R(g, px, py - 20, 32, 1, '#363c46');
+      R(g, px, py - 14, 32, 28, '#1a1e25');
+      for (let i = 0; i < 8; i++) R(g, px + 3, py - 11 + i * 3, 26, 1, '#121519');
+      for (let i = 0; i < 4; i++) R(g, px + 4 + i * 7, py + 8, 4, 3, '#0c0e12');
+      R(g, px + 5, py + 9, 1, 1, '#c98a3c');
+      return;
+    }
     R(g, px + 1, py + 14, 31, 2, 'rgba(0,0,0,0.35)');
     R(g, px, py - 20, 32, 6, '#2a2f38');
     R(g, px, py - 20, 32, 1, '#363c46');
@@ -976,6 +1222,7 @@
   // Modular rack: e.units holds what is installed in each of its 9 slots (top to bottom).
   function drawUnitRack(g, e, t) {
     const px = e.px, py = e.py;
+    if (e.rot) return rackTurned(g, e, t);
     rackBody(g, px, py, e.tag);
     for (let k = 0; k < 9; k++) {
       const uy = py - 15 + k * 3, u = e.units[k];
@@ -1016,6 +1263,7 @@
         }
       }
     }
+    if (DL.unitAccent) for (let k = 0; k < 9; k++) DL.unitAccent(g, e, k, px + 3, py - 15 + k * 3, t);
     if (e.cableLook === 'tidy') {
       // velcro'd bundle running down the right-hand cable manager
       R(g, px + 13, py - 15, 1, 26, '#4a7fb5');
@@ -1084,21 +1332,65 @@
     pot();
   }
 
-  function drawTable(g, e) {
-    const px = e.px, py = e.py, w = e.tw * T, h = e.th * T;
+  // Tables keep their footprint (tw × th); variants change the material. The reception counter has a
+  // tall front panel on the side it faces (rot 0 south, 1 north, 2 east, 3 west).
+  const TABLE_LOOK = {
+    '': { top: ['#323842', '#434a56', '#22262d'], leg: '#15181d' },
+    wood: { top: ['#6b5038', '#8a6a4a', '#4a3626'], leg: '#3b2c22' },
+    glass: { top: ['rgba(160,195,236,0.28)', 'rgba(220,235,255,0.5)', 'rgba(160,195,236,0.18)'], leg: '#9aa3b0' },
+    bench: { top: ['#4a515c', '#5d6573', '#2f343c'], leg: '#22262d' },
+    lab: { top: ['#d9dde3', '#eef0f3', '#9aa3b0'], leg: '#7d8590' },
+    standing: { top: ['#e9e9e6', '#ffffff', '#b8bec7'], leg: '#2a2f38' },
+    meeting: { top: ['#4a3626', '#6b5038', '#2e2118'], leg: '#1d1610' },
+    small: { top: ['#3b2c22', '#5a4434', '#261c15'], leg: '#1d1610' },
+    reception: { top: ['#e9e9e6', '#ffffff', '#b8bec7'], leg: '#2a2f38' },
+  };
+  function drawTable(g, e, t) {
+    const px = e.px, py = e.py, w = e.tw * T, h = e.th * T, v = e.variant || '', rot = e.rot | 0;
+    const L = TABLE_LOOK[v] || TABLE_LOOK[''];
     const top = h - T + 9;
     R(g, px + 1, py + h - 2, w - 2, 2, 'rgba(0,0,0,0.3)');
-    R(g, px + 2, py + h - 10, 2, 8, '#15181d');
-    R(g, px + w - 4, py + h - 10, 2, 8, '#15181d');
-    const [tc, tl, td] = topCols(e.color, ['#323842', '#434a56', '#22262d']);
+    if (v === 'standing') {
+      // T legs with a column in the middle of each short side
+      R(g, px + 3, py + h - 10, 2, 8, L.leg); R(g, px + w - 5, py + h - 10, 2, 8, L.leg);
+      R(g, px + 1, py + h - 3, 6, 1, L.leg); R(g, px + w - 7, py + h - 3, 6, 1, L.leg);
+    } else if (v !== 'reception') {
+      R(g, px + 2, py + h - 10, 2, 8, L.leg);
+      R(g, px + w - 4, py + h - 10, 2, 8, L.leg);
+      if (v === 'bench' || v === 'lab') { R(g, px + 2, py + h - 6, w - 4, 2, shade(L.leg, 0.15)); R(g, px + 4, py + h - 7, Math.min(10, w - 8), 1, '#5a3a25'); }
+    }
+    const [tc, tl, td] = topCols(e.color, L.top);
     R(g, px, py - 4, w, top, tc);
     R(g, px, py - 4, w, 1, tl);
-    R(g, px, py - 4, 1, top, e.color ? shade(e.color, 0.08) : '#3a414c');
+    if (v !== 'glass') R(g, px, py - 4, 1, top, v ? shade(tc, 0.08) : e.color ? shade(e.color, 0.08) : '#3a414c');
     R(g, px, py - 4 + top, w, 2, td);
+    if (v === 'glass') { R(g, px + 2, py - 3, Math.min(8, w - 4), 1, 'rgba(255,255,255,0.4)'); }
+    else if (v === 'lab' || v === 'bench') { R(g, px + 2, py - 2, w - 4, top - 4, v === 'lab' ? '#3a6ea5' : '#2f6a4a'); R(g, px + 2, py - 2, w - 4, 1, v === 'lab' ? '#5a8ec5' : '#3f8a60'); if (v === 'bench') { R(g, px + w - 6, py - 7, 4, 4, '#5d6573'); R(g, px + w - 5, py - 8, 2, 1, '#8a919c'); } }
+    else if (v === 'meeting') { const cx = px + Math.floor(w / 2), cy = py - 4 + Math.floor(top / 2); R(g, cx - 3, cy - 1, 6, 3, '#1d1610'); R(g, cx - 2, cy, 1, 1, C.ok); R(g, cx + 1, cy, 1, 1, '#3a414c'); }
+    else if (v === 'standing') { R(g, px + w - 6, py - 4 + top - 1, 4, 1, '#2a2f38'); R(g, px + w - 5, py - 4 + top - 1, 1, 1, C.breeze); }
+    else if (v === 'small') { R(g, px + 1, py - 4 + top, w - 2, 1, shade(tc, -0.4)); }
+    if (v === 'reception') {
+      // the tall front panel on the facing side, with an accent stripe
+      const acc = e.accent || '#7ee0a1', pc = '#2a2f38', pl = '#3a414c';
+      if (rot === 0) { R(g, px, py + h - 14, w, 13, pc); R(g, px, py + h - 14, w, 1, pl); R(g, px, py + h - 8, w, 1, acc); R(g, px - 1, py + h - 16, w + 2, 2, tl); }
+      else if (rot === 1) { R(g, px, py - 9, w, 6, pc); R(g, px, py - 9, w, 1, pl); R(g, px - 1, py - 11, w + 2, 2, tl); R(g, px + 2, py + h - 10, w - 4, 6, '#20242c'); R(g, px + 3, py + h - 9, 4, 3, '#14171c'); }
+      else { const fx = rot === 2 ? px + w - 4 : px; R(g, fx, py - 8, 4, h + 6, pc); R(g, fx, py - 8, 4, 1, pl); R(g, rot === 2 ? fx + 3 : fx, py - 6, 1, h + 3, acc); R(g, px, py + h - 3, w, 2, '#121418'); }
+    }
   }
 
   function drawMonitor(g, e, t) {
     const px = e.px, py = e.py;
+    if (e.rot === 2 || e.rot === 3) {
+      // edge-on: the screen faces east (rot 2) or west (rot 3)
+      const east = e.rot === 2, white = e.variant === 'white';
+      R(g, px + 4, py - 2, 8, 2, '#3c424c');
+      R(g, px + 4, py - 2, 8, 1, '#4a515d');
+      R(g, px + 7, py - 6, 2, 4, white ? '#b8bec7' : '#16191f');
+      R(g, px + 6, py - 17, 3, 12, white ? '#d9dde3' : '#0c0e12');
+      R(g, east ? px + 9 : px + 5, py - 16, 1, 10, e.work ? 'rgba(160,195,236,' + (0.4 + 0.15 * Math.sin(t * 5)).toFixed(3) + ')' : 'rgba(160,195,236,0.14)');
+      if (e.variant === 'rgb') { g.fillStyle = e.color || '#ff2bd6'; g.fillRect(east ? px + 5 : px + 9, py - 17, 1, 12); }
+      return;
+    }
     if (e.rot === 1) {
       R(g, px + 6, py - 5, 4, 3, '#16191f');
       R(g, px + 2, py - 14, 12, 10, '#1a1d23');
@@ -1123,41 +1415,129 @@
     R(g, px + 3, py - 2, 10, 1, '#4a515d');
   }
 
-  function drawSofa(g, e) {
-    const px = e.px, py = e.py;
+  // Sofa of any length (armchair = 1 tile). rot 0: seat towards the viewer · 1: seen from the back ·
+  // 2: the seat faces east (backrest on the west edge) · 3: faces west.
+  function drawSofa(g, e, t) {
+    const px = e.px, py = e.py, rot = e.rot | 0;
     const base = e.color || '#2f3a4d', d = shade(base, -0.3), l = shade(base, 0.12);
-    R(g, px + 1, py + 13, 30, 2, 'rgba(0,0,0,0.3)');
-    R(g, px + 1, py - 10, 30, 9, d);
-    R(g, px + 1, py - 10, 30, 1, l);
+    const glow = e.variant === 'gamer' ? 'hsla(' + (((t || 0) * 70) % 360) + ',90%,60%,0.75)' : null;
+    if (rot === 2 || rot === 3) {
+      const H = e.th * T, west = rot === 2, bx = west ? px + 1 : px + 10;
+      R(g, px + 1, py + H - 3, 14, 2, 'rgba(0,0,0,0.3)');
+      R(g, px + 2, py - 4, 12, H - 2, base);
+      R(g, bx, py - 12, 5, H + 2, d);
+      R(g, bx, py - 12, 5, 1, l);
+      R(g, px + 1, py - 6, 14, 4, base);
+      R(g, px + 1, py - 6, 14, 1, l);
+      const cx = west ? px + 6 : px + 2, n = Math.max(1, e.th);
+      for (let k = 0; k < n; k++) { R(g, cx, py - 2 + k * T, 8, T - 4, l); R(g, cx, py - 2 + k * T + T - 5, 8, 1, d); }
+      R(g, px + 1, py + H - 13, 14, 10, base);
+      R(g, px + 1, py + H - 13, 14, 1, l);
+      R(g, px + 2, py + H - 3, 2, 2, '#121418');
+      R(g, px + 12, py + H - 3, 2, 2, '#121418');
+      if (glow) R(g, px + 1, py + H - 3, 14, 1, glow);
+      return;
+    }
+    const W = e.tw * T;
+    R(g, px + 1, py + 13, W - 2, 2, 'rgba(0,0,0,0.3)');
+    if (rot === 1) {
+      // the backrest towards the viewer, arms poking out on the sides
+      R(g, px, py - 6, 4, 12, base);
+      R(g, px + W - 4, py - 6, 4, 12, base);
+      R(g, px, py - 6, 4, 1, l);
+      R(g, px + W - 4, py - 6, 4, 1, l);
+      R(g, px + 1, py - 10, W - 2, 21, d);
+      R(g, px + 1, py - 10, W - 2, 1, l);
+      for (let x = px + 16; x < px + W - 4; x += 16) R(g, x, py - 8, 1, 17, shade(d, -0.2));
+      R(g, px + 2, py + 11, 2, 2, '#121418');
+      R(g, px + W - 4, py + 11, 2, 2, '#121418');
+      if (glow) R(g, px + 1, py + 12, W - 2, 1, glow);
+      return;
+    }
+    R(g, px + 1, py - 10, W - 2, 9, d);
+    R(g, px + 1, py - 10, W - 2, 1, l);
     R(g, px, py - 4, 4, 15, base);
-    R(g, px + 28, py - 4, 4, 15, base);
+    R(g, px + W - 4, py - 4, 4, 15, base);
     R(g, px, py - 4, 4, 1, l);
-    R(g, px + 28, py - 4, 4, 1, l);
-    R(g, px + 4, py - 2, 12, 7, l);
-    R(g, px + 16, py - 2, 12, 7, l);
-    R(g, px + 16, py - 2, 1, 7, d);
-    R(g, px + 4, py + 5, 24, 6, base);
+    R(g, px + W - 4, py - 4, 4, 1, l);
+    const n = Math.max(1, Math.round((W - 8) / 12)), cw = (W - 8) / n;
+    for (let k = 0; k < n; k++) {
+      R(g, px + 4 + Math.round(k * cw), py - 2, Math.round(cw), 7, l);
+      if (k) R(g, px + 4 + Math.round(k * cw), py - 2, 1, 7, d);
+    }
+    R(g, px + 4, py + 5, W - 8, 6, base);
     R(g, px + 2, py + 11, 2, 2, '#121418');
-    R(g, px + 28, py + 11, 2, 2, '#121418');
+    R(g, px + W - 4, py + 11, 2, 2, '#121418');
+    if (glow) R(g, px + 1, py + 12, W - 2, 1, glow);
   }
 
-  function drawShelf(g, e) {
-    const px = e.px, py = e.py;
-    R(g, px + 1, py + 13, 15, 2, 'rgba(0,0,0,0.3)');
-    R(g, px + 1, py - 20, 14, 34, '#2a2f38');
-    R(g, px + 1, py - 20, 14, 1, '#383e49');
-    R(g, px + 3, py - 18, 10, 30, '#14171c');
+  // Bookcase of any width. Variants: books (default), boxes (archive boxes), parts (disks, cables and
+  // spare hardware), glass (display case). rot 1: the back panel · 2 / 3: seen from the side.
+  function shelfItems(g, e, x0, x1, sy, s) {
+    const v = e.variant || '';
     const cols = [C.breeze, C.twilight, C.warnSoft, '#5d6878', '#7d8187', C.breezeDim];
-    for (let s = 0; s < 3; s++) {
-      const sy = py - 18 + s * 10;
-      R(g, px + 3, sy + 9, 10, 1, '#2a2f38');
-      let x = px + 3;
-      for (let k = 0; k < 5 && x < px + 13; k++) {
+    let x = x0;
+    const per = v ? 9 : Math.max(5, Math.round((x1 - x0) / 2)); // classic 1-tile shelf: up to 5 books per board
+    for (let k = 0; k < per && x < x1; k++) {
+      if (v === 'boxes') {
+        const w = Math.min(5, x1 - x);
+        R(g, x, sy + 4, w, 5, k % 2 ? '#b08a5a' : '#c9a06a');
+        R(g, x, sy + 4, w, 1, '#d9b47e');
+        R(g, x + 1, sy + 6, Math.max(1, w - 2), 1, '#e9e9e6');
+        x += w + 1;
+      } else if (v === 'parts') {
+        const kind = (k + s + e.seed) % 3, w = Math.min(kind === 1 ? 4 : 3, x1 - x);
+        if (kind === 0) { R(g, x, sy + 5, w, 4, '#3a414c'); R(g, x, sy + 5, w, 1, '#59606b'); }
+        else if (kind === 1) { R(g, x, sy + 4, w, 5, '#2a5d8a'); R(g, x + 1, sy + 5, Math.max(1, w - 2), 3, '#14171c'); }
+        else { R(g, x, sy + 3, w, 6, '#1c222b'); R(g, x + 1, sy + 4, 1, 1, C.ok); }
+        x += w + 1;
+      } else if (v === 'glass') {
+        const w = Math.min(3, x1 - x);
+        if ((k + s) % 2 === 0) { R(g, x, sy + 5, w, 4, ['#ffd23f', '#c4b5fd', '#7ee0a1', '#ff7aa8'][(k + s) % 4]); R(g, x, sy + 5, 1, 1, '#ffffff'); }
+        x += w + 2;
+      } else {
         const w = 1 + Math.floor(hash(e.seed * 7 + s * 5 + k) * 2), hh = 5 + Math.floor(hash(e.seed + s * 3 + k) * 3);
         R(g, x, sy + 9 - hh, w, hh, cols[(s * 2 + k + e.seed) % cols.length]);
         x += w + 1;
       }
     }
+  }
+
+  function drawShelf(g, e) {
+    const px = e.px, py = e.py, rot = e.rot | 0;
+    const frame = e.color || (e.variant === 'glass' ? '#3a414c' : '#2a2f38'), frameL = frame === '#2a2f38' ? '#383e49' : shade(frame, 0.2), inner = e.variant === 'glass' ? '#1a2230' : '#14171c';
+    if (rot === 2 || rot === 3) {
+      // side panel; the open front shows as a strip of spines on the side it faces
+      const H = e.th * T, east = rot === 2;
+      R(g, px + 3, py + H - 3, 11, 2, 'rgba(0,0,0,0.3)');
+      R(g, px + 4, py - 20, 8, H + 18, frame);
+      R(g, px + 4, py - 20, 8, 1, frameL);
+      R(g, px + 5, py - 19, 6, H + 4, shade(frame, -0.12));
+      const fx = east ? px + 11 : px + 4;
+      for (let sI = 0; sI < 3; sI++) {
+        const sy = py - 18 + sI * 10;
+        for (let k = 0; k < H - 6; k += 3) R(g, fx, sy + 3 + ((k * 7) % 5), 1, 1, sI % 2 ? C.breeze : C.warnSoft);
+        R(g, px + 4, sy + 9, 8, 1, shade(frame, -0.3));
+      }
+      return;
+    }
+    const W = e.tw * T;
+    R(g, px + 1, py + 13, W - 1, 2, 'rgba(0,0,0,0.3)');
+    R(g, px + 1, py - 20, W - 2, 34, frame);
+    R(g, px + 1, py - 20, W - 2, 1, frameL);
+    if (rot === 1) {
+      R(g, px + 3, py - 18, W - 6, 30, shade(frame, -0.15));
+      for (let x = px + 7; x < px + W - 4; x += 5) R(g, x, py - 18, 1, 30, shade(frame, -0.3));
+      return;
+    }
+    R(g, px + 3, py - 18, W - 6, 30, inner);
+    for (let sI = 0; sI < 3; sI++) {
+      const sy = py - 18 + sI * 10;
+      R(g, px + 3, sy + 9, W - 6, 1, frame);
+      shelfItems(g, e, px + 3, px + W - 3, sy, sI);
+    }
+    if (e.variant === 'glass') { R(g, px + 3, py - 18, 1, 30, 'rgba(220,235,255,0.18)'); R(g, px + 4, py - 17, 1, 6, 'rgba(220,235,255,0.25)'); }
+    if (W > 16) for (let x = px + 16; x < px + W - 2; x += 16) R(g, x - 1, py - 18, 2, 30, frame);
   }
 
   function drawWater(g, e, t) {
@@ -1177,7 +1557,30 @@
   }
 
   function drawWhiteboard(g, e) {
-    const px = e.px, py = e.py;
+    const px = e.px, py = e.py, rot = e.rot | 0;
+    if (rot === 2 || rot === 3) {
+      // edge-on, running north–south; the writing side faces east (2) or west (3)
+      R(g, px + 3, py + 28, 10, 2, 'rgba(0,0,0,0.3)');
+      R(g, px + 3, py + 12, 10, 1, '#3a414c');
+      R(g, px + 3, py + 28, 10, 1, '#3a414c');
+      R(g, px + 7, py + 2, 1, 26, '#3a414c');
+      R(g, px + 6, py - 21, 3, 34, '#9aa3b0');
+      R(g, rot === 2 ? px + 9 : px + 5, py - 20, 1, 32, '#e4e7eb');
+      R(g, rot === 2 ? px + 9 : px + 5, py - 16, 1, 3, C.breeze);
+      R(g, rot === 2 ? px + 9 : px + 5, py - 8, 1, 4, C.warn);
+      return;
+    }
+    if (rot === 1) {
+      R(g, px + 2, py + 12, 28, 2, 'rgba(0,0,0,0.3)');
+      R(g, px + 4, py - 4, 1, 17, '#3a414c');
+      R(g, px + 27, py - 4, 1, 17, '#3a414c');
+      R(g, px + 2, py + 12, 5, 1, '#3a414c');
+      R(g, px + 25, py + 12, 5, 1, '#3a414c');
+      R(g, px + 1, py - 21, 30, 18, '#7d8590');
+      R(g, px + 2, py - 20, 28, 16, '#8a929e');
+      R(g, px + 15, py - 20, 2, 16, '#7d8590');
+      return;
+    }
     R(g, px + 2, py + 12, 28, 2, 'rgba(0,0,0,0.3)');
     R(g, px + 4, py - 4, 1, 17, '#3a414c');
     R(g, px + 27, py - 4, 1, 17, '#3a414c');
@@ -1272,15 +1675,15 @@
       case 'rack': if (e.units) { drawUnitRack(g, e, t); break; } // falls through
       case 'switch': case 'router': case 'core': case 'storage': drawRack(g, e, t); break;
       case 'desk': drawDesk(g, e, t); break;
-      case 'chair': drawChair(g, e); break;
+      case 'chair': drawChair(g, e, t); break;
       case 'crac': drawCrac(g, e, t); break;
       case 'ups': drawUps(g, e, t); break;
       case 'plant': drawPlant(g, e); break;
       case 'glass': drawGlass(g, e); break;
       case 'glassH': drawGlassH(g, e); break;
-      case 'table': drawTable(g, e); break;
+      case 'table': drawTable(g, e, t); break;
       case 'monitor': drawMonitor(g, e, t); break;
-      case 'sofa': drawSofa(g, e); break;
+      case 'sofa': drawSofa(g, e, t); break;
       case 'shelf': drawShelf(g, e); break;
       case 'water': drawWater(g, e, t); break;
       case 'whiteboard': drawWhiteboard(g, e); break;
@@ -1299,17 +1702,20 @@
     e.ix = px + e.tw * 8;
     e.iy = py + e.th * T + 7;
     switch (e.kind) {
-      case 'desk': e.bounds = SETUPS[e.setup] && SETUPS[e.setup].tall ? { x: px - 1, y: py - 29, w: 34, h: 44 } : { x: px - 1, y: py - 19, w: 34, h: 34 }; break;
+      case 'desk':
+        if (e.rot === 2 || e.rot === 3) e.bounds = SETUPS[e.setup] && SETUPS[e.setup].tall ? { x: px - 2, y: py - 28, w: 20, h: 60 } : { x: px - 2, y: py - 18, w: 20, h: 50 };
+        else e.bounds = SETUPS[e.setup] && SETUPS[e.setup].tall ? { x: px - 1, y: py - 29, w: 34, h: 44 } : { x: px - 1, y: py - 19, w: 34, h: 34 };
+        break;
       case 'crac': e.bounds = { x: px - 1, y: py - 25, w: 18, h: 41 }; break;
-      case 'ups': e.bounds = { x: px - 1, y: py - 21, w: 34, h: 37 }; break;
+      case 'ups': e.bounds = e.rot === 2 || e.rot === 3 ? { x: px - 1, y: py - 21, w: 18, h: 53 } : { x: px - 1, y: py - 21, w: 34, h: 37 }; break;
       case 'plant': e.bounds = { x: px + 1, y: py - 14, w: 14, h: 30 }; break;
-      case 'chair': e.bounds = { x: e.cx - 7, y: e.cy - (e.rot === 1 ? 20 : 14), w: 14, h: e.rot === 1 ? 21 : 15 }; break;
-      case 'table': e.bounds = { x: px - 1, y: py - 5, w: e.tw * T + 2, h: e.th * T + 5 }; break;
+      case 'chair': e.bounds = e.rot === 2 || e.rot === 3 ? { x: e.cx - 7, y: e.cy - 25, w: 14, h: 26 } : { x: e.cx - 7, y: e.cy - (e.rot === 1 ? 23 : 17), w: 14, h: e.rot === 1 ? 24 : 18 }; break;
+      case 'table': e.bounds = { x: px - 1, y: py - (e.variant === 'reception' ? 12 : 8), w: e.tw * T + 2, h: e.th * T + (e.variant === 'reception' ? 12 : 8) }; break;
       case 'monitor': e.bounds = { x: px + 1, y: py - 17, w: 14, h: 17 }; break;
-      case 'sofa': e.bounds = { x: px - 1, y: py - 11, w: 34, h: 26 }; break;
-      case 'shelf': e.bounds = { x: px, y: py - 21, w: 16, h: 36 }; break;
+      case 'sofa': e.bounds = { x: px - 1, y: py - 13, w: e.tw * T + 2, h: e.th * T + 13 }; break;
+      case 'shelf': e.bounds = { x: px, y: py - 21, w: e.tw * T, h: e.th * T + 20 }; break;
       case 'water': e.bounds = { x: px + 3, y: py - 17, w: 10, h: 31 }; break;
-      case 'whiteboard': e.bounds = { x: px, y: py - 22, w: 32, h: 36 }; break;
+      case 'whiteboard': e.bounds = { x: px, y: py - 22, w: e.tw * T, h: e.th * T + 20 }; break;
       case 'rug': e.bounds = { x: px, y: py, w: e.tw * T, h: e.th * T }; break;
       case 'lamp': e.bounds = { x: px + 2, y: py - 21, w: 12, h: 35 }; break;
       case 'coffee': e.bounds = { x: px + 3, y: py - 15, w: 10, h: 13 }; break;

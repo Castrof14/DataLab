@@ -90,8 +90,8 @@
         done: () => mine().some((d) => sys.ops.switchesNear(d).length),
         how() {
           const has = mine().length;
-          if (!has) return pickItem('server', 'Servidor', 'Clique no rack para instalar o servidor');
-          return pickItem('switch', 'Switch', 'Agora instale um switch no mesmo rack (ou na mesma sala)');
+          if (!has) return pickItem('server', 'Servidor intermediário', 'Clique no rack para instalar o servidor');
+          return pickItem('switch', 'Switch gerenciável 24p', 'Agora instale um switch no mesmo rack (ou na mesma sala)');
         },
       },
       {

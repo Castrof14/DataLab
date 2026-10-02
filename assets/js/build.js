@@ -630,45 +630,52 @@
   /* ------------------------------------------------------------------ */
   /* Catalog                                                             */
   /* ------------------------------------------------------------------ */
+  // price: what placing it costs the company ($); group: the filter chip inside the tab.
   const CATALOG = [
-    { id: 'desk', cat: 'equip', name: 'Computador', w: 2, h: 1, rot: true, desc: 'Estação com dois monitores, PC e cadeira. A equipe trabalha aqui.' },
+    { id: 'desk', cat: 'equip', group: 'Estações', name: 'Computador', w: 2, h: 1, price: 2200, desc: 'Estação com dois monitores, PC e cadeira. A equipe trabalha aqui.' },
     // workstation setups: all are desks (kind 'desk') with their own PC, so the crew uses any of them
-    { id: 'desk1', kind: 'desk', setup: 'mono1', cat: 'equip', name: 'Mesa · 1 monitor', w: 2, h: 1, rot: true, desc: 'Um monitor e o PC embaixo da mesa.' },
-    { id: 'desk3', kind: 'desk', setup: 'mono3', cat: 'equip', name: 'Mesa · 3 monitores', w: 2, h: 1, rot: true, desc: 'Três monitores lado a lado e PC embaixo.' },
-    { id: 'desk4', kind: 'desk', setup: 'mono4', cat: 'equip', name: 'Mesa · 4 monitores', w: 2, h: 1, rot: true, desc: 'Quatro monitores num braço articulado.' },
-    { id: 'deskgamer', kind: 'desk', setup: 'gamer', chair: 'gamer', cat: 'equip', name: 'Setup gamer', w: 2, h: 1, rot: true, desc: 'Monitor ultrawide curvo, teclado RGB e PC com luz.' },
-    { id: 'deskgamerpc', kind: 'desk', setup: 'gamerpc', chair: 'gamer', cat: 'equip', name: 'Setup com PC gamer', w: 2, h: 1, rot: true, desc: 'Dois monitores e um gabinete RGB de vidro sobre a mesa.' },
-    { id: 'desktech', kind: 'desk', setup: 'tech', cat: 'equip', name: 'Estação técnica', w: 2, h: 1, rot: true, desc: 'Monitor, notebook de campo, multímetro e cabos.' },
-    { id: 'desknoc', kind: 'desk', setup: 'noc', cat: 'equip', name: 'Estação de NOC', w: 2, h: 1, rot: true, desc: 'Painel superior com indicadores e três monitores de operação.' },
-    { id: 'desksupport', kind: 'desk', setup: 'support', cat: 'equip', name: 'Estação de atendimento', w: 2, h: 1, rot: true, desc: 'Monitor, telefone e headset: a equipe atende os clientes daqui primeiro.' },
-    { id: 'deskadmin', kind: 'desk', setup: 'admin', chair: 'exec', cat: 'equip', name: 'Estação de administrador', w: 2, h: 1, rot: true, desc: 'Dois monitores, notebook, documentos e cadeira executiva.' },
-    { id: 'rack', cat: 'equip', name: 'Rack', desc: 'Rack 42U vazio. Instale servidores e switches nele.' },
-    { id: 'server', cat: 'equip', name: 'Servidor', mount: 'rack', thumb: 'unit-server', desc: 'Clique em um rack com espaço livre.' },
-    { id: 'switch', cat: 'equip', name: 'Switch', mount: 'rack', thumb: 'unit-switch', desc: 'Clique em um rack com espaço livre.' },
-    { id: 'patch', cat: 'equip', name: 'Patch panel', mount: 'rack', thumb: 'unit-patch', desc: 'Painel de passagem: organiza os cabos entre servidores e switch.' },
-    { id: 'monitor', cat: 'equip', name: 'Monitor', mount: 'surface', rot: true, desc: 'Coloque sobre uma mesa. Com uma cadeira em frente vira estação.' },
-    { id: 'storage', cat: 'equip', name: 'Storage', desc: 'Gaveta de discos para os dados da sala.' },
-    { id: 'crac', cat: 'equip', name: 'Ar de precisão', desc: 'Refrigeração para o corredor frio.' },
-    { id: 'table', cat: 'furn', name: 'Mesa', w: 2, h: 1, rot: true, desc: 'Superfície para monitores, café e vasos.' },
-    { id: 'chair', cat: 'furn', name: 'Cadeira', rot: true, solid: false, desc: 'Em frente a uma mesa com monitor, vira estação.' },
-    { id: 'sofa', cat: 'furn', name: 'Sofá', w: 2, h: 1, desc: 'Canto de descanso da equipe.' },
-    { id: 'shelf', cat: 'furn', name: 'Estante', desc: 'Manuais, pastas e caixas de cabos.' },
-    { id: 'whiteboard', cat: 'furn', name: 'Quadro branco', w: 2, h: 1, desc: 'Para desenhar topologias.' },
-    { id: 'plant', cat: 'deco', name: 'Planta', desc: 'Um pouco de verde na sala.' },
-    { id: 'vase', cat: 'deco', name: 'Vaso', mount: 'surface', desc: 'Vai em cima de uma mesa.' },
-    { id: 'coffee', cat: 'deco', name: 'Cafeteira', mount: 'surface', desc: 'Vai em cima de uma mesa.' },
-    { id: 'water', cat: 'deco', name: 'Bebedouro', desc: 'Água gelada para o turno.' },
-    { id: 'lamp', cat: 'deco', name: 'Luminária', desc: 'Luz quente de piso.' },
-    { id: 'rug', cat: 'deco', name: 'Tapete', w: 2, h: 2, solid: false, desc: 'Fica por baixo dos móveis.' },
-    { id: 'bin', cat: 'deco', name: 'Lixeira', desc: 'Organização também é infraestrutura.' },
+    { id: 'desk1', kind: 'desk', setup: 'mono1', cat: 'equip', group: 'Estações', name: 'Mesa · 1 monitor', w: 2, h: 1, price: 1500, desc: 'Um monitor e o PC embaixo da mesa.' },
+    { id: 'desk3', kind: 'desk', setup: 'mono3', cat: 'equip', group: 'Estações', name: 'Mesa · 3 monitores', w: 2, h: 1, price: 2900, desc: 'Três monitores lado a lado e PC embaixo.' },
+    { id: 'desk4', kind: 'desk', setup: 'mono4', cat: 'equip', group: 'Estações', name: 'Mesa · 4 monitores', w: 2, h: 1, price: 3600, desc: 'Quatro monitores num braço articulado.' },
+    { id: 'deskgamer', kind: 'desk', setup: 'gamer', chair: 'gamer', cat: 'equip', group: 'Estações', name: 'Setup gamer', w: 2, h: 1, price: 4200, desc: 'Monitor ultrawide curvo, teclado RGB e PC com luz.' },
+    { id: 'deskgamerpc', kind: 'desk', setup: 'gamerpc', chair: 'gamer', cat: 'equip', group: 'Estações', name: 'Setup com PC gamer', w: 2, h: 1, price: 5200, desc: 'Dois monitores e um gabinete RGB de vidro sobre a mesa.' },
+    { id: 'desktech', kind: 'desk', setup: 'tech', cat: 'equip', group: 'Estações', name: 'Estação técnica', w: 2, h: 1, price: 2600, desc: 'Monitor, notebook de campo, multímetro e cabos.' },
+    { id: 'desknoc', kind: 'desk', setup: 'noc', cat: 'equip', group: 'Estações', name: 'Estação de NOC', w: 2, h: 1, price: 4800, desc: 'Painel superior com indicadores e três monitores de operação.' },
+    { id: 'desksupport', kind: 'desk', setup: 'support', cat: 'equip', group: 'Estações', name: 'Estação de atendimento', w: 2, h: 1, price: 1800, desc: 'Monitor, telefone e headset: a equipe atende os clientes daqui primeiro.' },
+    { id: 'deskadmin', kind: 'desk', setup: 'admin', chair: 'exec', cat: 'equip', group: 'Estações', name: 'Estação de administrador', w: 2, h: 1, price: 3200, desc: 'Dois monitores, notebook, documentos e cadeira executiva.' },
+    { id: 'rack', cat: 'equip', group: 'Racks', name: 'Rack', price: 1800, desc: 'Rack 42U vazio. Instale servidores e switches nele.' },
+    { id: 'server', cat: 'equip', group: 'Servidores', name: 'Servidor intermediário', mount: 'rack', thumb: 'unit-server', price: 6000, desc: 'O servidor padrão: 12 núcleos, 64 GB, SSD e 1 Gb/s. Clique em um rack com espaço livre.' },
+    { id: 'switch', cat: 'equip', group: 'Rede', name: 'Switch gerenciável 24p', mount: 'rack', thumb: 'unit-switch', price: 1500, desc: '24 portas de 1 Gb/s com console e uplink de 10 Gb/s. Clique em um rack com espaço livre.' },
+    { id: 'patch', cat: 'equip', group: 'Rede', name: 'Patch panel', mount: 'rack', thumb: 'unit-patch', price: 300, desc: 'Painel de passagem: organiza os cabos entre servidores e switch.' },
+    { id: 'monitor', cat: 'equip', group: 'Estações', name: 'Monitor', mount: 'surface', price: 350, desc: 'Coloque sobre uma mesa. Com uma cadeira em frente vira estação.' },
+    { id: 'storage', cat: 'equip', group: 'Storage', name: 'Storage SAN', price: 26000, desc: '96 TB úteis em iSCSI 2× 25 Gb/s. Gaveta de discos para os dados da sala.' },
+    { id: 'crac', cat: 'equip', group: 'Racks', name: 'Ar de precisão', price: 9000, desc: 'Refrigeração para o corredor frio.' },
+    { id: 'table', cat: 'furn', group: 'Mesas', name: 'Mesa', w: 2, h: 1, price: 400, desc: 'Superfície para monitores, café e vasos.' },
+    { id: 'chair', cat: 'furn', group: 'Cadeiras', name: 'Cadeira', solid: false, price: 250, desc: 'Em frente a uma mesa com monitor, vira estação.' },
+    { id: 'sofa', cat: 'furn', group: 'Sofás', name: 'Sofá', w: 2, h: 1, price: 1200, desc: 'Canto de descanso da equipe.' },
+    { id: 'shelf', cat: 'furn', group: 'Estantes', name: 'Estante', price: 450, desc: 'Manuais, pastas e caixas de cabos.' },
+    { id: 'whiteboard', cat: 'furn', group: 'Escritório', name: 'Quadro branco', w: 2, h: 1, price: 300, desc: 'Para desenhar topologias.' },
+    { id: 'plant', cat: 'deco', group: 'Plantas', name: 'Planta', price: 80, desc: 'Um pouco de verde na sala.' },
+    { id: 'vase', cat: 'deco', group: 'Plantas', name: 'Vaso', mount: 'surface', price: 40, desc: 'Vai em cima de uma mesa.' },
+    { id: 'coffee', cat: 'deco', group: 'Escritório', name: 'Cafeteira', mount: 'surface', price: 150, desc: 'Vai em cima de uma mesa.' },
+    { id: 'water', cat: 'deco', group: 'Escritório', name: 'Bebedouro', price: 220, desc: 'Água gelada para o turno.' },
+    { id: 'lamp', cat: 'deco', group: 'Luminárias', name: 'Luminária', price: 120, desc: 'Luz quente de piso.' },
+    { id: 'rug', cat: 'deco', group: 'Tapetes', name: 'Tapete', w: 2, h: 2, solid: false, price: 200, desc: 'Fica por baixo dos móveis.' },
+    { id: 'bin', cat: 'deco', group: 'Escritório', name: 'Lixeira', price: 30, desc: 'Organização também é infraestrutura.' },
     // doors live in the Espaços tab (they go on a wall, not on the floor)
-    { id: 'door', cat: 'wall', name: 'Porta', mount: 'wallslot', len: 1, rot: true, desc: 'Vai sobre uma parede interna e abre passagem.' },
-    { id: 'door2', cat: 'wall', name: 'Porta dupla', mount: 'wallslot', len: 2, rot: true, desc: 'Porta de duas folhas, ocupa 2 tiles de parede.' },
+    { id: 'door', cat: 'wall', name: 'Porta', mount: 'wallslot', len: 1, price: 600, desc: 'Vai sobre uma parede interna e abre passagem.' },
+    { id: 'door2', cat: 'wall', name: 'Porta dupla', mount: 'wallslot', len: 2, price: 900, desc: 'Porta de duas folhas, ocupa 2 tiles de parede.' },
   ];
-  for (const d of DL.DECOR_CATALOG || []) CATALOG.push(d);
+  // more models and furniture (hardware.js, furniture.js), then the themed objects (decor.js)
+  for (const d of (DL.HW_CATALOG || []).concat(DL.FURN_CATALOG || [], DL.DECO_CATALOG || [])) CATALOG.push(d);
+  const THEME_PRICE = { rug_robot: 300, rug_claude: 300, rug_gpt: 300, rug_rgb: 450, poster: 60, neon: 250, clock: 70, arcade: 2500, beanbag: 180, ledtube: 160, pcgamer: 3800, hologram: 1900, toolcart: 650, bonsai: 90, banner: 220 };
+  for (const d of DL.DECOR_CATALOG || []) CATALOG.push(Object.assign({ price: THEME_PRICE[d.id] || 100 }, d));
+  // everything turns (rack units live inside a rack, so they don't)
+  for (const d of CATALOG) if (d.rot == null) d.rot = d.mount !== 'rack';
   const DEF = {};
   for (const d of CATALOG) DEF[d.id] = d;
   DL.CATALOG = CATALOG;
+  DL.CATALOG_DEF = DEF;
 
   const NAMES = {
     rack: 'Rack', switch: 'Switch', router: 'Roteador', core: 'Switch core', storage: 'Storage', crac: 'Ar de precisão', ups: 'Nobreak',
@@ -676,10 +683,16 @@
     water: 'Bebedouro', whiteboard: 'Quadro branco', rug: 'Tapete', lamp: 'Luminária', coffee: 'Cafeteira', vase: 'Vaso', bin: 'Lixeira',
     door: 'Porta', wallseg: 'Parede',
   };
-  Object.assign(NAMES, DL.DECOR_NAMES || {});
+  Object.assign(NAMES, DL.DECOR_NAMES || {}, DL.HW_NAMES || {});
   const SETUP_NAMES = { mono1: 'Mesa · 1 monitor', mono3: 'Mesa · 3 monitores', mono4: 'Mesa · 4 monitores', gamer: 'Setup gamer', gamerpc: 'Setup com PC gamer', tech: 'Estação técnica', noc: 'Estação de NOC', admin: 'Estação de administrador', support: 'Estação de atendimento' };
   DL.SETUP_NAMES = SETUP_NAMES;
-  DL.itemName = (e) => (e.kind === 'door' && e.len > 1 ? 'Porta dupla' : e.kind === 'desk' && SETUP_NAMES[e.setup] ? SETUP_NAMES[e.setup] : NAMES[e.kind] || e.kind);
+  DL.itemName = (e) => {
+    if (e.kind === 'door' && e.len > 1) return 'Porta dupla';
+    if (e.kind === 'desk' && SETUP_NAMES[e.setup]) return SETUP_NAMES[e.setup];
+    if (e.kind === 'storage' && e.model && DL.hwModel) return DL.hwModel('storage', e.model).name;
+    const d = e.defId && DEF[e.defId];
+    return d && d.kind ? d.name : NAMES[e.kind] || (d && d.name) || e.kind;
+  };
   // the inspector can swap a desk's setup in place (same footprint, same station)
   if (DL.ITEM_STYLES && DL.ITEM_STYLES.desk && !DL.ITEM_STYLES.desk.some((o) => o.key === 'setup')) {
     DL.ITEM_STYLES.desk.unshift({ key: 'setup', label: 'Setup', options: [['', '2 mon.'], ['mono1', '1 mon.'], ['mono3', '3 mon.'], ['mono4', '4 mon.'], ['gamer', 'Gamer'], ['gamerpc', 'PC gamer'], ['tech', 'Técnica'], ['noc', 'NOC'], ['admin', 'Admin'], ['support', 'Atendimento']] });
@@ -705,8 +718,15 @@
     e.units.forEach((u, k) => {
       if (u) e.servers.push({ u: 'U' + String(40 - k * 4).padStart(2, '0'), host: (u === 'switch' ? 'sw-' : u === 'patch' ? 'pp-' : 'srv-') + e.id.slice(-2).toLowerCase() + '-' + (k + 1) });
     });
-    e.tel.power = 0.3 + n * 0.42;
-    e.tel.temp = 24 + n * 0.6;
+    // the rack's draw is what is installed in it (hardware.js models); heat follows the load
+    let kw = 0.3;
+    e.units.forEach((u, k) => {
+      if (!u) return;
+      const m = DL.hwModel ? DL.hwModel(u, e.unitModel && e.unitModel[k]) : null;
+      kw += m && m.power != null ? m.power : 0.42;
+    });
+    e.tel.power = Math.round(kw * 100) / 100;
+    e.tel.temp = Math.round((24 + (kw - 0.3) * 1.6 + n * 0.25) * 10) / 10;
   }
   DL.syncRack = syncRack;
 
@@ -736,15 +756,17 @@
 
     function newItem(def, tx, ty, rot, preview) {
       const k = def.kind || def.id;
-      const e = { kind: k, tx, ty, tw: def.w || 1, th: def.h || 1, rot: def.rot ? rot || 0 : 0, solid: def.solid !== false, seed: preview ? 77 : seedN++ * 7 + 3, state: 'ok', built: true };
-      if (k === 'table' && e.rot === 1) { e.tw = 1; e.th = 2; }
+      const e = { kind: k, defId: def.id, tx, ty, tw: def.w || 1, th: def.h || 1, rot: def.rot ? rot || 0 : 0, solid: def.solid !== false, seed: preview ? 77 : seedN++ * 7 + 3, state: 'ok', built: true };
+      if (def.set) Object.assign(e, JSON.parse(JSON.stringify(def.set)));
       if (def.mount === 'surface') e.solid = false;
       if (def.mount === 'wall') { e.wall = true; e.solid = false; }
       if (def.rug) e.rug = true;
+      // turned to the east / west, a non-square floor footprint runs the other way
+      if (DL.rotSide(e.rot) && !e.wall) { const w = e.tw; e.tw = e.th; e.th = w; }
       if (k === 'desk') e.chair = { kind: 'chair', tw: 2, th: 1, rot: e.rot, solid: false, parent: e, seed: e.seed + 1, built: true };
       if (k === 'desk' && def.setup) e.setup = def.setup;
       if (k === 'desk' && def.chair) e.chair.variant = def.chair;
-      if (k === 'rack') e.units = new Array(9).fill(null);
+      if (k === 'rack') { e.units = new Array(9).fill(null); e.unitModel = new Array(9).fill(null); }
       if (!preview) {
         if (k === 'rack') {
           e.id = nextId('RACK-N');
@@ -757,8 +779,9 @@
           initTel(e, 44, 120, 'W', 0.8);
         } else if (k === 'storage') {
           e.id = nextId('ST-', 5);
-          Object.assign(e, { name: 'Storage ' + e.id, category: 'Storage' });
-          initTel(e, 29, 2.3, 'kW', 0.2);
+          const m = DL.hwModel('storage', e.model);
+          Object.assign(e, { name: m.name + ' ' + e.id, category: 'Storage' });
+          initTel(e, m.power < 0.2 ? 34 : 29, m.power, 'kW', 0.2);
         } else if (k === 'crac') {
           e.id = nextId('CRAC-', 4);
           Object.assign(e, { name: 'Ar-condicionado de precisão', category: 'Refrigeração' });
@@ -774,7 +797,7 @@
       e.sortY = e.py + e.th * T;
       if (e.kind === 'chair') {
         e.cx = e.px + e.tw * 8;
-        e.cy = e.py + 11;
+        e.cy = e.py + (e.th - 1) * 8 + 11;
         e.sortY = e.cy;
       }
       if (isRug(e)) e.sortY = -100000 + e.py;
@@ -782,10 +805,13 @@
       if (e.host) e.sortY = e.host.sortY + (e.kind === 'monitor' && e.rot === 1 ? 0.6 : 0.01);
       DL.itemGeom(e);
       if (e.chair) {
-        const c = e.chair;
-        c.tx = e.tx;
-        c.ty = e.rot === 1 ? e.ty - 1 : e.ty + 1;
-        c.rot = e.rot;
+        // the chair sits on the desk's front side: south (0), north (1), east (2) or west (3)
+        const c = e.chair, r = e.rot | 0, side = DL.rotSide(r);
+        c.rot = r;
+        c.tw = side ? 1 : 2;
+        c.th = side ? 2 : 1;
+        c.tx = r === 2 ? e.tx + e.tw : r === 3 ? e.tx - 1 : e.tx;
+        c.ty = r === 1 ? e.ty - 1 : r === 0 ? e.ty + e.th : e.ty;
         pos(c);
       }
       for (const s of surfaceOf(e)) {
@@ -809,17 +835,17 @@
       return game.lockReason ? game.lockReason(e) : null;
     }
 
-    function actorCells() {
+    function actorCells(skip) {
       const set = new Set();
       for (const a of game.actors()) {
-        if (a.hidden) continue;
+        if (a.hidden || (skip && skip(a))) continue;
         for (const [ox, oy] of [[-5, -4], [5, -4], [-5, -1], [5, -1]]) set.add(Math.floor((a.x + ox) / T) + ',' + Math.floor((a.y + oy) / T));
       }
       return set;
     }
 
     // Returns null when the group can sit where it is, or a short reason why not.
-    function check(group, exclude) {
+    function check(group, exclude, skipActor) {
       if (group.length === 1 && group[0].kind === 'door') return doorCheck(group[0]);
       const occ = new Map(), rug = new Map(), wall = new Map();
       for (const e of world.items) {
@@ -827,7 +853,7 @@
         const m = isRug(e) ? rug : e.wall ? wall : occ;
         for (const [x, y] of cells(e)) m.set(x + ',' + y, e);
       }
-      const people = actorCells();
+      const people = actorCells(skipActor);
       const tileAt = (x, y) => (x < 0 || y < 0 || x >= world.W || y >= world.H ? '#' : world.tiles[y * world.W + x]);
       for (const e of group) {
         const layer = isRug(e) ? rug : e.wall ? wall : occ;
@@ -914,13 +940,33 @@
       return { e, group, tx: e.tx, ty: e.ty, reason: check(group, new Set()) };
     }
 
+    /* ---------- money: placing buys, removing sells back at half price ---------- */
+    const RESALE = 0.5;
+    const company = () => (game.economy && game.economy.company) || null;
+    // the player's own placements are paid; presets and theme decoration (api.place) come free
+    function pay(def) {
+      const price = def.price || 0;
+      if (!price || B.free) return 0;
+      const co = company();
+      if (co && co.cash < price) { nope('Saldo insuficiente · custa ' + DL.money(price)); return -1; }
+      game.emit('purchase', { price, name: def.name, def });
+      return price;
+    }
+    function refund(amount, name) {
+      if (amount > 0 && !B.free) game.emit('refund', { amount: Math.round(amount * RESALE), name });
+    }
+    const unitValue = (r, k) => (r.unitCost && r.unitCost[k]) || 0;
+
     function place() {
       const gh = B.ghost;
       if (!gh) return;
       if (gh.reason) { nope(gh.reason); return; }
       const def = B.def;
+      const cost = pay(def);
+      if (cost < 0) return;
       if (def.mount === 'wallslot') {
         const d = makeDoor(gh.e.tx, gh.e.ty, gh.e.axis, gh.e.len, B.rot);
+        d.cost = cost;
         world.items.push(d);
         commit({ added: [d] });
         game.sfx('place');
@@ -928,13 +974,18 @@
       }
       if (def.mount === 'rack') {
         const r = gh.mount, k = r.units.indexOf(null);
-        r.units[k] = def.id;
+        r.units[k] = def.unit || def.id;
+        r.unitModel = r.unitModel || new Array(9).fill(null);
+        r.unitModel[k] = def.unit ? def.id : null;
+        r.unitCost = r.unitCost || new Array(9).fill(0);
+        r.unitCost[k] = cost;
         syncRack(r);
         commit({ installed: r });
         game.sfx('place');
         return;
       }
       const e = newItem(def, gh.tx, gh.ty, B.rot);
+      e.cost = cost;
       if (def.mount === 'surface') { e.host = gh.table; e.dx = gh.tx - gh.table.tx; e.dy = gh.ty - gh.table.ty; }
       else { e.tx = gh.e.tx; e.ty = gh.e.ty; }
       pos(e);
@@ -950,18 +1001,28 @@
       const why = lockReason(e);
       if (why) { nope(why); return; }
       const group = groupOf(e);
+      let back = 0;
+      for (const x of group) {
+        back += x.cost || 0;
+        if (x.units) x.units.forEach((u, k) => { if (u) back += unitValue(x, k); });
+      }
       world.items = world.items.filter((x) => group.indexOf(x) < 0);
       if (B.sel === e) select(null);
       commit({ removed: group });
+      refund(back, DL.itemName(e));
       game.sfx('remove');
     }
 
     function removeUnit(r) {
       const k = r.units.map(Boolean).lastIndexOf(true);
       if (k < 0) return;
+      const back = unitValue(r, k), name = DL.hwModel ? DL.hwModel(r.units[k], r.unitModel && r.unitModel[k]).name : r.units[k];
       r.units[k] = null;
+      if (r.unitModel) r.unitModel[k] = null;
+      if (r.unitCost) r.unitCost[k] = 0;
       syncRack(r);
       commit({ installed: r });
+      refund(back, name);
     }
 
     function startMove(e, drag) {
@@ -1036,18 +1097,30 @@
       commit({ added: m.group, moved: true });
     }
 
-    function reshape(e) {
-      if (e.kind === 'table') {
-        e.tw = e.rot === 1 ? 1 : 2;
-        e.th = e.rot === 1 ? 2 : 1;
+    // Everything on the floor or on a wall turns (doors have their own four states); rack units turn
+    // with their rack, the room's own pieces (walls, glass) don't.
+    function canTurn(e) {
+      if (!e || SKIP[e.kind] || e.kind === 'wallseg') return false;
+      const def = (e.defId && DEF[e.defId]) || DEF[e.kind];
+      return !(def && def.rot === false);
+    }
+
+    // Next orientation, clockwise seen from above (S → W → N → E). East / west swap the footprint of
+    // non-square floor objects; whatever stands on a table keeps its place on the turned top.
+    function turn(e) {
+      const was = e.rot | 0, next = DL.ROT_NEXT[was];
+      e.rot = next;
+      if (!e.wall && DL.rotSide(was) !== DL.rotSide(next)) {
+        const w = e.tw;
+        e.tw = e.th;
+        e.th = w;
         for (const s of surfaceOf(e)) { const d = s.dx; s.dx = s.dy; s.dy = d; }
       }
     }
 
     function rotate(e) {
       e = e.parent || e;
-      const def = DEF[e.kind];
-      if (!def || !def.rot) { nope('Este objeto não gira'); return; }
+      if (!canTurn(e)) { nope('Este elemento faz parte da sala'); return; }
       const why = lockReason(e);
       if (why) { nope(why); return; }
       if (e.kind === 'door') {
@@ -1059,20 +1132,23 @@
         return;
       }
       const before = { rot: e.rot, tw: e.tw, th: e.th, s: surfaceOf(e).map((s) => [s, s.dx, s.dy]) };
-      e.rot = (e.rot + 1) % 2;
-      reshape(e);
+      turn(e);
       pos(e);
       const group = groupOf(e);
-      const why2 = e.host ? null : check(group.filter((x) => !x.host), new Set(group));
+      // whoever is seated at this very station doesn't block it: they get up once it turns
+      const seatedHere = (a) => !!(a.crew && a.crew.station && group.indexOf(a.crew.station.key) >= 0);
+      const why2 = e.host ? null : check(group.filter((x) => !x.host), new Set(group), seatedHere);
       if (why2) {
         Object.assign(e, { rot: before.rot, tw: before.tw, th: before.th });
         for (const [s, dx, dy] of before.s) { s.dx = dx; s.dy = dy; }
         pos(e);
-        nope('Sem espaço para girar');
+        nope('Sem espaço para girar · ' + why2.toLowerCase());
         return;
       }
       commit({ rotated: e, moved: true, added: group, removed: group });
       game.sfx('place');
+      B.tipUntil = performance.now() + 900;
+      B.tipText = 'Girado · ' + DL.ROT_LABEL[e.rot | 0];
     }
 
     function nope(msg) {
@@ -1522,7 +1598,7 @@
       g.imageSmoothingEnabled = false;
       g.setTransform(k, 0, 0, k, 0, 0);
       let e;
-      if (def.thumb) e = { kind: def.thumb, px: 8, py: 16, tw: 1, th: 1, seed: 3 };
+      if (def.thumb) e = { kind: def.thumb, px: 8, py: 16, tw: 1, th: 1, seed: 3, model: def.unit ? def.id : null };
       else {
         e = newItem(def, 0, 0, 0, true);
         const w = e.tw * T, h = e.th * T;
@@ -1538,19 +1614,48 @@
       return c;
     }
 
+    // group chips above the items (a bigger catalog stays easy to browse)
+    el.groups = document.createElement('div');
+    el.groups.className = 'cat-groups';
+    el.items.parentNode.insertBefore(el.groups, el.items);
+    el.groups.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-group]');
+      if (!b) return;
+      B.group = b.dataset.group || null;
+      renderCatalog();
+      b.blur();
+    });
+    const thumbs = new Map();
     function renderCatalog() {
+      const defs = CATALOG.filter((d) => d.cat === B.tab);
+      const groups = [];
+      for (const d of defs) if (d.group && groups.indexOf(d.group) < 0) groups.push(d.group);
+      if (B.group && groups.indexOf(B.group) < 0) B.group = null;
+      el.groups.hidden = groups.length < 2;
+      el.groups.innerHTML = groups.length < 2 ? '' : ['<button type="button" class="chip chip--xs' + (!B.group ? ' is-on' : '') + '" data-group="">Todos <span class="mono">' + defs.length + '</span></button>']
+        .concat(groups.map((gname) => '<button type="button" class="chip chip--xs' + (B.group === gname ? ' is-on' : '') + '" data-group="' + gname + '">' + gname + '</button>')).join('');
       el.items.innerHTML = '';
-      for (const def of CATALOG) {
-        if (def.cat !== B.tab) continue;
+      for (const def of defs) {
+        if (B.group && def.group !== B.group) continue;
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'cat-item' + (B.def === def ? ' is-on' : '');
         b.dataset.def = def.id;
-        b.title = def.desc;
-        b.appendChild(thumb(def));
+        b.title = def.desc + (def.price ? ' · ' + DL.money(def.price) : '');
+        if (!thumbs.has(def.id)) thumbs.set(def.id, thumb(def));
+        const c = thumbs.get(def.id), cv = document.createElement('canvas');
+        cv.width = c.width; cv.height = c.height;
+        cv.getContext('2d').drawImage(c, 0, 0);
+        b.appendChild(cv);
         const s = document.createElement('span');
         s.textContent = def.name;
         b.appendChild(s);
+        if (def.price) {
+          const p = document.createElement('em');
+          p.className = 'cat-item__price';
+          p.textContent = DL.money(def.price);
+          b.appendChild(p);
+        }
         el.items.appendChild(b);
       }
     }
@@ -1620,13 +1725,12 @@
       const e = B.sel;
       if (!e || !B.active) { el.insp.classList.remove('is-on'); return; }
       const why = lockReason(e);
-      const def = DEF[e.kind];
       let h = '<div class="insp__head"><span class="eyebrow-sm">' + DL.itemName(e) + '</span>' + (e.id ? '<b>' + e.id + '</b>' : '') + '</div>';
       if (why) h += '<p class="insp__note">' + why + '</p>';
       else {
         h += '<div class="insp__actions">';
         h += '<button type="button" class="btn btn--sm" data-ins="move">Mover <kbd>M</kbd></button>';
-        if (def && def.rot) h += '<button type="button" class="btn btn--sm" data-ins="rotate">Girar <kbd>R</kbd></button>';
+        if (canTurn(e)) h += '<button type="button" class="btn btn--sm" data-ins="rotate" title="' + (e.kind === 'door' ? 'Troca o lado da dobradiça e da abertura' : DL.ROT_LABEL[e.rot | 0]) + '">Girar <kbd>R</kbd></button>';
         h += '<button type="button" class="btn btn--sm" data-ins="remove">Remover <kbd>Del</kbd></button></div>';
         if (e.kind === 'door') {
           h += '<p class="insp__note">' + (e.axis === 'h' ? 'Parede horizontal' : 'Parede vertical') + ' · abre sozinha quando alguém chega · <button type="button" class="linkbtn" data-ins="hold">' + (e.hold ? 'deixar fechar' : 'manter aberta') + '</button></p>';
@@ -1645,16 +1749,31 @@
         }
         if (e.units) {
           const n = e.units.filter(Boolean).length;
-          h += '<p class="insp__note">' + n + ' / 9 unidades' + (n ? ' · <button type="button" class="linkbtn" data-ins="unit">tirar a última</button>' : ' · use Servidor ou Switch do catálogo') + '</p>';
+          h += '<p class="insp__note">' + n + ' / 9 unidades · ' + DL.hwFmt.kw(e.tel ? e.tel.power : 0) + (n ? ' · <button type="button" class="linkbtn" data-ins="unit">tirar a última</button>' : ' · use Servidor ou Switch do catálogo') + '</p>';
+          if (n) {
+            h += '<ul class="insp__units">';
+            e.units.forEach((u, k) => {
+              if (!u) return;
+              const m = DL.hwModel(u, e.unitModel && e.unitModel[k]);
+              h += '<li><span class="mono">U' + String(40 - k * 4).padStart(2, '0') + '</span>' + m.name + '<em>' + (u === 'server' ? m.cores + ' núcl. · ' + DL.hwFmt.ram(m.ram) + ' · ' + DL.hwFmt.gb(m.nic) : u === 'switch' ? m.ports + 'p · ' + DL.hwFmt.gb(m.port) + (m.poe ? ' · PoE' : '') : m.ports + ' passagens') + '</em></li>';
+            });
+            h += '</ul>';
+          }
         }
+        const spec = e.kind === 'storage' ? DL.hwSpecs('storage', DL.hwModel('storage', e.model)) : e.kind === 'ap' || e.kind === 'camera' ? DL.hwSpecs(e.kind, DL.HW.poe[e.kind]) : null;
+        if (spec && spec.length) {
+          h += '<dl class="insp__spec">' + spec.map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl>';
+          if (e.kind === 'ap' || e.kind === 'camera') h += '<p class="insp__note">' + (e.powered === false ? 'Sem energia: falta um switch PoE com potência livre' : 'Alimentado por PoE') + '</p>';
+        }
+        if (e.cost) h += '<p class="insp__note">Comprado por ' + DL.money(e.cost) + ' · revenda ' + DL.money(Math.round(e.cost * 0.5)) + '</p>';
       }
       el.insp.innerHTML = h;
       el.insp.classList.add('is-on');
     }
 
     const HINTS = {
-      select: 'Clique para selecionar · arraste para mover · <kbd>R</kbd> gira · <kbd>Del</kbd> remove · <kbd>WASD</kbd> câmera · roda do mouse: zoom',
-      place: 'Clique para posicionar · <kbd>R</kbd> gira · botão direito ou <kbd>Esc</kbd> cancela',
+      select: 'Clique para selecionar · arraste para mover · <kbd>R</kbd> gira 90° (4 direções) · <kbd>Del</kbd> remove · <kbd>WASD</kbd> câmera · roda do mouse: zoom',
+      place: 'Clique para posicionar · <kbd>R</kbd> gira 90° · botão direito ou <kbd>Esc</kbd> cancela',
       mount: 'Clique no objeto de destino · botão direito ou <kbd>Esc</kbd> cancela',
       remove: 'Clique em um objeto para removê-lo · <kbd>Esc</kbd> volta para seleção',
       move: 'Clique para soltar · <kbd>R</kbd> gira · <kbd>Esc</kbd> cancela',
@@ -1675,11 +1794,12 @@
       });
       el.dock.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('is-on', B.tool === b.dataset.tool && !B.def));
       el.items.hidden = B.tab === 'room' || B.tab === 'style';
+      if (el.groups) el.groups.hidden = el.items.hidden || !el.groups.innerHTML;
       el.room.hidden = B.tab !== 'room';
       if (el.style) el.style.hidden = B.tab !== 'style';
       el.items.querySelectorAll('.cat-item').forEach((b) => b.classList.toggle('is-on', !!B.def && b.dataset.def === B.def.id));
-      const mode = B.move ? 'move' : B.def ? (B.def.mount === 'wallslot' ? 'door' : B.def.mount ? 'mount' : 'place') : B.tab === 'room' ? (B.roomTool === 'select' ? 'room' : B.roomTool) : B.tab === 'style' ? 'style' : B.tool;
-      el.hint.innerHTML = HINTS[mode];
+      const mode = B.move ? 'move' : B.def ? (B.def.mount === 'wallslot' ? 'door' : B.def.mount === 'rack' ? 'mount' : 'place') : B.tab === 'room' ? (B.roomTool === 'select' ? 'room' : B.roomTool) : B.tab === 'style' ? 'style' : B.tool;
+      el.hint.innerHTML = HINTS[mode] + (B.def && B.def.price && !B.move ? ' · <b>' + B.def.name + '</b> custa ' + DL.money(B.def.price) : '');
       el.dock.querySelector('.tools').hidden = B.tab === 'room' || B.tab === 'style';
       game.setCursor(B.move || B.def || (B.tab === 'room' && B.roomTool !== 'select') ? 'crosshair' : B.tool === 'remove' ? 'not-allowed' : '');
     }
@@ -1688,6 +1808,7 @@
       cancelPlace();
       if (B.roomTool === 'door' || B.roomTool === 'door2') B.roomTool = 'select';
       B.wd = null;
+      if (B.tab !== t) B.group = null;
       B.tab = t;
       if (t === 'room') { B.roomIdx = Math.max(0, Math.min(B.roomIdx, world.rooms.length - 1)); renderRoom(); select(null); }
       else if (t === 'style') { B.roomIdx = Math.max(0, Math.min(B.roomIdx, world.rooms.length - 1)); select(null); }
@@ -1914,11 +2035,11 @@
       }
       if (c === 'KeyR') {
         if (B.move) {
-          const e = B.move.e, def = DEF[e.kind];
+          const e = B.move.e;
           if (e.kind === 'door') { e.rot = (e.rot + 1) % 4; updateMove(); }
-          else if (def && def.rot) { e.rot = (e.rot + 1) % 2; reshape(e); pos(e); updateMove(); }
+          else if (canTurn(e)) { turn(e); pos(e); updateMove(); }
         } else if (B.def) {
-          if (B.def.rot) { B.rot = (B.rot + 1) % (B.def.mount === 'wallslot' ? 4 : 2); if (B.mouse) B.ghost = ghostAt(B.mouse.wx, B.mouse.wy); }
+          if (B.def.rot) { B.rot = B.def.mount === 'wallslot' ? (B.rot + 1) % 4 : DL.ROT_NEXT[B.rot | 0]; if (B.mouse) B.ghost = ghostAt(B.mouse.wx, B.mouse.wy); }
         } else if (B.sel) { rotate(B.sel); renderInspector(); }
         return true;
       }
@@ -2143,7 +2264,16 @@
       get state() { return B; },
       enter, exit, pointerMove, pointerDown, pointerUp, key, underlay, overlay, updateUi,
       // exposed for automated checks
-      api: { roomIndex: () => B.roomIdx, setRoomIndex: (i) => { B.roomIdx = Math.max(0, Math.min(i, world.rooms.length - 1)); }, place: (id, tx, ty, rot) => { B.def = DEF[id]; B.rot = rot || 0; B.ghost = ghostAt(tx * T + (B.def.w || 1) * 8, ty * T + (B.def.h || 1) * 8); const r = B.ghost.reason; place(); B.def = null; B.ghost = null; return r; }, removeItem, rotate, startMove, dropMove, resizeRoom, addRoom, removeRoom, select, commit, check, createRoom, resizeLot, setRoomRect, setTab, setRoomTool, chooseDef, planRooms,
+      api: { roomIndex: () => B.roomIdx, setRoomIndex: (i) => { B.roomIdx = Math.max(0, Math.min(i, world.rooms.length - 1)); }, place: (id, tx, ty, rot) => {
+        B.def = DEF[id]; B.rot = rot || 0;
+        const side = DL.rotSide(B.rot) && B.def.mount !== 'wall', w = side ? B.def.h || 1 : B.def.w || 1, h = side ? B.def.w || 1 : B.def.h || 1;
+        B.ghost = ghostAt(tx * T + w * 8, ty * T + h * 8);
+        const r = B.ghost.reason;
+        B.free = true;
+        try { place(); } finally { B.free = false; }
+        B.def = null; B.ghost = null;
+        return r;
+      }, removeItem, rotate, startMove, dropMove, resizeRoom, addRoom, removeRoom, select, commit, check, createRoom, resizeLot, setRoomRect, setTab, setRoomTool, chooseDef, planRooms,
         // free walls + doors
         buildWall: (x0, y0, x1, y1, mat, box) => { const keep = B.wallMat; B.wallMat = mat || 'solid'; const wd = { x0, y0, x1, y1, box: !!box }; const r = wallPlan(wd).reason; applyWall(wd); B.wallMat = keep; return r; },
         eraseWall: (x0, y0, x1, y1) => { const wd = { x0, y0, x1, y1, erase: true }; const r = wallPlan(wd).reason; applyWall(wd); return r; },

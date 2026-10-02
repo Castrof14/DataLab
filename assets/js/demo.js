@@ -125,7 +125,7 @@
   function subOf(e) {
     switch (e.kind) {
       case 'rack': return e.name + ' · ' + e.servers.length + (e.servers.length === 1 ? ' unidade' : ' unidades') + ' · 42U';
-      case 'storage': return 'Armazenamento em bloco · 96 TB';
+      case 'storage': { const m = DL.hwModel('storage', e.model); return m.tier + ' · ' + m.usable + ' TB úteis · ' + m.raid; }
       case 'crac': return 'Insuflamento pelo piso elevado';
       case 'desk': return 'Estação de trabalho da equipe';
       default: return '';
@@ -138,9 +138,9 @@
         const devs = ops.devices().filter((d) => d.rack === e);
         if (!devs.length) return { text: 'Sem equipamentos' };
         const sw = devs.find((d) => d.kind === 'switch');
-        return sw ? { text: 'Switch ' + sw.name + ' · uplink 10 Gb/s' } : { text: 'Sem switch neste rack' };
+        return sw ? { text: 'Switch ' + sw.name + ' · uplink ' + DL.hwFmt.gb(DL.hwOf(sw).uplink) } : { text: 'Sem switch neste rack' };
       }
-      case 'storage': return { text: 'iSCSI 2×25 Gb/s' };
+      case 'storage': return { text: DL.hwFmt.gb(DL.hwModel('storage', e.model).net) };
       case 'crac': return { text: 'BMS · Modbus online' };
       default: return { text: '1 Gb/s · VLAN da equipe' };
     }
@@ -176,15 +176,19 @@
           const act = d.kind === 'patch' ? '' : d.state === 'new' ? '<button class="btn btn--sm" type="button" data-act="connect" data-dev="' + d.key + '">Ligar cabo</button>'
             : '<button class="btn btn--sm' + (bad || d.state === 'link' ? ' btn--primary' : '') + '" type="button" data-act="term" data-dev="' + d.key + '">Terminal</button>';
           return '<li><span class="dot' + (bad ? ' dot--warn dot--live' : d.state === 'online' ? '' : ' dot--info') + '"' + (d.state !== 'online' && !bad ? ' style="background:var(--breeze)"' : '') + '></span>' +
-            '<span class="mono">U' + String(40 - d.slot * 4).padStart(2, '0') + '</span><span class="grow">' + d.name + ' <small class="m">' + d.ip + '</small></span>' +
+            '<span class="mono">U' + String(40 - d.slot * 4).padStart(2, '0') + '</span><span class="grow">' + d.name + ' <small class="m">' + DL.hwOf(d).name + (d.ip ? ' · ' + d.ip : '') + '</small></span>' +
             '<span class="tag' + (bad ? ' is-warn' : '') + '">' + st + '</span>' + act + '</li>';
         }).join('') + '</ul><div class="actions" style="margin-top:12px"><button class="btn btn--sm" type="button" data-act="cabling">Cabeamento do rack</button><button class="btn btn--sm" type="button" data-act="monitor">Monitor</button></div></div>';
       }
-      case 'storage':
+      case 'storage': {
+        // volumes split the model's usable capacity; the spec sheet comes from hardware.js
+        const m = DL.hwModel('storage', e.model), a = Math.round(m.usable * 0.6), b = m.usable - a;
         return '<div class="p-sec"><span class="eyebrow-sm">Volumes</span>' + list([
-          { k: 'LUN0', v: 'vol-db · 24 TB', tag: '12% usado' },
-          { k: 'LUN1', v: 'vol-app · 16 TB', tag: '8% usado' },
-        ]) + '</div>';
+          { k: 'LUN0', v: 'vol-db · ' + a + ' TB', tag: '12% usado' },
+          { k: 'LUN1', v: 'vol-app · ' + b + ' TB', tag: '8% usado' },
+        ]) + '</div><div class="p-sec"><span class="eyebrow-sm">Especificação</span><dl class="p-spec">' +
+          DL.hwSpecs('storage', m).map(([k, v]) => '<dt>' + k + '</dt><dd>' + v + '</dd>').join('') + '</dl></div>';
+      }
       case 'crac':
         return '<div class="p-sec"><span class="eyebrow-sm">Climatização</span>' + list([
           { k: 'RET', v: 'Ar de retorno', tag: '27,8 °C' },

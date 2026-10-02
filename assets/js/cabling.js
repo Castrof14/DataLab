@@ -28,8 +28,10 @@
       if (d.kind === 'server') return { x: x0 + RW - 52, y: y0 + UH / 2, rack: i };
       if (d.kind === 'switch') {
         if (port === 'te1') return { x: x0 + RW - 30, y: y0 + 15, rack: i };
-        const n = parseInt(port.split('/')[1], 10) - 1;
-        return { x: x0 + PX0 + (n % 12) * PSTEP + 6, y: y0 + 15 + Math.floor(n / 12) * 16, rack: i };
+        const n = parseInt(port.split('/')[1], 10) - 1, dense = DL.portsOf(d).length > 25;
+        // up to 24 ports: 2 rows of 12; 48 ports: 2 rows of 24 at half pitch
+        const cols = dense ? 24 : 12, step = dense ? PSTEP / 2 : PSTEP;
+        return { x: x0 + PX0 + (n % cols) * step + (dense ? 2 : 6), y: y0 + 15 + Math.floor(n / cols) * 16, rack: i, dense };
       }
       const n = parseInt(port.slice(1), 10) - 1;
       return { x: x0 + PX0 + n * PSTEP + 6, y: y0 + (port[0] === 'f' ? 15 : 31), rack: i };
@@ -77,7 +79,8 @@
           h += '<g class="cab-unit cab-unit--' + d.kind + (focus ? ' is-focus' : '') + '">';
           h += '<rect x="' + (x0 + 24) + '" y="' + y0 + '" width="' + (RW - 52) + '" height="' + UH + '" rx="3" class="cab-unit__body"/>';
           h += '<text x="' + (x0 + 32) + '" y="' + (y0 + 17) + '" class="cab-unit__name">' + esc(d.name) + '</text>';
-          h += '<text x="' + (x0 + 32) + '" y="' + (y0 + 31) + '" class="cab-small">' + (d.kind === 'server' ? esc(d.ip) : d.kind === 'switch' ? 'switch 24p' : 'patch panel') + '</text>';
+          const m = DL.hwOf(d);
+          h += '<text x="' + (x0 + 32) + '" y="' + (y0 + 31) + '" class="cab-small">' + (d.kind === 'server' ? esc(d.ip) + ' · ' + esc(m.tier) : d.kind === 'switch' ? esc((DL.portsOf(d).length - 1) + 'p · ' + DL.hwFmt.gb(m.port) + (m.poe ? ' · PoE' : '') + (m.managed === false ? ' · simples' : '')) : 'patch panel') + '</text>';
           if (d.kind === 'server') {
             const st = O.health(d), ok = O.trace(d).ok;
             h += '<circle cx="' + (x0 + 110) + '" cy="' + (y0 + 14) + '" r="3" fill="' + (d.state === 'online' ? (st.up ? '#73bf69' : '#f2495c') : '#c98a3c') + '"/>';
@@ -85,7 +88,7 @@
             for (let b = 0; b < 4; b++) h += '<rect x="' + (x0 + 110 + b * 22) + '" y="' + (y0 + 26) + '" width="18" height="10" rx="1" fill="#14171c" stroke="#232831"/>';
             h += port(d, 'eth0', 'eth0', need.has(d.key), ok);
           } else if (d.kind === 'switch') {
-            for (const p of DL.PORTS.switch) h += port(d, p, p === 'te1' ? 'te1' : p.split('/')[1], false, d.sw.linked && d.sw.linked.has(p), d.sw.ports[p] === 'err-disabled');
+            for (const p of DL.portsOf(d)) h += port(d, p, p === 'te1' ? 'te1' : p.split('/')[1], false, d.sw.linked && d.sw.linked.has(p), d.sw.ports[p] === 'err-disabled');
             h += '<text x="' + (x0 + RW - 38) + '" y="' + (y0 + 38) + '" class="cab-small">uplink</text>';
           } else {
             h += '<text x="' + (x0 + PX0 - 14) + '" y="' + (y0 + 18) + '" class="cab-small">F</text><text x="' + (x0 + PX0 - 14) + '" y="' + (y0 + 34) + '" class="cab-small">T</text>';
@@ -149,11 +152,16 @@
       const target = C.drag && !plugged && !(C.drag.from && C.drag.from.dev === d.key && C.drag.from.port === p);
       const tip = d.name + ' · ' + p + (err ? ' · err-disabled' : '') + (pd ? ' · ligado a ' + pd.name + ' ' + peer.port : l && l.loose ? ' · cabo solto' : ' · livre');
       let s = '<g class="cab-port' + (plugged ? ' is-used' : '') + (need ? ' is-need' : '') + (target ? ' is-target' : '') + (err ? ' is-err' : '') + '" data-dev="' + d.key + '" data-port="' + p + '">';
-      s += '<rect x="' + (pos.x - 6) + '" y="' + (pos.y - 5) + '" width="12" height="10" rx="2"/>';
-      if (plugged) s += '<rect x="' + (pos.x - 3) + '" y="' + (pos.y - 3) + '" width="6" height="6" rx="1" class="cab-port__plug"/>';
+      if (pos.dense) {
+        s += '<rect x="' + (pos.x - 3.5) + '" y="' + (pos.y - 5) + '" width="7" height="10" rx="1.5"/>';
+        if (plugged) s += '<rect x="' + (pos.x - 2) + '" y="' + (pos.y - 3) + '" width="4" height="6" rx="1" class="cab-port__plug"/>';
+      } else {
+        s += '<rect x="' + (pos.x - 6) + '" y="' + (pos.y - 5) + '" width="12" height="10" rx="2"/>';
+        if (plugged) s += '<rect x="' + (pos.x - 3) + '" y="' + (pos.y - 3) + '" width="6" height="6" rx="1" class="cab-port__plug"/>';
+      }
       if (d.kind === 'switch' && p !== 'te1') s += '<circle cx="' + pos.x + '" cy="' + (pos.y - 8) + '" r="1.6" class="cab-port__led' + (err ? ' is-err' : plugged ? ' is-on' : '') + '"/>';
       if (need) s += '<circle cx="' + pos.x + '" cy="' + pos.y + '" r="11" class="cab-ring"/>';
-      s += '<text x="' + pos.x + '" y="' + (pos.y + (d.kind === 'server' ? 18 : d.kind === 'patch' && p[0] === 'r' ? 15 : -10)) + '" class="cab-port__label">' + (d.kind === 'switch' && p !== 'te1' && (parseInt(label, 10) - 1) % 12 !== 0 && parseInt(label, 10) % 4 !== 0 ? '' : esc(label)) + '</text>';
+      s += '<text x="' + pos.x + '" y="' + (pos.y + (d.kind === 'server' ? 18 : d.kind === 'patch' && p[0] === 'r' ? 15 : -10)) + '" class="cab-port__label">' + (d.kind === 'switch' && p !== 'te1' && (parseInt(label, 10) - 1) % 12 !== 0 && parseInt(label, 10) % (pos.dense ? 8 : 4) !== 0 ? '' : esc(label)) + '</text>';
       return s + '<title>' + esc(tip) + '</title></g>';
     }
 
