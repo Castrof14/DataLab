@@ -278,3 +278,58 @@ STATUS (02/10/2026, décima sessão) — PAREDES LIVRES, PORTAS INDEPENDENTES, S
 - Testado (puppeteer + Brave): 5 salas + corredor por arraste, portas colocar/mover/girar/remover,
   apagar trecho une salas e refazer separa, 20 rotas entre salas ok, jogador atravessa porta e para na
   parede, 6 NPCs por 20 s sem ficar presos, presets, tutorial, estilo de sala, menu — sem erros.
+
+-------------------------------------------------------
+STATUS (02/10/2026, 11ª sessão) — SETUPS DE MESA + CARGOS PERSONALIZADOS
+-------------------------------------------------------
+- Setups (sprites.js DL.DESK_SETUPS, build.js catálogo): todos continuam kind 'desk' (estação da equipe)
+  com e.setup: mono1, mono2 (padrão), mono3, mono4 (braço 2×2), gamer (ultrawide curvo + RGB),
+  gamerpc (gabinete RGB de vidro sobre a mesa), tech (notebook + multímetro), noc (painel superior +
+  3 monitores, telas laterais de indicadores/rede/câmeras), admin (notebook, documentos, cadeira
+  executiva). Toda mesa tem PC (gabinete embaixo com LED, ou RGB). Inspetor: "Setup" troca no lugar.
+  Presets usam os setups novos.
+- roles.js (novo): cargo = configuração validada (sanitize) → tarefas reais (compose) em
+  DL.JOBS.BY_ROLE[id], registrado em DL.ROLES/ROLE_SKILL/SECOND_SKILL. Campos: nome, título, descrição,
+  cor, tela, habilidade principal/secundária, req (mínimo ao contratar), tarefas {id, freq 0|1|3},
+  equip (pc, st:noc/tech/admin/gamer, rack, switch, storage, crac, coffee), areas (any ou tipos de
+  sala), detects (link, cable, port, service, disk), fix, social, script (só guardado, NUNCA executado).
+  Biblioteca = tarefas padrão + genéricas novas (pccheck, helpdesk, inspect, watch, power, train, clean).
+  Filtros: área pela sala do alvo (DL.roomTypeOf: tipo → tema → nome), estações por setup (def.stationOk).
+  Salvo em localStorage datalab.roles.v1. Excluir cargo → membros viram Assistente.
+- "Criar cargo com IA": DL.RoleAI.generate(texto) — interpretador local por regras (palavras-chave →
+  tarefas, habilidades, equipamentos, áreas, problemas, rotina); DL.RoleAI.remote é o gancho para um
+  modelo de verdade (resultado passa pelo mesmo sanitize + prévia). Prévia mostra rotina e avisos
+  (ex.: sala do tipo pedido ainda não existe) e só entra no jogo ao Aprovar.
+- UI: Equipe → Cargos (lista, IA, Novo cargo, Avançado/JSON); criador lista cargos criados; Contratar
+  abre o criador com o cargo marcado.
+- crew.js: lista de funções dinâmica, estações filtradas por tarefa, api.hireAs. jobs.js expõe fixTask
+  e helpers. talk.js: especialidade de cargos criados vem de detects.
+- Testes: setups (normal/girado), IA→prévia→aprovar→contratar→bots fazendo as tarefas, cargo manual,
+  avançado (JSON inválido, tarefa desconhecida ignorada, cor inválida, script não executado),
+  Operadora de NOC só em estação NOC detectando e resolvendo serviço parado, exclusão, persistência;
+  regressão: paredes, tutorial, menu — sem erros.
+
+-------------------------------------------------------
+STATUS (02/10/2026, 12ª sessão) — CENTRAL DE ATENDIMENTO + LABORATÓRIO DE REDES
+-------------------------------------------------------
+- helpdesk.js (novo, H ou botão Atendimento): clientes abrem chamados (cenários com falas, habilidade,
+  dificuldade, palavras que avançam a conversa). Fila → bot assume (Assistente/cargos com suporte
+  primeiro, depois especialista pela habilidade) → cumprimenta, pergunta, investiga → resolve (chance
+  por habilidade) ou transfere para quem sabe mais ("Vou transferir para o(a) Técnico(a) de redes …",
+  aviso no chat da equipe) ou para o jogador. Status: aguardando, em atendimento, transferido,
+  resolvido. Jogador: vê ao vivo (digitando…), entra na conversa, assume, responde (sugestões),
+  resolve, devolve, transfere; "Receber atendimentos" manda os novos direto para ele. Ticket "Site fora
+  do ar" nasce de falha real (ops) e fecha quando ela é corrigida. Histórico em datalab.helpdesk.v1;
+  créditos por atendimento. Bot atendendo senta numa estação (prefere setup 'support' ou sala tipo
+  'support'). Novo: tipo de sala "Atendimento" e "Estação de atendimento" (telefone + headset).
+- netlab.js (novo, L ou botão Lab): PCs, servidores, switches (8 portas, VLAN access/trunk), roteadores
+  (3 interfaces, shutdown, rotas estáticas, rota padrão). Simulação: camada 2 por cabos/VLANs, camada 3
+  com gateway e rotas; ping exige ida E volta. Console: ipconfig, ip addr, ping, tracert/traceroute,
+  nslookup (DNS em servidor), show ip interface brief / ip route, show vlan brief / interfaces status.
+  "Configuração inválida" (o que / por quê / entenda / como corrigir) e "Por que falhou" em pings.
+  Testar rede = matriz de alcance. 5 desafios com metas verificadas, dicas progressivas e "Entenda";
+  +25 créditos na 1ª vez. Modo livre salvo (datalab.netlab.v1).
+- demo.js: G.canHotkey, helpdesk.update no loop, overlays na lista. apps.css (novo) + HUD compacto.
+- Testes: hd-test (fila, bots, transferência bot→bot, jogador resolve pelo chat, recebe direto,
+  transfere, site + falha real, histórico), nl-test (5 desafios, validações, rotas, DNS, persistência),
+  sup-test (estação de atendimento) + regressão (menu, paredes, tutorial, cargos, NOC) — sem erros.

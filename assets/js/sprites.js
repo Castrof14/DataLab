@@ -709,8 +709,53 @@
   // optional desk/table top colour (furniture styles); default = the classic grey
   const topCols = (c, base) => (c ? [c, shade(c, 0.16), shade(c, -0.3)] : base);
 
-  function drawDeskBack(g, e, t) {
-    // rotated: the worker sits on the far side, facing the viewer
+  // Workstation setups: where the monitors stand (front view, relative to the desk), which one shows
+  // the work, and where the computer goes. Every setup has its own PC (tower under or on the desk).
+  const SETUPS = {
+    mono1: { mons: [[10, -17, 13, 11]], main: 0, tower: 'under' },
+    mono2: { mons: [[4, -16, 11, 10], [17, -16, 11, 10]], main: 0, tower: 'under' },
+    mono3: { mons: [[0, -15, 10, 9], [11, -16, 10, 10], [22, -15, 10, 9]], main: 1, tower: 'under' },
+    mono4: { mons: [[4, -27, 12, 10], [16, -27, 12, 10], [4, -16, 12, 10], [16, -16, 12, 10]], main: 2, tower: 'under', arm: true, tall: true },
+    gamer: { mons: [[3, -18, 26, 12]], main: 0, tower: 'rgbUnder', curved: true, rgb: true },
+    gamerpc: { mons: [[1, -16, 11, 10], [13, -16, 11, 10]], main: 0, tower: 'rgbTop', rgb: true },
+    tech: { mons: [[15, -16, 12, 10]], main: 0, tower: 'under', laptop: 1, tools: true },
+    noc: { mons: [[5, -28, 22, 10], [0, -15, 10, 9], [11, -16, 10, 10], [22, -15, 10, 9]], main: 2, tower: 'under', arm: true, tall: true, side: ['kpi', 'net', null, 'cam'] },
+    admin: { mons: [[10, -16, 11, 10], [22, -16, 10, 10]], main: 0, tower: 'under', laptop: 0, docs: true },
+    support: { mons: [[10, -16, 13, 10]], main: 0, tower: 'under', phone: true },
+  };
+  DL.DESK_SETUPS = SETUPS;
+  const setupOf = (e) => SETUPS[e.setup] || SETUPS.mono2;
+
+  function drawTower(g, e, px, py, kind, t, back) {
+    if (kind === 'rgbTop') {
+      // glass-side gaming tower standing on the desk
+      const x = px + 25, y = py - 18;
+      R(g, x, y, 7, 14, '#101216');
+      R(g, x, y, 7, 1, '#2a2e36');
+      R(g, x + 1, y + 2, 5, 10, '#0a0b10');
+      const hue = (t * 60 + (e.seed || 0) * 20) % 360;
+      R(g, x + 1, y + 2, 5, 1, 'hsl(' + hue + ',90%,60%)');
+      R(g, x + 2, y + 5, 3, 3, 'hsl(' + ((hue + 120) % 360) + ',90%,55%)');
+      R(g, x + 1, y + 11, 5, 1, 'hsl(' + ((hue + 240) % 360) + ',90%,60%)');
+      return;
+    }
+    // under the desk, by the right leg (left one when seen from behind)
+    const x = back ? px + 5 : px + 21, y = py + 5;
+    R(g, x, y, 7, 9, '#14171c');
+    R(g, x, y, 7, 1, '#262a31');
+    R(g, x + 6, y, 1, 9, '#0d0f13');
+    if (kind === 'rgbUnder') {
+      const hue = (t * 60 + (e.seed || 0) * 20) % 360;
+      R(g, x + 1, y + 2, 4, 6, 'hsla(' + hue + ',90%,55%,0.55)');
+      R(g, x - 2, y + 9, 11, 1, 'hsla(' + hue + ',90%,60%,0.35)');
+    } else {
+      R(g, x + 1, y + 2, 4, 1, '#2c313a');
+      R(g, x + 1, y + 4, 4, 1, '#2c313a');
+      R(g, x + 4, y + 7, 1, 1, e.work ? C.ok : C.okDim);
+    }
+  }
+
+  function drawDeskTop(g, e) {
     const px = e.px, py = e.py;
     const [top, topL, topD] = topCols(e.color, ['#2a2e36', '#383d47', '#1d2027']);
     R(g, px + 1, py + 14, 30, 2, 'rgba(0,0,0,0.3)');
@@ -719,42 +764,84 @@
     R(g, px, py - 4, 32, 9, top);
     R(g, px, py - 4, 32, 1, topL);
     R(g, px, py + 5, 32, 2, topD);
+  }
+
+  function drawDeskBack(g, e, t) {
+    // rotated: the worker sits on the far side, facing the viewer
+    const px = e.px, py = e.py, S = setupOf(e);
+    drawDeskTop(g, e);
+    if (S.tower !== 'rgbTop') drawTower(g, e, px, py, S.tower, t, true);
     R(g, px + 11, py - 4, 10, 2, '#3c424c');
     R(g, px + 11, py - 4, 10, 1, '#4a515d');
-    for (const mx of [px + 1, px + 22]) {
-      R(g, mx + 3, py - 5, 3, 3, '#16191f');
-      R(g, mx, py - 14, 9, 10, '#1a1d23');
-      R(g, mx, py - 14, 9, 1, '#262a31');
-      R(g, mx + 1, py - 12, 7, 1, '#20242b');
-      if (e.work) R(g, mx - 1, py - 14, 1, 9, 'rgba(160,195,236,0.28)');
+    if (S.arm) R(g, px + 15, py - 28, 2, 24, '#16191f');
+    for (const [mx0, my, mw, mh] of S.mons) {
+      const mx = px + 32 - mx0 - mw; // mirrored
+      R(g, mx + Math.floor(mw / 2) - 1, py - 5, 3, 3, '#16191f');
+      R(g, mx, py + my + 2, mw, mh, '#1a1d23');
+      R(g, mx, py + my + 2, mw, 1, '#262a31');
+      R(g, mx + 1, py + my + 4, mw - 2, 1, '#20242b');
+      if (e.work) R(g, mx - 1, py + my + 2, 1, mh - 1, 'rgba(160,195,236,0.28)');
     }
-    R(g, px + 2, py + 1, 3, 3, '#d9d9d6');
-    R(g, px + 2, py + 1, 3, 1, '#5a3a25');
+    if (S.tower === 'rgbTop') drawTower(g, e, px - 24, py, 'rgbTop', t, true);
+    if (S.laptop != null) { R(g, px + 22, py - 3, 8, 5, '#2b3039'); R(g, px + 22, py - 3, 8, 1, '#3a404b'); }
+    if (S.rgb) R(g, px, py + 6, 32, 1, 'hsla(' + ((t * 60) % 360) + ',90%,60%,0.6)');
+    if (!S.tools) { R(g, px + 2, py + 1, 3, 3, '#d9d9d6'); R(g, px + 2, py + 1, 3, 1, '#5a3a25'); }
   }
 
   function drawDesk(g, e, t) {
     if (e.rot === 1) return drawDeskBack(g, e, t);
-    const px = e.px, py = e.py;
-    const [top, topL, topD] = topCols(e.color, ['#2a2e36', '#383d47', '#1d2027']);
-    R(g, px + 1, py + 14, 30, 2, 'rgba(0,0,0,0.3)');
-    R(g, px + 2, py + 6, 2, 8, '#15181d');
-    R(g, px + 28, py + 6, 2, 8, '#15181d');
-    R(g, px, py - 4, 32, 9, top);
-    R(g, px, py - 4, 32, 1, topL);
-    R(g, px, py + 5, 32, 2, topD);
-    for (let m = 0; m < 2; m++) {
-      const mx = px + 4 + m * 13;
-      R(g, mx + 4, py - 6, 3, 3, '#16191f');
-      R(g, mx, py - 16, 11, 10, '#0c0e12');
-      if (e.work && m === (e.alert ? 1 : 0)) workScreen(g, mx + 1, py - 15, 9, 7, t, e.work, e.seed, e.typing);
-      else screen(g, mx + 1, py - 15, 9, 7, t, e.seed + m * 3, e.alert && m === 0);
-      R(g, mx, py - 3, 11, 1, 'rgba(160,195,236,0.08)');
+    const px = e.px, py = e.py, S = setupOf(e);
+    drawDeskTop(g, e);
+    if (S.tower !== 'rgbTop') drawTower(g, e, px, py, S.tower, t, false);
+    if (S.arm) { R(g, px + 15, py - 28, 2, 25, '#16191f'); R(g, px + 13, py - 4, 6, 2, '#16191f'); }
+    S.mons.forEach(([mx0, my, mw, mh], m) => {
+      const mx = px + mx0, y = py + my;
+      if (!S.arm || my > -20) R(g, mx + Math.floor(mw / 2) - 1, py - 6, 3, 3, '#16191f');
+      R(g, mx, y, mw, mh, '#0c0e12');
+      if (S.curved) { R(g, mx - 1, y + 1, 1, mh - 2, '#0c0e12'); R(g, mx + mw, y + 1, 1, mh - 2, '#0c0e12'); }
+      const sx = mx + 1, sy = y + 1, sw = mw - 2, sh = mh - 3;
+      const alertOn = e.alert && m === (S.main === 0 ? 1 % S.mons.length : 0);
+      if (e.work && m === (e.alert && S.mons.length > 1 ? (S.main + 1) % S.mons.length : S.main)) workScreen(g, sx, sy, sw, sh, t, e.work, e.seed, e.typing);
+      else if (e.work && S.side && S.side[m]) workScreen(g, sx, sy, sw, sh, t, S.side[m], e.seed + m, false);
+      else screen(g, sx, sy, sw, sh, t, e.seed + m * 3, alertOn);
+      R(g, mx, py - 3, mw, 1, 'rgba(160,195,236,0.08)');
+      if (S.rgb) R(g, mx, y + mh - 1, mw, 1, 'hsla(' + ((t * 60 + m * 90) % 360) + ',90%,60%,0.7)');
+    });
+    if (S.tower === 'rgbTop') drawTower(g, e, px, py, 'rgbTop', t, false);
+    if (S.laptop != null) {
+      // laptop on the desk: open lid with its own little screen
+      const lx = S.laptop ? px + 2 : px + 1;
+      R(g, lx, py - 10, 9, 7, '#20242b');
+      R(g, lx + 1, py - 9, 7, 5, e.work ? '#13233a' : '#0b1220');
+      if (e.work) R(g, lx + 2, py - 8, 1 + Math.floor((t * 3) % 5), 1, C.breeze);
+      R(g, lx - 1, py - 3, 11, 2, '#3a404b');
     }
-    R(g, px + 10, py - 1, 11, 2, '#3c424c');
-    R(g, px + 10, py - 1, 11, 1, '#4a515d');
+    // keyboard + mouse (RGB on gaming setups)
+    R(g, px + 10, py - 1, 11, 2, S.rgb ? '#1a1c22' : '#3c424c');
+    R(g, px + 10, py - 1, 11, 1, S.rgb ? 'hsla(' + ((t * 80) % 360) + ',90%,60%,0.8)' : '#4a515d');
     R(g, px + 24, py, 2, 2, '#4a515d');
-    R(g, px + 2, py - 2, 3, 3, '#d9d9d6');
-    R(g, px + 2, py - 2, 3, 1, '#5a3a25');
+    if (S.phone) {
+      // desk phone (left) and a headset on its stand (right); the line light blinks while on a call
+      R(g, px + 1, py - 4, 7, 5, '#1d2027');
+      R(g, px + 2, py - 5, 5, 2, '#2c313a');
+      R(g, px + 6, py - 3, 1, 1, e.work && Math.floor(t * 3) % 2 ? C.ok : '#3a404b');
+      R(g, px + 26, py - 10, 1, 8, '#2c313a');
+      R(g, px + 24, py - 11, 5, 2, '#14171c');
+      R(g, px + 24, py - 9, 2, 3, '#14171c');
+      R(g, px + 25, py - 2, 3, 1, '#2c313a');
+    } else if (S.tools) {
+      // multimeter + cable coil
+      R(g, px + 2, py - 3, 4, 5, '#d8b23a');
+      R(g, px + 3, py - 2, 2, 1, '#1a1d23');
+      R(g, px + 27, py - 2, 4, 3, '#2a5d8a');
+      R(g, px + 28, py - 1, 2, 1, '#14171c');
+    } else if (S.docs) {
+      R(g, px + 26, py - 3, 5, 4, '#e8e8e4');
+      R(g, px + 27, py - 2, 3, 1, '#8a8f99');
+    } else if (!S.laptop && S.tower !== 'rgbTop') {
+      R(g, px + 2, py - 2, 3, 3, '#d9d9d6');
+      R(g, px + 2, py - 2, 3, 1, '#5a3a25');
+    }
   }
 
   function drawChair(g, e) {
@@ -1212,7 +1299,7 @@
     e.ix = px + e.tw * 8;
     e.iy = py + e.th * T + 7;
     switch (e.kind) {
-      case 'desk': e.bounds = { x: px - 1, y: py - 17, w: 34, h: 32 }; break;
+      case 'desk': e.bounds = SETUPS[e.setup] && SETUPS[e.setup].tall ? { x: px - 1, y: py - 29, w: 34, h: 44 } : { x: px - 1, y: py - 19, w: 34, h: 34 }; break;
       case 'crac': e.bounds = { x: px - 1, y: py - 25, w: 18, h: 41 }; break;
       case 'ups': e.bounds = { x: px - 1, y: py - 21, w: 34, h: 37 }; break;
       case 'plant': e.bounds = { x: px + 1, y: py - 14, w: 14, h: 30 }; break;

@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/demo.css">
   <link rel="stylesheet" href="assets/css/menu.css">
+  <link rel="stylesheet" href="assets/css/apps.css">
 </head>
 <body class="demo">
   <main class="game" id="game">
@@ -51,6 +52,8 @@
         <span class="hud-meta__clock"><span class="dot dot--live"></span><span id="clock">08:00</span></span>
       </div>
       <div class="hud-actions">
+        <button class="btn btn--sm ops-btn" id="hdBtn" type="button" title="Central de Atendimento (H)">Atendimento <kbd>H</kbd><span class="ops-badge" id="hdBadge" hidden>0</span></button>
+        <button class="btn btn--sm ops-btn" id="nlBtn" type="button" title="Laboratório de Redes (L)">Lab <kbd>L</kbd></button>
         <button class="btn btn--sm ops-btn" id="monBtn" type="button">Monitor <kbd>M</kbd><span class="ops-badge ops-badge--mon" id="monBadge" hidden>0</span></button>
         <button class="btn btn--sm ops-btn" id="opsBtn" type="button" aria-expanded="false" aria-controls="opsPanel">Tarefas <kbd>T</kbd><span class="ops-badge" id="opsBadge" hidden>0</span></button>
         <button class="btn btn--sm" id="helpBtn" type="button">Controles</button>
@@ -113,7 +116,10 @@
     <aside class="crew-panel" id="crewPanel" hidden aria-label="Equipe">
       <div class="crew-panel__head">
         <div><span class="eyebrow-sm">Equipe do turno</span><b class="crew-panel__count" id="crewCount">0</b></div>
-        <button class="btn btn--sm btn--primary" id="hireBtn" type="button">Contratar <kbd>N</kbd></button>
+        <div class="crew-panel__btns">
+          <button class="btn btn--sm" id="rolesBtn" type="button" title="Criar e editar cargos">Cargos</button>
+          <button class="btn btn--sm btn--primary" id="hireBtn" type="button">Contratar <kbd>N</kbd></button>
+        </div>
       </div>
       <ul class="crew-list" id="crewList"></ul>
       <p class="crew-panel__hint">A equipe trabalha sozinha. Clique em alguém para ver o perfil e atribuir uma tarefa da função — ou num computador livre para mandá-lo até lá. Arraste para mover a câmera.</p>
@@ -197,11 +203,13 @@
         <ul class="controls">
           <li><span class="keys"><kbd>B</kbd></span><span>construção: salas, paredes, portas, equipamentos e móveis · <b>Temas</b> e <b>Estilo da sala</b> (piso, paredes, luz, RGB)</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span>equipe: selecione alguém e clique num computador</span></li>
-          <li><span class="keys"><kbd>N</kbd></span><span>contratar alguém para a equipe</span></li>
+          <li><span class="keys"><kbd>N</kbd></span><span>contratar alguém para a equipe · <b>Cargos</b> (no painel da equipe): crie cargos novos, inclusive com IA</span></li>
           <li><span class="keys"><kbd>P</kbd></span><span>editar o meu personagem: aparência, cabelo, roupa, acessórios, nome e função</span></li>
           <li><span class="keys"><kbd>K</kbd></span><span>abrir / recolher o chat da equipe</span></li>
           <li><span class="keys"><kbd>Mouse</kbd></span><span>clique num funcionário → <b>Conversar</b>: pergunte sobre servidores, rede, problemas e finanças</span></li>
           <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa, créditos, DataCoins e progresso</span></li>
+          <li><span class="keys"><kbd>H</kbd></span><span>Central de Atendimento: clientes, conversas ao vivo, assumir, responder e transferir</span></li>
+          <li><span class="keys"><kbd>L</kbd></span><span>Laboratório de Redes: monte, configure e teste redes (ping, ipconfig, tracert) · 5 desafios</span></li>
           <li><span class="keys"><kbd>M</kbd></span><span>monitoramento: painéis, hosts, problemas (estilo Zabbix/Grafana)</span></li>
           <li><span class="keys"><kbd>T</kbd></span><span>tarefas técnicas e alertas da equipe · conectar cabo · abrir terminal</span></li>
           <li><span class="keys"><kbd>Mouse</kbd></span><span>Espaços → <b>Parede</b>: clique e arraste na grade · <b>Cômodo</b>: arraste um retângulo · <b>Apagar parede</b> (ou <kbd>Shift</kbd>+arrastar) remove só o trecho · <b>Porta</b>/<b>Porta dupla</b> vão sobre uma parede</span></li>
@@ -241,6 +249,18 @@
           <span class="eyebrow-sm">Enter confirma · Esc cancela</span>
         </div>
       </div>
+    </div>
+
+    <div class="overlay overlay--app" id="helpdesk" role="dialog" aria-modal="true" aria-label="Central de Atendimento">
+      <div class="hd" id="hdRoot"></div>
+    </div>
+
+    <div class="overlay overlay--app" id="netlab" role="dialog" aria-modal="true" aria-label="Laboratório de Redes">
+      <div class="nl" id="nlRoot"></div>
+    </div>
+
+    <div class="overlay" id="roles" role="dialog" aria-modal="true" aria-labelledby="rolesTitle">
+      <div class="card card--modal card--roles"><div class="roles-body" id="rolesBody"></div></div>
     </div>
 
     <div class="overlay" id="wallet" role="dialog" aria-modal="true" aria-labelledby="walletTitle">
@@ -381,6 +401,7 @@
   <script src="assets/js/jobs.js"></script>
   <script src="assets/js/teamchat.js"></script>
   <script src="assets/js/crew.js"></script>
+  <script src="assets/js/roles.js"></script>
   <script src="assets/js/terminal.js"></script>
   <script src="assets/js/ops.js"></script>
   <script src="assets/js/cabling.js"></script>
@@ -389,6 +410,8 @@
   <script src="assets/js/tutorial.js"></script>
   <script src="assets/js/economy.js"></script>
   <script src="assets/js/talk.js"></script>
+  <script src="assets/js/helpdesk.js"></script>
+  <script src="assets/js/netlab.js"></script>
   <script src="assets/js/demo.js"></script>
   <script src="assets/js/menu.js"></script>
 </body>

@@ -23,8 +23,10 @@
     funcionario: { name: 'Assistente', title: 'Assistente', color: '#dadbdf', work: 'doc', desc: 'Chamados, inventário e documentação.' },
     gerente: { name: 'Gerente', title: 'Gerente', color: '#7ee0a1', work: 'kpi', desc: 'Indicadores, capacidade e equipe.' },
   };
-  const ROLE_IDS = Object.keys(ROLES);
+  const ROLE_IDS = Object.keys(ROLES); // the built-in roles (random hires pick from these)
   DL.ROLES = ROLES;
+  // every role, including the ones the player created (roles.js adds them to ROLES)
+  const allRoleIds = () => Object.keys(ROLES);
 
   const SKINS = ['#f5d3b8', '#f2c8a0', '#e0ac7e', '#c98e66', '#8d5a3b', '#5e3a26'];
   const HAIRS = ['#0f0b0a', '#2a1c16', '#5a3a25', '#b8562c', '#d9b26a', '#c9c9c9', '#7c3aed', '#3d5a80'];
@@ -444,9 +446,10 @@
 
     const userOf = (s) => C.members.find((a) => a.crew.station && a.crew.station.key === s.key) || null;
 
-    function nearestStation(a) {
+    function nearestStation(a, ok) {
       let best = null, bestD = Infinity, bestR = null;
       for (const s of stations()) {
+        if (ok && !ok(s)) continue;
         const u = userOf(s);
         if (u && u !== a) continue;
         const r = nav.route(a.x, a.y, s.approach.x, s.approach.y, true);
@@ -620,7 +623,7 @@
 
     // What a task can be done on right now: { targets } or { reason }
     function optionsFor(a, def) {
-      if (def.kind === 'pc') return stations().some((s) => !userOf(s) || userOf(s) === a) ? { targets: [null] } : { reason: 'Sem computador livre' };
+      if (def.kind === 'pc') return stations().some((s) => (!def.stationOk || def.stationOk(s)) && (!userOf(s) || userOf(s) === a)) ? { targets: [null] } : { reason: def.stationOk ? 'Sem estação livre permitida para o cargo' : 'Sem computador livre' };
       if (def.kind === 'patrol') return { targets: [null] };
       const ts = def.targets(ctxOf(a)) || [];
       return ts.length ? { targets: ts } : { reason: def.none || 'Indisponível agora' };
@@ -666,7 +669,7 @@
           station = opts.station;
           route = nav.route(a.x, a.y, station.approach.x, station.approach.y, true);
         } else {
-          const n = nearestStation(a);
+          const n = nearestStation(a, def.stationOk);
           if (!n) return 'Sem computador livre';
           station = n.s;
           route = n.r;
@@ -1051,7 +1054,7 @@
     /* ---------- ops events → chat ---------- */
     const fixerName = (d) => {
       const roles = new Set();
-      for (const id of ROLE_IDS) if ((JOBS.BY_ROLE[id] || []).some((t) => t.kind === 'fix' && d.fault && t.types.indexOf(d.fault.type) >= 0)) roles.add(ROLES[id].name);
+      for (const id of allRoleIds()) if ((JOBS.BY_ROLE[id] || []).some((t) => t.kind === 'fix' && d.fault && t.types.indexOf(d.fault.type) >= 0)) roles.add(ROLES[id].name);
       return Array.from(roles).join(' ou ');
     };
     game.on('fault', (info) => {
@@ -1362,10 +1365,11 @@
       h += field('Roupa / uniforme', chips('outfit', OUTFITS) + swatches('shirt', CLOTHES, 'Cor da roupa'));
       h += field('Calça', swatches('pants', PANTS, 'Cor da calça'));
       h += field('Acessórios', '<div class="chips">' + EXTRAS.map(([k, l]) => '<button type="button" class="chip" data-t="' + k + '" aria-pressed="false">' + l + '</button>').join('') + '</div>' + chips('hat', HATS.map(([v, l]) => [v, v ? l : 'Sem chapéu'])));
-      h += field('Função', '<div class="roles" role="radiogroup">' + ROLE_IDS.map((id) => {
+      h += field('Função', '<div class="roles" role="radiogroup">' + allRoleIds().map((id) => {
         const r = ROLES[id];
-        return '<button type="button" class="role-card" role="radio" data-k="role" data-v="' + id + '" style="--c:' + r.color + '"><span class="cc__dot"></span><b>' + r.name + '</b><span>' + r.desc + '</span></button>';
+        return '<button type="button" class="role-card' + (r.custom ? ' is-custom' : '') + '" role="radio" data-k="role" data-v="' + id + '" style="--c:' + r.color + '"><span class="cc__dot"></span><b>' + esc(r.name) + (r.custom ? ' <em>criado</em>' : '') + '</b><span>' + esc(r.desc) + '</span></button>';
       }).join('') + '</div>');
+      CR.rolesVer = DL.rolesVersion || 0;
       el.form.innerHTML = h;
       el.form.querySelector('#crName').addEventListener('input', (ev) => {
         CR.profile.name = ev.target.value;
@@ -1420,7 +1424,7 @@
       CR.profile = me ? Object.assign({}, PL.profile, { nameTouched: true }) : target ? Object.assign({}, target.crew.profile, { nameTouched: true }) : randomProfile();
       CR.pose = 'stand';
       CR.t = 0;
-      if (!el.form.firstChild) buildForm();
+      if (!el.form.firstChild || CR.rolesVer !== (DL.rolesVersion || 0)) buildForm();
       el.title.textContent = me ? 'Meu personagem' : target ? 'Editar ' + target.crew.name : 'Nova contratação';
       if (el.sub) el.sub.textContent = me ? 'Você · quem comanda o datacenter' : 'Equipe · meu datacenter';
       el.save.firstChild.textContent = target ? 'Salvar ' : 'Contratar ';
@@ -1778,7 +1782,11 @@
       chat,
       update, updateUi, underlay, overlay, pointerMove, pointerDown, pointerUp, key, setMode, select, inspect, pickActor,
       openCreator, closeCreator, statusOf, stations, stationOf, userOf, startShift,
-      api: { hire, fire, startJob, cancelJob, standUp, randomProfile, saveCreator, nav, decide, tasksOf, optionsFor, reception, fixDefFor },
+      api: {
+        hire, fire, startJob, cancelJob, standUp, randomProfile, saveCreator, nav, decide, tasksOf, optionsFor, reception, fixDefFor,
+        // open the hiring card with a role already chosen (Cargos → Contratar)
+        hireAs(role) { openCreator(); if (CR.open && ROLES[role]) { CR.profile.role = role; syncForm(); } },
+      },
     };
   };
 })();

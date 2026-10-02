@@ -37,7 +37,7 @@
     return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   };
   const fmtPower = (e) => (e.tel.unit === 'W' ? Math.round(e.power) : e.power.toFixed(e.power < 10 ? 2 : 1)) + '<small>' + e.tel.unit + '</small>';
-  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward'].some((id) => $(id).classList.contains('is-open'));
+  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab'].some((id) => $(id).classList.contains('is-open'));
   const canMove = () => S.phase !== 'intro' && !isOverlayOpen() && S.mode === 'explore';
 
   /* ---------------- toasts ---------------- */
@@ -100,6 +100,11 @@
   tutorial = DL.createTutorial(G, { builder, crew, ops, terminal, cabling, monitor });
   const economy = DL.createEconomy(G, { ops, crew });
   const talk = DL.createTalk(G, { crew, ops, economy, cabling });
+  const roles = DL.createRoles(G, { crew });
+  // H / L open the apps only when nothing else is on screen
+  G.canHotkey = () => S.phase !== 'intro' && !isOverlayOpen() && !crew.creatorOpen;
+  const helpdesk = DL.createHelpdesk(G, { crew });
+  const netlab = DL.createNetLab(G);
   G.economy = economy;
   G.on('world', () => {
     if (S.panel && W.items.indexOf(S.panel) < 0) closePanel();
@@ -680,6 +685,7 @@
     crew.update(dt);
     ops.update(dt);
     if (S.phase !== 'intro') economy.update(dt);
+    if (S.phase !== 'intro') helpdesk.update(dt);
     talk.update(dt);
     monitor.update(dt);
     tutorial.update(dt);
@@ -742,5 +748,5 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, tutorial, ops, terminal, cabling, monitor, setMode, begin, game: G, openPanel, choosePreset };
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, setMode, begin, game: G, openPanel, choosePreset };
 })();

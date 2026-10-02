@@ -631,7 +631,17 @@
   /* Catalog                                                             */
   /* ------------------------------------------------------------------ */
   const CATALOG = [
-    { id: 'desk', cat: 'equip', name: 'Computador', w: 2, h: 1, rot: true, desc: 'Estação com dois monitores e cadeira. A equipe trabalha aqui.' },
+    { id: 'desk', cat: 'equip', name: 'Computador', w: 2, h: 1, rot: true, desc: 'Estação com dois monitores, PC e cadeira. A equipe trabalha aqui.' },
+    // workstation setups: all are desks (kind 'desk') with their own PC, so the crew uses any of them
+    { id: 'desk1', kind: 'desk', setup: 'mono1', cat: 'equip', name: 'Mesa · 1 monitor', w: 2, h: 1, rot: true, desc: 'Um monitor e o PC embaixo da mesa.' },
+    { id: 'desk3', kind: 'desk', setup: 'mono3', cat: 'equip', name: 'Mesa · 3 monitores', w: 2, h: 1, rot: true, desc: 'Três monitores lado a lado e PC embaixo.' },
+    { id: 'desk4', kind: 'desk', setup: 'mono4', cat: 'equip', name: 'Mesa · 4 monitores', w: 2, h: 1, rot: true, desc: 'Quatro monitores num braço articulado.' },
+    { id: 'deskgamer', kind: 'desk', setup: 'gamer', chair: 'gamer', cat: 'equip', name: 'Setup gamer', w: 2, h: 1, rot: true, desc: 'Monitor ultrawide curvo, teclado RGB e PC com luz.' },
+    { id: 'deskgamerpc', kind: 'desk', setup: 'gamerpc', chair: 'gamer', cat: 'equip', name: 'Setup com PC gamer', w: 2, h: 1, rot: true, desc: 'Dois monitores e um gabinete RGB de vidro sobre a mesa.' },
+    { id: 'desktech', kind: 'desk', setup: 'tech', cat: 'equip', name: 'Estação técnica', w: 2, h: 1, rot: true, desc: 'Monitor, notebook de campo, multímetro e cabos.' },
+    { id: 'desknoc', kind: 'desk', setup: 'noc', cat: 'equip', name: 'Estação de NOC', w: 2, h: 1, rot: true, desc: 'Painel superior com indicadores e três monitores de operação.' },
+    { id: 'desksupport', kind: 'desk', setup: 'support', cat: 'equip', name: 'Estação de atendimento', w: 2, h: 1, rot: true, desc: 'Monitor, telefone e headset: a equipe atende os clientes daqui primeiro.' },
+    { id: 'deskadmin', kind: 'desk', setup: 'admin', chair: 'exec', cat: 'equip', name: 'Estação de administrador', w: 2, h: 1, rot: true, desc: 'Dois monitores, notebook, documentos e cadeira executiva.' },
     { id: 'rack', cat: 'equip', name: 'Rack', desc: 'Rack 42U vazio. Instale servidores e switches nele.' },
     { id: 'server', cat: 'equip', name: 'Servidor', mount: 'rack', thumb: 'unit-server', desc: 'Clique em um rack com espaço livre.' },
     { id: 'switch', cat: 'equip', name: 'Switch', mount: 'rack', thumb: 'unit-switch', desc: 'Clique em um rack com espaço livre.' },
@@ -667,7 +677,13 @@
     door: 'Porta', wallseg: 'Parede',
   };
   Object.assign(NAMES, DL.DECOR_NAMES || {});
-  DL.itemName = (e) => (e.kind === 'door' && e.len > 1 ? 'Porta dupla' : NAMES[e.kind] || e.kind);
+  const SETUP_NAMES = { mono1: 'Mesa · 1 monitor', mono3: 'Mesa · 3 monitores', mono4: 'Mesa · 4 monitores', gamer: 'Setup gamer', gamerpc: 'Setup com PC gamer', tech: 'Estação técnica', noc: 'Estação de NOC', admin: 'Estação de administrador', support: 'Estação de atendimento' };
+  DL.SETUP_NAMES = SETUP_NAMES;
+  DL.itemName = (e) => (e.kind === 'door' && e.len > 1 ? 'Porta dupla' : e.kind === 'desk' && SETUP_NAMES[e.setup] ? SETUP_NAMES[e.setup] : NAMES[e.kind] || e.kind);
+  // the inspector can swap a desk's setup in place (same footprint, same station)
+  if (DL.ITEM_STYLES && DL.ITEM_STYLES.desk && !DL.ITEM_STYLES.desk.some((o) => o.key === 'setup')) {
+    DL.ITEM_STYLES.desk.unshift({ key: 'setup', label: 'Setup', options: [['', '2 mon.'], ['mono1', '1 mon.'], ['mono3', '3 mon.'], ['mono4', '4 mon.'], ['gamer', 'Gamer'], ['gamerpc', 'PC gamer'], ['tech', 'Técnica'], ['noc', 'NOC'], ['admin', 'Admin'], ['support', 'Atendimento']] });
+  }
   // rugs lie under everything; wall pieces hang on the north wall (neither blocks the floor)
   const isRug = (e) => e.kind === 'rug' || !!e.rug;
 
@@ -719,13 +735,15 @@
     }
 
     function newItem(def, tx, ty, rot, preview) {
-      const k = def.id;
+      const k = def.kind || def.id;
       const e = { kind: k, tx, ty, tw: def.w || 1, th: def.h || 1, rot: def.rot ? rot || 0 : 0, solid: def.solid !== false, seed: preview ? 77 : seedN++ * 7 + 3, state: 'ok', built: true };
       if (k === 'table' && e.rot === 1) { e.tw = 1; e.th = 2; }
       if (def.mount === 'surface') e.solid = false;
       if (def.mount === 'wall') { e.wall = true; e.solid = false; }
       if (def.rug) e.rug = true;
       if (k === 'desk') e.chair = { kind: 'chair', tw: 2, th: 1, rot: e.rot, solid: false, parent: e, seed: e.seed + 1, built: true };
+      if (k === 'desk' && def.setup) e.setup = def.setup;
+      if (k === 'desk' && def.chair) e.chair.variant = def.chair;
       if (k === 'rack') e.units = new Array(9).fill(null);
       if (!preview) {
         if (k === 'rack') {
@@ -1274,6 +1292,7 @@
       { id: 'office', label: 'Escritório', name: 'Escritório', theme: 'corporate', floor: 'carpet' },
       { id: 'reception', label: 'Recepção', name: 'Recepção', theme: 'minimal', floor: 'carpet' },
       { id: 'power', label: 'Sala elétrica', name: 'Sala elétrica', theme: 'industrial', floor: 'tile' },
+      { id: 'support', label: 'Atendimento', name: 'Central de atendimento', theme: 'corporate', floor: 'carpet' },
       { id: 'custom', label: 'Personalizada', name: null, theme: null, floor: null },
     ];
     DL.ROOM_TYPES = ROOM_TYPES;
@@ -1736,7 +1755,7 @@
 
     el.insp.addEventListener('click', (ev) => {
       const st = ev.target.closest('[data-sty]');
-      if (st && B.sel) { DL.itemStyleSet(B.sel, st.dataset.sty, st.dataset.v); renderInspector(); return; }
+      if (st && B.sel) { DL.itemStyleSet(B.sel, st.dataset.sty, st.dataset.v); pos(B.sel); renderInspector(); return; }
       const b = ev.target.closest('[data-ins]');
       if (!b || !B.sel) return;
       const e = B.sel;

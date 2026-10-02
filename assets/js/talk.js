@@ -71,7 +71,7 @@
       const main = st.skills[DL.ROLE_SKILL[role]] || 0;
       return { role, level: st.level, k: st.level + main / 25, title: DL.ROLES[role].title, name: DL.ROLES[role].name, stars: DL.XP.starsOf(st, role) };
     }
-    const expertOn = (a, type) => { const K = know(a); return (AREA[K.role] || []).indexOf(type) >= 0 || K.k >= 7; };
+    const expertOn = (a, type) => { const K = know(a), R = DL.ROLES[K.role]; return (AREA[K.role] || (R && R.detects) || []).indexOf(type) >= 0 || K.k >= 7; };
     const diag = (a, d) => (expertOn(a, d.fault.type) ? HINT[d.fault.type](d) : VAGUE[d.fault.type](d));
     const found = () => ops.devices().filter((d) => d.fault && d.fault.found).sort((x, y) => (y.loss ? y.loss.rate : 0) - (x.loss ? x.loss.rate : 0));
     const hidden = () => ops.devices().filter((d) => d.fault && !d.fault.found);

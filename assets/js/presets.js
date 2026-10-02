@@ -34,8 +34,8 @@
       items: [
         ['plant', 1, 2], ['water', 6, 2], ['table', 3, 2], ['coffee', 3, 2], ['vase', 4, 2],
         ['sofa', 2, 7], ['lamp', 1, 8], ['bin', 6, 8],
-        ['desk', 9, 3, 0], ['desk', 12, 3, 0], ['desk', 15, 3, 0],
-        ['desk', 9, 7, 1], ['desk', 12, 7, 1], ['desk', 15, 7, 1],
+        ['desk1', 9, 3, 0], ['desk', 12, 3, 0], ['deskadmin', 15, 3, 0],
+        ['desk', 9, 7, 1], ['desk1', 12, 7, 1], ['desk3', 15, 7, 1],
         ['rack', 18, 3, 0, fill('WSS')], ['shelf', 18, 4],
         ['whiteboard', 17, 8], ['plant', 8, 2], ['plant', 8, 8],
       ],
@@ -55,8 +55,8 @@
       },
       items: [
         ['plant', 1, 2], ['water', 6, 2],
-        ['desk', 10, 4, 0], ['desk', 13, 4, 0], ['desk', 16, 4, 0], ['desk', 19, 4, 0],
-        ['desk', 10, 8, 0], ['desk', 13, 8, 0], ['desk', 16, 8, 0], ['desk', 19, 8, 0],
+        ['desknoc', 10, 4, 0], ['desknoc', 13, 4, 0], ['desknoc', 16, 4, 0], ['desknoc', 19, 4, 0],
+        ['desk3', 10, 8, 0], ['desk4', 13, 8, 0], ['desk3', 16, 8, 0], ['deskadmin', 19, 8, 0],
         ['whiteboard', 14, 2], ['water', 22, 2], ['plant', 8, 2], ['plant', 22, 12], ['plant', 8, 12],
         ['table', 20, 11], ['coffee', 20, 11], ['lamp', 18, 12],
         ['rack', 1, 11, 0, fill('WSSS')], ['rack', 2, 11, 0, fill('SSS')], ['rack', 3, 11, 0, fill('SSS')], ['rack', 4, 11, 0, fill('SS')],
@@ -76,7 +76,7 @@
         ],
       },
       items: [
-        ['desk', 1, 3, 0], ['desk', 4, 3, 0], ['sofa', 1, 9], ['plant', 6, 2], ['water', 6, 10],
+        ['desktech', 1, 3, 0], ['desk3', 4, 3, 0], ['sofa', 1, 9], ['plant', 6, 2], ['water', 6, 10],
         ...row(3, 10, 15, ['PWS', 'SSS', 'SS']),
         ...row(7, 10, 15, ['PWS', 'SS', 'SSS']),
         ['storage', 17, 3], ['storage', 18, 3], ['crac', 22, 3], ['crac', 22, 7], ['bin', 22, 10],
@@ -97,8 +97,8 @@
         ],
       },
       items: [
-        ['desk', 1, 3, 0], ['desk', 4, 3, 0], ['desk', 7, 3, 0], ['desk', 1, 6, 0], ['desk', 7, 6, 0],
-        ['desk', 1, 12, 0], ['desk', 4, 12, 0], ['desk', 7, 12, 0], ['sofa', 1, 15], ['whiteboard', 6, 16],
+        ['desknoc', 1, 3, 0], ['desknoc', 4, 3, 0], ['desknoc', 7, 3, 0], ['desk4', 1, 6, 0], ['desktech', 7, 6, 0],
+        ['deskadmin', 1, 12, 0], ['desk', 4, 12, 0], ['deskgamerpc', 7, 12, 0], ['sofa', 1, 15], ['whiteboard', 6, 16],
         ['plant', 1, 10], ['plant', 9, 16], ['water', 9, 2],
         ...row(4, 13, 22, ['PWSS', 'SSS', 'SS', 'SSS']),
         ...row(8, 13, 22, ['WSS', 'SSS', 'SSS', 'SS']),

@@ -17,6 +17,7 @@
   const MAX_LEVEL = 10;
   DL.SKILLS = SKILLS;
   DL.ROLE_SKILL = ROLE_SKILL;
+  DL.SECOND_SKILL = SECOND_SKILL;
 
   const xpNeed = (level) => 60 + level * 50;
 
@@ -339,7 +340,11 @@
     },
   ];
 
-  DL.JOBS = { BY_ROLE: T, SOCIAL, labelOf, FIX_NAME, devsOf };
+  DL.JOBS = {
+    BY_ROLE: T, SOCIAL, labelOf, FIX_NAME, devsOf, fixTask,
+    // building blocks for player-made roles (roles.js)
+    h: { items, racks, faults, servers, online, up, tempOf, num, pick },
+  };
 
   /* ------------------------------------------------------------------ */
   /* Talk: small conversations and observations about the datacenter     */
