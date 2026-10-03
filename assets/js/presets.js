@@ -39,7 +39,7 @@
         ['rack', 18, 3, 0, fill('WSS')], ['shelf', 18, 4],
         ['whiteboard', 17, 8], ['plant', 8, 2], ['plant', 8, 8],
       ],
-      crew: ['funcionario', 'gerente', 'sysadmin'],
+      crew: ['funcionario', 'gerente', 'sysadmin', 'tecnico'],
     },
     noc: {
       name: 'NOC',
@@ -81,19 +81,20 @@
         ...row(7, 10, 15, ['PWS', 'SS', 'SSS']),
         ['storage', 17, 3], ['storage', 18, 3], ['crac', 22, 3], ['crac', 22, 7], ['bin', 22, 10],
       ],
-      crew: ['redes', 'servidores', 'sysadmin'],
+      crew: ['redes', 'servidores', 'sysadmin', 'tecnico'],
       messy: true,
     },
     dcm: {
       name: 'Datacenter médio',
-      desc: 'NOC, escritório e um salão com três fileiras de racks.',
-      tag: '3 salas · 30 racks',
+      desc: 'NOC, escritório, recepção e um salão com três fileiras de racks.',
+      tag: '4 salas · 30 racks',
       def: {
-        lot: { w: 34, h: 20 },
+        lot: { w: 34, h: 24 },
         rooms: [
           { name: 'NOC', x: 1, y: 2, w: 9, h: 7, floor: 'carpet', theme: 'noc' },
           { name: 'Escritório', x: 1, y: 10, w: 9, h: 7, floor: 'carpet', theme: 'corporate' },
           { name: 'Salão de servidores', x: 11, y: 2, w: 21, h: 15, floor: 'tile', theme: 'servers' },
+          { name: 'Recepção', x: 1, y: 18, w: 9, h: 5, floor: 'carpet' },
         ],
       },
       items: [
@@ -105,8 +106,9 @@
         ...row(12, 13, 22, ['WSS', 'SS', 'SSS']),
         ['storage', 25, 4], ['storage', 26, 4], ['storage', 25, 8], ['storage', 26, 8],
         ['crac', 30, 4], ['crac', 30, 8], ['crac', 30, 12], ['bin', 31, 16],
+        ['desksupport', 6, 19, 0], ['sofa', 1, 21], ['plant', 1, 18], ['water', 9, 18], ['plant', 9, 22], ['lamp', 4, 22],
       ],
-      crew: ['redes', 'servidores', 'sysadmin', 'seguranca', 'gerente'],
+      crew: ['redes', 'servidores', 'sysadmin', 'seguranca', 'gerente', 'tecnico', 'funcionario'],
       messy: true,
     },
   };

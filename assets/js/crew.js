@@ -19,6 +19,7 @@
     redes: { name: 'Redes', title: 'Técnico(a) de redes', color: '#a0c3ec', work: 'net', desc: 'Switches, cabos e conectividade.' },
     servidores: { name: 'Servidores', title: 'Técnico(a) de servidores', color: '#ffc285', work: 'srv', desc: 'Instala e mantém o hardware.' },
     sysadmin: { name: 'Sysadmin', title: 'Administrador(a) de sistemas', color: '#c4b5fd', work: 'code', desc: 'Sistemas, alertas e incidentes.' },
+    tecnico: { name: 'Técnico de TI', title: 'Técnico(a) de TI', color: '#5eead4', work: 'srv', desc: 'Conserta PCs e switches na bancada e instala equipamentos.' },
     seguranca: { name: 'Segurança', title: 'Segurança', color: '#ff7a17', work: 'cam', desc: 'Rondas, acessos e câmeras.' },
     funcionario: { name: 'Assistente', title: 'Assistente', color: '#dadbdf', work: 'doc', desc: 'Chamados, inventário e documentação.' },
     gerente: { name: 'Gerente', title: 'Gerente', color: '#7ee0a1', work: 'kpi', desc: 'Indicadores, capacidade e equipe.' },
@@ -363,7 +364,7 @@
     function applyPlayer(save) {
       const pl = game.player;
       const L = lookOf(PL.profile);
-      if (pl) { pl.look = L; pl.sheet = DL.makeSheet(L); }
+      if (pl) { pl.look = L; pl.sheet = DL.makeSheet(L); pl.sitSheet = DL.makeSitSheet(L); pl.actSheet = DL.makeActSheet(L); }
       if (save) { try { localStorage.setItem(PLAYER_KEY, JSON.stringify(PL.profile)); } catch (e) { /* private mode: keep it for this session */ } }
       if (el.meName) {
         const r = ROLES[PL.profile.role];
@@ -462,18 +463,88 @@
 
     const userOf = (s) => C.members.find((a) => a.crew.station && a.crew.station.key === s.key) || null;
 
+    /* ---------- organisation: each member's own workstation and work sector ---------- */
+    // a station can't be used while its PC is broken / at the bench, or while the player sits there
+    const brokenSt = (s) => !!(s.key.broken || s.key.pcOut || (s.screen && (s.screen.broken || s.screen.pcOut)));
+    const playerOn = (s) => !!(game.playerSeat && game.playerSeat.key === s.key);
+    const ownerOf = (s) => C.members.find((m) => m.crew.home === s.key) || null;
+    const reservedFor = (s, a) => { const o = ownerOf(s); return !!o && o !== a; };
+    const stationFree = (s, a) => !brokenSt(s) && !playerOn(s) && !reservedFor(s, a) && (!userOf(s) || userOf(s) === a);
+    function homeStation(a) {
+      const h = a.crew.home;
+      if (!h) return null;
+      const s = stationOf(h);
+      return s && s.key === h ? s : null;
+    }
+    function roomAtPoint(x, y) {
+      const W = world(), tx = Math.floor(x / T), ty = Math.floor((y - 2) / T);
+      if (!W.roomAt || tx < 0 || ty < 0 || tx >= W.W || ty >= W.H) return null;
+      const i = W.roomAt[ty * W.W + tx];
+      return i >= 0 && W.rooms[i] ? W.rooms[i] : null;
+    }
+    const zoneRoom = (a) => (a.crew.zone ? (world().rooms || []).find((r) => r.id === a.crew.zone) || null : null);
+    const inZone = (a, p) => { if (!a.crew.zone || !p) return true; const r = roomAtPoint(p.x, p.y); return !!r && r.id === a.crew.zone; };
+    const pointOf = (t) => (!t ? null : t.crew || t.x != null ? { x: t.x, y: t.y } : t.ix != null ? { x: t.ix, y: t.iy - 3 } : t.tx != null ? { x: t.tx * T + 8, y: (t.ty + (t.th || 1)) * T + 6 } : null);
+    function stationName(s) {
+      const r = roomAtPoint(s.approach.x, s.approach.y);
+      return (s.key.id || s.label) + (r ? ' · ' + r.name : '');
+    }
+
     function nearestStation(a, ok) {
+      // the member's own station first
+      const home = homeStation(a);
+      if (home && !brokenSt(home) && !playerOn(home) && (!ok || ok(home)) && (!userOf(home) || userOf(home) === a)) {
+        const r = nav.route(a.x, a.y, home.approach.x, home.approach.y, true);
+        if (r) return { s: home, r };
+      }
       let best = null, bestD = Infinity, bestR = null;
       for (const s of stations()) {
         if (ok && !ok(s)) continue;
-        const u = userOf(s);
-        if (u && u !== a) continue;
+        if (!stationFree(s, a)) continue;
         const r = nav.route(a.x, a.y, s.approach.x, s.approach.y, true);
         if (!r) continue;
-        const d = nav.length(a.x, a.y, r);
+        // stations inside the member's sector win unless the others are much closer
+        const d = nav.length(a.x, a.y, r) * (inZone(a, s.approach) ? 1 : 2.5);
         if (d < bestD) { bestD = d; best = s; bestR = r; }
       }
       return best ? { s: best, r: bestR } : null;
+    }
+
+    // Default organisation for a new hire: a sector that fits the role and a free station there.
+    const ZONE_PREF = { redes: ['servers', 'noc'], servidores: ['servers'], tecnico: ['servers', 'power', 'office'], sysadmin: ['noc', 'office'], gerente: ['office', 'noc'], seguranca: ['reception', 'noc'], funcionario: ['reception', 'support', 'office'] };
+    function autoPlace(a, onlyMissing) {
+      const c = a.crew, rooms = world().rooms || [], type = DL.roomTypeOf || (() => null);
+      if (!onlyMissing || !zoneRoom(a)) {
+        const r0 = ROLES[c.profile.role];
+        const pref = ZONE_PREF[c.profile.role] || (r0 && r0.cfg ? r0.cfg.areas.filter((x) => x !== 'any') : []);
+        let room = null;
+        for (const t of pref) { room = rooms.find((r) => type(r) === t); if (room) break; }
+        c.zone = room ? room.id : null;
+      }
+      if (!onlyMissing || !homeStation(a)) {
+        c.home = null;
+        const def = tasksOf(a).find((d) => d.kind === 'pc');
+        if (def) {
+          const cand = stations().filter((s) => !ownerOf(s) && !brokenSt(s) && (!def.stationOk || def.stationOk(s)));
+          cand.sort((x, y) => (inZone(a, x.approach) ? 0 : 1) - (inZone(a, y.approach) ? 0 : 1));
+          if (cand[0]) c.home = cand[0].key;
+        }
+      }
+    }
+
+    function setHome(a, key) {
+      const c = a.crew;
+      if (key) for (const m of C.members) if (m !== a && m.crew.home === key) m.crew.home = null;
+      c.home = key || null;
+      c.placeAuto = false;
+      renderCard(true);
+      renderList();
+    }
+    function setZone(a, id) {
+      a.crew.zone = id || null;
+      a.crew.placeAuto = false;
+      renderCard(true);
+      renderList();
     }
 
     /* ---------- places ---------- */
@@ -495,7 +566,14 @@
       return null;
     }
 
-    function patrolSpots() {
+    function patrolSpots(def, a) {
+      // getting to know the place / killing time happens inside the member's own sector
+      const z = a && (def.id === 'explore' || def.social) ? zoneRoom(a) : null;
+      if (z) {
+        const out = [];
+        for (let n = 0; n < 3; n++) { const p = spotInRoom(z); if (p) out.push(p); }
+        if (out.length) return out;
+      }
       const rooms = (world().rooms || []).slice().sort(() => rand() - 0.5);
       const out = [];
       for (const r of rooms) { const p = spotInRoom(r); if (p) out.push(p); if (out.length >= 4) break; }
@@ -519,7 +597,7 @@
       return game.ops ? game.ops.devices().find((d) => d.rack === rack && d.slot === k) : null;
     }
 
-    const ctxOf = (a) => ({ a, c: a.crew, stats: a.crew.stats, world: world(), ops: game.ops, members: C.members, player: playerName(), reception, install });
+    const ctxOf = (a) => ({ a, c: a.crew, stats: a.crew.stats, world: world(), ops: game.ops, staff: game.staff, members: C.members, player: playerName(), reception, install });
 
     /* ---------- members ---------- */
     function frameOf() {
@@ -529,6 +607,13 @@
         if (c.pose === 'R' && this.blinkT > 0) return set.blink;
         return set[c.pose] || set.R;
       }
+      // standing actions: hands on the equipment while working on it, mouth moving while talking
+      if (!this.moving && c.act) {
+        const t = scene.t, s = c.act[this.dir] || c.act.down;
+        if (c.state === 'pickup' || c.state === 'installing' || c.state === 'repairing' || c.state === 'inspecting' || (c.state === 'atSpot' && c.job && c.job.order)) {
+          if (Math.floor(t * 2.6 + c.id) % 3) return s.reach;
+        } else if ((c.state === 'talking' || (c.talkT > 0 && c.talkWith) || (this.bubble && this.bubble.left > 0.6)) && Math.floor(t * 7) % 2) return s.talk;
+      }
       return DL.Actor.prototype.frame.call(this);
     }
 
@@ -537,6 +622,7 @@
       a.look = L;
       a.sheet = DL.makeSheet(L);
       a.crew.sit = DL.makeSitSheet(L);
+      a.crew.act = DL.makeActSheet(L);
     }
 
     function spawnPoint() {
@@ -557,11 +643,13 @@
         id: ++C.seq, profile, name: profile.name, stats: opts.stats || XP.newStats(profile.role, opts.level),
         state: 'idle', wait: between(0.6, 1.6), pose: 'R', seated: false, sitDir: 'up', station: null, job: null, alertT: 0,
         hold: false, menu: false, talkT: 0, lastSocial: -40,
+        home: null, zone: null, placeAuto: true, carry: null,
       };
       a.frame = frameOf;
       applyLook(a);
       const others = C.members.slice();
       C.members.push(a);
+      autoPlace(a);
       scene.actors.push(a);
       scene.refreshWorld(false);
       if (!opts.silent) {
@@ -578,6 +666,8 @@
     // Dismissed: sad (crying), walks out to the reception, then fades away.
     function fire(a) {
       const c = a.crew;
+      abortRepair(a);
+      c.home = null;
       if (c.seated || c.state === 'sitting' || c.state === 'standing') {
         const s = c.station;
         if (s) { a.x = s.approach.x; a.y = s.approach.y; }
@@ -643,7 +733,7 @@
 
     // What a task can be done on right now: { targets } or { reason }
     function optionsFor(a, def) {
-      if (def.kind === 'pc') return stations().some((s) => (!def.stationOk || def.stationOk(s)) && (!userOf(s) || userOf(s) === a)) ? { targets: [null] } : { reason: def.stationOk ? 'Sem estação livre permitida para o cargo' : 'Sem computador livre' };
+      if (def.kind === 'pc') return stations().some((s) => (!def.stationOk || def.stationOk(s)) && stationFree(s, a)) ? { targets: [null] } : { reason: def.stationOk ? 'Sem estação livre permitida para o cargo' : 'Sem computador livre' };
       if (def.kind === 'patrol') return { targets: [null] };
       const ts = def.targets(ctxOf(a)) || [];
       return ts.length ? { targets: ts } : { reason: def.none || 'Indisponível agora' };
@@ -651,7 +741,9 @@
 
     // weighted choice that prefers what nobody else is doing (and, for orders, what is close)
     function chooseTarget(a, def, ts, nearest) {
-      const w = (t) => (def.weight ? def.weight(t) : 1) * (busyWith(t, a) ? 0.12 : 1);
+      // routine work happens mostly inside the member's sector
+      const zw = (t) => (!a.crew.zone || def.kind === 'visit' ? 1 : inZone(a, pointOf(def.place ? def.place(t) : t)) ? 3 : 0.3);
+      const w = (t) => (def.weight ? def.weight(t) : 1) * (busyWith(t, a) ? 0.12 : 1) * zw(t);
       if (def.kind === 'fix') return ts.slice().sort((x, y) => (x.fault.foundAt || 0) - (y.fault.foundAt || 0))[0];
       if (nearest) {
         let best = null, bestS = -1;
@@ -702,22 +794,25 @@
         route = nav.route(a.x, a.y, p.x, p.y, def.kind !== 'visit');
       }
       if (!route) return 'Sem caminho até ' + (station ? station.label : JOBS.labelOf(place || target));
+      if (def.kind === 'repair' && target.taken && target.taken !== a) return JOBS.labelOf(target) + ' já está com ' + target.taken.crew.name;
+      abortRepair(a);
       if (c.seated || c.state === 'sitting') standUpNow(a);
       release(a);
       c.hold = false;
       c.menu = false;
       c.talkT = 0;
-      c.job = { def, target, place, name: def.name, total: dur, left: dur, auto: !!opts.auto, label: station ? station.label : JOBS.labelOf(def.kind === 'fix' ? target : place || target) };
+      c.job = { def, target, place, name: def.name, total: dur, left: dur, auto: !!opts.auto, quiet: !!opts.quiet, label: station ? station.label : JOBS.labelOf(def.kind === 'fix' || def.kind === 'repair' ? target : place || target) };
       a.route = route;
       a.blockT = 0;
       c.rerouteT = 1.2;
       if (def.kind === 'pc') { c.station = station; c.state = 'going'; }
-      else if (def.kind === 'patrol') { c.spots = patrolSpots(); c.spotsTotal = c.spots.length || 1; c.pauseT = 0; c.state = 'patrol'; a.route = null; }
+      else if (def.kind === 'patrol') { c.spots = patrolSpots(def, a); c.spotsTotal = c.spots.length || 1; c.pauseT = 0; c.state = 'patrol'; a.route = null; }
       else if (def.kind === 'spot') c.state = 'toSpot';
       else if (def.kind === 'visit') c.state = 'toVisit';
+      else if (def.kind === 'repair') { c.state = 'toBroken'; target.taken = a; }
       else c.state = 'toEquip';
       if (def.social) c.lastSocial = scene.t;
-      if (!opts.auto) {
+      if (!opts.auto && !opts.quiet) {
         C.assigned++;
         game.toast('info', 'Tarefa atribuída', c.name + ' · ' + def.name + (c.job.label ? ' · ' + c.job.label : ''));
       }
@@ -732,8 +827,18 @@
       release(a);
     }
 
+    // a repair job that stops halfway puts the equipment back (unrepaired) and frees it for someone else
+    function abortRepair(a) {
+      const c = a.crew, job = c.job;
+      c.carry = null;
+      if (!job || job.def.kind !== 'repair' || !job.target) return;
+      if (job.target.taken === a) job.target.taken = null;
+      if (game.staff) game.staff.putBack(job.target);
+    }
+
     function cancelJob(a, quiet) {
       const c = a.crew;
+      abortRepair(a);
       c.job = null;
       if (c.seated || c.state === 'sitting' || c.state === 'working') standUp(a);
       else { release(a); c.state = 'idle'; c.wait = between(0.5, 1.2); a.route = null; }
@@ -755,11 +860,13 @@
       if (res && res.say) chat.post(a, res.say, { tone: res.tone === 'help' ? 'warn' : res.tone });
       if (res && res.reply) { const [w, line] = res.reply; chat.later(between(1.6, 2.4), () => { if (alive(w)) chat.post(w, line); }); }
       if (res && res.failed && job.target) askHelp(a, job.target, def);
-      if (!job.auto) {
+      if (!job.auto && !job.quiet) {
         game.toast('ok', 'Tarefa concluída', c.name + ' · ' + def.name);
         game.sfx('done');
       }
-      if (!def.social && def.id !== 'explore') game.emit('job-done', { a, name: def.name, auto: job.auto, failed: !!(res && res.failed) });
+      if (!def.social && def.id !== 'explore') game.emit('job-done', { a, name: def.name, auto: job.auto, failed: !!(res && res.failed), job, res });
+      if (def.kind === 'repair' && job.target && job.target.taken === a) job.target.taken = null;
+      c.carry = null;
       c.job = null;
       if (c.seated || c.state === 'working') standUp(a);
       else { c.state = 'idle'; c.wait = between(0.4, 1.1); a.route = null; }
@@ -812,6 +919,19 @@
           }
         }
       }
+      // 1b. broken hardware nobody (or no work order) has claimed: the technicians go for it
+      if (game.staff && !game.paused()) {
+        const rep = defs.find((d) => d.kind === 'repair');
+        if (rep) {
+          for (const b of game.staff.broken()) {
+            if (b.taken || game.staff.claimed(b)) continue;
+            if (!startJob(a, rep, { auto: true, target: b })) {
+              chat.post(a, 'Vou buscar o ' + b.label + ' para consertar na bancada.');
+              return;
+            }
+          }
+        }
+      }
       // 2. the role's own work, weighted; now and then a short social moment
       const opts = [];
       for (const def of defs) {
@@ -844,6 +964,11 @@
       return walk(a, dt, sp);
     }
     const faceTo = (a, t) => { a.dir = DL.dirOf(t.x - a.x, t.y - a.y); };
+    const faceToItem = (a, e) => {
+      if (e && e.bounds) faceTo(a, { x: e.bounds.x + e.bounds.w / 2, y: e.bounds.y + e.bounds.h / 2 });
+      else a.dir = 'up';
+      a.crew.facing = a.dir;
+    };
     const speedOf = (a) => 34 + a.crew.stats.level * 0.8;
 
     function update(dt) {
@@ -961,6 +1086,56 @@
           a.dir = c.facing || 'up';
           job.left -= dt;
           if (job.left <= 0) finishJob(a);
+          break;
+        /* maintenance: walk to the broken unit → take it out → carry it to the bench → repair →
+           carry it back → install it again */
+        case 'toBroken':
+          if (walkStep(a, dt, speedOf(a) + 4)) {
+            a.route = null;
+            a.moving = false;
+            faceToItem(a, job.place);
+            c.state = 'pickup';
+            c.phaseT = 1.6;
+          }
+          break;
+        case 'pickup':
+          a.moving = false;
+          c.phaseT -= dt;
+          if (c.phaseT <= 0) {
+            const b = job.target;
+            if (!game.staff || !game.staff.takeOut(b, a)) { cancelJob(a, true); break; }
+            c.carry = b.kind;
+            const bench = game.staff.benchFor(a, b);
+            job.bench = bench;
+            a.route = bench ? nav.route(a.x, a.y, bench.x, bench.y, true) : null;
+            a.blockT = 0;
+            c.state = a.route ? 'carry' : 'repairing';
+            if (bench && a.route) chat.post(a, pick(['Levando o ' + b.label + ' para a bancada (' + bench.label + ').', b.label + ' retirado. Vou abrir na bancada.']));
+          }
+          break;
+        case 'carry':
+          if (walkStep(a, dt, speedOf(a) - 3)) { a.route = null; a.moving = false; c.state = 'repairing'; }
+          break;
+        case 'repairing':
+          a.moving = false;
+          a.dir = job.bench ? job.bench.dir : 'up';
+          job.left -= dt;
+          if (job.left <= 0) {
+            const p = standAt(job.place);
+            a.route = nav.route(a.x, a.y, p.x, p.y, true);
+            a.blockT = 0;
+            c.state = a.route && a.route.length ? 'return' : 'installing';
+            c.phaseT = 2.2;
+            if (c.state === 'installing') faceToItem(a, job.place);
+          }
+          break;
+        case 'return':
+          if (walkStep(a, dt, speedOf(a) - 3)) { a.route = null; a.moving = false; faceToItem(a, job.place); c.state = 'installing'; c.phaseT = 2.2; }
+          break;
+        case 'installing':
+          a.moving = false;
+          c.phaseT -= dt;
+          if (c.phaseT <= 0) finishJob(a);
           break;
         case 'patrol':
           if (a.route && a.route.length) {
@@ -1125,9 +1300,13 @@
         if (job && job.def.kind === 'fix' && game.ops && game.ops.devices().indexOf(job.target) < 0) { cancelJob(a, true); continue; }
         if (a.route && a.route.length && c.state !== 'sitting' && c.state !== 'standing') {
           const last = a.route[a.route.length - 1];
-          a.route = nav.route(a.x, a.y, last.x, last.y, c.state === 'going' || c.state === 'toEquip');
+          a.route = nav.route(a.x, a.y, last.x, last.y, c.state === 'going' || c.state === 'toEquip' || c.state === 'toBroken' || c.state === 'carry' || c.state === 'return');
           if (!a.route && c.state !== 'patrol' && c.state !== 'toVisit') cancelJob(a, true);
         }
+        // own station removed / sector gone: forget it (automatic organisation picks a new one)
+        if (c.home && world().items.indexOf(c.home) < 0) c.home = null;
+        if (c.zone && !zoneRoom(a)) c.zone = null;
+        if (c.placeAuto && (!c.zone || !c.home)) autoPlace(a, true);
       }
       for (const a of C.leaving) {
         if (a.route && a.route.length) { const last = a.route[a.route.length - 1]; a.route = nav.route(a.x, a.y, last.x, last.y); }
@@ -1193,6 +1372,12 @@
         case 'patrol': return j.def.verb;
         case 'toVisit': return 'Indo falar com ' + j.label;
         case 'talking': return j.def.verb + ' com ' + j.label;
+        case 'toBroken': return 'Indo buscar ' + j.label + ' · ' + j.name;
+        case 'pickup': return 'Retirando ' + j.label;
+        case 'carry': return 'Levando ' + j.label + ' para a bancada';
+        case 'repairing': return 'Consertando ' + j.label + ' na bancada' + (j.bench ? ' (' + j.bench.label + ')' : '') + ' · ' + Math.ceil(Math.max(0, j.left)) + ' s';
+        case 'return': return 'Devolvendo ' + j.label;
+        case 'installing': return 'Reinstalando ' + j.label;
       }
       return '';
     }
@@ -1201,6 +1386,11 @@
       if (!j) return 0;
       if (c.state === 'patrol') return 1 - (c.spots.length + (a.route && a.route.length ? 1 : 0)) / (c.spotsTotal || 1);
       if (c.state === 'working' || c.state === 'inspecting' || c.state === 'atSpot' || c.state === 'talking') return Math.max(0, Math.min(1, 1 - j.left / j.total));
+      // repair: 15% taking it out, 70% at the bench, the rest bringing it back
+      if (c.state === 'pickup' || c.state === 'carry') return 0.15;
+      if (c.state === 'repairing') return 0.15 + 0.7 * Math.max(0, Math.min(1, 1 - j.left / j.total));
+      if (c.state === 'return') return 0.88;
+      if (c.state === 'installing') return 0.94;
       return 0;
     };
     const busy = (a) => !!a.crew.job;
@@ -1212,6 +1402,20 @@
         const v = Math.round(st.skills[k] || 0);
         return '<div class="sk' + (k === main ? ' is-main' : '') + '"><span>' + name + '</span><b data-sk="' + k + '">' + v + '</b><i><em data-skbar="' + k + '" style="transform:scaleX(' + (v / 100).toFixed(2) + ')"></em></i></div>';
       }).join('') + '</div>';
+    }
+
+    // where the member works: their own station and the sector they stay in
+    function placeHtml(a) {
+      const c = a.crew, sts = stations();
+      C.stList = sts.map((s) => s.key);
+      let h = '<div class="cc__place"><label class="cc__sel"><span class="eyebrow-sm">Estação</span><select data-cc-sel="home" aria-label="Estação de ' + esc(c.name) + '"><option value="">Automática (qualquer livre)</option>';
+      sts.forEach((s, i) => {
+        const o = ownerOf(s);
+        h += '<option value="' + i + '"' + (c.home === s.key ? ' selected' : '') + '>' + esc(stationName(s)) + (o && o !== a ? ' · de ' + esc(o.crew.name) : '') + (brokenSt(s) ? ' · quebrada' : '') + '</option>';
+      });
+      h += '</select></label><label class="cc__sel"><span class="eyebrow-sm">Setor</span><select data-cc-sel="zone" aria-label="Setor de ' + esc(c.name) + '"><option value="">Livre (todas as salas)</option>';
+      for (const r of world().rooms || []) h += '<option value="' + esc(r.id) + '"' + (c.zone === r.id ? ' selected' : '') + '>' + esc(r.name) + '</option>';
+      return h + '</select></label></div>';
     }
 
     function menuHtml(a) {
@@ -1230,8 +1434,10 @@
       if (!a || C.mode === 'build') { el.card.classList.remove('is-on'); C.cardKey = ''; return; }
       const c = a.crew, role = roleOf(a), st = c.stats;
       const stars = XP.starsOf(st, c.profile.role);
-      const key = [c.id, busy(a), c.name, c.profile.role, !!c.confirmFire, c.menu, st.level, stars, c.unread || 0, c.menu ? world().version + ':' + (game.ops ? game.ops.openFaults : 0) : ''].join(':');
+      const key = [c.id, busy(a), c.name, c.profile.role, !!c.confirmFire, c.menu, st.level, stars, c.unread || 0, c.menu ? world().version + ':' + (game.ops ? game.ops.openFaults : 0) : '', c.home ? c.home.id || 'h' : '', c.zone || '', world().version].join(':');
       if (!force && key === C.cardKey) return;
+      // don't rebuild under an open dropdown
+      if (!force && el.card.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
       C.cardKey = key;
       let h = '<div class="cc__head"><span class="cc__dot" style="background:' + role.color + '"></span><b>' + esc(c.name) + '</b><span class="eyebrow-sm" style="color:' + role.color + '">' + role.name + '</span>' +
         '<button type="button" class="cc__x" data-cc="close" aria-label="Fechar">×</button></div>';
@@ -1240,6 +1446,7 @@
         h += menuHtml(a);
       } else {
         h += skillsHtml(a);
+        h += placeHtml(a);
         h += '<p class="cc__status" data-live="status">' + statusOf(a) + '</p>';
         h += '<div class="cc__bar"><i data-live="bar"></i></div>';
         h += '<div class="cc__actions">';
@@ -1278,6 +1485,28 @@
     }
 
     el.card.addEventListener('pointerdown', (ev) => ev.stopPropagation());
+    el.card.addEventListener('keydown', (ev) => { if (ev.target.tagName === 'SELECT') ev.stopPropagation(); });
+    el.card.addEventListener('change', (ev) => {
+      const s = ev.target.closest('[data-cc-sel]'), a = C.sel;
+      if (!s || !a) return;
+      const c = a.crew;
+      if (s.dataset.ccSel === 'home') {
+        const key = s.value === '' ? null : (C.stList || [])[+s.value] || null;
+        const prev = key && C.members.find((m) => m !== a && m.crew.home === key);
+        setHome(a, key);
+        const st = key && stationOf(key);
+        game.toast('ok', 'Estação', key ? c.name + ' agora trabalha em ' + (st ? stationName(st) : key.id) + (prev ? ' (era de ' + prev.crew.name + ')' : '') : c.name + ' usa qualquer estação livre');
+        if (key) chat.post(a, pick(['Fechado, ' + (key.id || 'essa estação') + ' é minha agora. Vou arrumar a mesa do meu jeito.', 'Beleza! Minha estação agora é a ' + (key.id || 'nova') + '.']));
+      } else {
+        const r = (world().rooms || []).find((x) => String(x.id) === s.value) || null;
+        setZone(a, r ? r.id : null);
+        game.toast('ok', 'Setor', r ? c.name + ' fica na ' + r.name : c.name + ' circula por todas as salas');
+        if (r) chat.post(a, 'Combinado, vou ficar na ' + r.name + '.');
+        // walk over there right away when nothing important is going on
+        if (r && (!c.job || (c.job.auto && c.job.def.kind !== 'repair' && c.job.def.kind !== 'fix')) && !c.seated && c.state !== 'sitting' && c.state !== 'standing') { cancelJob(a, true); c.wait = 0.1; }
+      }
+      s.blur();
+    });
     el.card.addEventListener('click', (ev) => {
       const t = ev.target.closest('[data-task]');
       const a = C.sel;
@@ -1322,6 +1551,7 @@
         return '<li><button type="button" class="crew-row' + (C.sel === a ? ' is-on' : '') + '" data-member="' + c.id + '">' +
           '<span class="cc__dot" style="background:' + r.color + '"></span><span class="crew-row__name">' + esc(c.name) + '</span>' +
           '<span class="eyebrow-sm crew-row__role">' + r.name + ' · Nv ' + c.stats.level + ' ' + starsHtml(XP.starsOf(c.stats, c.profile.role)) + '</span>' +
+          '<span class="crew-row__place">' + esc((c.home ? (c.home.id || 'Estação') : 'Estação livre') + ' · ' + (zoneRoom(a) ? zoneRoom(a).name : 'Todas as salas')) + '</span>' +
           '<span class="crew-row__status" data-status="' + c.id + '">' + statusOf(a) + '</span>' +
           '<span class="crew-row__bar"><i data-bar="' + c.id + '"></i></span></button></li>';
       }).join('');
@@ -1354,7 +1584,7 @@
     const CR = { open: false, profile: null, editing: null, pose: 'stand', t: 0, raf: 0, last: 0, cacheKey: '', sheet: null, sit: null };
 
     function uniqueName(body) {
-      const used = new Set(C.members.map((a) => a.crew.name));
+      const used = new Set(C.members.map((a) => a.crew.name).concat(PL.profile ? [PL.profile.name] : []));
       const pool = NAMES[body].filter((n) => !used.has(n));
       return pick(pool.length ? pool : NAMES[body]);
     }
@@ -1485,6 +1715,7 @@
         applyLook(a);
         if (roleChanged) {
           if (c.job) cancelJob(a, true);
+          if (c.placeAuto) autoPlace(a);
           chat.post(a, 'Mudei de função: agora sou ' + ROLES[prof.role].title.toLowerCase() + '. Muita coisa para aprender!');
         }
         game.toast('ok', 'Perfil atualizado', prof.name + ' · ' + ROLES[prof.role].title);
@@ -1546,7 +1777,7 @@
     }
     function updateUi(dt) {
       const near = (a) => C.mode === 'crew' || C.sel === a || (game.player && Math.hypot(a.x - game.player.x, a.y - game.player.y) < 64);
-      const lift = (a) => (a.crew.seated ? 27 : 31);
+      const lift = (a) => ((a.crew ? a.crew.seated : a.seated) ? 27 : 31);
       for (const a of C.members) {
         let s = tagEls.get(a);
         if (!s) {
@@ -1569,7 +1800,8 @@
       for (const [a, s] of tagEls) if (C.members.indexOf(a) < 0) { s.remove(); tagEls.delete(a); }
 
       // speech bubbles (members and people on their way out)
-      const talkers = C.members.concat(C.leaving);
+      // (also the player and the visitors at the reception — staff.js)
+      const talkers = C.members.concat(C.leaving, game.player ? [game.player] : [], game.extraTalkers ? game.extraTalkers() : []);
       for (const a of talkers) {
         let s = sayEls.get(a);
         if (!a.bubble) { if (s) s.classList.remove('is-on'); continue; }
@@ -1581,7 +1813,7 @@
         }
         const b = a.bubble;
         if (s.dataset.k !== b.text) { s.dataset.k = b.text; s.textContent = b.text; s.className = 'say is-' + (b.tone || 'chat'); }
-        const show = C.mode !== 'build' && C.sel !== a && !(a.alpha != null && a.alpha < 0.2);
+        const show = C.mode !== 'build' && C.sel !== a && !a.hidden && !(a.alpha != null && a.alpha < 0.2);
         s.classList.toggle('is-on', show);
         if (show) anchor(s, a, lift(a) + 2);
       }
@@ -1662,6 +1894,47 @@
       g.globalAlpha = 1;
     }
 
+    // the unit being carried (a PC tower or a 1U switch) and the work at the bench
+    function drawUnit(g, kind, x, y) {
+      if (kind === 'switch') {
+        g.fillStyle = '#11141a'; g.fillRect(x - 6, y - 1, 13, 5);
+        g.fillStyle = '#2a313b'; g.fillRect(x - 5, y, 11, 3);
+        g.fillStyle = '#39414d'; g.fillRect(x - 5, y, 11, 1);
+        g.fillStyle = '#7ee0a1'; g.fillRect(x - 4, y + 2, 1, 1); g.fillRect(x - 2, y + 2, 1, 1);
+        g.fillStyle = '#ff7a17'; g.fillRect(x + 2, y + 2, 1, 1);
+      } else {
+        g.fillStyle = '#11141a'; g.fillRect(x - 4, y - 3, 8, 9);
+        g.fillStyle = '#2c3139'; g.fillRect(x - 3, y - 2, 6, 7);
+        g.fillStyle = '#3a414c'; g.fillRect(x - 3, y - 2, 6, 1);
+        g.fillStyle = '#ff7a17'; g.fillRect(x + 1, y, 1, 1);
+      }
+    }
+    function maintenanceFx(g, a, t) {
+      const c = a.crew, j = c.job;
+      if (c.carry && (c.state === 'carry' || c.state === 'return' || c.state === 'pickup' || c.state === 'installing')) {
+        const lift = c.state === 'pickup' || c.state === 'installing' ? Math.round(Math.sin(t * 5) * 1) : 0;
+        // seen from behind, the unit shows above the shoulders
+        drawUnit(g, c.carry, Math.round(a.x) + (a.dir === 'left' ? -3 : a.dir === 'right' ? 3 : 0), Math.round(a.y) - (a.dir === 'up' ? 24 : 11) + lift);
+      }
+      if (c.state === 'repairing' && j) {
+        // the unit lies open on the bench; sparks from the soldering iron, a blinking tester
+        // no bench around: the unit is worked on right there, in the hands
+        const b = j.bench, bx = b ? Math.round(b.ux) : Math.round(a.x), by = b ? Math.round(b.uy) : Math.round(a.y) - 10;
+        drawUnit(g, c.carry || 'pc', bx, by);
+        for (let i = 0; i < 3; i++) {
+          if (Math.sin(t * 13 + i * 2.1) < 0.3) continue;
+          g.fillStyle = i % 2 ? '#ffe9a8' : '#ffc285';
+          g.fillRect(bx - 3 + ((i * 5 + Math.floor(t * 9)) % 8), by - 3 - ((i + Math.floor(t * 7)) % 3), 1, 1);
+        }
+        g.fillStyle = Math.sin(t * 6) > 0 ? '#5eead4' : '#1f3b38';
+        g.fillRect(Math.round(a.x) + 4, Math.round(a.y) - 12, 2, 2);
+      }
+      if ((c.state === 'pickup' || c.state === 'installing') && Math.sin(t * 8) > 0) {
+        g.fillStyle = roleOf(a).color;
+        g.fillRect(Math.round(a.x) + 4, Math.round(a.y) - 13, 2, 1);
+      }
+    }
+
     function overlay(g, sc) {
       for (const a of C.members) {
         const c = a.crew;
@@ -1677,6 +1950,7 @@
         g.fillRect(b.x + 2, Math.round(b.y + 4 + k * (b.h - 10)), b.w - 4, 1);
         g.globalAlpha = 1;
       }
+      for (const a of C.members) maintenanceFx(g, a, sc.t);
       for (const a of C.leaving) tears(g, a, sc.t);
       if (C.mode !== 'crew') return;
       const s = C.hover;
@@ -1727,6 +2001,9 @@
           const u = userOf(s);
           if (u === C.sel) return true;
           if (u) { game.toast('warn', 'Ocupado', s.label + ' já está com ' + u.crew.name); return true; }
+          if (brokenSt(s)) { game.toast('warn', 'Estação quebrada', stationName(s) + ' está em manutenção'); return true; }
+          if (playerOn(s)) { game.toast('warn', 'Ocupado', 'Você está usando ' + stationName(s)); return true; }
+          if (reservedFor(s, C.sel)) { game.toast('warn', 'Estação reservada', stationName(s) + ' é de ' + ownerOf(s).crew.name + ' · mude no cartão (Estação)'); return true; }
           sendToStation(C.sel, s);
           return true;
         }
@@ -1804,6 +2081,8 @@
       openCreator, closeCreator, statusOf, stations, stationOf, userOf, startShift,
       api: {
         hire, fire, startJob, cancelJob, standUp, randomProfile, saveCreator, nav, decide, tasksOf, optionsFor, reception, fixDefFor,
+        // organisation (own station + sector) and helpers for staff.js
+        setHome, setZone, autoPlace, ownerOf, homeStation, stationName, roomAtPoint, inZone, zoneRoom, busyWith, standAt, brokenSt, stationFree, progressOf,
         // open the hiring card with a role already chosen (Cargos → Contratar)
         hireAs(role) { openCreator(); if (CR.open && ROLES[role]) { CR.profile.role = role; syncForm(); } },
       },

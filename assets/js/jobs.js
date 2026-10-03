@@ -12,8 +12,8 @@
   /* Skills, experience, levels, stars                                   */
   /* ------------------------------------------------------------------ */
   const SKILLS = [['redes', 'Redes'], ['servidores', 'Servidores'], ['sistemas', 'Sistemas'], ['seguranca', 'Segurança'], ['gestao', 'Gestão']];
-  const ROLE_SKILL = { redes: 'redes', servidores: 'servidores', sysadmin: 'sistemas', seguranca: 'seguranca', funcionario: 'gestao', gerente: 'gestao' };
-  const SECOND_SKILL = { redes: 'servidores', servidores: 'redes', sysadmin: 'servidores', seguranca: 'redes', funcionario: 'sistemas', gerente: 'sistemas' };
+  const ROLE_SKILL = { redes: 'redes', servidores: 'servidores', sysadmin: 'sistemas', tecnico: 'servidores', seguranca: 'seguranca', funcionario: 'gestao', gerente: 'gestao' };
+  const SECOND_SKILL = { redes: 'servidores', servidores: 'redes', sysadmin: 'servidores', tecnico: 'redes', seguranca: 'redes', funcionario: 'sistemas', gerente: 'sistemas' };
   const MAX_LEVEL = 10;
   DL.SKILLS = SKILLS;
   DL.ROLE_SKILL = ROLE_SKILL;
@@ -324,8 +324,66 @@
         desc: 'Passa por todas as salas e conversa com o time.',
         finish: (ctx) => ({ say: 'Vistoria feita. ' + (items(ctx, 'rack').length ? items(ctx, 'rack').length + ' rack(s) em operação.' : 'Ainda temos muito para montar!') }),
       },
+      // the manager runs the company: finds what is missing or broken and hands it to the technicians
+      {
+        id: 'needs', name: 'Identificar necessidades', verb: 'Analisando a infraestrutura', kind: 'pc', skill: 'gestao', xp: 14, dur: [9, 14], auto: 4,
+        desc: 'Procura o que quebrou ou falta e abre ordens de serviço para os técnicos.',
+        finish: (ctx) => (ctx.staff ? ctx.staff.assess(ctx.a) : null),
+      },
+      {
+        id: 'follow', name: 'Acompanhar ordens', verb: 'Acompanhando a ordem de serviço', kind: 'visit', skill: 'gestao', xp: 10, dur: [4, 6], auto: 2,
+        desc: 'Vai até quem está executando uma ordem e confere o andamento.', none: 'Nenhuma ordem em andamento',
+        targets: (ctx) => (ctx.staff ? ctx.staff.busyMembers() : []),
+        finish: (ctx, m) => (ctx.staff ? ctx.staff.followUp(ctx.a, m) : null),
+      },
+      {
+        id: 'expand', name: 'Planejar expansão', verb: 'Planejando a expansão', kind: 'pc', skill: 'gestao', xp: 12, dur: [12, 18], auto: 1,
+        desc: 'Avalia espaço, racks e refrigeração e encomenda o que falta para crescer.',
+        finish: (ctx) => (ctx.staff ? ctx.staff.assess(ctx.a, { expand: true }) : null),
+      },
     ],
   };
+  // IT technician: hands-on maintenance — takes the broken PC or switch to the bench, repairs it and
+  // installs it back; also installs equipment ordered by the manager.
+  T.tecnico = [
+    {
+      id: 'repair', name: 'Consertar equipamento', verb: 'Consertando', kind: 'repair', skill: 'servidores', xp: 26, dur: [9, 14], auto: 0,
+      desc: 'Retira o PC ou switch quebrado, conserta na bancada e reinstala.', none: 'Nenhum equipamento quebrado',
+      targets: (ctx) => (ctx.staff ? ctx.staff.broken().filter((b) => !b.taken) : []),
+      place: (b) => b.place,
+      finish: (ctx, b) => (ctx.staff ? ctx.staff.repaired(b, ctx.a) : null),
+    },
+    {
+      id: 'pcmaint', name: 'Manutenção de PCs', verb: 'Fazendo manutenção', kind: 'equip', skill: 'servidores', xp: 12, dur: [6, 10], auto: 3,
+      desc: 'Limpeza, fonte, ventoinhas e drivers das estações.', none: 'Nenhum computador no datacenter',
+      targets: (ctx) => items(ctx, 'desk').filter((d) => !d.broken && !d.pcOut),
+      finish(ctx, d) {
+        if (ctx.staff) ctx.staff.prevent(d);
+        return { say: pick([(d.id || 'PC') + ': poeira fora, pasta térmica nova. Vai durar mais.', 'Troquei a fonte do ' + (d.id || 'PC') + ' antes que ela queimasse.', (d.id || 'PC') + ' revisado: SSD saudável, drivers em dia.']) };
+      },
+    },
+    {
+      id: 'swmaint', name: 'Revisar switches', verb: 'Revisando o switch', kind: 'equip', skill: 'servidores', xp: 12, dur: [6, 10], auto: 2,
+      desc: 'Fontes, ventoinhas e firmware dos switches.', none: 'Nenhum switch instalado',
+      targets: (ctx) => racks(ctx, (e, ds) => ds.some((d) => d.kind === 'switch' && !d.broken)),
+      finish(ctx, rack) {
+        if (ctx.ops.inspect(ctx.a, rack)) return null;
+        const sw = devsOf(ctx, rack).find((d) => d.kind === 'switch');
+        if (!sw) return { say: 'O switch do ' + rack.id + ' foi removido.' };
+        if (ctx.staff) ctx.staff.prevent(sw);
+        return { say: pick([sw.name + ': fontes redundantes ok, ventoinha trocada.', 'Firmware do ' + sw.name + ' atualizado. Nada de reboot surpresa.', sw.name + ' revisado, LEDs e temperatura normais.']) };
+      },
+    },
+    T.servidores.find((d) => d.id === 'install'),
+    fixTask('fixtec', 'Trocar cabo com defeito', ['cable', 'link'], 'servidores', 'Cabo solto ou interface desligada.'),
+    {
+      id: 'bench', name: 'Organizar a bancada', verb: 'Organizando peças', kind: 'pc', skill: 'servidores', xp: 8, dur: [10, 16], auto: 1,
+      desc: 'Inventário de peças de reposição e ferramentas.',
+      finish: () => ({ say: pick(['Bancada organizada: 4 fontes, 2 ventoinhas e 1 switch reserva.', 'Pedi mais pasta térmica e cabos de força para o estoque.']) }),
+    },
+  ];
+  // server technicians can also take hardware to the bench when there is no IT technician around
+  T.servidores.push(T.tecnico[0]);
   // shared social moments (autonomous only): they still have a reason
   const SOCIAL = [
     {

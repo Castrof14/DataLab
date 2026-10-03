@@ -68,6 +68,24 @@
     function ambientReady() { return H.ambient <= 0; }
     function ambientUsed(s) { H.ambient = s; }
 
+    // the player writes in the channel too; staff.js picks who answers ('team-say')
+    const form = $('chatForm'), input = $('chatIn');
+    if (form) {
+      form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const text = input.value.trim().slice(0, 160);
+        if (!text) return;
+        input.value = '';
+        const me = game.playerInfo ? game.playerInfo() : { name: 'Você', color: '#ffffff' };
+        post({ name: me.name, color: me.color, role: 'Você' }, text, { tone: 'me' });
+        game.emit('team-say', text);
+      });
+      input.addEventListener('keydown', (ev) => {
+        if (ev.code === 'Escape') { ev.preventDefault(); input.blur(); }
+        ev.stopPropagation();
+      });
+    }
+
     el.head.addEventListener('click', () => { setOpen(!H.open); el.head.blur(); });
     el.box.addEventListener('pointerdown', (ev) => ev.stopPropagation());
     setOpen(innerWidth >= 860);
@@ -75,6 +93,8 @@
     return {
       post, later, update, ambientReady, ambientUsed,
       toggle: () => setOpen(!H.open),
+      // open the channel and put the cursor in the message field
+      focusInput() { setOpen(true); if (input) setTimeout(() => input.focus({ preventScroll: true }), 30); },
       get isOpen() { return H.open; },
       get messages() { return H.msgs; },
     };

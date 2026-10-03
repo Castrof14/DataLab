@@ -144,9 +144,12 @@
       for (const d of ops.devices()) {
         if (d.kind !== 'server' || d.state !== 'online' || d.fault || !ops.health(d).up) continue;
         const m = DL.hwOf(d), net = ops.netOf(d);
-        srv += E.revenuePerServer * m.perf * net.factor;
+        // the server's specialisation (infra.js) earns more or less, depending on whether its needs are met
+        srv += E.revenuePerServer * m.perf * net.factor * (DL.svcFactor ? DL.svcFactor(d) : 1);
         if (net.why && net.factor < 0.9) slow.push({ d, why: net.why, pct: Math.round(net.factor * 100) });
       }
+      // virtual machines hosting services on the virtualization nodes
+      if (DL.vmRevenue) srv += DL.vmRevenue();
       let sto = 0, kw = 0;
       for (const e of world().items) {
         if (e.kind === 'storage') {

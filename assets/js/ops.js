@@ -280,10 +280,12 @@
     /* ------------------------------------------------------------------ */
     function health(d) {
       if (d.kind === 'patch') return { up: true };
-      if (d.kind === 'switch') return { up: true, errPorts: Object.values(d.sw.ports).filter((s) => s === 'err-disabled').length };
+      // a switch with broken hardware (staff.js) is down — and so is everything behind it
+      if (d.kind === 'switch') return { up: !d.broken, broken: !!d.broken, errPorts: d.broken ? 0 : Object.values(d.sw.ports).filter((s) => s === 'err-disabled').length };
       const os = d.os, e0 = os.ifaces.eth0, t = d.path || trace(d);
       let why = null;
       if (!t.ok) why = 'cable';
+      else if (t.sw.broken) why = 'switch';
       else if (!e0.up) why = 'iface';
       else if (e0.ips.indexOf(d.ip + '/24') < 0) why = 'ip';
       else if (t.sw.sw.bad === t.port && !t.sw.sw.fixed) why = 'port';
@@ -297,6 +299,7 @@
       if (!e0.up) return { ok: false, msg: 'connect: Network is unreachable', hint: 'a eth0 está DOWN — veja ip link' };
       const t = d.path || trace(d);
       if (!t.ok) return { ok: false, msg: 'connect: Network is unreachable', hint: 'sem sinal no cabo (NO-CARRIER). ' + t.reason + ' — confira o cabeamento do rack' };
+      if (t.sw.broken) return { ok: false, msg: 'connect: Network is unreachable', hint: 'o ' + t.sw.name + ' está com defeito de hardware — chame o técnico de TI' };
       if (!e0.ips.length) return { ok: false, msg: 'connect: Network is unreachable', hint: 'a eth0 não tem endereço IP — veja ip addr' };
       if (t.sw.sw.bad === t.port && !t.sw.sw.fixed) return { ok: false, msg: 'From ' + e0.ips[0].split('/')[0] + ' icmp_seq=1 Destination Host Unreachable', hint: 'a porta ' + t.port + ' do ' + t.sw.name + ' está err-disabled — o problema está no switch' };
       const local = e0.ips.some((ip) => ip.split('.').slice(0, 3).join('.') === host.split('.').slice(0, 3).join('.'));
@@ -427,7 +430,7 @@
       if (O.next > 0) return;
       O.next = 80 + rand() * 60;
       const open = devices().filter((d) => d.fault).length;
-      const ok = devices().filter((d) => d.state === 'online' && !d.fault && d.kind !== 'patch');
+      const ok = devices().filter((d) => d.state === 'online' && !d.fault && !d.broken && d.kind !== 'patch' && health(d).up);
       if (open >= 2 || O.faultCd > 0 || !ok.length || game.paused()) return;
       // cheaper hardware breaks more often (model.fault: 1 = classic)
       const weight = (d) => (d.model && d.model.fault != null ? d.model.fault : 1);
@@ -441,6 +444,7 @@
     /* ------------------------------------------------------------------ */
     function openTerminal(d) {
       if (d.kind === 'patch') { sys.cabling.open(d.rack, d); return; }
+      if (d.broken || d.out) { game.toast('warn', d.name + ' em manutenção', d.out ? 'O equipamento está na bancada do técnico' : 'Defeito de hardware: o técnico de TI precisa trocar a peça na bancada'); return; }
       if (d.kind === 'switch' && d.model && d.model.managed === false) {
         game.toast('info', d.name + ' · ' + d.model.name, 'Switch não gerenciável: não tem console. Para CLI, VLAN e diagnóstico de porta use um gerenciável');
         sys.cabling.open(d.rack, d);

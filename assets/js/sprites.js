@@ -137,6 +137,16 @@
           R(g, ax, ty + 1, 1, 4, shade(c, -0.2));
         } else if (dir === 'right') R(g, ax + 2, ty + 1, 1, 3, c);
         break;
+      case 'tecnico':
+        // IT technician: tool belt + a screwdriver in the role colour
+        if (sit) break;
+        if (dir === 'right') { R(g, ax - 3, ty + 6, 6, 1, '#3d4350'); R(g, ax - 3, ty + 5, 1, 3, c); }
+        else {
+          R(g, ax - 4, ty + 6, 8, 1, '#3d4350');
+          if (dir === 'down') { R(g, ax - 3, ty + 5, 1, 3, c); R(g, ax + 2, ty + 6, 2, 2, '#9aa3b0'); }
+          else R(g, ax + 2, ty + 5, 1, 3, c);
+        }
+        break;
     }
   }
 
@@ -198,7 +208,19 @@
         R(g, x, ty + 6 + dy, 2, 2, L.skin);
         R(g, x, ty + 7 + dy, 2, 1, skinD);
       };
-      if (!sit) {
+      if (!sit && pose === 'reach') {
+        // both hands up and forward: working on something at chest height
+        arm(ax - 6, -3);
+        arm(ax + 4, -3);
+        R(g, ax + 5, ty - 2, 1, 5, shirtD);
+      } else if (!sit && pose === 'wave') {
+        // one arm raised: greeting / calling someone
+        arm(ax - 6, 0);
+        R(g, ax + 4, ty - 4, 2, 6, shirt);
+        R(g, ax + 4, ty - 4, 2, 1, shirtL);
+        R(g, ax + 4, ty - 7, 2, 3, L.skin);
+        R(g, ax + 5, ty - 4, 1, 6, shirtD);
+      } else if (!sit) {
         arm(ax - 6, sw);
         arm(ax + 4, -sw);
         R(g, ax + 5, ty + 1 - sw, 1, 5, shirtD);
@@ -266,6 +288,13 @@
         R(g, ax - 1, ty + 1, 2, 1, shirtL);
         R(g, ax - 1, ty + 4 + dy, rest ? 3 : 5, 2, shirt);
         R(g, ax + (rest ? 2 : 4), ty + 4 + dy, 2, 2, L.skin);
+      } else if (pose === 'reach' || pose === 'wave') {
+        // profile: forearm stretched out in front (raised a bit more when waving)
+        const up = pose === 'wave' ? -3 : 0;
+        R(g, ax - 1, ty + 1, 2, 4, shirt);
+        R(g, ax - 2, ty + 1, 1, 4, shirtD);
+        R(g, ax - 1, ty + 3 + up, 5, 2, shirt);
+        R(g, ax + 4, ty + 3 + up, 2, 2, L.skin);
       } else {
         R(g, ax - 1 + sw, ty + 1, 2, 5, shirt);
         R(g, ax - 2 + sw, ty + 1, 1, 5, shirtD);
@@ -298,6 +327,7 @@
       R(g, ax - 4, hy + 7, 1, 1, blush);
       R(g, ax + 3, hy + 7, 1, 1, blush);
       R(g, ax - 1, hy + 8, 2, 1, skinD);
+      if (pose === 'talk') R(g, ax - 1, hy + 8, 2, 1, '#6b2e2e');
     } else if (side) {
       if (closed) R(g, ax + 2, hy + 6, 2, 1, eye);
       else {
@@ -305,6 +335,7 @@
         if (L.body === 'f') R(g, ax + 3, hy + 4, 1, 1, eye);
       }
       R(g, ax + 3, hy + 7, 1, 1, blush);
+      if (pose === 'talk') R(g, ax + 4, hy + 8, 1, 1, '#6b2e2e');
       R(g, ax + 5, hy + 5, 1, 2, L.skin);
       R(g, ax - 1, hy + 5, 1, 2, skinD);
     }
@@ -490,6 +521,20 @@
     };
     const set = (dir) => ({ A: build(dir, 'sitA'), B: build(dir, 'sitB'), R: build(dir, 'sitR'), L: build(dir, 'sitL'), blink: build(dir, 'sitR', true) });
     // profile frames for desks turned sideways (left = the right ones mirrored)
+    const right = set('right'), left = {};
+    for (const k of Object.keys(right)) left[k] = mirror(right[k]);
+    return { down: set('down'), up: set('up'), right, left };
+  };
+
+  // Standing action frames (player + crew): talk = mouth open, reach = hands on the equipment,
+  // wave = one arm up. Same layout as makeSheet (left = right mirrored).
+  DL.makeActSheet = function (L) {
+    const build = (dir, pose) => {
+      const c = mk(FW, FH);
+      drawChar(c.getContext('2d'), dir, pose, L, false);
+      return outline(c);
+    };
+    const set = (dir) => ({ talk: build(dir, 'talk'), reach: build(dir, 'reach'), wave: build(dir, 'wave') });
     const right = set('right'), left = {};
     for (const k of Object.keys(right)) left[k] = mirror(right[k]);
     return { down: set('down'), up: set('up'), right, left };

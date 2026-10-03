@@ -42,6 +42,8 @@
 
   const INTENTS = [
     ['greet', /^(oi|ola|e ai|eai|bom dia|boa tarde|boa noite|hey|opa)\b/],
+    ['orders', /(ordem|ordens|ordem de servico)/],
+    ['vms', /(\bvms?\b|virtual|proxmox|hypervisor)/],
     ['thanks', /(valeu|obrigad|brigad|show|perfeito)/],
     ['fix', /(resolv|consert|arrum|corrig|da um jeito|cuida disso)/],
     ['where', /(onde|mostra|me leva|aponta)/],
@@ -235,7 +237,9 @@
         show(d);
         return { text: 'Ali no ' + d.rack.id + ' — destaquei no mapa.', actions: problemActions(a, d).filter((x) => x.id !== 'where') };
       },
-      unknown: () => ({ text: 'Hmm, não entendi. Posso falar sobre servidores, rede, problemas, o que estou fazendo, as finanças ou o que fazer agora.' }),
+      orders: () => ({ text: game.staff ? game.staff.ordersSummary() : 'Não temos ordens de serviço.' }),
+      vms: () => ({ text: DL.infraSummary ? DL.infraSummary() : 'Ainda não temos virtualização.' }),
+      unknown: () => ({ text: 'Hmm, não entendi. Posso falar sobre servidores, rede, problemas, ordens de serviço, VMs, o que estou fazendo, as finanças ou o que fazer agora.' }),
     };
 
     function doFix(a, d) {
@@ -336,6 +340,7 @@
       const a = T.a;
       if (!a || T.wait > 0) return;
       push(a, { from: 'me', text });
+      game.emit('player-talk', text);
       T.wait = 0.5 + rand() * 0.5;
       T.pending = intent || detect(text);
       renderLog();

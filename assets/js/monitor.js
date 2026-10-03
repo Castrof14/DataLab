@@ -123,6 +123,8 @@
           else if (!h.http) open(d.key + ':http', d, 'high', d.name + ': serviço HTTP (nginx) fora do ar');
           if (h.up && d.os.disk >= 90) open(d.key + ':disk', d, 'average', d.name + ': pouco espaço em disco (/ acima de 90%)');
           if (s && s.cpu.slice(-4).every((v) => v != null && v > 88)) open(d.key + ':cpu', d, 'warning', d.name + ': CPU acima de 88% por mais de 4 s');
+        } else if (d.kind === 'switch' && !h.up) {
+          open(d.key + ':hw', d, 'high', d.name + ': switch fora do ar (defeito de hardware)');
         } else if (d.kind === 'switch' && h.errPorts) {
           const p = Object.keys(d.sw.ports).find((k) => d.sw.ports[k] === 'err-disabled');
           open(d.key + ':port', d, 'average', d.name + ': porta ' + p.replace('gi', 'Gi') + ' em err-disabled');
@@ -141,7 +143,9 @@
         if (M.problems.some((p) => p.key === key && !p.end)) continue;
         const p = { id: ++M.seq, key, dev: a.d, rack: a.rack, sev: a.sev, text: a.text, start: t, startClock: game.clock(), end: 0 };
         M.problems.unshift(p);
-        if (SEV[a.sev].rank >= 2 || key.endsWith(':port')) O.announce(a.d, a.text);
+        // hosts that fell because their switch broke are covered by the switch's own alert
+        const viaSwitch = a.d.kind === 'server' && O.health(a.d).why === 'switch';
+        if ((SEV[a.sev].rank >= 2 || key.endsWith(':port')) && !viaSwitch) O.announce(a.d, a.text);
       }
       for (const p of M.problems) if (!p.end && !active.has(p.key)) { p.end = t; p.endClock = game.clock(); }
       M.problems = M.problems.filter((p) => !p.end || t - p.end < 90).slice(0, 60);
@@ -320,7 +324,7 @@
         const s = M.series.get(d.key) || seriesOf(d.key), up = O.health(d).up;
         const pr = activeProblems().filter((p) => p.dev === d && p.sev !== 'info');
         const v = (k, u, w, c) => { const x = last(s[k]); return '<td style="color:' + color(x, w, c) + '">' + (x == null ? '—' : (k === 'temp' ? x.toFixed(1) : Math.round(x)) + u) + '</td>'; };
-        h += '<tr data-host="' + d.key + '"><td><b>' + esc(d.name) + '</b></td><td class="mono">' + esc(d.ip) + '</td><td>' + (d.kind === 'switch' ? 'Switch' : 'Servidor Linux') + '</td>' +
+        h += '<tr data-host="' + d.key + '"><td><b>' + esc(d.name) + '</b></td><td class="mono">' + esc(d.ip) + '</td><td>' + (d.kind === 'switch' ? 'Switch' : DL.svcLabel ? DL.svcLabel(d) : 'Servidor Linux') + '</td>' +
           '<td><span class="zbx ' + (up ? 'is-up' : 'is-down') + '">ZBX</span> <span class="zbx ' + (up ? 'is-up' : 'is-down') + '">ICMP</span></td>' +
           v('cpu', '%', 75, 90) + v('ram', '%', 80, 92) + v('disk', '%', 80, 90) + v('temp', ' °C', 29, 31) +
           '<td>' + (pr.length ? pr.map((p) => '<span class="zsev" style="--c:' + SEV[p.sev].color + '">' + SEV[p.sev].label + '</span>').join(' ') : '<span class="m">—</span>') + '</td>' +
@@ -347,6 +351,7 @@
     function diagnose(d) {
       const O = ops(), h = O.health(d);
       if (d.kind === 'switch') {
+        if (h.broken) return ['O switch inteiro parou de responder: todos os hosts ligados nele caíram juntos. Isso é hardware, não configuração.', 'Defeito físico no ' + d.name + ' (fonte/placa). Quem resolve é o técnico de TI: ele retira o switch, conserta na bancada e reinstala. Veja as ordens de serviço em Tarefas (T).'];
         const p = Object.keys(d.sw.ports).find((k) => d.sw.ports[k] === 'err-disabled');
         if (!p) return null;
         return ['Um switch com porta em erro derruba o host ligado nela. Veja quais hosts ficaram vermelhos na disponibilidade.', 'A porta ' + p + ' está err-disabled. No terminal do switch: enable → conf t → interface ' + p + ' → shutdown / no shutdown.'];
@@ -357,6 +362,7 @@
         if (h.why === 'cable') return [first, 'Sem sinal no cabo: ' + t.reason + '. Abra o cabeamento do ' + d.rack.id + '.'];
         if (h.why === 'iface') return [first, 'O cabo está ok, mas a interface eth0 foi desligada (DOWN). No terminal, ligue a interface.'];
         if (h.why === 'port') return [first, 'O cabo chega ao ' + t.sw.name + ' ' + t.port + ', mas essa porta está err-disabled. O problema está no switch.'];
+        if (h.why === 'switch') return [first, 'O cabo está ok, mas o ' + t.sw.name + ' está com defeito de hardware. Quando o técnico reinstalar o switch, o host volta sozinho.'];
         return [first, 'A eth0 está sem o IP ' + d.ip + '/24.'];
       }
       if (!h.http) return ['O ping responde, mas o site não. O problema é de serviço, não de rede.', 'O nginx parou. No terminal: systemctl status nginx.'];

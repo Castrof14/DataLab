@@ -40,6 +40,7 @@
     switch: ['switch'], cables: ['rack'], ping: ['rack'], topo: ['pc'], install: ['rack'], hw: ['rack'], svc: ['pc'], cool: ['crac'],
     sys: ['pc'], alerts: ['pc'], backup: ['pc'], patch: ['rack'], round: [], cams: ['pc'], access: [], seals: ['rack'],
     tickets: ['pc'], inv: ['rack'], coffee: ['coffee'], docs: ['pc'], kpi: ['pc'], capacity: ['pc'], meeting: [], walk: [],
+    needs: ['pc'], follow: [], expand: ['pc'], repair: [], pcmaint: ['pc'], swmaint: ['switch'], bench: ['pc'],
   };
   const LIB = {};
   const BUILTIN = Object.keys(JOBS.BY_ROLE);

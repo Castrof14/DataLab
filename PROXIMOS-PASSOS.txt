@@ -333,3 +333,29 @@ STATUS (02/10/2026, 12ª sessão) — CENTRAL DE ATENDIMENTO + LABORATÓRIO DE R
 - Testes: hd-test (fila, bots, transferência bot→bot, jogador resolve pelo chat, recebe direto,
   transfere, site + falha real, histórico), nl-test (5 desafios, validações, rotas, DNS, persistência),
   sup-test (estação de atendimento) + regressão (menu, paredes, tutorial, cargos, NOC) — sem erros.
+
+-------------------------------------------------------
+STATUS (02/10/2026, 13ª sessão) — EMPRESA: GERENTE → TÉCNICOS → EQUIPAMENTOS → SERVIÇOS
+-------------------------------------------------------
+- crew.js: cada bot tem Estação própria (c.home) e Setor (c.zone = id da sala), escolhidos no cartão
+  (selects) ou no painel da mesa ("Estação de"); padrão automático por cargo ao contratar. Tarefas de
+  rotina pesam ×3 dentro do setor; "reconhecer o espaço" e pausas ficam no setor. Cargo novo
+  "Técnico de TI" (tecnico). Tarefa kind 'repair': toBroken → pickup → carry → repairing (bancada:
+  mesa técnica, mesa, estante ou carrinho) → return → installing. Poses de ação (falar / mãos no
+  equipamento) e caixa carregada desenhada na overlay.
+- sprites.js: DL.makeActSheet (talk, reach, wave) + item do cargo tecnico. Aditivo.
+- staff.js (novo): manutenção (PCs e switches quebram; switch quebrado derruba os servidores atrás
+  dele — ops.health why 'switch'), ordens de serviço (repair, fix, cable, install-server/rack/crac,
+  expand-room) com despacho, acompanhamento, 3 tentativas; gerente: tarefas needs/follow/expand
+  (jobs.js) que abrem ordens; clientes NPC só na sala do tipo Recepção; chat da equipe com o jogador
+  (evento 'team-say': quem é citado responde; "vá para a <sala>", "ordens?", "VMs?").
+- infra.js (novo, tecla I): especializações de servidor (DL.SVC: web, db, game, ai, storage, virt,
+  dns, mail, corp, net) com necessidades/dependências e DL.svcFactor (economia); DataLab VE:
+  nós = servidores "Virtualização"; VMs criar/iniciar/desligar/reiniciar/remover, uso simulado,
+  gráficos, DL.vmRevenue. Presets recebem especializações e 1 nó com 3 VMs.
+- demo.js: F senta/levanta na estação mais próxima (digitação animada), fala (boca) ao mandar
+  mensagem, mãos no equipamento com o painel aberto, aceno ao chamar alguém; Enter foca o chat.
+- Testes (puppeteer + Brave): reparo completo de switch e PC, ordem de rack executada, clientes
+  sempre na recepção, chat jogador→bots, sentar/levantar, cartão estação/setor, VM criar/desligar/
+  remover, especialização, tutorial e landing — sem erros.
+  Obs.: ao pular o menu num teste, desligue scene.o.attract (senão a câmera fica passeando).

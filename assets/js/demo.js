@@ -37,7 +37,7 @@
     return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   };
   const fmtPower = (e) => (e.tel.unit === 'W' ? Math.round(e.power) : e.power.toFixed(e.power < 10 ? 2 : 1)) + '<small>' + e.tel.unit + '</small>';
-  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab'].some((id) => $(id).classList.contains('is-open'));
+  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra'].some((id) => $(id).classList.contains('is-open'));
   const canMove = () => S.phase !== 'intro' && !isOverlayOpen() && S.mode === 'explore';
 
   /* ---------------- toasts ---------------- */
@@ -83,6 +83,9 @@
       return od ? od.name.toLowerCase() + (od.kind === 'patch' ? '-' + o.port : '') : '';
     },
     openCabling(d) { cabling.open(d.rack, d, { back: d }); },
+    // the player's name / colour in the team chat
+    playerInfo() { const p = crew.playerProfile, r = DL.ROLES[p.role] || {}; return { name: p.name, color: r.color || '#ffffff' }; },
+    playerSeat: null,
   };
   let crew = null, tutorial = null;
   const builder = DL.createBuilder(G);
@@ -106,6 +109,11 @@
   const helpdesk = DL.createHelpdesk(G, { crew });
   const netlab = DL.createNetLab(G);
   G.economy = economy;
+  // the company layer: maintenance, work orders, reception visitors, talking in the team chat
+  const staff = DL.createStaff(G, { crew, ops, talk });
+  G.staff = staff;
+  // server specialisations + virtualization (Infra, I)
+  const infra = DL.createInfra(G, { ops });
   G.on('world', () => {
     if (S.panel && W.items.indexOf(S.panel) < 0) closePanel();
     buildLabels();
@@ -171,14 +179,16 @@
         const devs = ops.devices().filter((d) => d.rack === e).sort((a, b) => a.slot - b.slot);
         if (!devs.length) return '<p class="callout">Rack vazio. No modo construção (<kbd>B</kbd>), escolha Servidor ou Switch e clique neste rack.</p>';
         return '<div class="p-sec"><span class="eyebrow-sm">Unidades</span><ul class="list units">' + devs.map((d) => {
-          const bad = (d.fault && d.fault.found) || (d.state === 'online' && !ops.health(d).up);
-          const st = d.kind === 'patch' ? 'Passagem' : bad ? 'Com falha' : ops.STATE_LABEL[d.state];
-          const act = d.kind === 'patch' ? '' : d.state === 'new' ? '<button class="btn btn--sm" type="button" data-act="connect" data-dev="' + d.key + '">Ligar cabo</button>'
+          const bad = (d.fault && d.fault.found) || (d.state === 'online' && !ops.health(d).up) || d.broken;
+          const st = d.kind === 'patch' ? 'Passagem' : d.out ? 'Na bancada' : d.broken ? 'Defeito de hardware' : bad ? 'Com falha' : ops.STATE_LABEL[d.state];
+          const act = d.kind === 'patch' ? '' : d.broken ? (staff.claimed(staff.broken().find((r) => r.dev === d)) || (staff.broken().find((r) => r.dev === d) || {}).taken ? '' : '<button class="btn btn--sm btn--primary" type="button" data-act="repairdev" data-dev="' + d.key + '">Chamar técnico</button>')
+            : d.state === 'new' ? '<button class="btn btn--sm" type="button" data-act="connect" data-dev="' + d.key + '">Ligar cabo</button>'
             : '<button class="btn btn--sm' + (bad || d.state === 'link' ? ' btn--primary' : '') + '" type="button" data-act="term" data-dev="' + d.key + '">Terminal</button>';
+          const svc = d.kind === 'server' && DL.SVC ? ' · <b class="svc" style="color:' + DL.SVC[d.svc || 'web'].color + '">' + (d.svc ? DL.SVC[d.svc].short : 'GENÉRICO') + '</b>' : '';
           return '<li><span class="dot' + (bad ? ' dot--warn dot--live' : d.state === 'online' ? '' : ' dot--info') + '"' + (d.state !== 'online' && !bad ? ' style="background:var(--breeze)"' : '') + '></span>' +
-            '<span class="mono">U' + String(40 - d.slot * 4).padStart(2, '0') + '</span><span class="grow">' + d.name + ' <small class="m">' + DL.hwOf(d).name + (d.ip ? ' · ' + d.ip : '') + '</small></span>' +
+            '<span class="mono">U' + String(40 - d.slot * 4).padStart(2, '0') + '</span><span class="grow">' + d.name + ' <small class="m">' + DL.hwOf(d).name + (d.ip ? ' · ' + d.ip : '') + svc + '</small></span>' +
             '<span class="tag' + (bad ? ' is-warn' : '') + '">' + st + '</span>' + act + '</li>';
-        }).join('') + '</ul><div class="actions" style="margin-top:12px"><button class="btn btn--sm" type="button" data-act="cabling">Cabeamento do rack</button><button class="btn btn--sm" type="button" data-act="monitor">Monitor</button></div></div>';
+        }).join('') + '</ul><div class="actions" style="margin-top:12px"><button class="btn btn--sm" type="button" data-act="cabling">Cabeamento do rack</button><button class="btn btn--sm" type="button" data-act="monitor">Monitor</button><button class="btn btn--sm" type="button" data-act="infra">Infra / VMs</button></div></div>';
       }
       case 'storage': {
         // volumes split the model's usable capacity; the spec sheet comes from hardware.js
@@ -195,10 +205,20 @@
           { k: 'FAN', v: 'Ventiladores', tag: '48%' },
         ]) + '</div>';
       case 'desk': {
-        const st = crew.stationOf(e), u = st && crew.userOf(st);
-        if (!u) return '<p class="callout">Livre. No modo equipe (<kbd>C</kbd>), selecione alguém e clique neste computador.</p>';
-        const r = DL.ROLES[u.crew.profile.role];
-        return '<div class="p-sec"><span class="eyebrow-sm">Em uso</span>' + list([{ k: r.name, v: u.crew.name, tag: crew.statusOf(u).split(' · ')[0] }]) + '</div>';
+        const st = crew.stationOf(e), u = st && crew.userOf(st), owner = st && crew.api.ownerOf(st);
+        const rec = staff.broken().find((r) => r.item === e);
+        let h = '';
+        if (rec) h += '<p class="callout callout--warn">' + (rec.out ? 'O PC está na bancada com ' + (rec.taken ? rec.taken.crew.name : 'o técnico') + '.' : 'Este computador está com defeito de hardware.') + '</p>' + (!rec.taken && !staff.claimed(rec) ? '<div class="actions"><button class="btn btn--sm btn--primary" type="button" data-act="repair">Chamar técnico</button></div>' : '');
+        if (u) {
+          const r = DL.ROLES[u.crew.profile.role];
+          h += '<div class="p-sec"><span class="eyebrow-sm">Em uso</span>' + list([{ k: r.name, v: u.crew.name, tag: crew.statusOf(u).split(' · ')[0] }]) + '</div>';
+        } else if (!rec) h += '<p class="callout">' + (P.seat && P.seat.key === e ? 'Você está trabalhando aqui.' : 'Livre. Sente e trabalhe (<kbd>F</kbd>) ou, no modo equipe (<kbd>C</kbd>), mande alguém para cá.') + '</p>';
+        if (st) {
+          h += '<div class="p-sec"><label class="p-own"><span class="eyebrow-sm">Estação de</span><select data-act-sel="owner" aria-label="Dono da estação"><option value="">Ninguém (qualquer um usa)</option>' +
+            crew.members.map((m) => '<option value="' + m.crew.id + '"' + (owner === m ? ' selected' : '') + '>' + m.crew.name + ' · ' + DL.ROLES[m.crew.profile.role].name + '</option>').join('') + '</select></label></div>';
+          if (!u && !rec) h += '<div class="actions"><button class="btn btn--sm btn--primary" type="button" data-act="sit">' + (P.seat && P.seat.key === e ? 'Levantar' : 'Sentar e trabalhar') + ' <kbd>F</kbd></button></div>';
+        }
+        return h;
       }
     }
     return '';
@@ -207,7 +227,7 @@
   function rackAlert(e) {
     if (e.kind !== 'rack') return null;
     const devs = ops.devices().filter((d) => d.rack === e);
-    const bad = devs.filter((d) => d.fault).length, pend = devs.filter((d) => d.state !== 'online').length;
+    const bad = devs.filter((d) => d.fault || d.broken).length, pend = devs.filter((d) => d.state !== 'online').length;
     return bad ? bad + (bad === 1 ? ' equipamento com falha' : ' equipamentos com falha') : pend ? pend + ' aguardando configuração' : null;
   }
 
@@ -294,20 +314,138 @@
     if (b.dataset.act === 'close') closePanel();
     if (b.dataset.act === 'cabling' && S.panel) { cabling.open(S.panel, null); return; }
     if (b.dataset.act === 'monitor') { monitor.open('dash'); return; }
+    if (b.dataset.act === 'infra') { closePanel(); infra.open('servers'); return; }
+    if (b.dataset.act === 'sit' && S.panel) { const s = crew.stationOf(S.panel); if (P.seat && s && P.seat.key === s.key) seatStand(); else seatDown(s); return; }
+    if (b.dataset.act === 'repair' && S.panel) {
+      const rec = staff.broken().find((r) => r.item === S.panel);
+      if (rec) callTech(rec);
+      renderPanel();
+      return;
+    }
     const d = ops.devices().find((x) => x.key === b.dataset.dev);
     if (!d) return;
     if (b.dataset.act === 'connect') cabling.open(d.rack, d);
     else if (b.dataset.act === 'term') ops.openTerminal(d);
+    else if (b.dataset.act === 'repairdev') { const rec = staff.broken().find((r) => r.dev === d); if (rec) callTech(rec); renderPanel(); }
   });
+  inner.addEventListener('change', (ev) => {
+    const s = ev.target.closest('[data-act-sel="owner"]');
+    if (!s || !S.panel) return;
+    const st = crew.stationOf(S.panel);
+    const m = crew.members.find((x) => x.crew.id === +s.value);
+    if (st) {
+      if (m) { crew.api.setHome(m, st.key); toast('ok', 'Estação', crew.api.stationName(st) + ' agora é de ' + m.crew.name); }
+      else { const o = crew.api.ownerOf(st); if (o) crew.api.setHome(o, null); toast('info', 'Estação', crew.api.stationName(st) + ' liberada para qualquer um'); }
+    }
+    s.blur();
+    renderPanel();
+  });
+  inner.addEventListener('keydown', (ev) => { if (ev.target.tagName === 'SELECT') ev.stopPropagation(); });
+
+  // the player asks for a repair: it becomes a work order (the manager's queue, or straight to a technician)
+  function callTech(rec) {
+    const o = staff.createOrder('repair', rec, { byName: crew.playerProfile.name });
+    if (o) toast('info', 'Ordem #' + o.id, o.title + (o.assignee ? ' · ' + o.assignee.crew.name + ' a caminho' : ' · aguardando um técnico'));
+    else toast('info', 'Manutenção', 'Já existe uma ordem para o ' + rec.label);
+  }
 
   function interact() {
     if (!canMove()) return;
     const t = S.target;
     if (!t) return;
-    if (t.crew) crew.inspect(t);
+    if (t.crew) { crew.inspect(t); gesture('wave', 0.9); player.dir = DL.dirOf(t.x - player.x, t.y - player.y); }
     else if (S.panel === t) closePanel();
-    else openPanel(t);
+    else { openPanel(t); gesture('reach', 0.6); }
   }
+
+  /* ---------------- my character: sit, work, talk, interact ---------------- */
+  const P = { seat: null, glide: null, pose: 'R', poseT: 0, phase: 'type', phaseT: 2, act: null, actT: 0, talkT: 0 };
+  function gesture(kind, t) { P.act = kind; P.actT = t; }
+  G.on('team-say', () => { P.talkT = 1.6; });
+  G.on('player-talk', () => { P.talkT = 1.4; });
+
+  function nearestSeat() {
+    let best = null, bestD = 34;
+    for (const s of crew.stations()) {
+      if (crew.userOf(s) || crew.api.brokenSt(s)) continue;
+      const d = Math.hypot(s.approach.x - player.x, s.approach.y - player.y);
+      if (d < bestD) { bestD = d; best = s; }
+    }
+    return best;
+  }
+  function seatDown(s) {
+    if (!s) { toast('info', 'Sentar', 'Chegue perto de um computador livre e aperte F'); return; }
+    if (crew.userOf(s)) { toast('warn', 'Ocupado', crew.api.stationName(s) + ' está com ' + crew.userOf(s).crew.name); return; }
+    if (crew.api.brokenSt(s)) { toast('warn', 'Estação quebrada', 'Chame o técnico de TI'); return; }
+    closePanel();
+    P.seat = s;
+    G.playerSeat = s;
+    P.glide = { from: { x: player.x, y: player.y }, to: s.sit, t: 0, dur: 0.3, sit: true };
+    player.vx = player.vy = 0;
+    player.moving = false;
+    player.seated = true;
+    player.noShadow = true;
+    player.sortKey = s.sortKey;
+    P.phase = 'type'; P.phaseT = 2; P.pose = 'R';
+  }
+  function seatStand() {
+    const s = P.seat;
+    if (!s || (P.glide && !P.glide.sit)) return;
+    s.screen.work = null;
+    s.screen.typing = false;
+    let to = s.approach;
+    const tx = Math.floor(to.x / T), ty = Math.floor((to.y - 2) / T);
+    if (W.solid[ty * W.W + tx]) { const f = crew.api.nav.nearestFree(tx, ty, 6); if (f) to = crew.api.nav.center(f[0], f[1]); }
+    P.glide = { from: { x: player.x, y: player.y }, to, t: 0, dur: 0.25, sit: false };
+    player.seated = false;
+    player.noShadow = false;
+    player.sortKey = null;
+    player.dir = 'down';
+  }
+  // seated: typing / resting / glancing like the crew; the screen shows the player's role
+  function updateSeat(dt, wantsMove) {
+    if (P.glide) {
+      const gl = P.glide;
+      gl.t = Math.min(1, gl.t + dt / gl.dur);
+      const k = gl.t * gl.t * (3 - 2 * gl.t);
+      player.x = gl.from.x + (gl.to.x - gl.from.x) * k;
+      player.y = gl.from.y + (gl.to.y - gl.from.y) * k;
+      if (gl.t >= 1) { P.glide = null; if (!gl.sit) { P.seat = null; G.playerSeat = null; } }
+      return true;
+    }
+    if (!P.seat) return false;
+    const s = P.seat, now = crew.stationOf(s.key);
+    if (!now || now.sit.x !== s.sit.x || now.sit.y !== s.sit.y || crew.api.brokenSt(s) || wantsMove) {
+      if (crew.api.brokenSt(s)) toast('warn', 'Seu PC apagou', 'Defeito de hardware · chame o técnico');
+      seatStand();
+      return true;
+    }
+    P.phaseT -= dt;
+    if (P.phaseT <= 0) {
+      P.phase = P.phase !== 'type' ? 'type' : Math.random() < 0.6 ? 'rest' : 'look';
+      P.phaseT = P.phase === 'type' ? 2 + Math.random() * 3 : P.phase === 'rest' ? 1 + Math.random() * 1.5 : 0.6 + Math.random() * 0.8;
+    }
+    if (P.phase === 'type') { P.poseT -= dt; if (P.poseT <= 0) { P.pose = P.pose === 'A' ? 'B' : 'A'; P.poseT = 0.11 + Math.random() * 0.08; } }
+    else P.pose = P.phase === 'rest' ? 'R' : 'L';
+    s.screen.work = (DL.ROLES[crew.playerProfile.role] || DL.ROLES.gerente).work;
+    s.screen.typing = P.phase === 'type';
+    return true;
+  }
+  player.frame = function () {
+    if (this.seated && this.sitSheet) {
+      const set = this.sitSheet[P.seat ? P.seat.dir : 'up'] || this.sitSheet.up;
+      if (P.pose === 'R' && this.blinkT > 0) return set.blink;
+      return set[P.pose] || set.R;
+    }
+    if (!this.moving && this.actSheet) {
+      const s = this.actSheet[this.dir] || this.actSheet.down, t = scene.t;
+      if ((P.talkT > 0 || (this.bubble && this.bubble.left > 0.5)) && Math.floor(t * 7) % 2) return s.talk;
+      if (P.actT > 0) return P.act === 'wave' ? s.wave : s.reach;
+      // hands on the equipment while its panel is open
+      if (S.panel && S.panel.kind !== 'desk' && Math.floor(t * 2.4) % 3) return s.reach;
+    }
+    return DL.Actor.prototype.frame.call(this);
+  };
 
   /* ---------------- input ---------------- */
   const keys = new Set();
@@ -320,6 +458,7 @@
     if (cabling.isOpen) { if (cabling.key(ev)) ev.preventDefault(); return; }
     if (monitor.isOpen) { if (monitor.key(ev)) ev.preventDefault(); return; }
     if (economy.isOpen) { if (economy.key(ev)) ev.preventDefault(); return; }
+    if (infra.isOpen) { if (infra.key(ev)) ev.preventDefault(); return; }
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     if (S.phase === 'intro') {
@@ -335,6 +474,11 @@
     }
     if (free && ev.code === 'KeyT' && !ev.repeat) { ops.toggle(); ev.preventDefault(); return; }
     if (free && ev.code === 'KeyM' && S.mode !== 'build' && !ev.repeat) { monitor.open(); ev.preventDefault(); return; }
+    if (free && S.mode !== 'build' && infra.key(ev)) { ev.preventDefault(); return; }
+    // F: sit at the closest free workstation / stand up
+    if (free && S.mode === 'explore' && ev.code === 'KeyF' && !ev.repeat) { if (P.seat) seatStand(); else seatDown(nearestSeat()); ev.preventDefault(); return; }
+    // Enter: write in the team chat
+    if (free && S.mode !== 'build' && ev.code === 'Enter' && !ev.repeat && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) { crew.chat.focusInput(); ev.preventDefault(); return; }
     if (free && S.mode === 'build' && builder.key(ev)) { ev.preventDefault(); return; }
     if (free && talk.key(ev)) { ev.preventDefault(); return; }
     if (free && crew.key(ev)) { ev.preventDefault(); return; }
@@ -381,6 +525,8 @@
       b.classList.toggle('is-on', on);
       b.setAttribute('aria-checked', on ? 'true' : 'false');
     });
+    infra.reset();
+    if (P.seat || P.glide) { P.seat = null; P.glide = null; G.playerSeat = null; player.seated = false; player.noShadow = false; player.sortKey = null; }
     const refused = DL.applyPreset(id, { scene, player, builder, ops });
     if (refused.length) console.warn('preset ' + id + ': itens recusados', refused);
     S.refused = refused;
@@ -488,6 +634,22 @@
   /* ---------------- player / camera ---------------- */
   function updatePlayer(dt) {
     let ix = 0, iy = 0;
+    if (P.actT > 0) P.actT -= dt;
+    if (P.talkT > 0) P.talkT -= dt;
+    // talking with someone in the conversation panel: look at them
+    if (talk.active && !P.seat && !player.moving) player.dir = DL.dirOf(talk.active.x - player.x, talk.active.y - player.y);
+    if (P.seat || P.glide) {
+      const wants = S.mode === 'explore' && canMove() && (keys.has('left') || keys.has('right') || keys.has('up') || keys.has('down') || Math.hypot(touchVec.x, touchVec.y) > 0.2);
+      updateSeat(dt, wants);
+      player.vx = player.vy = 0;
+      player.moving = false;
+      if (S.mode === 'explore') {
+        const kc = 1 - Math.exp(-dt * (reduced ? 30 : 5.5));
+        scene.cam.x += (player.x - scene.cam.x) * kc;
+        scene.cam.y += (player.y - 12 - scene.cam.y) * kc;
+        return;
+      }
+    }
     if (S.mode !== 'explore') {
       // build + crew: WASD pans the camera, the player waits
       if (S.phase !== 'intro' && !isOverlayOpen()) {
@@ -625,6 +787,7 @@
   };
   scene.overlay = (g, sc) => {
     builder.overlay(g, sc);
+    staff.overlay(g, sc);
     crew.overlay(g, sc);
     tutorial.overlay(g, sc);
     if (S.flash && S.time < S.flash.until && S.flash.e.bounds) brackets(g, S.flash.e.bounds, 0.6 + 0.4 * Math.sin(sc.t * 10));
@@ -691,6 +854,8 @@
     if (S.phase !== 'intro') economy.update(dt);
     if (S.phase !== 'intro') helpdesk.update(dt);
     talk.update(dt);
+    staff.update(dt);
+    infra.update(dt);
     monitor.update(dt);
     tutorial.update(dt);
     if (S.panel && Math.hypot(S.panel.ix - player.x, S.panel.iy - player.y) > 44) closePanel();
@@ -701,8 +866,16 @@
     if (S.liveAcc > 0.25) {
       S.liveAcc = 0;
       if (S.panel) {
-        const k = S.panel.kind === 'rack' ? ops.devices().filter((d) => d.rack === S.panel).map((d) => d.state + (d.fault ? d.fault.found : '') + ops.health(d).up).join() : '';
-        if (S.panel.kind === 'desk' || k !== S.panelKey) { S.panelKey = k; renderPanel(); }
+        const e = S.panel;
+        let k = '';
+        if (e.kind === 'rack') k = ops.devices().filter((d) => d.rack === e).map((d) => d.state + (d.fault ? d.fault.found : '') + ops.health(d).up + !!d.broken + !!d.out + (d.svc || '')).join();
+        else if (e.kind === 'desk') {
+          const st = crew.stationOf(e), u = st && crew.userOf(st), o = st && crew.api.ownerOf(st), rec = staff.broken().find((r) => r.item === e);
+          k = (u ? u.crew.id + crew.statusOf(u).split(' · ')[0] : '-') + (o ? o.crew.id : '-') + (rec ? 'b' + rec.out + !!rec.taken + staff.claimed(rec) : '') + (P.seat ? P.seat.key.id : '') + crew.members.length;
+        }
+        // never rebuild under an open dropdown
+        const busySel = inner.contains(document.activeElement) && document.activeElement.tagName === 'SELECT';
+        if (k !== S.panelKey && !busySel) { S.panelKey = k; renderPanel(); }
         else updateLive();
       }
     }
@@ -720,6 +893,8 @@
       crew.api.hire(p, { silent: true, at: crew.api.nav.randomSpot(), level: 1 + Math.floor(Math.random() * 3) });
     }
     crew.startShift();
+    // presets come with specialised servers (web, banco, DNS…) and a virtualization node with VMs
+    if (preset !== 'zero') infra.seed();
     if (preset !== 'zero') toast('ok', DL.PRESETS[preset].name, 'Ambiente pronto · personalize à vontade com B');
     if (document.activeElement) document.activeElement.blur();
     if (withTutorial) tutorial.begin();
@@ -752,5 +927,5 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, setMode, begin, game: G, openPanel, choosePreset };
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset };
 })();

@@ -14,6 +14,7 @@
   <link rel="stylesheet" href="assets/css/demo.css">
   <link rel="stylesheet" href="assets/css/menu.css">
   <link rel="stylesheet" href="assets/css/apps.css">
+  <link rel="stylesheet" href="assets/css/infra.css">
 </head>
 <body class="demo">
   <main class="game" id="game">
@@ -54,6 +55,7 @@
       <div class="hud-actions">
         <button class="btn btn--sm ops-btn" id="hdBtn" type="button" title="Central de Atendimento (H)">Atendimento <kbd>H</kbd><span class="ops-badge" id="hdBadge" hidden>0</span></button>
         <button class="btn btn--sm ops-btn" id="nlBtn" type="button" title="Laboratório de Redes (L)">Lab <kbd>L</kbd></button>
+        <button class="btn btn--sm ops-btn" id="infraBtn" type="button" title="Infraestrutura: tipos de servidor e máquinas virtuais (I)">Infra <kbd>I</kbd></button>
         <button class="btn btn--sm ops-btn" id="monBtn" type="button">Monitor <kbd>M</kbd><span class="ops-badge ops-badge--mon" id="monBadge" hidden>0</span></button>
         <button class="btn btn--sm ops-btn" id="opsBtn" type="button" aria-expanded="false" aria-controls="opsPanel">Tarefas <kbd>T</kbd><span class="ops-badge" id="opsBadge" hidden>0</span></button>
         <button class="btn btn--sm" id="helpBtn" type="button">Controles</button>
@@ -131,6 +133,8 @@
         <button class="cc__x" type="button" data-op="close" aria-label="Fechar">×</button>
       </div>
       <ul class="ops-list" id="opsList"></ul>
+      <div class="ops-panel__sub ord-head"><span class="eyebrow-sm">Ordens de serviço</span><span class="eyebrow-sm ord-count" id="ordersCount"></span></div>
+      <ul class="ord-list" id="ordersList"></ul>
       <span class="eyebrow-sm ops-panel__sub">Registro</span>
       <ul class="ops-log" id="opsLog"></ul>
     </aside>
@@ -141,6 +145,10 @@
         <span class="team-chat__last" id="chatLast">Ninguém falou nada ainda</span>
         <span class="ops-badge team-chat__badge" id="chatBadge" hidden>0</span><kbd>K</kbd>
       </button>
+      <form class="team-chat__form" id="chatForm" autocomplete="off">
+        <input class="input" id="chatIn" type="text" maxlength="160" placeholder="Fale com a equipe… ex.: Ana, vá para a Recepção" aria-label="Mensagem para a equipe">
+        <button class="btn btn--sm" type="submit">Enviar</button>
+      </form>
       <ul class="team-chat__list" id="chatList" aria-live="polite"></ul>
     </aside>
 
@@ -206,6 +214,10 @@
           <li><span class="keys"><kbd>N</kbd></span><span>contratar alguém para a equipe · <b>Cargos</b> (no painel da equipe): crie cargos novos, inclusive com IA</span></li>
           <li><span class="keys"><kbd>P</kbd></span><span>editar o meu personagem: aparência, cabelo, roupa, acessórios, nome e função</span></li>
           <li><span class="keys"><kbd>K</kbd></span><span>abrir / recolher o chat da equipe</span></li>
+          <li><span class="keys"><kbd>Enter</kbd></span><span>escrever no chat da equipe: fale com todos ou chame alguém pelo nome (“Ana, vá para a Recepção”, “ordens?”, “como estão as VMs?”)</span></li>
+          <li><span class="keys"><kbd>F</kbd></span><span>sentar e trabalhar na estação mais próxima · andar levanta · seu personagem fala, trabalha e mexe nos equipamentos</span></li>
+          <li><span class="keys"><kbd>I</kbd></span><span>Infra: especialização de cada servidor (Web, BD, Jogos, IA, DNS, E-mail…) e máquinas virtuais (criar, ligar, desligar, reiniciar, remover)</span></li>
+          <li><span class="keys"><kbd>C</kbd></span><span>no cartão de cada pessoa: <b>Estação</b> própria e <b>Setor</b> (sala onde fica) · o <b>Gerente</b> abre ordens de serviço e manda os técnicos instalarem e consertarem (Tarefas → Ordens)</span></li>
           <li><span class="keys"><kbd>Mouse</kbd></span><span>clique num funcionário → <b>Conversar</b>: pergunte sobre servidores, rede, problemas e finanças</span></li>
           <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa, créditos, DataCoins e progresso</span></li>
           <li><span class="keys"><kbd>H</kbd></span><span>Central de Atendimento: clientes, conversas ao vivo, assumir, responder e transferir</span></li>
@@ -257,6 +269,10 @@
 
     <div class="overlay overlay--app" id="netlab" role="dialog" aria-modal="true" aria-label="Laboratório de Redes">
       <div class="nl" id="nlRoot"></div>
+    </div>
+
+    <div class="overlay overlay--app" id="infra" role="dialog" aria-modal="true" aria-label="Infraestrutura e virtualização">
+      <div class="px" id="infraRoot"></div>
     </div>
 
     <div class="overlay" id="roles" role="dialog" aria-modal="true" aria-labelledby="rolesTitle">
@@ -414,6 +430,8 @@
   <script src="assets/js/talk.js"></script>
   <script src="assets/js/helpdesk.js"></script>
   <script src="assets/js/netlab.js"></script>
+  <script src="assets/js/staff.js"></script>
+  <script src="assets/js/infra.js"></script>
   <script src="assets/js/demo.js"></script>
   <script src="assets/js/menu.js"></script>
 </body>
