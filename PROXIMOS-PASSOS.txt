@@ -359,3 +359,36 @@ STATUS (02/10/2026, 13ª sessão) — EMPRESA: GERENTE → TÉCNICOS → EQUIPAM
   sempre na recepção, chat jogador→bots, sentar/levantar, cartão estação/setor, VM criar/desligar/
   remover, especialização, tutorial e landing — sem erros.
   Obs.: ao pular o menu num teste, desligue scene.o.attract (senão a câmera fica passeando).
+
+-------------------------------------------------------
+STATUS (03/10/2026, 14ª sessão) — ECONOMIA, TERMINAL, MODOS, ATENDIMENTO, ESCALAS, VIDA DOS BOTS
+-------------------------------------------------------
+- difficulty.js (novo): modos Iniciante / Intermediário / Experiente (DL.learn(), DL.setLearn()).
+  Escolha no cartão inicial; selo no HUD e no terminal. Muda ajuda do terminal, dicas da equipe,
+  intervalo entre incidentes, tempo antes da equipe resolver sozinha e recompensa (0,7× / 1× / 1,35×).
+- director.js (novo): ritmo de incidentes — 180 min de calma no início, um problema por vez,
+  150 min entre inícios, 80 min de respiro após resolver; crítico (switch quebrado) pode furar a fila
+  (máx. 2 abertos). ops.js e staff.js pedem permissão a ele. Fora do Experiente, 80% das falhas são de
+  tipos que alguém de plantão sabe resolver.
+- economy.js: salário individual por pessoa (cargo × nível × fator pessoal), pago todo mês à 00:00
+  (1 dia no relógio = 1 mês); contratação custa meio salário; prejuízos menores (35/25/22/12 $/min,
+  máx. 2×). HUD: linha "Folha $X · em Y"; Finanças: folha por pessoa e próximo pagamento.
+- shifts.js (novo) + janela Escalas (Equipe → Escalas): turnos prontos ou horário personalizado;
+  fora do turno o bot termina o importante, sai pela recepção e volta no horário. Plantão por turno
+  (Manhã/Tarde/Noite): 1 técnico + 1 atendente; chamado quando o turno fica sem ninguém do tipo.
+- workplace.js (novo): recursos por cargo (Computador, Bancada, Rack, Balcão na recepção, Recepção)
+  checados no setor. Falta → reclama no chat, trabalha 1,5× mais devagar, ⚠ no nome/lista/cartão.
+  Setor automático prefere salas que têm o que o cargo precisa; bots ficam no setor (rotina fora ×0,15).
+- Cargo novo Atendente; atendimento Computador / Presencial / Ambos (cartão). Presencial (staff.js):
+  cliente entra → atendente percebe → vai até ele → conversa → resolve (venda), encaminha ao gerente
+  ou abre chamado no Atendimento (H). Falha real vira reclamação do cliente.
+- Vida dos bots (crew.js): pausa de café/água (busca, leva o copo, bebe, volta), descanso no pufe/sofá;
+  ocasionais e interrompidas por qualquer coisa urgente.
+- Conversas: threads por tema e contexto (jobs.js DL.TALK.thread), sem repetir; gírias (vc, tbm, tl,
+  blz, qnd…) no chat e na conversa (talk.js DL.normSlang); relatórios de rotina ocasionais e sem eco.
+- Terminal: rolagem corrigida (grid minmax 0), saída limitada a 600 linhas, não puxa para baixo
+  enquanto você lê, passo atual sempre visível, seleção de texto não perde foco; painel Tarefas é um
+  único contêiner com cabeçalho fixo; chat da equipe mantém a posição de leitura.
+- Testes (puppeteer-core + Chrome, no scratchpad): test-all.js (34 checagens), econ.js (4 presets ×
+  3 modos, 26 h de jogo), regress.js (landing, menu, tutorial, construção, apps, mobile 390×844).
+  DataLabDemo.advance(seg) acelera a simulação sem desenhar.

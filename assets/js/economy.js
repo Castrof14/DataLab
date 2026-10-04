@@ -9,8 +9,16 @@
 
   DL.ECON = {
     startCash: 100000,          // company balance at the start of a session ($)
-    revenuePerServer: 18,       // $/min for each online server that answers
-    payrollPerMember: 6,        // $/min for each crew member
+    revenuePerServer: 20,       // $/min for each online server that answers
+    // Payroll: every member has an individual monthly salary (role base × level × a personal factor
+    // negotiated at hiring), paid once a month. One day on the HUD clock (24 game hours = 24 real
+    // minutes) is one month of the company's operation, so pay day is at 00:00.
+    monthMinutes: 1440,
+    salary: { funcionario: 4000, atendente: 3600, seguranca: 4400, tecnico: 5200, redes: 6000, servidores: 6000, sysadmin: 6800, gerente: 8800 },
+    salaryCustom: 4800,         // roles created by the player
+    salaryPerLevel: 0.06,       // +6% per level above 1
+    hireFee: 0.5,               // hiring costs half a monthly salary (recruitment + onboarding)
+    onCallFee: 400,             // each time an on-call member is called in to cover a shift
     // hardware (hardware.js): a server rends revenuePerServer × its model's perf × how well its network
     // keeps up; storage rents its usable capacity; equipment pays for the power it draws
     storagePerTB: 0.35,         // $/min per usable TB (× the array's speed)
@@ -18,9 +26,9 @@
     cameraCut: 0.06,            // each powered camera cuts incident losses by 6%…
     cameraCutMax: 0.3,          // …up to 30%
     energyPerKw: 1.5,           // $/min per kW drawn by the equipment
-    loss: { offline: 120, port: 90, service: 80, disk: 40 }, // $/min while the problem is open
-    lossGrowth: 30,             // after this many minutes open the loss has doubled…
-    lossMax: 3,                 // …up to this multiple
+    loss: { offline: 35, port: 25, service: 22, disk: 12 }, // $/min while the problem is open
+    lossGrowth: 90,             // after this many minutes open the loss has doubled…
+    lossMax: 2,                 // …up to this multiple
     credits: {
       taskOrder: 6, taskAuto: 2,          // a crew task finished (ordered by you / routine)
       serverSetup: 50,                    // a server you configured goes online
@@ -61,6 +69,14 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   DL.money = money;
 
+  // Monthly salary of a role at a level (pay: the member's personal factor, 0.92–1.08)
+  DL.salaryFor = function (role, level, pay) {
+    const E = DL.ECON, base = E.salary[role] != null ? E.salary[role] : E.salaryCustom;
+    return Math.round((base * (1 + E.salaryPerLevel * Math.max(0, (level || 1) - 1)) * (pay || 1)) / 50) * 50;
+  };
+  DL.salaryOf = (a) => DL.salaryFor(a.crew.profile.role, a.crew.stats.level, a.crew.pay);
+  DL.hireCostFor = (role, level, pay) => Math.round((DL.salaryFor(role, level, pay) * DL.ECON.hireFee) / 50) * 50;
+
   DL.createEconomy = function (game, sys) {
     const E = DL.ECON, scene = game.scene, ops = sys.ops;
     const world = () => scene.world;
@@ -68,6 +84,7 @@
     const el = {
       btn: $('econBtn'), cash: $('econCash'), flow: $('econFlow'), credits: $('econCredits'), coins: $('econCoins'),
       wallet: $('wallet'), walletBody: $('walletBody'), reward: $('reward'), rewardBody: $('rewardBody'), tags: $('lossTags'), float: $('econFloat'),
+      pay: $('econPay'),
     };
 
     /* ---------- wallet (persists in this browser) ---------- */
@@ -78,10 +95,16 @@
 
     /* ---------- company ---------- */
     const CO = { cash: E.startCash, revenue: 0, losses: 0, payroll: 0, lost: 0, earned: 0, problems: [], hourAcc: 0, acc: 0, dcChecked: 0,
-      servers: 0, storage: 0, wifi: 0, energy: 0, kw: 0, camCut: 0, spent: 0, sold: 0, rateAt: -1, poe: null, slow: [] };
+      servers: 0, storage: 0, wifi: 0, energy: 0, kw: 0, camCut: 0, spent: 0, sold: 0, rateAt: -1, poe: null, slow: [],
+      // payroll: monthly total, last pay day (game minutes since the session started), history
+      payrollMonth: 0, lastPay: 0, month: 1, paid: [], hired: 0 };
     const queue = []; // reward screens waiting to be shown
 
+    // the learning mode pays more (Experiente) or less (Iniciante) — difficulty.js
+    const rewardK = () => (DL.learn ? DL.learn().reward : 1);
+
     function earn(cur, amount, why, opts) {
+      if (amount > 0 && cur === 'credits' && !(opts && opts.raw)) amount *= rewardK();
       amount = Math.round(amount);
       if (!amount) return;
       W[cur] += amount;
@@ -169,17 +192,70 @@
       CO.slow = slow;
     }
 
+    /* ---------- payroll: individual salaries, paid monthly ---------- */
+    const nowMin = () => (game.time ? game.time() : scene.t);           // game minutes since the session started
+    const startMin = () => (game.clockStart != null ? game.clockStart : 480); // the clock starts at 08:00
+    // next pay day: the next 00:00 on the clock
+    function nextPayAt() {
+      const abs = startMin() + nowMin();
+      return (Math.floor(abs / E.monthMinutes) + 1) * E.monthMinutes - startMin();
+    }
+    function nextPayAtCached() { if (CO.payAt == null) CO.payAt = nextPayAt(); return CO.payAt; }
+    const payIn = () => Math.max(0, nextPayAtCached() - nowMin());
+    const fmtIn = (m) => { m = Math.ceil(m); return m >= 60 ? Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min' : m + ' min'; };
+    const members = () => (sys.crew ? sys.crew.members : []);
+    function payrollMonth() { return members().reduce((s, a) => s + DL.salaryOf(a), 0); }
+
+    // what each member gets on pay day: the share of the month they actually worked for the company
+    function payslips(at) {
+      return members().map((a) => {
+        const from = Math.max(CO.lastPay, a.crew.hiredAt != null ? a.crew.hiredAt : 0);
+        const share = Math.max(0, Math.min(1, (at - from) / E.monthMinutes));
+        return { a, salary: DL.salaryOf(a), amount: Math.round(DL.salaryOf(a) * share) };
+      }).filter((p) => p.amount > 0);
+    }
+
+    function payDay() {
+      const at = nowMin();
+      const slips = payslips(at);
+      const total = slips.reduce((s, p) => s + p.amount, 0);
+      CO.lastPay = at;
+      CO.month++;
+      if (!total) return;
+      CO.cash -= total;
+      CO.paid.unshift({ month: CO.month - 1, total, n: slips.length, t: game.clock() });
+      if (CO.paid.length > 6) CO.paid.pop();
+      floater('-' + money(total) + ' · salários', 'spend');
+      game.toast(CO.cash < 0 ? 'warn' : 'info', 'Dia de pagamento · mês ' + (CO.month - 1), money(total) + ' em salários para ' + slips.length + ' pessoa(s)' + (CO.cash < 0 ? ' · caixa negativo!' : ' · saldo ' + money(CO.cash)));
+      game.emit('payday', { total, slips, cash: CO.cash });
+      render();
+    }
+
+    // Hiring costs money up front (recruitment + onboarding). Returns null when paid, or the reason.
+    function hireCharge(role, level, pay, name) {
+      const cost = DL.hireCostFor(role, level, pay);
+      if (CO.cash - cost < 0) return 'Caixa insuficiente: a contratação custa ' + money(cost);
+      CO.cash -= cost;
+      CO.spent += cost;
+      CO.hired += cost;
+      floater('-' + money(cost) + ' · contratação de ' + name, 'spend');
+      render();
+      return null;
+    }
+
     function tick(dt) {
       rates();
       CO.problems = problems();
       CO.losses = CO.problems.reduce((s, d) => s + d.loss.rate, 0) * (1 - CO.camCut);
-      CO.revenue = CO.servers + CO.storage + CO.wifi;
-      CO.payroll = (sys.crew ? sys.crew.members.length : 0) * E.payrollPerMember;
+      CO.revenue = (CO.servers + CO.storage + CO.wifi) * rewardK();
+      CO.payrollMonth = payrollMonth();
+      CO.payroll = CO.payrollMonth / E.monthMinutes; // average cost per minute (paid once a month)
       const mins = dt; // 1 s = 1 game minute
       for (const d of CO.problems) d.loss.total += d.loss.rate * (1 - CO.camCut) * mins;
-      CO.cash += (CO.revenue - CO.payroll - CO.energy - CO.losses) * mins;
+      CO.cash += (CO.revenue - CO.energy - CO.losses) * mins;
       CO.lost += CO.losses * mins;
       CO.earned += CO.revenue * mins;
+      if (nowMin() >= nextPayAtCached()) { payDay(); CO.payAt = null; }
       // keeping servers running pays credits every game hour
       CO.hourAcc += mins;
       if (CO.hourAcc >= E.credits.uptimeEvery) {
@@ -252,11 +328,17 @@
       el.credits.textContent = fmt(W.credits);
       el.coins.textContent = fmt(W.datacoins);
       el.cash.textContent = money(CO.cash);
-      const flow = CO.revenue - CO.payroll - CO.energy - CO.losses;
+      // operating result (salaries are paid once a month, shown on their own line)
+      const flow = CO.revenue - CO.energy - CO.losses;
       el.flow.textContent = CO.losses > 0 ? 'Prejuízo -$' + fmt(CO.losses) + '/min' : (flow >= 0 ? '+' : '') + money(flow) + '/min';
       el.flow.className = 'econ__flow ' + (CO.losses > 0 ? 'is-loss' : flow >= 0 ? 'is-up' : 'is-down');
       el.btn.classList.toggle('is-loss', CO.losses > 0);
       el.cash.classList.toggle('is-neg', CO.cash < 0);
+      if (el.pay) {
+        const txt = CO.payrollMonth ? 'Folha ' + money(CO.payrollMonth) + ' · em ' + fmtIn(payIn()) : 'Sem folha';
+        if (el.pay.textContent !== txt) el.pay.textContent = txt;
+        el.pay.classList.toggle('is-warn', CO.payrollMonth > 0 && CO.cash < CO.payrollMonth);
+      }
     }
 
     function floater(text, cur) {
@@ -304,16 +386,29 @@
     function walletHtml() {
       const cl = checklist();
       const m = E.milestones[0], n = W.counters[m.counter] || 0, next = (Math.floor(n / m.every) + 1) * m.every;
-      const flow = CO.revenue - CO.payroll - CO.energy - CO.losses;
+      const flow = CO.revenue - CO.energy - CO.losses, net = flow - CO.payroll;
+      const L = DL.learn ? DL.learn() : null, rk = rewardK();
       let h = '<div class="w-grid">';
       h += '<section class="w-card"><span class="eyebrow-sm">Empresa</span><p class="w-big' + (CO.cash < 0 ? ' is-neg' : '') + '">' + money(CO.cash) + '</p>' +
-        '<ul class="w-rows"><li><span>Receita dos servidores</span><b class="is-up">+' + money(CO.servers) + '/min</b></li>' +
-        (CO.storage ? '<li><span>Storage alugado</span><b class="is-up">+' + money(CO.storage) + '/min</b></li>' : '') +
-        (CO.wifi ? '<li><span>Wi-Fi de visitantes (' + CO.poe.ap + ' AP)</span><b class="is-up">+' + money(CO.wifi) + '/min</b></li>' : '') +
-        '<li><span>Folha da equipe</span><b>-' + money(CO.payroll) + '/min</b></li>' +
+        '<ul class="w-rows"><li><span>Receita dos servidores' + (rk !== 1 ? ' (modo ' + esc(L.name) + ' ×' + rk.toLocaleString('pt-BR') + ')' : '') + '</span><b class="is-up">+' + money(CO.servers * rk) + '/min</b></li>' +
+        (CO.storage ? '<li><span>Storage alugado</span><b class="is-up">+' + money(CO.storage * rk) + '/min</b></li>' : '') +
+        (CO.wifi ? '<li><span>Wi-Fi de visitantes (' + CO.poe.ap + ' AP)</span><b class="is-up">+' + money(CO.wifi * rk) + '/min</b></li>' : '') +
         '<li><span>Energia · ' + (Math.round(CO.kw * 10) / 10).toLocaleString('pt-BR') + ' kW</span><b>-' + money(CO.energy) + '/min</b></li>' +
         '<li><span>Prejuízo com problemas' + (CO.camCut ? ' (câmeras −' + Math.round(CO.camCut * 100) + '%)' : '') + '</span><b class="' + (CO.losses ? 'is-loss' : '') + '">-' + money(CO.losses) + '/min</b></li>' +
-        '<li class="w-total"><span>Resultado</span><b class="' + (flow >= 0 ? 'is-up' : 'is-loss') + '">' + (flow >= 0 ? '+' : '') + money(flow) + '/min</b></li></ul>';
+        '<li class="w-total"><span>Resultado da operação</span><b class="' + (flow >= 0 ? 'is-up' : 'is-loss') + '">' + (flow >= 0 ? '+' : '') + money(flow) + '/min</b></li>' +
+        '<li><span>Com a folha diluída (' + money(CO.payroll) + '/min)</span><b class="' + (net >= 0 ? 'is-up' : 'is-loss') + '">' + (net >= 0 ? '+' : '') + money(net) + '/min</b></li></ul>';
+      // payroll: who earns what, when it is paid
+      const slips = payslips(nextPayAtCached());
+      const due = slips.reduce((s, p) => s + p.amount, 0);
+      h += '<span class="eyebrow-sm w-sub">Folha de pagamento · mês ' + CO.month + '</span>' +
+        '<p class="w-note w-pay">Salários pagos todo mês, à 00:00 do relógio (1 dia no relógio = 1 mês da empresa). Próximo pagamento em <b>' + fmtIn(payIn()) + '</b>: <b class="' + (CO.cash < due ? 'is-loss' : '') + '">' + money(due) + '</b>' + (CO.cash < due ? ' · o caixa não cobre!' : '') + '</p>';
+      if (members().length) {
+        h += '<ul class="w-rows w-rows--pay">' + members().map((a) => {
+          const R = DL.ROLES[a.crew.profile.role] || {};
+          return '<li><span><i class="cc__dot" style="background:' + (R.color || '#ccc') + '"></i>' + esc(a.crew.name) + ' <small>' + esc(R.name || '') + ' · Nv ' + a.crew.stats.level + (a.crew.off ? ' · de folga' : '') + '</small></span><b>' + money(DL.salaryOf(a)) + '/mês</b></li>';
+        }).join('') + '<li class="w-total"><span>Total mensal</span><b>-' + money(CO.payrollMonth) + '</b></li></ul>';
+      } else h += '<p class="w-note">Ninguém contratado: sem folha. Contratar custa metade de um salário (recrutamento).</p>';
+      if (CO.paid.length) h += '<p class="w-note">Pagos: ' + CO.paid.slice(0, 3).map((p) => 'mês ' + p.month + ' ' + money(p.total)).join(' · ') + (CO.hired ? ' · contratações ' + money(CO.hired) : '') + '</p>';
       if (CO.problems.length) {
         h += '<span class="eyebrow-sm w-sub">Custando dinheiro agora</span><ul class="w-rows">' + CO.problems.map((d) =>
           '<li><span>' + esc(d.name) + ' · ' + d.loss.label + '</span><b class="is-loss">-$' + fmt(d.loss.rate) + '/min</b></li>').join('') + '</ul>' +
@@ -412,6 +507,11 @@
     render();
     return {
       update, updateUi: updateTags, key, earn, grant, count, checklist, lossOf, openWallet, closeWallet,
+      hireCharge, payDay,
+      charge(amount, why) { CO.cash -= amount; CO.spent += amount; floater('-' + money(amount) + ' · ' + why, 'spend'); render(); },
+      income(amount, why) { CO.cash += amount; CO.earned += amount; floater('+' + money(amount) + ' · ' + why, 'cash'); render(); },
+      get payIn() { return payIn(); },
+      payInText: () => fmtIn(payIn()),
       get isOpen() { return el.wallet.classList.contains('is-open') || el.reward.classList.contains('is-open'); },
       get wallet() { return W; },
       get company() { return CO; },

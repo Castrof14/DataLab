@@ -12,13 +12,19 @@
     const H = { msgs: [], open: true, unread: 0, queue: [], seq: 0, ambient: 0 };
 
     function render(m) {
+      // follow new messages only when the reader is already at the bottom (reading old ones isn't interrupted)
+      const L = el.list, stick = L.scrollHeight - L.scrollTop - L.clientHeight < 40;
       const li = document.createElement('li');
       li.className = 'tc__msg is-' + (m.tone || 'chat');
       li.innerHTML = '<div class="tc__meta"><span class="cc__dot" style="background:' + m.color + '"></span><b style="color:' + m.color + '">' + esc(m.who) + '</b>' +
         (m.role ? '<span class="tc__role">' + esc(m.role) + '</span>' : '') + '<span class="tc__time">' + m.t + '</span></div><p>' + esc(m.text) + '</p>';
       el.list.appendChild(li);
-      while (el.list.children.length > MAX) el.list.firstChild.remove();
-      el.list.scrollTop = el.list.scrollHeight;
+      while (el.list.children.length > MAX) {
+        const h = el.list.firstChild.offsetHeight;
+        el.list.firstChild.remove();
+        if (!stick) el.list.scrollTop = Math.max(0, el.list.scrollTop - h); // keep the reader's place
+      }
+      if (stick) el.list.scrollTop = el.list.scrollHeight;
     }
 
     function setOpen(on) {

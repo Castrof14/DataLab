@@ -39,7 +39,7 @@
         ['rack', 18, 3, 0, fill('WSS')], ['shelf', 18, 4],
         ['whiteboard', 17, 8], ['plant', 8, 2], ['plant', 8, 8],
       ],
-      crew: ['funcionario', 'gerente', 'sysadmin', 'tecnico'],
+      crew: ['atendente', 'gerente', 'sysadmin', 'tecnico'],
     },
     noc: {
       name: 'NOC',
@@ -107,8 +107,9 @@
         ['storage', 25, 4], ['storage', 26, 4], ['storage', 25, 8], ['storage', 26, 8],
         ['crac', 30, 4], ['crac', 30, 8], ['crac', 30, 12], ['bin', 31, 16],
         ['desksupport', 6, 19, 0], ['sofa', 1, 21], ['plant', 1, 18], ['water', 9, 18], ['plant', 9, 22], ['lamp', 4, 22],
+        ['beanbag', 5, 15], ['table', 7, 15], ['coffee', 7, 15],
       ],
-      crew: ['redes', 'servidores', 'sysadmin', 'seguranca', 'gerente', 'tecnico', 'funcionario'],
+      crew: ['redes', 'servidores', 'sysadmin', 'seguranca', 'gerente', 'tecnico', 'funcionario', 'atendente'],
       messy: true,
     },
   };

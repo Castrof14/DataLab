@@ -338,7 +338,8 @@
     }
 
     function crewOnDuty() {
-      const m = sys.crew.members;
+      // only people at work right now (shifts.js sends the others home)
+      const m = sys.crew.members.filter((a) => !a.crew.off);
       return m.find((a) => a.crew.state === 'working') || m.find((a) => a.crew.state !== 'sitting' && a.crew.state !== 'standing') || m[0] || null;
     }
 
@@ -354,6 +355,11 @@
       if (who) who.crew.alertT = 5;
       game.sfx('alert');
       render(true);
+      // beginners get a short explanation of where to start
+      if (DL.learn && DL.learn().tips) {
+        const TIP = { link: 'a interface de rede caiu: no terminal, veja com ip link e ligue com sudo ip link set eth0 up.', cable: 'é camada física: abra o Cabeamento do rack e reconecte o cabo solto (laranja).', service: 'o serviço web parou: systemctl status nginx mostra o erro, sudo systemctl restart nginx resolve.', disk: 'disco cheio: df -h mostra o uso, du -sh /var/log acha o culpado.', port: 'porta do switch em erro: enable → sh int status → conf t → interface → shutdown / no shutdown.' };
+        setTimeout(() => game.toast('info', 'Dica · modo Iniciante', 'Tarefas (T) → Abrir terminal. ' + (TIP[d.fault ? d.fault.type : ''] || '')), 1200);
+      }
       game.emit('fault', { d, who, how, msg });
       return true;
     }
@@ -428,15 +434,32 @@
       O.next -= dt;
       if (O.faultCd > 0) O.faultCd -= dt;
       if (O.next > 0) return;
-      O.next = 80 + rand() * 60;
+      // the incident director (director.js) decides when the next problem may start: one at a time
+      const dir = game.director;
+      O.next = dir ? 20 + rand() * 25 : 80 + rand() * 60;
       const open = devices().filter((d) => d.fault).length;
       const ok = devices().filter((d) => d.state === 'online' && !d.fault && !d.broken && d.kind !== 'patch' && health(d).up);
       if (open >= 2 || O.faultCd > 0 || !ok.length || game.paused()) return;
+      if (dir && !dir.canStart('fault')) return;
+      // even when allowed, problems don't pile up the moment the gate opens
+      if (dir && rand() < 0.45) return;
       // cheaper hardware breaks more often (model.fault: 1 = classic)
       const weight = (d) => (d.model && d.model.fault != null ? d.model.fault : 1);
       const total = ok.reduce((sum, d) => sum + weight(d), 0);
       const pickW = () => { let r = rand() * total; for (const d of ok) if ((r -= weight(d)) <= 0) return d; return ok[ok.length - 1]; };
-      for (let n = 0; n < 4; n++) if (injectFault(total > 0 ? pickW() : pick(ok))) break;
+      // Outside Experiente, most problems are ones somebody on duty can fix (the player always can,
+      // through the terminal) — so an unattended company doesn't bleed for hours on a fault nobody knows.
+      const L = DL.learn ? DL.learn() : null;
+      const fixable = new Set();
+      for (const m of sys.crew.members) if (!m.crew.off) for (const t of (DL.JOBS.BY_ROLE[m.crew.profile.role] || [])) if (t.kind === 'fix') t.types.forEach((x) => fixable.add(x));
+      const prefer = (!L || L.id !== 'experiente') && fixable.size && rand() < 0.8;
+      for (let n = 0; n < 4; n++) {
+        const pickD = total > 0 ? pickW() : pick(ok);
+        const kinds = Object.keys(FAULTS).filter((k) => FAULTS[k].kinds.indexOf(pickD.kind) >= 0 && (!prefer || fixable.has(k)));
+        if (!kinds.length) continue;
+        const d = injectFault(pickD, pick(kinds));
+        if (d) { if (dir) dir.started('fault', d.name); break; }
+      }
     }
 
     /* ------------------------------------------------------------------ */
@@ -590,7 +613,7 @@
 
     const api = {
       netOf, poeStatus, portsOf,
-      reset, sync, update, devices, get, reach, health, trace, classify, openTerminal, inspect, monitor, report, announce, injectFault, toggle, tasks, fix,
+      reset, sync, update, devices, get, reach, health, trace, classify, openTerminal, inspect, monitor, report, announce, injectFault, toggle, tasks, fix, render,
       addLink, removeLink, moveEnd, linkAt, linkNear, tidy, prewire, roomOf, logEvent, recompute,
       get links() { return O.links; },
       switchesNear(d) {

@@ -176,7 +176,8 @@
     // first contact: roles whose work includes helping people / tickets
     const isFrontline = (a) => (DL.JOBS.BY_ROLE[a.crew.profile.role] || []).some((t) => t.id === 'tickets' || t.id === 'helpdesk');
     const ticketOf = (a) => HD.tickets.find((t) => t.status !== 'resolved' && t.who === a);
-    const free = (a) => alive(a) && !a.crew.hold && !(a.crew.job && !a.crew.job.auto && a.crew.job.def.id !== 'support') && !ticketOf(a) && !a.hidden;
+    // off duty (shifts.js) or attending only in person at the reception (c.attend 'desk'): not on the phone
+    const free = (a) => alive(a) && !a.crew.hold && !a.crew.off && (a.crew.attend || 'pc') !== 'desk' && !(a.crew.job && !a.crew.job.auto && a.crew.job.def.id !== 'support') && !ticketOf(a) && !a.hidden;
 
     /* ---------- messages ---------- */
     function say(t, from, text, extra) {
@@ -200,7 +201,7 @@
     /* ---------- tickets ---------- */
     function spawn(force) {
       const open = HD.tickets.filter((t) => t.status !== 'resolved');
-      if (!force && open.length >= 5) return null;
+      if (!force && open.length >= 4) return null;
       let sc = null, dev = null;
       // a real outage becomes a customer complaint
       if (game.ops && typeof force !== 'string' && !open.some((t) => t.sc.id === 'site')) {
@@ -402,7 +403,8 @@
     function update(dt) {
       if (!game.paused || !game.paused()) {
         HD.spawnT -= dt;
-        if (HD.spawnT <= 0) { HD.spawnT = between(45, 80); spawn(); }
+        // calmer pace: fewer tickets while a datacenter incident is open (director.js)
+        if (HD.spawnT <= 0) { HD.spawnT = between(80, 140); if (!(game.director && game.director.busy && HD.tickets.filter((t) => t.status !== 'resolved').length >= 2)) spawn(); }
       }
       for (const t of HD.tickets) {
         for (const q of t.queue.slice()) if (now() >= q.at) { t.queue.splice(t.queue.indexOf(q), 1); q.fn(); }

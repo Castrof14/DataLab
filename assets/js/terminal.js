@@ -411,6 +411,7 @@
     const el = {
       root: $('terminal'), out: $('termOut'), input: $('termIn'), prompt: $('termPrompt'), title: $('termTitle'), where: $('termWhere'),
       close: $('termClose'), task: $('termTask'), goal: $('termGoal'), steps: $('termSteps'), helpBtn: $('termHelpBtn'), help: $('termHelp'), side: $('termSide'),
+      mode: $('termMode'),
     };
     const X = { open: false, dev: null, lesson: null, ran: new Set(), history: [], hi: -1, misses: 0, step: 0, onDone: null, helpOpen: false };
 
@@ -419,7 +420,11 @@
       return 'admin@' + d.os.hostname + ':~$';
     };
 
-    function print(lines, cls) {
+    // Output: follows the newest line unless the player scrolled up to read (then it stays put);
+    // a command typed by the player always brings the view back down. Old lines are trimmed.
+    const MAX_LINES = 600;
+    function print(lines, cls, force) {
+      const o = el.out, stick = force || o.scrollHeight - o.scrollTop - o.clientHeight < 48;
       const frag = document.createDocumentFragment();
       for (const l of lines) {
         const div = document.createElement('div');
@@ -427,8 +432,61 @@
         div.innerHTML = l === '' ? '&nbsp;' : l;
         frag.appendChild(div);
       }
-      el.out.appendChild(frag);
-      el.out.scrollTop = el.out.scrollHeight;
+      o.appendChild(frag);
+      let cut = o.children.length - MAX_LINES;
+      while (cut-- > 0) o.firstChild.remove();
+      if (stick) o.scrollTop = o.scrollHeight;
+    }
+
+    // keep the current step in view inside the side panel (never scrolls the page itself)
+    function revealStep() {
+      const cur = el.steps.querySelector('.is-current');
+      if (!cur) return;
+      const side = el.side, top = cur.offsetTop - side.offsetTop, bottom = top + cur.offsetHeight;
+      if (top < side.scrollTop + 8) side.scrollTop = Math.max(0, top - 8);
+      else if (bottom > side.scrollTop + side.clientHeight - 8) side.scrollTop = bottom - side.clientHeight + 8;
+    }
+
+    /* ---------- learning mode (difficulty.js) ---------- */
+    const L = () => (DL.learn ? DL.learn() : { id: 'intermediario', name: 'Intermediário', stepText: 'full', helpDepth: 'example', helpAfter: 3, autoHelp: false, explainErrors: false, color: '#a0c3ec' });
+    function renderMode() {
+      if (!el.mode) return;
+      const m = L();
+      el.mode.textContent = 'Modo ' + m.name;
+      el.mode.style.setProperty('--c', m.color);
+      el.mode.title = m.desc || '';
+    }
+    // the command a step expects, as a hint (Iniciante shows it right in the step)
+    const stepCmd = (s) => (s.help && HELP[s.help[0]] ? HELP[s.help[0]].ex.split('\n')[0] : '');
+    // why a command failed, in plain words (Iniciante)
+    const FIRST = ['ip', 'ping', 'sudo', 'systemctl', 'curl', 'df', 'du', 'journalctl', 'hostnamectl', 'hostname', 'help', 'clear', 'exit', 'enable', 'show', 'configure', 'interface', 'shutdown', 'no', 'end', 'lscpu', 'free', 'uptime', 'whoami'];
+    function closest(w) {
+      let best = null, bd = 3;
+      for (const c of FIRST) {
+        const d = lev(w, c);
+        if (d < bd) { bd = d; best = c; }
+      }
+      return best;
+    }
+    function lev(a, b) {
+      const m = [];
+      for (let i = 0; i <= a.length; i++) { m[i] = [i]; for (let j = 1; j <= b.length; j++) m[i][j] = i ? Math.min(m[i - 1][j] + 1, m[i][j - 1] + 1, m[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)) : j; }
+      return m[a.length][b.length];
+    }
+    function explain(line, r) {
+      const txt = r.out.join(' ');
+      const w = line.trim().split(/\s+/)[0].toLowerCase();
+      if (/Operation not permitted|Access denied|Permission denied/.test(txt)) return 'Esse comando altera o sistema, então precisa de permissão de administrador. Coloque <b>sudo</b> na frente: <code>sudo ' + esc(line.trim()) + '</code>';
+      if (r.ran.indexOf('unknown') >= 0) { const c = closest(w); return 'O sistema não conhece "' + esc(w) + '".' + (c ? ' Você quis dizer <code>' + c + '</code>?' : '') + ' Digite <code>help</code> para ver a lista.'; }
+      if (/Cannot find device/.test(txt)) return 'Essa interface não existe. As interfaces deste servidor são <b>lo</b> e <b>eth0</b> — veja com <code>ip addr</code>.';
+      if (/any valid prefix/.test(txt)) return 'O endereço precisa estar no formato IP/máscara, por exemplo <code>10.0.1.12/24</code>.';
+      if (/invalid gateway/.test(txt)) return 'O gateway precisa estar na mesma rede do IP da interface. Dê o IP primeiro (ip addr add), depois crie a rota.';
+      if (/^uso:|usage|Comando incompleto|incompleto/.test(txt)) return 'Faltou parte do comando. Veja o formato acima ou clique em <b>Precisa de ajuda?</b>.';
+      if (/Use "enable"/.test(txt)) return 'No switch você começa no modo usuário (&gt;). Digite <code>enable</code> para o modo privilegiado (#).';
+      if (/Use "end" primeiro|neste modo/.test(txt)) return 'Esse comando não vale no modo atual do switch. Repare no prompt: (config) e (config-if) são modos de configuração; <code>end</code> volta.';
+      if (r.ran.indexOf('ping-fail') >= 0) return 'O ping não voltou. Leia a dica em cinza acima: ela diz em que camada está o problema (interface, cabo, IP ou rota).';
+      if (r.ran.indexOf('error') >= 0) return 'O comando deu erro. Leia a mensagem acima com calma: ela costuma dizer exatamente o que faltou.';
+      return null;
     }
 
     function curStep() {
@@ -443,31 +501,44 @@
         el.task.textContent = 'Console livre';
         el.goal.textContent = 'Nenhuma tarefa aberta neste equipamento. Explore à vontade — digite help.';
         el.steps.innerHTML = '';
+        el.steps.dataset.k = '';
         el.helpBtn.hidden = false;
         return;
       }
-      const i = curStep();
+      const i = curStep(), m = L();
       el.task.textContent = X.lesson.title;
       el.goal.textContent = X.lesson.goal;
-      el.steps.innerHTML = X.lesson.steps.map((s, k) =>
-        '<li class="' + (k < i ? 'is-done' : k === i ? 'is-current' : '') + '"><span class="term__chk">' + (k < i ? '✓' : k + 1) + '</span><span>' + esc(s.text) +
-        (k === i && s.action === 'cabling' ? '<button type="button" class="btn btn--sm btn--primary term__act" data-term-act="cabling">Abrir cabeamento do rack</button>' : '') + '</span></li>').join('');
-      el.helpBtn.classList.toggle('is-guide', X.misses >= 2 && !X.helpOpen);
+      // Experiente: only the goal; each step is revealed once it is done
+      const hidden = m.stepText === 'hidden';
+      const html = X.lesson.steps.map((s, k) => {
+        const txt = hidden && k >= i ? (k === i ? 'Descubra o próximo passo.' : '?') : s.text;
+        const hint = m.id === 'iniciante' && k === i && stepCmd(s) ? '<code class="term__try">' + esc(stepCmd(s)) + '</code>' : '';
+        return '<li class="' + (k < i ? 'is-done' : k === i ? 'is-current' : '') + '"><span class="term__chk">' + (k < i ? '✓' : k + 1) + '</span><span>' + esc(txt) + hint +
+          (k === i && s.action === 'cabling' ? '<button type="button" class="btn btn--sm btn--primary term__act" data-term-act="cabling">Abrir cabeamento do rack</button>' : '') + '</span></li>';
+      }).join('');
+      // rebuild only when something changed, so the side panel never jumps while the player scrolls it
+      if (el.steps.dataset.k !== html) { el.steps.dataset.k = html; el.steps.innerHTML = html; revealStep(); }
+      el.helpBtn.classList.toggle('is-guide', m.helpAfter > 0 && X.misses >= m.helpAfter && !X.helpOpen);
     }
 
-    function helpCard(keys) {
+    // how deep the help goes depends on the learning mode: syntax only (Experiente), + example
+    // (Intermediário), or everything with when to use it (Iniciante). Asking is always allowed.
+    function helpCard(keys, depth) {
+      depth = depth || 'full';
       return keys.map((k) => {
         const h = HELP[k];
         return '<div class="hcard"><code class="hcard__cmd">' + esc(h.cmd) + '</code>' +
-          '<dl><dt>Exemplo</dt><dd><code>' + esc(h.ex).replace(/\n/g, '<br>') + '</code></dd>' +
-          '<dt>O que faz</dt><dd>' + esc(h.what) + '</dd><dt>Quando usar</dt><dd>' + esc(h.when) + '</dd></dl></div>';
+          '<dl>' + (depth !== 'syntax' ? '<dt>Exemplo</dt><dd><code>' + esc(h.ex).replace(/\n/g, '<br>') + '</code></dd>' : '') +
+          '<dt>O que faz</dt><dd>' + esc(h.what) + '</dd>' + (depth === 'full' ? '<dt>Quando usar</dt><dd>' + esc(h.when) + '</dd>' : '') + '</dl></div>';
       }).join('');
     }
 
     function renderHelp() {
-      const i = curStep();
+      const i = curStep(), m = L();
       const keys = X.lesson && i < X.lesson.steps.length ? X.lesson.steps[i].help : X.dev.kind === 'switch' ? ['enable', 'show-int', 'conf-t'] : ['ip-addr', 'ping', 'sudo'];
-      let h = '<p class="term__hint">' + (X.lesson && i < X.lesson.steps.length ? 'Para este passo: <b>' + esc(X.lesson.steps[i].text) + '</b>' : 'Comandos mais usados aqui:') + '</p>' + helpCard(keys);
+      const stepLabel = X.lesson && i < X.lesson.steps.length ? (m.stepText === 'hidden' ? 'o próximo passo' : X.lesson.steps[i].text) : '';
+      let h = '<p class="term__hint">' + (stepLabel ? 'Para ' + (m.stepText === 'hidden' ? '' : 'este passo: ') + '<b>' + esc(stepLabel) + '</b>' : 'Comandos mais usados aqui:') +
+        ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth);
       h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter((k) => (X.dev.kind === 'switch') === ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'end'].includes(k))
         .map((k) => '<button type="button" class="chip" data-help="' + k + '">' + esc(HELP[k].cmd.split(' <')[0]) + '</button>').join('') + '<div data-help-out></div></details>';
       el.help.innerHTML = h;
@@ -490,24 +561,34 @@
     };
 
     function run(line) {
-      const d = X.dev;
-      print(['<span class="term__p">' + esc(promptOf(d)) + '</span> ' + esc(line)]);
+      const d = X.dev, m = L();
+      print(['<span class="term__p">' + esc(promptOf(d)) + '</span> ' + esc(line)], null, true);
       if (line.trim()) X.history.push(line);
+      if (X.history.length > 100) X.history.shift();
       const before = curStep();
       const r = (d.kind === 'switch' ? swcli : linux)(d, line, ctx);
-      if (r.out.length) print(r.out);
+      if (r.out.length) print(r.out, null, true);
       for (const e of r.ran) X.ran.add(e);
       game.onCommand && game.onCommand(d, r.ran);
+      // Iniciante: every error comes with a plain explanation
+      if (m.explainErrors && line.trim()) { const why = explain(line, r); if (why) print(['<span class="term__why">💡 ' + why + '</span>'], null, true); }
       if (X.lesson) {
         const after = curStep();
         if (after > before) {
           X.misses = 0;
           if (X.helpOpen) renderHelp();
           if (after >= X.lesson.steps.length) finish();
-          else print(['<span class="ok">✓ passo concluído.</span> <span class="m">Próximo: ' + esc(X.lesson.steps[after].text) + '</span>']);
+          else {
+            const next = X.lesson.steps[after];
+            const tell = m.stepText === 'hidden' ? 'Descubra o próximo passo.' : esc(next.text) + (m.id === 'iniciante' && stepCmd(next) ? ' · experimente <code>' + esc(stepCmd(next)) + '</code>' : '');
+            print(['<span class="ok">✓ passo concluído.</span> <span class="m">Próximo: ' + tell + '</span>'], null, true);
+          }
         } else if (line.trim()) {
           X.misses++;
-          if (X.misses === 2 && !X.helpOpen) print(['<span class="m">Travou? Clique em <b>Precisa de ajuda?</b> para ver o comando, um exemplo e quando usar.</span>']);
+          if (m.helpAfter && X.misses === m.helpAfter && !X.helpOpen) {
+            if (m.autoHelp) toggleHelp(true);
+            else print(['<span class="m">Travou? Clique em <b>Precisa de ajuda?</b> para ver o comando' + (m.helpDepth === 'syntax' ? '' : ', um exemplo') + ' e o que ele faz.</span>'], null, true);
+          }
         }
       }
       el.prompt.textContent = promptOf(d);
@@ -536,9 +617,18 @@
       print(dev.kind === 'switch'
         ? ['<span class="m">Conectado pela porta de console de ' + esc(dev.name) + '.</span>', '<span class="m">Digite help para ver os comandos.</span>', '']
         : ['<span class="m">Ubuntu 24.04 LTS · ' + esc(dev.name) + ' · conectado pelo console do rack</span>', '<span class="m">Digite help para ver os comandos. ↑ repete comandos anteriores.</span>', '']);
-      if (X.lesson) print(['<span class="ok">Tarefa:</span> ' + esc(X.lesson.goal), '<span class="m">Primeiro passo: ' + esc(X.lesson.steps[0].text) + '</span>', '']);
+      const m = L();
+      if (X.lesson) {
+        const first = X.lesson.steps[0];
+        print(['<span class="ok">Tarefa:</span> ' + esc(X.lesson.goal),
+          '<span class="m">' + (m.stepText === 'hidden' ? 'Modo Experiente: descubra os passos. A ajuda mostra só a sintaxe.' : 'Primeiro passo: ' + esc(first.text) + (m.id === 'iniciante' && stepCmd(first) ? ' · experimente <code>' + esc(stepCmd(first)) + '</code>' : '')) + '</span>', '']);
+      }
       el.prompt.textContent = promptOf(dev);
-      toggleHelp(false);
+      el.steps.dataset.k = '';
+      el.side.scrollTop = 0;
+      // Iniciante: the help card is open from the start
+      toggleHelp(!!(m.autoHelp && X.lesson));
+      renderMode();
       el.root.classList.add('is-open');
       X.open = true;
       renderSide();
@@ -588,9 +678,11 @@
     el.help.addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-help]');
       if (!b) return;
-      el.help.querySelector('[data-help-out]').innerHTML = helpCard([b.dataset.help]);
+      el.help.querySelector('[data-help-out]').innerHTML = helpCard([b.dataset.help], L().helpDepth);
     });
-    el.out.addEventListener('click', () => el.input.focus({ preventScroll: true }));
+    // clicking the output gives the focus back to the prompt — but not while the player selects text to copy
+    el.out.addEventListener('click', () => { const s = window.getSelection && window.getSelection(); if (!s || s.isCollapsed) el.input.focus({ preventScroll: true }); });
+    if (DL.onLearnChange) DL.onLearnChange(() => { renderMode(); if (X.open) { renderSide(); if (X.helpOpen) renderHelp(); } });
     el.root.addEventListener('pointerdown', (ev) => { if (ev.target === el.root) close(); });
 
     return {

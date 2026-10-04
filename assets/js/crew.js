@@ -23,6 +23,7 @@
     seguranca: { name: 'Segurança', title: 'Segurança', color: '#ff7a17', work: 'cam', desc: 'Rondas, acessos e câmeras.' },
     funcionario: { name: 'Assistente', title: 'Assistente', color: '#dadbdf', work: 'doc', desc: 'Chamados, inventário e documentação.' },
     gerente: { name: 'Gerente', title: 'Gerente', color: '#7ee0a1', work: 'kpi', desc: 'Indicadores, capacidade e equipe.' },
+    atendente: { name: 'Atendente', title: 'Atendente', color: '#f9a8d4', work: 'doc', desc: 'Recebe clientes na recepção e atende chamados pelo computador.' },
   };
   const ROLE_IDS = Object.keys(ROLES); // the built-in roles (random hires pick from these)
   DL.ROLES = ROLES;
@@ -511,14 +512,28 @@
     }
 
     // Default organisation for a new hire: a sector that fits the role and a free station there.
-    const ZONE_PREF = { redes: ['servers', 'noc'], servidores: ['servers'], tecnico: ['servers', 'power', 'office'], sysadmin: ['noc', 'office'], gerente: ['office', 'noc'], seguranca: ['reception', 'noc'], funcionario: ['reception', 'support', 'office'] };
+    const ZONE_PREF = { redes: ['servers', 'noc'], servidores: ['servers'], tecnico: ['servers', 'power', 'office'], sysadmin: ['noc', 'office'], gerente: ['office', 'noc'], seguranca: ['reception', 'noc'], funcionario: ['reception', 'support', 'office'], atendente: ['reception', 'support'] };
     function autoPlace(a, onlyMissing) {
       const c = a.crew, rooms = world().rooms || [], type = DL.roomTypeOf || (() => null);
       if (!onlyMissing || !zoneRoom(a)) {
         const r0 = ROLES[c.profile.role];
         const pref = ZONE_PREF[c.profile.role] || (r0 && r0.cfg ? r0.cfg.areas.filter((x) => x !== 'any') : []);
-        let room = null;
-        for (const t of pref) { room = rooms.find((r) => type(r) === t); if (room) break; }
+        // the preferred room types, but only rooms that offer what the role needs (workplace.js);
+        // otherwise the room that offers the most of it
+        const score = (r) => (DL.checkNeeds ? DL.checkNeeds(world(), c.profile.role, r, type).filter((n) => n.ok).length : 0);
+        const full = DL.checkNeeds ? DL.needsOfRole(c.profile.role).length : 0;
+        let room = null, best = -1;
+        for (const t of pref) {
+          for (const r of rooms.filter((x) => type(x) === t)) {
+            const s = score(r) + (pref.length - pref.indexOf(t)) * 0.01;
+            if (s > best) { best = s; room = r; }
+          }
+          if (room && Math.floor(best) >= full) break;
+        }
+        if (full && (!room || Math.floor(best) < full)) {
+          const alt = rooms.map((r) => [r, score(r)]).sort((x, y) => y[1] - x[1])[0];
+          if (alt && alt[1] > Math.floor(best)) room = alt[0];
+        }
         c.zone = room ? room.id : null;
       }
       if (!onlyMissing || !homeStation(a)) {
@@ -540,6 +555,21 @@
       renderCard(true);
       renderList();
     }
+    // how a frontline member attends: computer tickets, in person at the reception, or both
+    function setAttend(a, how) {
+      const c = a.crew;
+      if (['pc', 'desk', 'both'].indexOf(how) < 0 || c.attend === how) return;
+      c.attend = how;
+      const R = (world().rooms || []).find((r) => DL.roomTypeOf && DL.roomTypeOf(r) === 'reception');
+      // attending in person: the reception becomes the sector
+      if (how !== 'pc' && R && c.zone !== R.id) { c.zone = R.id; c.placeAuto = false; }
+      game.toast('ok', 'Atendimento', c.name + (how === 'pc' ? ' atende pelo computador' : how === 'desk' ? ' atende presencialmente na recepção' : ' atende pelo computador e na recepção'));
+      chat.post(a, how === 'pc' ? 'Combinado, fico nos chamados pelo computador.' : R ? pick(['Beleza! Vou ficar no balcão da ' + R.name + ' recebendo os clientes.', 'Pode deixar, eu recebo quem chegar na ' + R.name + '.']) : 'Posso atender presencialmente, mas não temos uma Recepção. Cria uma sala do tipo Recepção?');
+      if (c.job && c.job.auto && !c.seated && c.state !== 'sitting' && c.state !== 'standing') { cancelJob(a, true); c.wait = 0.2; }
+      renderCard(true);
+      renderList();
+    }
+
     function setZone(a, id) {
       a.crew.zone = id || null;
       a.crew.placeAuto = false;
@@ -588,6 +618,28 @@
       return { x: t.x, y: t.y };
     }
 
+    // in front of a small item (a coffee maker sits on a table: stand in front of the table)
+    function frontOf(e) {
+      if (!e) return { x: 0, y: 0 };
+      if (e.ix != null) return { x: e.ix, y: e.iy - 3 };
+      const h = e.host || e;
+      return { x: h.px + (h.tw || 1) * 8, y: (h.ty + (h.th || 1)) * T + 10 };
+    }
+    // a free seat on a beanbag / sofa: where to sit, where to step from, how to sort
+    function restSeat(e) {
+      if (!e || world().items.indexOf(e) < 0) return null;
+      const n = e.kind === 'sofa' ? e.tw || 2 : 1;
+      for (let k = 0; k < n; k++) {
+        if (C.members.some((m) => m.crew.restSeat && m.crew.restSeat.item === e && m.crew.restSeat.k === k && m.crew.job && m.crew.job.def.kind === 'rest')) continue;
+        const f = nav.nearestFree(e.tx + k, e.ty + (e.th || 1), 3);
+        if (!f) continue;
+        return { item: e, k, sit: { x: e.px + 8 + k * 16, y: e.py + (e.kind === 'sofa' ? 10 : 12) }, from: nav.center(f[0], f[1]), sortKey: (e.sortY || e.py + 16) + 0.5 };
+      }
+      return null;
+    }
+
+    const restSeatAt = (s) => ({ x: s.item.px + 8 + s.k * 16, y: s.item.py + (s.item.kind === 'sofa' ? 10 : 12) });
+
     function install(rack) {
       const k = rack.units.indexOf(null);
       if (k < 0 || !game.builder) return null;
@@ -597,7 +649,11 @@
       return game.ops ? game.ops.devices().find((d) => d.rack === rack && d.slot === k) : null;
     }
 
-    const ctxOf = (a) => ({ a, c: a.crew, stats: a.crew.stats, world: world(), ops: game.ops, staff: game.staff, members: C.members, player: playerName(), reception, install });
+    const hourNow = () => { const m = /^(\d+):/.exec(game.clock ? game.clock() : '09:00'); return m ? +m[1] : 9; };
+    const ctxOf = (a) => {
+      const r = roomAtPoint(a.x, a.y);
+      return { a, c: a.crew, stats: a.crew.stats, world: world(), ops: game.ops, staff: game.staff, eco: game.economy, members: C.members.filter((m) => !m.crew.off), player: playerName(), reception, install, hour: hourNow(), roomName: r ? r.name : null };
+    };
 
     /* ---------- members ---------- */
     function frameOf() {
@@ -610,9 +666,9 @@
       // standing actions: hands on the equipment while working on it, mouth moving while talking
       if (!this.moving && c.act) {
         const t = scene.t, s = c.act[this.dir] || c.act.down;
-        if (c.state === 'pickup' || c.state === 'installing' || c.state === 'repairing' || c.state === 'inspecting' || (c.state === 'atSpot' && c.job && c.job.order)) {
+        if (c.state === 'pickup' || c.state === 'installing' || c.state === 'repairing' || c.state === 'inspecting' || c.state === 'fetching' || (c.state === 'atSpot' && c.job && c.job.order)) {
           if (Math.floor(t * 2.6 + c.id) % 3) return s.reach;
-        } else if ((c.state === 'talking' || (c.talkT > 0 && c.talkWith) || (this.bubble && this.bubble.left > 0.6)) && Math.floor(t * 7) % 2) return s.talk;
+        } else if ((c.state === 'talking' || c.state === 'serving' || (c.talkT > 0 && c.talkWith) || (this.bubble && this.bubble.left > 0.6)) && Math.floor(t * 7) % 2) return s.talk;
       }
       return DL.Actor.prototype.frame.call(this);
     }
@@ -637,13 +693,26 @@
     function hire(profile, opts) {
       opts = opts || {};
       if (C.members.length >= MAX_CREW) { game.toast('warn', 'Equipe cheia', 'Limite de ' + MAX_CREW + ' pessoas no turno'); return null; }
+      const stats = opts.stats || XP.newStats(profile.role, opts.level);
+      // each person negotiates their own salary (±8% around the role's base); hiring costs half of it
+      const pay = opts.pay || Math.round((0.92 + rand() * 0.16) * 100) / 100;
+      if (!opts.free && game.economy && game.economy.hireCharge) {
+        const why = game.economy.hireCharge(profile.role, stats.level, pay, profile.name);
+        if (why) { game.toast('warn', 'Contratação recusada', why); return null; }
+      }
       const sp = opts.at || spawnPoint();
       const a = new DL.Actor(lookOf(profile), sp.x, sp.y, 'down');
       a.crew = {
-        id: ++C.seq, profile, name: profile.name, stats: opts.stats || XP.newStats(profile.role, opts.level),
+        id: ++C.seq, profile, name: profile.name, stats,
         state: 'idle', wait: between(0.6, 1.6), pose: 'R', seated: false, sitDir: 'up', station: null, job: null, alertT: 0,
-        hold: false, menu: false, talkT: 0, lastSocial: -40,
+        hold: false, menu: false, talkT: 0, lastSocial: -40 - rand() * 40,
         home: null, zone: null, placeAuto: true, carry: null,
+        pay, hiredAt: game.time ? game.time() : 0,
+        // attending clients: on the computer, in person at the reception, or both (staff.js / helpdesk.js)
+        attend: profile.role === 'atendente' ? 'both' : 'pc',
+        // work schedule (shifts.js): 24 h by default; on-call shifts it may cover
+        shift: { id: 'integral', start: 0, end: 24 }, oncall: [],
+        missing: [], gripeT: 10 + rand() * 20, needsT: 0, cup: null, off: null,
       };
       a.frame = frameOf;
       applyLook(a);
@@ -667,6 +736,10 @@
     function fire(a) {
       const c = a.crew;
       abortRepair(a);
+      c.cup = null;
+      // dismissed while off duty: shows up once more to say goodbye
+      if (c.off) { const r = reception(); if (c.off.phase === 'away') { a.x = r.x; a.y = r.y; } c.off = null; a.hidden = false; a.alpha = 1; }
+      if (c.state === 'restSit' || c.state === 'resting') standUpNow(a);
       c.home = null;
       if (c.seated || c.state === 'sitting' || c.state === 'standing') {
         const s = c.station;
@@ -715,7 +788,8 @@
         return;
       }
       const s = c.station;
-      let to = s ? s.approach : { x: a.x, y: a.y };
+      // off a beanbag / sofa: back to the tile it was entered from
+      let to = s ? s.approach : c.restSeat && (c.state === 'resting' || c.state === 'restSit') ? c.restSeat.from : { x: a.x, y: a.y };
       // the station may have been turned or moved over its old exit: step out to the nearest free tile
       const W = world(), tx = Math.floor(to.x / T), ty = Math.floor((to.y - 2) / T);
       if (W.solid && W.solid[ty * W.W + tx]) { const f = nav.nearestFree(tx, ty, 6); if (f) to = nav.center(f[0], f[1]); }
@@ -733,6 +807,7 @@
 
     // What a task can be done on right now: { targets } or { reason }
     function optionsFor(a, def) {
+      if (def.allow && !def.allow(ctxOf(a))) return { reason: def.none || 'Indisponível agora' };
       if (def.kind === 'pc') return stations().some((s) => (!def.stationOk || def.stationOk(s)) && stationFree(s, a)) ? { targets: [null] } : { reason: def.stationOk ? 'Sem estação livre permitida para o cargo' : 'Sem computador livre' };
       if (def.kind === 'patrol') return { targets: [null] };
       const ts = def.targets(ctxOf(a)) || [];
@@ -742,7 +817,7 @@
     // weighted choice that prefers what nobody else is doing (and, for orders, what is close)
     function chooseTarget(a, def, ts, nearest) {
       // routine work happens mostly inside the member's sector
-      const zw = (t) => (!a.crew.zone || def.kind === 'visit' ? 1 : inZone(a, pointOf(def.place ? def.place(t) : t)) ? 3 : 0.3);
+      const zw = (t) => (!a.crew.zone || def.kind === 'visit' ? 1 : inZone(a, pointOf(def.place ? def.place(t) : t)) ? 3 : 0.08);
       const w = (t) => (def.weight ? def.weight(t) : 1) * (busyWith(t, a) ? 0.12 : 1) * zw(t);
       if (def.kind === 'fix') return ts.slice().sort((x, y) => (x.fault.foundAt || 0) - (y.fault.foundAt || 0))[0];
       if (nearest) {
@@ -772,8 +847,10 @@
         target = chooseTarget(a, def, o.targets, !opts.auto);
       }
       const speed = XP.speedOf(c.stats, def.skill);
-      const dur = between(def.dur[0], def.dur[1]) * speed;
-      let route = null, station = null, place = null;
+      // the workplace matters: without the structure the role needs, work drags (workplace.js)
+      const slow = !def.social && c.missing && c.missing.length ? 1.5 : 1;
+      const dur = between(def.dur[0], def.dur[1]) * (def.kind === 'client' ? 1 : speed * slow);
+      let route = null, station = null, place = null, restS = null;
       if (def.kind === 'pc') {
         if (opts.station) {
           const u = userOf(opts.station);
@@ -788,10 +865,15 @@
         }
       } else if (def.kind === 'patrol') {
         route = [];
+      } else if (def.kind === 'rest') {
+        place = target;
+        restS = restSeat(target);
+        if (!restS) return 'Sem lugar livre no ' + DL.itemName(target).toLowerCase();
+        route = nav.route(a.x, a.y, restS.from.x, restS.from.y, true);
       } else {
         place = def.place ? def.place(target) : target;
-        const p = standAt(place);
-        route = nav.route(a.x, a.y, p.x, p.y, def.kind !== 'visit');
+        const p = def.kind === 'drink' ? frontOf(place) : standAt(place);
+        route = nav.route(a.x, a.y, p.x, p.y, def.kind !== 'visit' && def.kind !== 'client');
       }
       if (!route) return 'Sem caminho até ' + (station ? station.label : JOBS.labelOf(place || target));
       if (def.kind === 'repair' && target.taken && target.taken !== a) return JOBS.labelOf(target) + ' já está com ' + target.taken.crew.name;
@@ -801,6 +883,7 @@
       c.hold = false;
       c.menu = false;
       c.talkT = 0;
+      c.cup = null;
       c.job = { def, target, place, name: def.name, total: dur, left: dur, auto: !!opts.auto, quiet: !!opts.quiet, label: station ? station.label : JOBS.labelOf(def.kind === 'fix' || def.kind === 'repair' ? target : place || target) };
       a.route = route;
       a.blockT = 0;
@@ -810,6 +893,9 @@
       else if (def.kind === 'spot') c.state = 'toSpot';
       else if (def.kind === 'visit') c.state = 'toVisit';
       else if (def.kind === 'repair') { c.state = 'toBroken'; target.taken = a; }
+      else if (def.kind === 'drink') c.state = 'toFetch';
+      else if (def.kind === 'rest') { c.state = 'toRest'; c.restSeat = restS; }
+      else if (def.kind === 'client') { c.state = 'toClient'; c.job.label = def.label || c.job.label; }
       else c.state = 'toEquip';
       if (def.social) c.lastSocial = scene.t;
       if (!opts.auto && !opts.quiet) {
@@ -822,8 +908,9 @@
 
     // seated people asked to do something else get up first (instantly — the walk covers it)
     function standUpNow(a) {
-      const s = a.crew.station;
+      const c = a.crew, s = c.station;
       if (s) { a.x = s.approach.x; a.y = s.approach.y; }
+      else if (c.restSeat && (c.state === 'resting' || c.state === 'restSit')) { a.x = c.restSeat.from.x; a.y = c.restSeat.from.y; }
       release(a);
     }
 
@@ -839,6 +926,7 @@
     function cancelJob(a, quiet) {
       const c = a.crew;
       abortRepair(a);
+      c.cup = null;
       c.job = null;
       if (c.seated || c.state === 'sitting' || c.state === 'working') standUp(a);
       else { release(a); c.state = 'idle'; c.wait = between(0.5, 1.2); a.route = null; }
@@ -857,7 +945,18 @@
       let xp = def.xp * (job.auto ? 1 : 1.2);
       if (res && res.fixed) { c.stats.fixed++; xp += 10; }
       if (res && res.failed) xp *= 0.6;
-      if (res && res.say) chat.post(a, res.say, { tone: res.tone === 'help' ? 'warn' : res.tone });
+      // routine reports are occasional and never echo what was just said; problems, fixes and
+      // anything ordered by the player are always reported
+      if (res && res.say) {
+        const key = res.say.replace(/\d+([.,]\d+)?/g, '#');
+        const routine = job.auto && !res.tone && !res.fixed && !res.reply;
+        C.recentSay = C.recentSay || [];
+        if (!routine || (rand() < 0.45 && C.recentSay.indexOf(key) < 0)) {
+          chat.post(a, res.say, { tone: res.tone === 'help' ? 'warn' : res.tone });
+          C.recentSay.push(key);
+          if (C.recentSay.length > 18) C.recentSay.shift();
+        }
+      }
       if (res && res.reply) { const [w, line] = res.reply; chat.later(between(1.6, 2.4), () => { if (alive(w)) chat.post(w, line); }); }
       if (res && res.failed && job.target) askHelp(a, job.target, def);
       if (!job.auto && !job.quiet) {
@@ -892,7 +991,7 @@
 
     function askHelp(a, d, def) {
       if (d.fault) d.fault.help = true;
-      const helpers = C.members.filter((m) => m !== a && fixDefFor(m, d) && !m.crew.hold).sort((x, y) => (y.crew.stats.skills[def.skill] || 0) - (x.crew.stats.skills[def.skill] || 0));
+      const helpers = C.members.filter((m) => m !== a && fixDefFor(m, d) && !m.crew.hold && !m.crew.off).sort((x, y) => (y.crew.stats.skills[def.skill] || 0) - (x.crew.stats.skills[def.skill] || 0));
       const h = helpers[0];
       if (!h) return;
       chat.later(between(1.8, 2.8), () => {
@@ -912,7 +1011,8 @@
           if (!f || !f.found || busyWith(d) || (f.botTried && scene.t - f.botTried < 90)) continue;
           const fd = fixDefFor(a, d);
           if (!fd) continue;
-          if (!f.help && scene.t - (f.foundAt || scene.t) < FIX_GRACE) continue;
+          // the player gets time to fix it first (more in Experiente, less in Iniciante — difficulty.js)
+          if (!f.help && scene.t - (f.foundAt || scene.t) < (DL.learn ? DL.learn().crewGrace : FIX_GRACE)) continue;
           if (!startJob(a, fd, { auto: true, target: d })) {
             chat.post(a, f.help ? 'Vou dar uma mão no ' + d.name + '.' : 'Ninguém pegou o ' + d.name + ' ainda. Estou indo resolver.');
             return;
@@ -937,12 +1037,17 @@
       for (const def of defs) {
         if (!def.auto) continue;
         const o = optionsFor(a, def);
-        if (o.targets) opts.push([def, def.auto]);
+        if (!o.targets) continue;
+        // people stay in their own sector: routine work elsewhere only now and then
+        let w = def.auto;
+        if (c.zone && (def.kind === 'equip' || def.kind === 'spot') && !o.targets.some((t) => inZone(a, pointOf(def.place ? def.place(t) : t)))) w *= 0.15;
+        opts.push([def, w]);
       }
-      if (scene.t - c.lastSocial > 45) {
+      // now and then a short break: water, coffee, a chat, a minute on the beanbag — never back to back
+      if (scene.t - c.lastSocial > 75) {
         for (const def of JOBS.SOCIAL) {
           const o = optionsFor(a, def);
-          if (o.targets) opts.push([def, 0.35]);
+          if (o.targets) opts.push([def, 0.3 * (def.auto || 1)]);
         }
       }
       while (opts.length) {
@@ -978,6 +1083,14 @@
         a.tick(dt);
         const c = a.crew;
         if (c.alertT > 0) c.alertT -= dt;
+        // off duty (shifts.js): walking out, away, or coming back in
+        if (c.off) { stepAway(a, dt); continue; }
+        workplace(a, dt);
+        // a break never gets in the way: something urgent for this person ends it
+        if (c.job && c.job.def.social && c.state !== 'standing' && (c.urgentT = (c.urgentT || 0) - dt) <= 0) {
+          c.urgentT = 1;
+          if (urgentFor(a)) { cancelJob(a, true); c.wait = 0.2; }
+        }
         if (c.hold && c.state !== 'sitting' && c.state !== 'standing') { holdStill(a); continue; }
         if (c.talkT > 0 && !c.seated && c.state !== 'sitting' && c.state !== 'standing' && c.state !== 'talking') {
           c.talkT -= dt;
@@ -990,6 +1103,102 @@
       for (const a of C.leaving.slice()) stepLeaving(a, dt);
       for (const a of C.members.concat(C.leaving)) if (a.bubble && (a.bubble.left -= dt) <= 0) a.bubble = null;
       ambient(dt);
+    }
+
+    /* ---------- workplace: the structure the role needs in its sector (workplace.js) ---------- */
+    function needsOf(a) {
+      return DL.checkNeeds ? DL.checkNeeds(world(), a.crew.profile.role, zoneRoom(a), DL.roomTypeOf) : [];
+    }
+    function workplace(a, dt) {
+      const c = a.crew;
+      if ((c.needsT -= dt) > 0) return;
+      c.needsT = 2.5;
+      const was = c.missing.map((n) => n.id).join();
+      c.missing = needsOf(a).filter((n) => !n.ok);
+      const now = c.missing.map((n) => n.id).join();
+      if (now !== was) { renderList(); renderCard(true); }
+      // the bot notices and says so — in its own words, not too often
+      if (!c.missing.length) { c.gripeT = Math.max(c.gripeT, 25); return; }
+      c.gripeT -= 2.5;
+      if (c.gripeT > 0 || game.paused()) return;
+      c.gripeT = between(150, 220);
+      const n = c.missing[0], z = zoneRoom(a);
+      const line = DL.workGripe(n.id, c.name, n.where || (z ? z.name : null));
+      chat.post(a, line, { tone: 'warn' });
+      c.alertT = 3;
+      if (game.economy) game.emit('workplace-missing', { a, need: n });
+    }
+
+    // is there something this person should drop a break for?
+    function urgentFor(a) {
+      const c = a.crew, t = scene.t, grace = DL.learn ? DL.learn().crewGrace : FIX_GRACE;
+      if (game.ops) for (const d of game.ops.devices()) {
+        const f = d.fault;
+        if (f && f.found && !busyWith(d) && fixDefFor(a, d) && (f.help || t - (f.foundAt || t) >= grace)) return true;
+      }
+      if (game.staff && tasksOf(a).some((x) => x.kind === 'repair') && game.staff.broken().some((b) => !b.taken && !game.staff.claimed(b))) return true;
+      if (game.staff && game.staff.clientWaitingFor && game.staff.clientWaitingFor(a)) return true;
+      return false;
+    }
+
+    /* ---------- off duty (shifts.js): out through the reception, away, back in ---------- */
+    function sendHome(a, why) {
+      const c = a.crew;
+      if (c.off || !alive(a)) return;
+      if (c.job) {
+        if (c.job.order) c.job.order.note = c.name + ' saiu do turno';
+        abortRepair(a);
+      }
+      c.cup = null;
+      if (c.seated || c.state === 'sitting' || c.state === 'standing' || c.state === 'restSit') standUpNow(a);
+      release(a);
+      c.job = null;
+      c.hold = false;
+      c.menu = false;
+      c.talkT = 0;
+      if (C.sel === a) select(null);
+      const r = reception();
+      a.route = nav.route(a.x, a.y, r.x, r.y);
+      a.blockT = 0;
+      c.state = 'off';
+      c.off = { phase: a.route ? 'out' : 'fade', t: 0.8, why: why || '' };
+      chat.post(a, pick(['Encerrando meu turno. Até mais, pessoal!', 'Fui! Bom trabalho pra quem fica. 👋', 'Turno encerrado. Deixei tudo anotado na passagem de turno.', 'Hora de ir. Qualquer emergência, o plantão cobre!']));
+      renderList();
+      renderCard(true);
+    }
+    function bringBack(a, why) {
+      const c = a.crew;
+      if (!c.off || !alive(a)) return;
+      const r = reception();
+      a.x = r.x; a.y = r.y;
+      a.hidden = false;
+      a.alpha = 0;
+      a.route = null;
+      c.off = { phase: 'in', t: 0.8, why: why || '' };
+      renderList();
+    }
+    function stepAway(a, dt) {
+      const c = a.crew, o = c.off;
+      if (o.phase === 'out') {
+        if (walkStep(a, dt, speedOf(a))) { a.route = null; a.moving = false; o.phase = 'fade'; o.t = 0.8; }
+      } else if (o.phase === 'fade') {
+        a.moving = false;
+        o.t -= dt;
+        a.alpha = Math.max(0, o.t / 0.8);
+        if (o.t <= 0) { o.phase = 'away'; a.hidden = true; a.alpha = 0; }
+      } else if (o.phase === 'in') {
+        a.moving = false;
+        o.t -= dt;
+        a.alpha = Math.min(1, 1 - o.t / 0.8);
+        if (o.t <= 0) {
+          a.alpha = 1;
+          c.off = null;
+          c.state = 'idle';
+          c.wait = between(0.4, 1);
+          chat.post(a, o.why === 'oncall' ? pick(['Cheguei pro plantão! O que pegou?', 'Plantonista na área. Me passem o que precisa.']) : pick(['Bom dia, time! Cheguei.', 'Cheguei! O que tem pra hoje?', 'Começando meu turno. Me atualizem!']));
+          renderList();
+        }
+      } else a.moving = false;
     }
 
     // selected: stop and look at the player (seated people just turn their head away from the screen)
@@ -1137,6 +1346,111 @@
           c.phaseT -= dt;
           if (c.phaseT <= 0) finishJob(a);
           break;
+        /* a break: walk to the coffee maker / water cooler → fill a cup → carry it to the own desk
+           (or stay right there) → drink a few sips → back to work */
+        case 'toFetch':
+          if (walkStep(a, dt, speedOf(a))) {
+            a.route = null;
+            a.moving = false;
+            faceToItem(a, job.place && (job.place.host || job.place));
+            c.state = 'fetching';
+            c.phaseT = between(1.2, 1.8);
+          }
+          break;
+        case 'fetching':
+          a.moving = false;
+          c.phaseT -= dt;
+          if (c.phaseT <= 0) {
+            c.cup = job.place && job.place.kind === 'water' ? 'water' : 'coffee';
+            // drink at the own desk when it is close and free, else a step away from the machine
+            const home = homeStation(a);
+            let to = null;
+            if (home && !userOf(home) && !brokenSt(home) && Math.hypot(home.approach.x - a.x, home.approach.y - a.y) < 160) to = home.approach;
+            else { const f = nav.nearestFree(Math.floor(a.x / T) + (rand() < 0.5 ? -1 : 1), Math.floor((a.y - 2) / T) + 1, 3); if (f) to = nav.center(f[0], f[1]); }
+            a.route = to ? nav.route(a.x, a.y, to.x, to.y, true) : null;
+            a.blockT = 0;
+            c.state = a.route && a.route.length ? 'toSip' : 'sipping';
+            c.sipT = between(0.8, 1.6);
+          }
+          break;
+        case 'toSip':
+          if (walkStep(a, dt, speedOf(a) - 6)) { a.route = null; a.moving = false; c.state = 'sipping'; a.dir = 'down'; c.sipT = 0.6; }
+          break;
+        case 'sipping':
+          a.moving = false;
+          c.sipT -= dt;
+          if (c.sipT <= -0.9) c.sipT = between(1.4, 2.6); // cup at the mouth for ~0.9 s, then lowered
+          job.left -= dt;
+          if (job.left <= 0) { c.cup = null; finishJob(a); }
+          break;
+        /* a rest on a beanbag / sofa */
+        case 'toRest': {
+          const s = c.restSeat;
+          if (!s || world().items.indexOf(s.item) < 0) { cancelJob(a, true); break; }
+          if (walkStep(a, dt, speedOf(a) - 4)) {
+            a.route = null;
+            a.moving = false;
+            c.glide = { from: { x: a.x, y: a.y }, to: s.sit, t: 0, dur: 0.35 };
+            c.seated = true;
+            c.sitDir = 'down';
+            c.pose = 'R';
+            a.noShadow = true;
+            a.sortKey = s.sortKey;
+            c.state = 'restSit';
+          }
+          break;
+        }
+        case 'restSit': {
+          const gl = c.glide;
+          gl.t = Math.min(1, gl.t + dt / gl.dur);
+          const k = gl.t * gl.t * (3 - 2 * gl.t);
+          a.x = gl.from.x + (gl.to.x - gl.from.x) * k;
+          a.y = gl.from.y + (gl.to.y - gl.from.y) * k;
+          if (gl.t >= 1) { c.state = 'resting'; c.phaseT = between(2, 4); }
+          break;
+        }
+        case 'resting':
+          a.moving = false;
+          // eyes closed for a moment now and then, looking around otherwise
+          c.phaseT -= dt;
+          if (c.phaseT <= 0) { c.pose = c.pose === 'R' ? 'L' : 'R'; c.phaseT = c.pose === 'R' ? between(2, 4) : between(0.8, 1.6); }
+          if (c.pose === 'R' && Math.sin(scene.t * 0.7 + c.id) > 0.92) a.blinkT = 0.3;
+          if (!c.restSeat || world().items.indexOf(c.restSeat.item) < 0) { cancelJob(a, true); break; }
+          job.left -= dt;
+          if (job.left <= 0) finishJob(a);
+          break;
+        /* in-person service at the reception (staff.js drives the conversation) */
+        case 'toClient': {
+          const t = job.target;
+          if (!t || !t.client || t.client.state === 'out' || t.client.state === 'leave') { cancelJob(a, true); break; }
+          const side = t.x > a.x ? -14 : 14;
+          c.rerouteT -= dt;
+          if (c.rerouteT <= 0 || !a.route) {
+            c.rerouteT = 1.2;
+            a.route = nav.route(a.x, a.y, t.x + side, t.y, true);
+            if (!a.route) { cancelJob(a, true); break; }
+          }
+          const done = walkStep(a, dt, speedOf(a) + 4);
+          const dist = Math.hypot(t.x - a.x, t.y - a.y);
+          // arrived: right beside the visitor, or as close as the furniture lets the route get
+          if (Math.hypot(t.x + side - a.x, t.y - a.y) < 8 || dist < 18 || (done && dist < 44)) {
+            a.route = null;
+            a.moving = false;
+            c.stuckT = 0;
+            faceTo(a, t);
+            c.state = 'serving';
+            if (job.def.arrived) job.def.arrived(a, t);
+          } else if (done && (c.stuckT = (c.stuckT || 0) + dt) > 3) { c.stuckT = 0; cancelJob(a, true); }
+          break;
+        }
+        case 'serving': {
+          a.moving = false;
+          const t = job.target;
+          if (t) faceTo(a, t);
+          if (!t || !t.client || t.client.state === 'out') { finishJob(a); break; }
+          if (job.end) finishJob(a);
+          break;
+        }
         case 'patrol':
           if (a.route && a.route.length) {
             if (walkStep(a, dt, speedOf(a) - 4)) { a.route = null; a.moving = false; c.pauseT = between(0.8, 1.6); }
@@ -1186,10 +1500,23 @@
 
     function converse(a, t, def) {
       if (def.id === 'meeting') { chat.post(a, t.crew.name + ', tem um minuto?'); return; }
+      const th = TALK.thread && TALK.thread(ctxOf(a), a, t);
+      if (th) { playThread(th, a, t); return; }
       const o = rand() < 0.55 ? TALK.observe(ctxOf(a)) : null;
       const [line, reply] = o && o[1] ? o : freshPair();
       chat.post(a, line);
       chat.later(between(1.6, 2.4), () => { if (alive(t)) chat.post(t, reply); });
+    }
+
+    // a back-and-forth: each line after the previous one, as long as both are still around
+    function playThread(th, a, b) {
+      let at = 0;
+      th.forEach(([who, text], i) => {
+        const sp = who === 0 ? a : b;
+        if (i === 0) { chat.post(sp, text); return; }
+        at += between(1.8, 2.8) + Math.min(1.5, text.length * 0.02);
+        chat.later(at, () => { if (alive(sp) && !sp.crew.off) chat.post(sp, text); });
+      });
     }
 
     function freshPair() {
@@ -1203,9 +1530,15 @@
     // Ambient talk: someone comments on what is going on (rate-limited by the chat).
     function ambient(dt) {
       if (!chat.ambientReady() || !C.members.length || rand() > dt / 5) return;
-      const pool = C.members.filter((m) => !m.crew.hold);
+      const pool = C.members.filter((m) => !m.crew.hold && !m.crew.off);
       if (!pool.length) return;
       const sp = pick(pool);
+      // a conversation with someone nearby (same room first), on something real when possible
+      if (pool.length > 1 && TALK.thread && rand() < 0.75) {
+        const near = pool.filter((m) => m !== sp).sort((x, y) => Math.hypot(x.x - sp.x, x.y - sp.y) - Math.hypot(y.x - sp.x, y.y - sp.y));
+        const th = TALK.thread(ctxOf(sp), sp, near[0]);
+        if (th) { playThread(th, sp, near[0]); chat.ambientUsed(between(24, 40)); return; }
+      }
       let pair = TALK.observe(ctxOf(sp));
       if (!pair || C.recent.indexOf(pair[0]) >= 0) pair = pool.length > 1 ? freshPair() : null;
       if (!pair) { chat.ambientUsed(8); return; }
@@ -1282,6 +1615,11 @@
       const has = (e) => world().items.indexOf(e) >= 0;
       for (const a of C.members) {
         const c = a.crew, job = c.job;
+        // furniture moved while someone rests on it: get up where they came from
+        if (job && job.def.kind === 'rest' && (c.state === 'resting' || c.state === 'restSit')) {
+          const s = c.restSeat, now = s && world().items.indexOf(s.item) >= 0 ? restSeatAt(s) : null;
+          if (!now || now.x !== s.sit.x || now.y !== s.sit.y) { standUpNow(a); c.job = null; c.state = 'idle'; c.wait = 0.4; a.route = null; continue; }
+        }
         if (c.station) {
           const now = stationOf(c.station.key);
           const same = now && now.sit.x === c.station.sit.x && now.sit.y === c.station.sit.y && now.screen === c.station.screen;
@@ -1356,6 +1694,7 @@
     function statusOf(a) {
       const c = a.crew, j = c.job;
       if (c.state === 'leaving') return 'Indo embora';
+      if (c.off) return c.off.phase === 'in' ? 'Chegando para o turno' : c.off.phase === 'away' ? 'De folga' + (c.shift && c.shift.id !== 'integral' ? ' · volta às ' + String(c.shift.start).padStart(2, '0') + ':00' : '') : 'Saindo do turno';
       if (c.hold && C.sel === a) return 'Parou para falar com você' + (j ? ' · ' + j.name : '');
       if (c.talkT > 0 && c.talkWith && c.state !== 'talking') return 'Conversando com ' + c.talkWith.crew.name;
       if (!j && c.state !== 'sitting' && c.state !== 'standing') return 'Decidindo o próximo passo';
@@ -1378,6 +1717,14 @@
         case 'repairing': return 'Consertando ' + j.label + ' na bancada' + (j.bench ? ' (' + j.bench.label + ')' : '') + ' · ' + Math.ceil(Math.max(0, j.left)) + ' s';
         case 'return': return 'Devolvendo ' + j.label;
         case 'installing': return 'Reinstalando ' + j.label;
+        case 'toFetch': return 'Indo pegar ' + (j.place && j.place.kind === 'water' ? 'água' : 'café');
+        case 'fetching': return 'Enchendo o copo';
+        case 'toSip': return 'Voltando com o copo';
+        case 'sipping': return (c.cup === 'water' ? 'Bebendo água' : 'Tomando café') + ' · pausa rápida';
+        case 'toRest': return 'Indo descansar um pouco';
+        case 'restSit': case 'resting': return 'Descansando no ' + DL.itemName(j.place).toLowerCase();
+        case 'toClient': return 'Indo receber ' + (j.label || 'o cliente');
+        case 'serving': return 'Atendendo ' + (j.label || 'o cliente') + ' na recepção';
       }
       return '';
     }
@@ -1385,7 +1732,8 @@
       const c = a.crew, j = c.job;
       if (!j) return 0;
       if (c.state === 'patrol') return 1 - (c.spots.length + (a.route && a.route.length ? 1 : 0)) / (c.spotsTotal || 1);
-      if (c.state === 'working' || c.state === 'inspecting' || c.state === 'atSpot' || c.state === 'talking') return Math.max(0, Math.min(1, 1 - j.left / j.total));
+      if (c.state === 'working' || c.state === 'inspecting' || c.state === 'atSpot' || c.state === 'talking' || c.state === 'sipping' || c.state === 'resting') return Math.max(0, Math.min(1, 1 - j.left / j.total));
+      if (c.state === 'serving') return j.progress || 0.5;
       // repair: 15% taking it out, 70% at the bench, the rest bringing it back
       if (c.state === 'pickup' || c.state === 'carry') return 0.15;
       if (c.state === 'repairing') return 0.15 + 0.7 * Math.max(0, Math.min(1, 1 - j.left / j.total));
@@ -1418,6 +1766,32 @@
       return h + '</select></label></div>';
     }
 
+    // pay, schedule, how they attend clients and what their workplace offers
+    const isFrontline = (a) => tasksOf(a).some((t) => t.id === 'frontdesk' || t.id === 'tickets');
+    function workHtml(a) {
+      const c = a.crew, eco = game.economy;
+      let h = '<div class="cc__work">';
+      h += '<div class="cc__pay"><span class="eyebrow-sm">Salário</span><b>' + DL.money(DL.salaryOf ? DL.salaryOf(a) : 0) + '<small>/mês</small></b>' +
+        '<span class="cc__payin" data-live="payin">' + (eco ? 'pagamento em ' + eco.payInText() : '') + '</span></div>';
+      h += '<label class="cc__sel"><span class="eyebrow-sm">Turno</span><select data-cc-sel="shift" aria-label="Turno de ' + esc(c.name) + '">';
+      for (const [id, s] of Object.entries(DL.SHIFTS || {})) h += '<option value="' + id + '"' + (c.shift.id === id ? ' selected' : '') + '>' + esc(s.label) + '</option>';
+      if (c.shift.id === 'custom') h += '<option value="custom" selected>Personalizado ' + String(c.shift.start).padStart(2, '0') + '–' + String(c.shift.end % 24).padStart(2, '0') + '</option>';
+      h += '</select></label>';
+      if (isFrontline(a)) {
+        h += '<label class="cc__sel"><span class="eyebrow-sm">Atendimento</span><select data-cc-sel="attend" aria-label="Como ' + esc(c.name) + ' atende">' +
+          [['pc', 'Pelo computador'], ['desk', 'Presencial (recepção)'], ['both', 'Computador e presencial']].map(([v, l]) => '<option value="' + v + '"' + ((c.attend || 'pc') === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label>';
+      }
+      h += '</div>';
+      const needs = needsOf(a);
+      if (needs.length) {
+        const z = zoneRoom(a);
+        h += '<div class="cc__needs"><span class="eyebrow-sm">Posto de trabalho' + (z ? ' · ' + esc(z.name) : '') + '</span>' + needs.map((n) =>
+          '<span class="need' + (n.ok ? ' is-ok' : ' is-miss') + '" title="' + esc(n.label) + (n.where ? ' · ' + esc(n.where) : '') + '">' + n.icon + ' ' + esc(n.short) + (n.ok ? ' ✓' : ' ✗') + '</span>').join('') +
+          (needs.some((n) => !n.ok) ? '<small class="cc__needhint">Falta estrutura: trabalha mais devagar. Construa no setor (B) ou mude o Setor.</small>' : '') + '</div>';
+      }
+      return h;
+    }
+
     function menuHtml(a) {
       const r = roleOf(a);
       let h = '<div class="cc__menu"><span class="eyebrow-sm">Tarefas de ' + esc(r.title) + '</span>';
@@ -1434,7 +1808,8 @@
       if (!a || C.mode === 'build') { el.card.classList.remove('is-on'); C.cardKey = ''; return; }
       const c = a.crew, role = roleOf(a), st = c.stats;
       const stars = XP.starsOf(st, c.profile.role);
-      const key = [c.id, busy(a), c.name, c.profile.role, !!c.confirmFire, c.menu, st.level, stars, c.unread || 0, c.menu ? world().version + ':' + (game.ops ? game.ops.openFaults : 0) : '', c.home ? c.home.id || 'h' : '', c.zone || '', world().version].join(':');
+      const key = [c.id, busy(a), c.name, c.profile.role, !!c.confirmFire, c.menu, st.level, stars, c.unread || 0, c.menu ? world().version + ':' + (game.ops ? game.ops.openFaults : 0) : '', c.home ? c.home.id || 'h' : '', c.zone || '', world().version,
+        c.missing.map((n) => n.id).join(), c.shift.id + c.shift.start + '-' + c.shift.end, c.attend, !!c.off].join(':');
       if (!force && key === C.cardKey) return;
       // don't rebuild under an open dropdown
       if (!force && el.card.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
@@ -1447,6 +1822,7 @@
       } else {
         h += skillsHtml(a);
         h += placeHtml(a);
+        h += workHtml(a);
         h += '<p class="cc__status" data-live="status">' + statusOf(a) + '</p>';
         h += '<div class="cc__bar"><i data-live="bar"></i></div>';
         h += '<div class="cc__actions">';
@@ -1471,6 +1847,8 @@
       if (st && st.textContent !== s) st.textContent = s;
       const bar = el.card.querySelector('[data-live="bar"]');
       if (bar) bar.style.transform = 'scaleX(' + progressOf(a).toFixed(3) + ')';
+      const pin = el.card.querySelector('[data-live="payin"]');
+      if (pin && game.economy) { const t = 'pagamento em ' + game.economy.payInText(); if (pin.textContent !== t) pin.textContent = t; }
       const xp = el.card.querySelector('[data-live="xp"]');
       const S = a.crew.stats;
       if (xp) xp.style.transform = 'scaleX(' + (S.level >= XP.MAX_LEVEL ? 1 : S.xp / XP.xpNeed(S.level)).toFixed(3) + ')';
@@ -1490,6 +1868,16 @@
       const s = ev.target.closest('[data-cc-sel]'), a = C.sel;
       if (!s || !a) return;
       const c = a.crew;
+      if (s.dataset.ccSel === 'shift') {
+        if (game.shifts && s.value !== 'custom') game.shifts.setShift(a, s.value);
+        s.blur();
+        return;
+      }
+      if (s.dataset.ccSel === 'attend') {
+        setAttend(a, s.value);
+        s.blur();
+        return;
+      }
       if (s.dataset.ccSel === 'home') {
         const key = s.value === '' ? null : (C.stList || [])[+s.value] || null;
         const prev = key && C.members.find((m) => m !== a && m.crew.home === key);
@@ -1551,7 +1939,9 @@
         return '<li><button type="button" class="crew-row' + (C.sel === a ? ' is-on' : '') + '" data-member="' + c.id + '">' +
           '<span class="cc__dot" style="background:' + r.color + '"></span><span class="crew-row__name">' + esc(c.name) + '</span>' +
           '<span class="eyebrow-sm crew-row__role">' + r.name + ' · Nv ' + c.stats.level + ' ' + starsHtml(XP.starsOf(c.stats, c.profile.role)) + '</span>' +
-          '<span class="crew-row__place">' + esc((c.home ? (c.home.id || 'Estação') : 'Estação livre') + ' · ' + (zoneRoom(a) ? zoneRoom(a).name : 'Todas as salas')) + '</span>' +
+          '<span class="crew-row__place">' + esc((c.home ? (c.home.id || 'Estação') : 'Estação livre') + ' · ' + (zoneRoom(a) ? zoneRoom(a).name : 'Todas as salas')) +
+          (c.shift && c.shift.id !== 'integral' ? ' · ' + esc(DL.shiftLabel ? DL.shiftLabel(c.shift) : '') : '') + (c.oncall && c.oncall.length ? ' · plantão' : '') + '</span>' +
+          (c.missing && c.missing.length ? '<span class="crew-row__miss">⚠ Falta ' + esc(c.missing.map((n) => n.short.toLowerCase()).join(', ')) + '</span>' : '') +
           '<span class="crew-row__status" data-status="' + c.id + '">' + statusOf(a) + '</span>' +
           '<span class="crew-row__bar"><i data-bar="' + c.id + '"></i></span></button></li>';
       }).join('');
@@ -1608,7 +1998,8 @@
     const field = (label, body) => '<div class="cr-field"><span class="eyebrow-sm">' + label + '</span>' + body + '</div>';
 
     function buildForm() {
-      let h = field('Nome', '<input class="input" id="crName" type="text" maxlength="16" autocomplete="off" spellcheck="false">');
+      let h = '<div class="cr-cost" id="crCost" aria-live="polite"></div>';
+      h += field('Nome', '<input class="input" id="crName" type="text" maxlength="16" autocomplete="off" spellcheck="false">');
       h += field('Aparência', chips('body', BODIES));
       h += field('Pele', swatches('skin', SKINS, 'Tom de pele'));
       h += field('Cabelo', chips('hairStyle', STYLES) + swatches('hair', HAIRS, 'Cor do cabelo'));
@@ -1642,6 +2033,7 @@
       const n = el.form.querySelector('#crName');
       if (n.value !== p.name) n.value = p.name;
       el.poseSeg.querySelectorAll('[data-pose]').forEach((b) => b.classList.toggle('is-on', b.dataset.pose === CR.pose));
+      renderCost();
     }
 
     el.form.addEventListener('click', (ev) => {
@@ -1671,6 +2063,7 @@
       if (!target && C.members.length >= MAX_CREW) { game.toast('warn', 'Equipe cheia', 'Dispense alguém para contratar'); return; }
       const me = target === 'player';
       CR.editing = target || null;
+      CR.pay = Math.round((0.92 + rand() * 0.16) * 100) / 100; // the salary this candidate asks for
       CR.profile = me ? Object.assign({}, PL.profile, { nameTouched: true }) : target ? Object.assign({}, target.crew.profile, { nameTouched: true }) : randomProfile();
       CR.pose = 'stand';
       CR.t = 0;
@@ -1721,8 +2114,33 @@
         game.toast('ok', 'Perfil atualizado', prof.name + ' · ' + ROLES[prof.role].title);
         renderCard(true);
         renderList();
-      } else if (hire(prof)) C.created++;
+      } else {
+        // the hire costs money: when the company can't pay, the card stays open
+        if (!hire(prof, { pay: CR.pay })) return;
+        C.created++;
+      }
       closeCreator();
+    }
+
+    // salary, hiring cost and the structure the role needs — shown live in the hiring card
+    function renderCost() {
+      const box = el.form.querySelector('#crCost');
+      if (!box) return;
+      const p = CR.profile, hiring = !CR.editing;
+      if (CR.editing === 'player') { box.hidden = true; return; }
+      box.hidden = false;
+      const level = CR.editing ? CR.editing.crew.stats.level : 1, pay = CR.editing ? CR.editing.crew.pay : CR.pay;
+      const sal = DL.salaryFor ? DL.salaryFor(p.role, level, pay) : 0, fee = DL.hireCostFor ? DL.hireCostFor(p.role, level, pay) : 0;
+      const eco = game.economy, cash = eco ? eco.company.cash : 0;
+      const needs = (DL.needsOfRole ? DL.needsOfRole(p.role) : []).map((id) => DL.WORK_RES[id]);
+      const chk = DL.checkNeeds ? DL.checkNeeds(world(), p.role, null, DL.roomTypeOf) : [];
+      let h = '<div class="cr-cost__grid"><div><span class="eyebrow-sm">Salário</span><b>' + DL.money(sal) + '<small>/mês</small></b></div>';
+      if (hiring) h += '<div><span class="eyebrow-sm">Contratação</span><b class="' + (cash < fee ? 'is-neg' : '') + '">' + DL.money(fee) + '</b></div>';
+      h += '<div><span class="eyebrow-sm">Próximo pagamento</span><b>' + (eco ? 'em ' + eco.payInText() : '—') + '</b></div></div>';
+      if (needs.length) h += '<p class="cr-cost__needs"><span class="eyebrow-sm">Precisa para trabalhar</span>' + chk.map((n) => '<span class="need' + (n.ok ? ' is-ok' : ' is-miss') + '">' + (n.ok ? '✓ ' : '✗ ') + esc(n.short) + '</span>').join('') + '</p>';
+      if (hiring && cash < fee) h += '<p class="cr-cost__warn">Caixa insuficiente para contratar agora (' + DL.money(cash) + ').</p>';
+      if (box.dataset.k !== h) { box.dataset.k = h; box.innerHTML = h; }
+      if (hiring) el.save.firstChild.textContent = 'Contratar · ' + DL.money(fee) + ' ';
     }
 
     function previewLoop(now) {
@@ -1790,10 +2208,11 @@
         const alert = a.crew.alertT > 0;
         const txt = a.crew.name;
         const unread = a.crew.unread > 0;
-        const k = txt + r.color + alert + a.crew.stats.level + unread;
-        if (s.dataset.k !== k) { s.dataset.k = k; s.innerHTML = (alert ? '<b>!</b>' : '<i style="background:' + r.color + '"></i>') + esc(txt) + '<small>' + a.crew.stats.level + '</small>' + (unread ? '<em title="Quer falar com você">💬</em>' : ''); }
+        const miss = a.crew.missing && a.crew.missing.length > 0;
+        const k = txt + r.color + alert + a.crew.stats.level + unread + miss;
+        if (s.dataset.k !== k) { s.dataset.k = k; s.innerHTML = (alert ? '<b>!</b>' : '<i style="background:' + r.color + '"></i>') + esc(txt) + '<small>' + a.crew.stats.level + '</small>' + (miss ? '<em class="nt-miss" title="Falta estrutura no posto de trabalho">⚠</em>' : '') + (unread ? '<em title="Quer falar com você">💬</em>' : ''); }
         s.classList.toggle('is-alert', alert);
-        const show = (near(a) || alert || unread) && C.mode !== 'build' && C.sel !== a && !a.bubble;
+        const show = (near(a) || alert || unread) && C.mode !== 'build' && C.sel !== a && !a.bubble && !a.hidden && !(a.alpha != null && a.alpha < 0.3);
         s.classList.toggle('is-on', show);
         if (show) anchor(s, a, lift(a));
       }
@@ -1935,6 +2354,24 @@
       }
     }
 
+    // a cup in the hand; at the mouth while sipping (coffee steams, water is clear blue)
+    function drawCup(g, a, t) {
+      const c = a.crew, sip = c.state === 'sipping' && c.sipT < 0;
+      const side = a.dir === 'left' ? -5 : a.dir === 'right' ? 4 : 4;
+      const x = Math.round(a.x) + (sip ? (a.dir === 'left' ? -3 : a.dir === 'right' ? 2 : 1) : side);
+      const y = Math.round(a.y) - (sip ? 18 : 10);
+      if (a.dir === 'up' && sip) return; // drinking with the back turned: the cup is hidden by the head
+      if (c.cup === 'water') {
+        g.fillStyle = 'rgba(140,196,255,0.85)'; g.fillRect(x, y, 3, 4);
+        g.fillStyle = '#d6ecff'; g.fillRect(x, y, 3, 1);
+      } else {
+        g.fillStyle = '#e9e9e6'; g.fillRect(x, y, 3, 4);
+        g.fillStyle = '#3b2418'; g.fillRect(x, y, 3, 1);
+        g.fillStyle = '#e9e9e6'; g.fillRect(x + 3, y + 1, 1, 2);
+        if (!sip && Math.sin(t * 3 + c.id) > 0.2) { g.globalAlpha = 0.35; g.fillStyle = '#ffffff'; g.fillRect(x + 1, y - 2 - (Math.floor(t * 2) % 2), 1, 1); g.globalAlpha = 1; }
+      }
+    }
+
     function overlay(g, sc) {
       for (const a of C.members) {
         const c = a.crew;
@@ -1951,6 +2388,7 @@
         g.globalAlpha = 1;
       }
       for (const a of C.members) maintenanceFx(g, a, sc.t);
+      for (const a of C.members) if (a.crew.cup && !a.hidden) drawCup(g, a, sc.t);
       for (const a of C.leaving) tears(g, a, sc.t);
       if (C.mode !== 'crew') return;
       const s = C.hover;
@@ -2083,6 +2521,9 @@
         hire, fire, startJob, cancelJob, standUp, randomProfile, saveCreator, nav, decide, tasksOf, optionsFor, reception, fixDefFor,
         // organisation (own station + sector) and helpers for staff.js
         setHome, setZone, autoPlace, ownerOf, homeStation, stationName, roomAtPoint, inZone, zoneRoom, busyWith, standAt, brokenSt, stationFree, progressOf,
+        // shifts (shifts.js), workplace needs, in-person attendance, conversations
+        sendHome, bringBack, setAttend, needsOf, isFrontline, playThread, urgentFor,
+        renderAll() { renderList(); renderCard(true); },
         // open the hiring card with a role already chosen (Cargos → Contratar)
         hireAs(role) { openCreator(); if (CR.open && ROLES[role]) { CR.profile.role = role; syncForm(); } },
       },

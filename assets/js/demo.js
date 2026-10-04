@@ -37,7 +37,7 @@
     return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   };
   const fmtPower = (e) => (e.tel.unit === 'W' ? Math.round(e.power) : e.power.toFixed(e.power < 10 ? 2 : 1)) + '<small>' + e.tel.unit + '</small>';
-  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra'].some((id) => $(id).classList.contains('is-open'));
+  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts'].some((id) => $(id).classList.contains('is-open'));
   const canMove = () => S.phase !== 'intro' && !isOverlayOpen() && S.mode === 'explore';
 
   /* ---------------- toasts ---------------- */
@@ -70,6 +70,9 @@
     focus(x, y) { scene.cam.x = x; scene.cam.y = y; },
     keysReset: () => keys.clear(),
     clock: () => clockAt(S.time),
+    // game minutes since the session started (the clock starts at 08:00 = 480)
+    time: () => S.time,
+    clockStart: 8 * 60,
     paused: () => S.phase === 'intro' || (tutorial && tutorial.active && tutorial.step < tutorial.total - 1),
     opsOpen: () => !$('opsPanel').hidden,
     reach: (d, host) => ops.reach(d, host),
@@ -102,16 +105,24 @@
   opsSys.monitor = monitor;
   tutorial = DL.createTutorial(G, { builder, crew, ops, terminal, cabling, monitor });
   const economy = DL.createEconomy(G, { ops, crew });
+  G.economy = economy;
+  // the incident director paces faults and broken hardware: one problem at a time (director.js)
+  const director = DL.createDirector(G, { ops });
+  G.director = director;
   const talk = DL.createTalk(G, { crew, ops, economy, cabling });
   const roles = DL.createRoles(G, { crew });
   // H / L open the apps only when nothing else is on screen
   G.canHotkey = () => S.phase !== 'intro' && !isOverlayOpen() && !crew.creatorOpen;
   const helpdesk = DL.createHelpdesk(G, { crew });
+  G.helpdesk = helpdesk;
   const netlab = DL.createNetLab(G);
-  G.economy = economy;
   // the company layer: maintenance, work orders, reception visitors, talking in the team chat
   const staff = DL.createStaff(G, { crew, ops, talk });
   G.staff = staff;
+  // working hours, custom schedules and on-call cover (shifts.js)
+  const shifts = DL.createShifts(G, { crew });
+  $('shiftsBtn').addEventListener('click', () => { $('shiftsBtn').blur(); shifts.open(); });
+  G.on('payday', () => updateMeta());
   // server specialisations + virtualization (Infra, I)
   const infra = DL.createInfra(G, { ops });
   G.on('world', () => {
@@ -123,7 +134,7 @@
 
   function updateMeta() {
     const n = W.rooms.length, racks = W.items.filter((e) => e.kind === 'rack').length;
-    $('hudMeta').textContent = 'Meu datacenter · ' + n + (n === 1 ? ' sala' : ' salas') + ' · ' + racks + (racks === 1 ? ' rack' : ' racks');
+    $('hudMeta').textContent = 'Meu datacenter · mês ' + economy.company.month + ' · ' + n + (n === 1 ? ' sala' : ' salas') + ' · ' + racks + (racks === 1 ? ' rack' : ' racks');
   }
 
   /* ---------------- equipment panel ---------------- */
@@ -458,6 +469,7 @@
     if (cabling.isOpen) { if (cabling.key(ev)) ev.preventDefault(); return; }
     if (monitor.isOpen) { if (monitor.key(ev)) ev.preventDefault(); return; }
     if (economy.isOpen) { if (economy.key(ev)) ev.preventDefault(); return; }
+    if (shifts.isOpen) { if (ev.code === 'Escape') { shifts.close(); ev.preventDefault(); } return; }
     if (infra.isOpen) { if (infra.key(ev)) ev.preventDefault(); return; }
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
@@ -535,6 +547,25 @@
     const b = ev.target.closest('[data-preset]');
     if (b) choosePreset(b.dataset.preset);
   });
+
+  // Learning mode (difficulty.js): chosen on the start card, shown on the HUD and in the terminal
+  const modeChoices = $('modeChoices');
+  function renderModes() {
+    const cur = DL.learn();
+    modeChoices.innerHTML = DL.MODE_ORDER.map((id) => {
+      const m = DL.MODES[id], on = id === cur.id;
+      return '<button type="button" class="start-opt start-opt--mode' + (on ? ' is-on' : '') + '" role="radio" aria-checked="' + on + '" data-learn="' + id + '" style="--c:' + m.color + '"><b>' + m.name + '</b><span>' + m.desc + '</span><em class="eyebrow-sm">' + m.tag + '</em></button>';
+    }).join('');
+    const hm = $('hudMode');
+    if (hm) { hm.innerHTML = 'Modo <b>' + cur.name + '</b>'; hm.style.setProperty('--c', cur.color); }
+  }
+  modeChoices.addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-learn]');
+    if (!b || S.phase !== 'intro') return;
+    DL.setLearn(b.dataset.learn);
+  });
+  DL.onLearnChange(renderModes);
+  renderModes();
   $('helpBtn').addEventListener('click', () => $('help').classList.add('is-open'));
   $('helpClose').addEventListener('click', () => $('help').classList.remove('is-open'));
 
@@ -716,6 +747,7 @@
       if (d < bestD) { bestD = d; best = e; }
     }
     for (const n of crew.members) {
+      if (n.hidden) continue; // off duty
       const d = Math.hypot(n.x - player.x, n.y - player.y) - 2;
       if (d < 20 && d < bestD) { bestD = d; best = n; }
     }
@@ -834,6 +866,7 @@
     g.strokeStyle = 'rgba(255,255,255,0.18)';
     g.strokeRect(scene.ox / scene.S * k + 0.5, scene.oy / scene.S * k + 0.5, canvas.width / scene.S * k - 1, canvas.height / scene.S * k - 1);
     for (const a of crew.members) {
+      if (a.hidden) continue;
       g.fillStyle = DL.ROLES[a.crew.profile.role].color;
       g.fillRect(Math.round(a.x * k) - 1, Math.round(a.y * k) - 2, 3, 3);
     }
@@ -850,11 +883,13 @@
     updatePlayer(dt);
     S.target = canMove() ? findTarget() : null;
     crew.update(dt);
+    if (S.phase !== 'intro') director.update(dt);
     ops.update(dt);
     if (S.phase !== 'intro') economy.update(dt);
     if (S.phase !== 'intro') helpdesk.update(dt);
     talk.update(dt);
     staff.update(dt);
+    if (S.phase !== 'intro') shifts.update(dt);
     infra.update(dt);
     monitor.update(dt);
     tutorial.update(dt);
@@ -890,9 +925,11 @@
     for (const role of DL.PRESETS[preset].crew || []) {
       const p = crew.api.randomProfile();
       p.role = role;
-      crew.api.hire(p, { silent: true, at: crew.api.nav.randomSpot(), level: 1 + Math.floor(Math.random() * 3) });
+      // the preset's team is already employed: no hiring cost (salaries run from now on)
+      crew.api.hire(p, { silent: true, free: true, at: crew.api.nav.randomSpot(), level: 1 + Math.floor(Math.random() * 3) });
     }
     crew.startShift();
+    toast('info', 'Modo ' + DL.learn().name, DL.learn().desc + ' · ' + DL.learn().tag.toLowerCase());
     // presets come with specialised servers (web, banco, DNS…) and a virtualization node with VMs
     if (preset !== 'zero') infra.seed();
     if (preset !== 'zero') toast('ok', DL.PRESETS[preset].name, 'Ambiente pronto · personalize à vontade com B');
@@ -927,5 +964,8 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset };
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
+    // fast-forward the simulation (game minutes) without drawing — for automated checks
+    advance(sec, dt) { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) { step(dt); scene.update(dt); } },
+  };
 })();

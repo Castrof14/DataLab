@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="assets/css/menu.css">
   <link rel="stylesheet" href="assets/css/apps.css">
   <link rel="stylesheet" href="assets/css/infra.css">
+  <link rel="stylesheet" href="assets/css/team.css">
 </head>
 <body class="demo">
   <main class="game" id="game">
@@ -38,6 +39,7 @@
         <span class="brand__mark" aria-hidden="true"></span>DataLab
       </a>
       <span class="hud-chip eyebrow-sm">Demo</span>
+      <span class="hud-chip eyebrow-sm hud-mode" id="hudMode" title="Modo de aprendizado (escolhido ao começar)"></span>
       <button class="me-btn" id="meBtn" type="button" title="Editar meu personagem (P)">
         <canvas id="meFace" aria-hidden="true"></canvas>
         <span class="me-btn__txt"><b id="meName">Você</b><span class="eyebrow-sm" id="meRole"></span></span>
@@ -85,6 +87,7 @@
     <button class="econ" id="econBtn" type="button" aria-label="Finanças, saldos e progresso">
       <span class="econ__row econ__row--cash"><span class="eyebrow-sm">Empresa</span><b id="econCash">$0</b></span>
       <span class="econ__flow" id="econFlow">+$0/min</span>
+      <span class="econ__pay" id="econPay" title="Folha de pagamento mensal e quando sai"></span>
       <span class="econ__row"><span class="cur cur--cr" aria-hidden="true">◆</span><b id="econCredits">0</b><span class="eyebrow-sm">créditos</span></span>
       <span class="econ__row"><span class="cur cur--dc" aria-hidden="true">⬢</span><b id="econCoins">0</b><span class="eyebrow-sm">DataCoins</span></span>
       <span class="econ-float" id="econFloat" aria-live="polite"></span>
@@ -120,6 +123,7 @@
         <div><span class="eyebrow-sm">Equipe do turno</span><b class="crew-panel__count" id="crewCount">0</b></div>
         <div class="crew-panel__btns">
           <button class="btn btn--sm" id="rolesBtn" type="button" title="Criar e editar cargos">Cargos</button>
+          <button class="btn btn--sm" id="shiftsBtn" type="button" title="Turnos, horários e plantonistas">Escalas</button>
           <button class="btn btn--sm btn--primary" id="hireBtn" type="button">Contratar <kbd>N</kbd></button>
         </div>
       </div>
@@ -190,6 +194,8 @@
         <p class="card__text">Construa do zero ou comece de um ambiente pronto. Depois, contrate a equipe, instale servidores e configure tudo num terminal de verdade — com ajuda sempre que travar.</p>
         <p class="eyebrow-sm intro-label">Como começar</p>
         <div class="start-opts" id="startChoices" role="radiogroup" aria-label="Como começar"></div>
+        <p class="eyebrow-sm intro-label">Modo de aprendizado</p>
+        <div class="start-opts start-opts--mode" id="modeChoices" role="radiogroup" aria-label="Modo de aprendizado"></div>
         <ol class="intro-steps" aria-label="O que o tutorial ensina">
           <li><b>Construção</b>Expandir, sala, rack, computador</li>
           <li><b>Equipe</b>Contratar e atribuir tarefa</li>
@@ -211,6 +217,8 @@
         <ul class="controls">
           <li><span class="keys"><kbd>B</kbd></span><span>construção: salas, paredes, portas, equipamentos e móveis · <b>Temas</b> e <b>Estilo da sala</b> (piso, paredes, luz, RGB)</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span>equipe: selecione alguém e clique num computador</span></li>
+          <li><span class="keys"><kbd>C</kbd></span><span><b>Escalas</b> (painel da equipe): turno de cada pessoa, horários personalizados e plantonistas · 1 técnico + 1 atendente de plantão por turno</span></li>
+          <li><span class="keys"><kbd>$</kbd></span><span>cada pessoa tem salário próprio, pago todo mês (00:00 no relógio = virada do mês) · contratar custa metade de um salário</span></li>
           <li><span class="keys"><kbd>N</kbd></span><span>contratar alguém para a equipe · <b>Cargos</b> (no painel da equipe): crie cargos novos, inclusive com IA</span></li>
           <li><span class="keys"><kbd>P</kbd></span><span>editar o meu personagem: aparência, cabelo, roupa, acessórios, nome e função</span></li>
           <li><span class="keys"><kbd>K</kbd></span><span>abrir / recolher o chat da equipe</span></li>
@@ -279,6 +287,10 @@
       <div class="card card--modal card--roles"><div class="roles-body" id="rolesBody"></div></div>
     </div>
 
+    <div class="overlay" id="shifts" role="dialog" aria-modal="true" aria-labelledby="shiftsTitle">
+      <div class="card card--modal card--shifts"><div class="shifts-body" id="shiftsBody"></div></div>
+    </div>
+
     <div class="overlay" id="wallet" role="dialog" aria-modal="true" aria-labelledby="walletTitle">
       <div class="card card--modal card--wallet">
         <div class="wallet__head">
@@ -303,6 +315,7 @@
             <span class="term__lights" aria-hidden="true"><i></i><i></i><i></i></span>
             <span class="eyebrow-sm" id="termTitle">Console</span>
             <span class="eyebrow-sm term__where" id="termWhere"></span>
+            <span class="term__mode" id="termMode" aria-label="Modo de aprendizado"></span>
             <button class="cc__x" id="termClose" type="button" aria-label="Fechar terminal">×</button>
           </div>
           <div class="term__out" id="termOut" aria-live="polite"></div>
@@ -410,6 +423,7 @@
   </main>
 
   <script src="assets/js/sprites.js"></script>
+  <script src="assets/js/difficulty.js"></script>
   <script src="assets/js/world.js"></script>
   <script src="assets/js/scene.js"></script>
   <script src="assets/js/decor.js"></script>
@@ -418,6 +432,7 @@
   <script src="assets/js/build.js"></script>
   <script src="assets/js/jobs.js"></script>
   <script src="assets/js/teamchat.js"></script>
+  <script src="assets/js/workplace.js"></script>
   <script src="assets/js/crew.js"></script>
   <script src="assets/js/roles.js"></script>
   <script src="assets/js/terminal.js"></script>
@@ -427,10 +442,12 @@
   <script src="assets/js/presets.js"></script>
   <script src="assets/js/tutorial.js"></script>
   <script src="assets/js/economy.js"></script>
+  <script src="assets/js/director.js"></script>
   <script src="assets/js/talk.js"></script>
   <script src="assets/js/helpdesk.js"></script>
   <script src="assets/js/netlab.js"></script>
   <script src="assets/js/staff.js"></script>
+  <script src="assets/js/shifts.js"></script>
   <script src="assets/js/infra.js"></script>
   <script src="assets/js/demo.js"></script>
   <script src="assets/js/menu.js"></script>

@@ -13,10 +13,11 @@
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const between = (a, b) => a + rand() * (b - a);
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  // slang-aware ("vc", "tbm", "pra"…) when talk.js is loaded
+  const norm = (s) => (DL.normSlang ? DL.normSlang(String(s || '')) : String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''));
 
   const SYSTEM = { name: 'Sistema', color: '#ff7a17', role: 'Monitor' };
-  const RESERVE = 30000; // the manager never spends below this cash balance
+  const RESERVE = 40000; // the manager never spends below this cash balance
   const STATUS = { open: 'Aberta', run: 'Em andamento', done: 'Concluída', fail: 'Falhou', cancel: 'Cancelada' };
   const ORDER = {
     repair: { label: 'Consertar', icon: '🔧' },
@@ -124,7 +125,7 @@
     // A workbench: technical desk, table, tool cart or shelf — the closest one (inside the sector first).
     function benchFor(a, rec) {
       const nav = api().nav, W = world();
-      const ok = (e) => !e.host && (e.kind === 'table' || e.kind === 'cart' || e.kind === 'shelf' || (e.kind === 'desk' && e.setup === 'tech' && !e.broken)) && e !== rec.item;
+      const ok = (e) => !e.host && (e.kind === 'table' || e.kind === 'cart' || e.kind === 'toolcart' || e.kind === 'shelf' || (e.kind === 'desk' && e.setup === 'tech' && !e.broken)) && e !== rec.item;
       let best = null, bestD = Infinity;
       const free = (tx, ty) => nav.free(tx, ty) && !(W.keepClear && W.keepClear.has(tx + ',' + ty)) && !W.items.some((x) => x.kind === 'chair' && x.tx === tx && x.ty === ty);
       for (const e of W.items) {
@@ -138,7 +139,7 @@
         const s = spots.find(([x, y]) => free(x, y));
         if (!s) continue;
         const p = nav.center(s[0], s[1]);
-        let d = Math.hypot(p.x - a.x, p.y - a.y) * (e.kind === 'desk' || e.kind === 'cart' ? 0.6 : 1);
+        let d = Math.hypot(p.x - a.x, p.y - a.y) * (e.kind === 'desk' || e.kind === 'cart' || e.kind === 'toolcart' ? 0.6 : 1);
         if (!api().inZone(a, p)) d *= 1.6;
         if (d < bestD) { bestD = d; best = { x: p.x, y: p.y, dir: s[2], label: e.id || DL.itemName(e), ux: e.px + tw * 8, uy: e.py + 2, item: e }; }
       }
@@ -149,14 +150,22 @@
       if (game.paused() || !crew.members.some(canRepair) || M.broken.length >= 2) return;
       M.next -= dt;
       if (M.next > 0) return;
-      M.next = between(160, 260);
+      const dir = game.director;
+      M.next = dir ? between(260, 420) : between(160, 260);
       const t = scene.t;
       const pcs = world().items.filter((e) => e.kind === 'desk' && !e.broken && !(e.care > t));
       const sws = ops.devices().filter((d) => d.kind === 'switch' && !d.broken && !(d.care > t) && d.sw.linked && d.sw.linked.size > 0);
-      const pool = pcs.map((x) => [x, 1]).concat(sws.map((x) => [x, 1.2]));
+      // a switch dying takes servers down with it: critical (rarer, may jump the queue — director.js)
+      const critical = sws.length && rand() < 0.3;
+      if (dir && !dir.canStart('hardware', { critical })) {
+        if (!critical || !dir.canStart('hardware')) { M.next = between(40, 80); return; }
+      }
+      const pool = critical ? sws.map((x) => [x, 1]) : pcs.map((x) => [x, 1]).concat(sws.map((x) => [x, 0.4]));
       if (!pool.length) return;
       let k = rand() * pool.reduce((s, p) => s + p[1], 0);
-      for (const [x, w] of pool) { if ((k -= w) <= 0) { breakItem(x); return; } }
+      for (const [x, w] of pool) {
+        if ((k -= w) <= 0) { const rec = breakItem(x); if (rec && dir) dir.started('hardware', rec.label); return; }
+      }
     }
 
     // keep the list honest when the world changes (unit removed, desk sold…)
@@ -174,7 +183,7 @@
     /* ================================================================== */
     const O = { list: [], seq: 0, acc: 0, key: '', lastServer: -999 };
     const active = (o) => o.status === 'open' || o.status === 'run';
-    const manager = () => crew.members.find((m) => m.crew.profile.role === 'gerente' && !m.crew.leaving) || null;
+    const manager = () => crew.members.find((m) => m.crew.profile.role === 'gerente' && !m.crew.leaving && !m.crew.off) || null;
     const orderOf = (m) => (m.crew.job && m.crew.job.order) || null;
     const claimed = (target) => O.list.some((o) => o.target === target && o.status === 'run');
     const hasOrder = (type, target) => O.list.some((o) => active(o) && o.type === type && (target == null || o.target === target));
@@ -262,7 +271,7 @@
         render(true);
         return true;
       }
-      const cands = crew.members.filter((m) => !m.crew.hold && !orderOf(m) && eligible(o, m));
+      const cands = crew.members.filter((m) => !m.crew.hold && !m.crew.off && !orderOf(m) && eligible(o, m));
       if (!cands.length) return false;
       const score = (m) => {
         const j = m.crew.job;
@@ -474,7 +483,9 @@
           if (inR >= 2 && !cool && !hasOrder('install-crac') && cash() - priceOf('crac') >= RESERVE && spotsFor('crac').length) { add('install-crac', null); break; }
         }
         const rackFree = racks.find((e) => e.units.indexOf(null) >= 0);
-        if ((opts.expand || rand() < 0.35) && rackFree && healthy && servers.length < 40 && cash() - 6000 >= RESERVE * 2 && t - O.lastServer > 150 && !hasOrder('install-server')) {
+        // never buy another server while bought ones still wait for cable / configuration
+        const pending = servers.some((d) => d.state !== 'online');
+        if ((opts.expand || rand() < 0.25) && rackFree && healthy && !pending && servers.length < 40 && cash() - 6000 >= RESERVE * 2 && t - O.lastServer > 300 && !hasOrder('install-server')) {
           O.lastServer = t;
           add('install-server', rackFree);
         }
@@ -529,13 +540,210 @@
     /* ================================================================== */
     /* Clients: visitors at the reception                                  */
     /* ================================================================== */
-    const CL = { list: [], next: 12 };
+    const CL = { list: [], next: 12, served: 0, lost: 0 };
     const CLIENT_LINES = [
       'Bom dia! Vim falar sobre o contrato de colocation.', 'Preciso de um servidor dedicado para minha loja virtual.', 'Quanto custa uma VM com 8 GB de RAM?',
       'Vim buscar meu crachá de visitante.', 'Meu site ficou lento ontem, queria entender o que houve.', 'Vocês hospedam servidor de jogos?',
       'Tenho uma reunião com o gerente às 10h.', 'Queria conhecer a estrutura de vocês.', 'Precisamos de backup dos nossos arquivos aqui.',
     ];
     const receptionRoom = () => (world().rooms || []).find((r) => typeOf(r) === 'reception') || null;
+
+    /* ---------- in-person service: the attendant notices, walks over, talks, solves or forwards ---------- */
+    // what visitors come for. kind: solve (the attendant handles it) · manager (forward to the manager)
+    // · ticket (opens a help-desk ticket for the technical team) · outage (a real fault in the datacenter)
+    const VISITS = [
+      { id: 'colo', kind: 'solve', pay: [2500, 5000], lines: [
+        'C:[Bom dia! Vim falar sobre o contrato de colocation.|Oi! Queria saber como funciona o colocation de vocês.]',
+        'S:[Claro, {c}! Temos racks compartilhados e dedicados, com energia redundante e 99,9% de disponibilidade.|Com prazer! Você traz o servidor e a gente cuida de energia, refrigeração e rede.]',
+        'C:[E quanto sai por mês um rack inteiro?|Tem suporte de madrugada também?]',
+        'S:[Te passo a tabela agora, e o primeiro mês sai com desconto.|Tem sim, plantão 24 h. Vou te mandar a proposta por e-mail.]',
+        'C:[Perfeito, pode mandar que eu fecho hoje.|Fechado! Vou assinar a proposta.]',
+      ], done: 'Contrato de colocation fechado com {c} na recepção ✅' },
+      { id: 'vm', kind: 'solve', pay: [800, 2000], lines: [
+        'C:[Quanto custa uma VM com 8 GB de RAM?|Vocês alugam máquina virtual?]',
+        'S:[Alugamos sim! Uma VM de 8 GB com 4 vCPUs sai por um preço bem em conta.|Temos planos a partir de 2 GB. Para 8 GB, recomendo o plano Pro.]',
+        'C:[E dá pra aumentar depois se precisar?|Tem backup incluso?]',
+        'S:[Dá sim, é só pedir que a gente redimensiona sem reinstalar.|Backup diário incluso, com retenção de 7 dias.]',
+        'C:[Ótimo, quero contratar.|Fechou, vou levar.]',
+      ], done: '{c} contratou uma VM · venda feita na recepção ✅' },
+      { id: 'badge', kind: 'solve', lines: [
+        'C:[Oi, vim buscar meu crachá de visitante.|Bom dia, tenho uma visita técnica agendada.]',
+        'S:[Bem-vindo(a), {c}! Só preciso de um documento com foto.|Claro! Pode me mostrar um documento, por favor?]',
+        'C:[Aqui está.|Tá na mão.]',
+        'S:[Prontinho, seu crachá. É só passar na catraca.|Crachá liberado. Qualquer coisa, estou aqui na recepção.]',
+      ], done: '{c} recebeu o crachá de visitante' },
+      { id: 'tour', kind: 'solve', lines: [
+        'C:[Queria conhecer a estrutura de vocês.|Dá pra ver o datacenter por dentro?]',
+        'S:[Dá sim! Por segurança, a visita é acompanhada e só pelo corredor de vidro.|Claro, {c}. Vou te mostrar a sala de servidores pelo vidro.]',
+        'C:[Que organizado! E esse barulho todo?|Nossa, quanto rack!]',
+        'S:[São as ventoinhas: o ar frio entra pela frente e sai quente por trás.|Cada rack tem energia dupla e monitoramento 24 h.]',
+        'C:[Gostei muito, obrigado pela visita!|Muito bom. Vou recomendar vocês.]',
+      ], done: 'Visita guiada com {c} na recepção' },
+      { id: 'meeting', kind: 'manager', lines: [
+        'C:[Tenho uma reunião com o gerente às 10h.|Vim conversar com o responsável sobre um contrato grande.]',
+        'S:[Só um instante, {c}, vou chamar {m}.|Claro! Vou avisar {m} que você chegou.]',
+      ], boss: [
+        'M:[Olá, {c}! Que bom que veio. Vamos conversar?|{c}, prazer! Vamos falar do contrato.]',
+        'C:[Queria ampliar nosso espaço para mais dois racks.|Precisamos de mais capacidade até o fim do mês.]',
+        'M:[Temos espaço, sim. Te mando a proposta ainda hoje.|Fechado: reservo os racks e o time instala.]',
+      ], pay: [3000, 6000], done: '{m} fechou a ampliação com {c} ✅', nobody: 'S:[{c}, o gerente não está agora. Anotei seu recado e ele te liga ainda hoje.|O responsável saiu, mas deixei tudo anotado e já te retornam.]' },
+      { id: 'slow', kind: 'ticket', ticket: 'slow', lines: [
+        'C:[Meu sistema ficou lento ontem, queria entender o que houve.|O ERP que vocês hospedam está demorando muito.]',
+        'S:[Entendi, {c}. Está lento para todos ou só para você?|Vamos ver isso. Desde quando está assim?]',
+        'C:[Para todo mundo do escritório, desde ontem à tarde.|Começou depois do almoço, para o setor inteiro.]',
+        'S:[Abri o chamado #{t} e já encaminhei para o time técnico. Eles te retornam rapidinho.|Registrei no chamado #{t} para o pessoal de servidores investigar.]',
+      ], done: 'Chamado #{t} aberto para {c} (atendimento presencial)' },
+      { id: 'mail', kind: 'ticket', ticket: 'email', lines: [
+        'C:[Nossos e-mails pararam de chegar!|Não recebo e-mail desde ontem.]',
+        'S:[Vixe. Você consegue enviar normalmente?|Vou verificar. Apareceu algum aviso na caixa?]',
+        'C:[Envio sim, só não recebo.|Apareceu um aviso de caixa cheia semana passada.]',
+        'S:[Já abri o chamado #{t} e passei para quem cuida do servidor de e-mail.|Encaminhei pro time de sistemas no chamado #{t}.]',
+      ], done: 'Chamado #{t} aberto para {c} (atendimento presencial)' },
+      { id: 'game', kind: 'solve', pay: [1500, 3500], lines: [
+        'C:[Vocês hospedam servidor de jogos?|Quero colocar um servidor de Minecraft pra minha comunidade.]',
+        'S:[Hospedamos! Servidor dedicado com baixa latência e proteção contra DDoS.|Temos sim, {c}. Com IP fixo e painel de controle.]',
+        'C:[Aguenta umas 100 pessoas jogando junto?|Tem como testar antes?]',
+        'S:[Aguenta tranquilo no plano high-end. Te passo um teste de 7 dias.|Tem! Libero um teste gratuito agora.]',
+        'C:[Show, bora!|Fechado então!]',
+      ], done: 'Servidor de jogos vendido para {c} na recepção ✅' },
+    ];
+    const OUTAGE = { id: 'outage', kind: 'outage', lines: [
+      'C:[O site da minha loja está fora do ar!|Ninguém consegue acessar nosso sistema, o que aconteceu?]',
+      'S:[Sinto muito, {c}. Deixa eu confirmar com o monitoramento…|Calma, {c}, vou verificar agora.]',
+      'S:[Confirmado: o {d} está com problema e a equipe técnica já está cuidando.|Identificamos uma falha no {d}. O time já está corrigindo.]',
+      'C:[Ok… me avisa assim que voltar, por favor.|Tudo bem, fico no aguardo.]',
+    ], done: 'Cliente {c} avisado(a) sobre a falha no {d}' };
+
+    const isAttendant = (m) => !m.crew.off && !m.crew.leaving && ['desk', 'both'].indexOf(m.crew.attend) >= 0 && tasksOf(m).some((t) => t.id === 'frontdesk');
+    const attendants = () => crew.members.filter(isAttendant);
+    // free to walk to a visitor: not on an order, a fix, a repair, a computer ticket or another visitor
+    function canServe(m) {
+      const j = m.crew.job;
+      if (!isAttendant(m) || m.crew.hold || orderOf(m)) return false;
+      if (!j) return true;
+      return j.auto && j.def.kind !== 'fix' && j.def.kind !== 'repair' && j.def.kind !== 'client' && j.def.id !== 'support';
+    }
+    const waiting = () => CL.list.filter((a) => a.client.state === 'wait' && !a.client.served && !a.client.gaveUp);
+    // the reception desk: in front of a desk / table in the reception (crew.js frontdesk task goes there)
+    function frontPost(m) {
+      const r = receptionRoom();
+      if (!r) return null;
+      const nav = api().nav;
+      const desks = world().items.filter((e) => (e.kind === 'desk' || e.kind === 'table') && !e.host && inRoom(r, e.tx, e.ty));
+      for (const e of desks) {
+        for (const [dx, dy] of [[0, -1], [1, -1], [0, (e.th || 1)], [-1, 0], [(e.tw || 1), 0]]) {
+          const tx = e.tx + dx, ty = e.ty + dy;
+          if (nav.free(tx, ty) && inRoom(r, tx, ty) && !(world().keepClear && world().keepClear.has(tx + ',' + ty))) return Object.assign(nav.center(tx, ty), { label: 'Balcão da ' + r.name, room: r });
+        }
+      }
+      const f = nav.nearestFree(r.x + Math.floor(r.w / 2), r.y + Math.floor(r.h / 2), 3);
+      return f && inRoom(r, f[0], f[1]) ? Object.assign(nav.center(f[0], f[1]), { label: r.name, room: r }) : null;
+    }
+    const clientWaitingFor = (m) => waiting().length > 0 && canServe(m);
+
+    const CLIENT_COLOR = '#9aa3b0';
+    const fill = (s, v) => s.replace(/\[([^\]]+)\]/g, (x, b) => pick(b.split('|'))).replace(/\{(\w)\}/g, (x, k) => (v[k] != null ? v[k] : x));
+    function clientSay(cl, text) {
+      cl.bubble = { text: text.length > 64 ? text.slice(0, 61) + '…' : text, left: Math.min(5.5, 2.4 + text.length * 0.045), tone: 'chat' };
+      chat().post({ name: cl.client.name, color: CLIENT_COLOR, role: 'Cliente · Recepção' }, text, { tone: 'client' });
+    }
+    // play a list of "C:/S:/M:" lines, each after the previous one; then `end`
+    function play(cl, lines, who, v, end) {
+      let at = 0;
+      lines.forEach((l) => {
+        const sp = l[0], text = fill(l.slice(2), v);
+        at += between(2, 3) + Math.min(1.4, text.length * 0.018);
+        chat().later(at, () => {
+          if (CL.list.indexOf(cl) < 0) return;
+          const by = sp === 'C' ? null : sp === 'M' ? who.boss : who.att;
+          if (!by) clientSay(cl, text);
+          else if (alive(by)) chat().post(by, text);
+        });
+      });
+      chat().later(at + 1.6, end);
+    }
+
+    function serve(cl, m) {
+      const c = cl.client;
+      c.served = m;
+      c.servedT = 0;
+      c.t = 999;
+      const def = {
+        id: 'attend-client', name: 'Atender cliente', verb: 'Atendendo cliente', kind: 'client', skill: 'gestao', xp: 12, dur: [999, 999], auto: false, label: c.name,
+        arrived: (a) => talk(cl, a),
+        finish: () => null,
+      };
+      const why = api().startJob(m, def, { auto: false, quiet: true, target: cl });
+      if (why) { c.served = null; c.t = between(3, 6); return false; }
+      ops.logEvent('info', '🛎️ ' + m.crew.name + ' foi receber ' + c.name + ' na recepção');
+      if (rand() < 0.5) chat().post(m, pick(['Chegou cliente, já vou lá!', c.name + ' chegou, deixa comigo.', 'Vou atender na recepção.']));
+      return true;
+    }
+
+    function endService(cl, m, ok, note) {
+      const c = cl.client;
+      if (m && alive(m) && m.crew.job && m.crew.job.def.kind === 'client') m.crew.job.end = true;
+      c.done = true;
+      c.stay = Math.min(c.stay, between(1.5, 3));
+      c.t = 0.5;
+      CL.served++;
+      if (note) ops.logEvent(ok ? 'ok' : 'info', '🛎️ ' + note);
+      if (game.economy) game.economy.earn('credits', 3, 'Cliente atendido na recepção', { quiet: true });
+    }
+
+    function talk(cl, m) {
+      const c = cl.client;
+      if (c.talking) return;
+      c.talking = true;
+      cl.dir = DL.dirOf(m.x - cl.x, m.y - cl.y);
+      const v = { c: c.name.split(' ')[0], a: m.crew.name };
+      // a real outage beats small talk: the customer came because their site is down
+      const down = ops.devices().find((d) => d.kind === 'server' && d.fault && d.state === 'online');
+      const sc = down && rand() < 0.6 ? OUTAGE : c.visit;
+      v.d = down ? down.name : '';
+      if (sc.kind === 'ticket' && game.helpdesk && game.helpdesk.api) {
+        const t = game.helpdesk.api.spawn(sc.ticket);
+        v.t = t ? t.id : '—';
+        if (t) t.msgs.unshift({ from: 'system', text: 'Aberto presencialmente na recepção por ' + m.crew.name + '.', t: game.clock(), at: scene.t });
+      }
+      const lines = sc.lines.slice();
+      if (sc.kind === 'manager') {
+        const boss = manager();
+        v.m = boss ? boss.crew.name : 'o gerente';
+        if (!boss || boss.crew.off) {
+          play(cl, [lines[0], sc.nobody], { att: m }, v, () => endService(cl, m, true, 'Recado de ' + c.name + ' anotado (gerente ausente)'));
+          return;
+        }
+        play(cl, lines, { att: m }, v, () => {
+          // the attendant goes back; the manager walks over to the visitor
+          if (m.crew.job && m.crew.job.def.kind === 'client') m.crew.job.end = true;
+          const def = { id: 'attend-client', name: 'Reunião com cliente', verb: 'Em reunião', kind: 'client', skill: 'gestao', xp: 14, dur: [999, 999], auto: false, label: c.name,
+            arrived: (b) => play(cl, sc.boss, { att: m, boss: b }, v, () => { pay(sc, v); endService(cl, b, true, fill(sc.done, v)); }), finish: () => null };
+          if (!alive(boss) || boss.crew.off || api().startJob(boss, def, { auto: false, quiet: true, target: cl })) endService(cl, null, true, 'Recado de ' + c.name + ' anotado para ' + boss.crew.name);
+          else { c.served = boss; chat().post(boss, pick(['Já vou receber ' + v.c + '!', 'Indo para a recepção.'])); }
+        });
+        return;
+      }
+      if (sc.kind === 'outage' && down && down.fault && !down.fault.found) ops.report(down, m, 'cliente na recepção');
+      play(cl, lines, { att: m }, v, () => { pay(sc, v); endService(cl, m, true, fill(sc.done, v)); });
+    }
+
+    // a sale at the counter pays the company (scaled by the learning mode, like all revenue)
+    function pay(sc, v) {
+      if (!sc.pay || !game.economy) return;
+      const k = DL.learn ? DL.learn().reward : 1;
+      const amount = Math.round(between(sc.pay[0], sc.pay[1]) * k / 50) * 50;
+      game.economy.income(amount, 'venda na recepção');
+      game.toast('ok', 'Venda na recepção', fill(sc.done, v).replace(' ✅', '') + ' · +' + DL.money(amount));
+    }
+
+    function tickReception() {
+      if (game.paused()) return;
+      for (const cl of waiting()) {
+        const free = attendants().filter(canServe).sort((x, y) => Math.hypot(x.x - cl.x, x.y - cl.y) - Math.hypot(y.x - cl.x, y.y - cl.y));
+        if (free[0]) serve(cl, free[0]);
+      }
+    }
     function clientSpot(r) {
       const nav = api().nav;
       // near a sofa / chair / table of the room, else anywhere inside it
@@ -568,7 +776,8 @@
       const p = api().randomProfile();
       const L = Object.assign(DL.crewLook(p), { badge: '#9aa3b0', lanyard: null, role: null, roleColor: null, vest: null });
       const a = new DL.Actor(L, door.x, door.y, 'up');
-      Object.assign(a, { client: { name: p.name, room: r.id, state: 'enter', t: 0.8, stay: between(18, 40), door, said: false }, alpha: 0 });
+      // what they came for decides the conversation at the counter
+      Object.assign(a, { client: { name: p.name, room: r.id, state: 'enter', t: 0.8, stay: between(45, 70), door, said: false, visit: pick(VISITS), served: null, done: false }, alpha: 0 });
       CL.list.push(a);
       scene.actors.push(a);
       scene.refreshWorld(false);
@@ -598,8 +807,9 @@
       const r = receptionRoom();
       if (!game.paused() && r) {
         CL.next -= dt;
-        if (CL.next <= 0) { CL.next = between(20, 45); if (CL.list.length < 3) spawnClient(); }
+        if (CL.next <= 0) { CL.next = between(35, 70); if (CL.list.length < 2) spawnClient(); }
       }
+      if ((CL.acc = (CL.acc || 0) + dt) > 0.5) { CL.acc = 0; tickReception(); }
       for (const a of CL.list.slice()) {
         a.tick(dt);
         const c = a.client;
@@ -620,6 +830,30 @@
             a.moving = false;
             c.t -= dt;
             c.stay -= dt;
+            // being served: stay until the conversation ends (or the attendant got pulled away)
+            if (c.served && !c.done) {
+              const m = c.served, j = m && alive(m) && m.crew.job;
+              c.servedT = (c.servedT || 0) + dt;
+              // safety: nobody reached the visitor in a reasonable time → free them for someone else
+              if (j && j.def.kind === 'client' && j.target === a && !c.talking && c.servedT > 45) { api().cancelJob(m, true); }
+              if (!j || j.def.kind !== 'client' || j.target !== a || (!c.talking && c.servedT > 45)) { c.served = null; c.talking = false; c.servedT = 0; c.t = between(2, 4); }
+              else { c.stay = Math.max(c.stay, 4); if (m.crew.state === 'serving') a.dir = DL.dirOf(m.x - a.x, m.y - a.y); break; }
+            }
+            if (c.done) { if (c.stay <= 0) { c.state = 'leave'; a.route = api().nav.route(a.x, a.y, c.door.x, c.door.y); if (!a.route) { c.state = 'out'; c.t = 0.8; } } break; }
+            // somebody attends in person: wait for them patiently
+            if (attendants().length) {
+              if (!c.said && c.stay < 40) { c.said = true; a.bubble = { text: pick(['Com licença… tem alguém atendendo?', 'Bom dia! Estou esperando ser atendido(a).', 'Oi! Aguardo aqui?']), left: 3.5, tone: 'chat' }; }
+              if (c.stay <= 0) {
+                c.gaveUp = true;
+                CL.lost++;
+                ops.logEvent('warn', '🛎️ ' + c.name + ' foi embora sem ser atendido(a) na recepção');
+                a.bubble = { text: pick(['Vou voltar outra hora…', 'Demorou demais, tchau.']), left: 3, tone: 'chat' };
+                c.state = 'leave';
+                a.route = api().nav.route(a.x, a.y, c.door.x, c.door.y);
+                if (!a.route) { c.state = 'out'; c.t = 0.8; }
+              }
+              break;
+            }
             if (!c.said && c.stay < 30) {
               c.said = true;
               const line = pick(CLIENT_LINES);
@@ -687,7 +921,7 @@
       return n.indexOf('@' + name) >= 0 || new RegExp('(^|[^a-z])' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '([^a-z]|$)').test(n);
     }
     function responder(intent, except) {
-      const pool = crew.members.filter((m) => m !== except && !m.crew.leaving);
+      const pool = crew.members.filter((m) => m !== except && !m.crew.leaving && !m.crew.off);
       for (const role of ROLE_FOR[intent] || []) { const m = pool.find((x) => x.crew.profile.role === role); if (m) return m; }
       return manager() || pick(pool) || null;
     }
@@ -699,6 +933,12 @@
     }
     function reply(m, intent, text) {
       if (!alive(m)) return;
+      // called by name while off duty: answers from home, briefly
+      if (m.crew.off) {
+        const s = m.crew.shift;
+        chat().post(m, pick(['Tô de folga agora 😴', 'Fora do turno, mas vi a mensagem!', 'Estou em casa agora.']) + (s && s.id !== 'integral' ? ' Volto às ' + String(s.start % 24).padStart(2, '0') + ':00.' : '') + ' Fala com quem está no turno.', { noBubble: true });
+        return;
+      }
       const n = norm(text);
       let r = null;
       switch (intent) {
@@ -731,7 +971,7 @@
         }
       }
       if (!r && sys.talk) {
-        try { r = sys.talk.answer(m, intent); } catch (err) { r = null; }
+        try { r = sys.talk.answer(m, intent, text); } catch (err) { r = null; }
         if (intent === 'unknown') r = { text: pick(['Hmm, ' + playerName() + ', pode explicar melhor? Posso falar de servidores, rede, problemas, ordens ou VMs.', 'Não entendi bem 😅 Quer que eu veja algo no datacenter?']) };
       }
       if (!r) return;
@@ -805,6 +1045,9 @@
       get clients() { return CL.list; },
       spawnClient, receptionRoom,
       manager,
+      // in-person service at the reception
+      frontPost, clientWaitingFor, attendants,
+      get reception() { return { served: CL.served, lost: CL.lost, waiting: waiting().length }; },
     };
   };
 })();

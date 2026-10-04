@@ -10,7 +10,19 @@
   const rand = Math.random;
   const pick = (a) => a[Math.floor(rand() * a.length)];
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-  const norm = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  const norm0 = (s) => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  // Informal Portuguese: "vc tbm tá de boa?" → "voce tambem esta de boa?" (also used by staff.js)
+  const SLANG = {
+    vc: 'voce', vcs: 'voces', ce: 'voce', oce: 'voce', tb: 'tambem', tbm: 'tambem', tl: 'ta ligado', tlgd: 'ta ligado', blz: 'beleza', bele: 'beleza',
+    pq: 'porque', q: 'que', n: 'nao', nn: 'nao', naum: 'nao', s: 'sim', ss: 'sim', hj: 'hoje', agr: 'agora', mt: 'muito', mto: 'muito', mta: 'muita',
+    td: 'tudo', tds: 'todos', ngm: 'ninguem', obg: 'obrigado', obgd: 'obrigado', vlw: 'valeu', flw: 'falou', tmj: 'tamo junto', pfv: 'por favor',
+    pf: 'por favor', pls: 'por favor', plz: 'por favor', cmg: 'comigo', ctg: 'contigo', ctz: 'certeza', kd: 'cade', qnd: 'quando', qdo: 'quando',
+    qto: 'quanto', qnt: 'quanto', msm: 'mesmo', dps: 'depois', ent: 'entao', eae: 'e ai', iae: 'e ai', oie: 'oi', sla: 'sei la', fds: 'fim de semana',
+    aki: 'aqui', eh: 'e', sv: 'servidor', serv: 'servidor', servs: 'servidores', cfg: 'config', bd: 'bom dia', tdb: 'tudo bem', mds: 'meu deus',
+    ta: 'esta', to: 'estou', tao: 'estao', pra: 'para', pro: 'para o', pros: 'para os', p: 'para', tava: 'estava', tamo: 'estamos', cade: 'cade',
+  };
+  const norm = (s) => norm0(s).replace(/[a-z]+/g, (w) => (SLANG[w] != null ? SLANG[w] : w));
+  DL.normSlang = norm;
   const list = (names) => (names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1]);
   const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
 
@@ -38,10 +50,19 @@
   const QUICK = [
     ['servers', 'Como estão os servidores?'], ['problems', 'Tem algum problema?'], ['doing', 'O que você está fazendo?'],
     ['network', 'Como está a rede?'], ['money', 'Como estão as finanças?'], ['next', 'O que devo fazer agora?'],
+    ['smalltalk', 'Tudo bem?'], ['workplace', 'Falta algo no seu posto?'], ['shift', 'Qual é o seu turno?'],
   ];
 
   const INTENTS = [
-    ['greet', /^(oi|ola|e ai|eai|bom dia|boa tarde|boa noite|hey|opa)\b/],
+    ['bye', /^(tchau|falou|ate mais|ate logo|fui|bom descanso)\b/],
+    ['smalltalk', /(tudo bem|tudo certo|tudo tranquilo|como vai|como (voce )?esta|como (e que )?esta voce|de boa|suave|como foi o dia|e voce\b|como (esta|vai) o (dia|trabalho|turno)|ta ligado)/],
+    ['greet', /^(oi|ola|e ai|eai|bom dia|boa tarde|boa noite|hey|opa|salve|fala)\b/],
+    ['shift', /(turno|escala|plantao|folga|horario|(que horas|quando) (voce )?(sai|entra|chega|vai embora)|hora extra)/],
+    ['salary', /(salario|pagamento|aumento|folha|quanto (voce )?(ganha|recebe))/],
+    ['workplace', /(mesa|bancada|estrutura|posto de trabalho|seu setor|sua sala|precisa de (algo|alguma coisa)|falta (algo|alguma coisa)|condic)/],
+    ['coffee', /(cafe|agua|lanche|almoc|comer|fome|pausa|intervalo|descans)/],
+    ['joke', /(piada|engracad|me faz rir|conta uma)/],
+    ['confirm', /^(ok|okay|beleza|certo|entendi|fechou|fechado|top|massa|boa|combinado|ta bom)\b/],
     ['orders', /(ordem|ordens|ordem de servico)/],
     ['vms', /(\bvms?\b|virtual|proxmox|hypervisor)/],
     ['thanks', /(valeu|obrigad|brigad|show|perfeito)/],
@@ -57,7 +78,19 @@
     ['progress', /(datacenter|conclu|recompensa|meta|progresso|marco)/],
     ['self', /(nivel|experiencia|habilidade|aprend|quem e voce|estrela|evolu)/],
   ];
-  const detect = (text) => { const t = norm(text).trim(); for (const [id, re] of INTENTS) if (re.test(t)) return id; return 'unknown'; };
+  const detect1 = (t) => { for (const [id, re] of INTENTS) if (re.test(t)) return id; return 'unknown'; };
+  // "e aí, td certo? qnd vc sai?" → the real question (shift), answered after a quick "tudo certo!"
+  const CHIT = /\b(oi|ola|e ai|bom dia|boa tarde|boa noite|opa|salve|fala|tudo bem|tudo certo|tudo tranquilo|como vai|de boa|suave|beleza|ta ligado|voce esta de boa|voce esta bem)\b[\s,!?.]*/g;
+  function detectFull(text) {
+    const t = norm(text).trim();
+    const first = detect1(t);
+    if (first !== 'smalltalk' && first !== 'greet') return { intent: first, chit: false };
+    const rest = t.replace(CHIT, ' ').replace(/\b(voce|tambem|e|eu)\b/g, ' ').replace(/\s+/g, ' ').trim();
+    const q = rest.length > 3 ? detect1(rest) : 'unknown';
+    return q !== 'unknown' && q !== 'smalltalk' && q !== 'greet' && q !== 'confirm' ? { intent: q, chit: first } : { intent: first, chit: false };
+  }
+  const detect = (text) => detectFull(text).intent;
+  DL.talkDetect = detectFull;
 
   DL.createTalk = function (game, sys) {
     const crew = sys.crew, ops = sys.ops, eco = sys.economy;
@@ -74,11 +107,35 @@
       return { role, level: st.level, k: st.level + main / 25, title: DL.ROLES[role].title, name: DL.ROLES[role].name, stars: DL.XP.starsOf(st, role) };
     }
     const expertOn = (a, type) => { const K = know(a), R = DL.ROLES[K.role]; return (AREA[K.role] || (R && R.detects) || []).indexOf(type) >= 0 || K.k >= 7; };
-    const diag = (a, d) => (expertOn(a, d.fault.type) ? HINT[d.fault.type](d) : VAGUE[d.fault.type](d));
+    // how much the crew gives away depends on the learning mode (difficulty.js):
+    // Iniciante → exact commands + a step-by-step; Intermediário → exact commands; Experiente → where to look only
+    const LOOK = { link: 'Comece olhando o estado das interfaces.', cable: 'Desconfie da camada física.', port: 'O problema está no switch, não no servidor.', service: 'O servidor está de pé; olhe os serviços.', disk: 'Olhe o uso de espaço.' };
+    const STEPS = {
+      link: '1) ip link para ver a eth0 · 2) sudo ip link set eth0 up · 3) ping -c 3 10.0.1.1 para testar.',
+      cable: '1) ip link mostra NO-CARRIER · 2) Cabeamento do rack: o cabo laranja está solto · 3) ping para confirmar.',
+      port: '1) enable · 2) sh int status (ache o err-disabled) · 3) conf t → interface da porta → shutdown → no shutdown · 4) end.',
+      service: '1) systemctl status nginx · 2) sudo systemctl restart nginx · 3) curl localhost para confirmar.',
+      disk: '1) df -h · 2) du -sh /var/log · 3) sudo journalctl --vacuum-size=200M · 4) df -h de novo.',
+    };
+    function diag(a, d) {
+      const L = DL.learn ? DL.learn() : null, ty = d.fault.type;
+      if (L && L.crewHints === 'vague') return VAGUE[ty](d) + ' ' + LOOK[ty];
+      const base = expertOn(a, ty) ? HINT[ty](d) : VAGUE[ty](d);
+      return L && L.id === 'iniciante' ? base + ' Passo a passo: ' + STEPS[ty] : base;
+    }
+    // never the same line twice in a row for the same person and subject
+    function vary(a, key, opts) {
+      a.crew.said = a.crew.said || {};
+      const last = a.crew.said[key];
+      const pool = opts.filter((o) => o !== last);
+      const o = pick(pool.length ? pool : opts);
+      a.crew.said[key] = o;
+      return o;
+    }
     const found = () => ops.devices().filter((d) => d.fault && d.fault.found).sort((x, y) => (y.loss ? y.loss.rate : 0) - (x.loss ? x.loss.rate : 0));
     const hidden = () => ops.devices().filter((d) => d.fault && !d.fault.found);
     const servers = () => ops.devices().filter((d) => d.kind === 'server');
-    const fixerFor = (d) => crew.members.find((m) => crew.api.fixDefFor(m, d));
+    const fixerFor = (d) => crew.members.find((m) => !m.crew.off && crew.api.fixDefFor(m, d));
     const costLine = (d) => (d.loss ? ' Isso está custando $' + fmt(d.loss.rate) + '/min.' : '');
     const racks = () => game.scene.world.items.filter((e) => e.kind === 'rack' && e.units);
     const act = (label, id, ref) => ({ label, id, ref });
@@ -103,9 +160,42 @@
     const A = {
       greet(a) {
         const f = found();
-        return { text: pick(['Oi, ' + player() + '!', 'Opa, ' + player() + '!', 'Fala, ' + player() + '!']) + ' ' + (f.length ? 'Que bom que veio: temos ' + f.length + ' ocorrência(s) aberta(s).' : 'Por aqui está tudo tranquilo. Precisa de algo?') };
+        return { text: vary(a, 'greet', ['Oi, ' + player() + '!', 'Opa, ' + player() + '!', 'Fala, ' + player() + '!', 'E aí, ' + player() + '!']) + ' ' + (f.length ? 'Que bom que veio: temos ' + f.length + ' ocorrência(s) aberta(s).' : vary(a, 'greet2', ['Por aqui está tudo tranquilo. Precisa de algo?', 'No que posso ajudar?', 'Tudo em ordem por aqui. Manda!'])) };
       },
-      thanks: () => ({ text: pick(['Por nada! Qualquer coisa, me chama.', 'Tamo junto!', 'Disponha. Volto ao trabalho então.']) }),
+      thanks: (a) => ({ text: vary(a, 'thanks', ['Por nada! Qualquer coisa, me chama.', 'Tamo junto!', 'Disponha. Volto ao trabalho então.', 'Imagina! É pra isso que estou aqui.']) }),
+      // "tudo bem?", "de boa?", "como tá o turno?" — answered from how their day really is
+      smalltalk(a) {
+        const c = a.crew, f = found();
+        if (c.missing && c.missing.length) return { text: vary(a, 'small', ['Mais ou menos, ' + player() + '… ', 'Tô levando, mas… ']) + DL.workGripe(c.missing[0].id, c.name, c.missing[0].where), tone: 'warn' };
+        if (f.length) return { text: vary(a, 'small', ['Tudo, mas corrido: tem ocorrência aberta no ' + f[0].name + '.', 'De boa não dá pra dizer, o ' + f[0].name + ' está dando trabalho 😅']), tone: 'warn', actions: problemActions(a, f[0]) };
+        const j = c.job;
+        return { text: vary(a, 'small', ['Tudo ótimo! ' + (j ? 'Tô em "' + j.name.toLowerCase() + '".' : 'Turno tranquilo.') + ' E você?', 'De boa, ' + player() + '. Café em dia e monitor verde 👌', 'Tranquilo! ' + (c.stats.done ? 'Já fiz ' + c.stats.done + ' tarefa(s) hoje.' : 'Começando o dia ainda.'), 'Tudo certo por aqui, tá ligado. Precisa de algo?']) };
+      },
+      bye: (a) => ({ text: vary(a, 'bye', ['Até mais, ' + player() + '!', 'Falou! Qualquer coisa tô por aqui.', 'Tchau! Bom trabalho.']) }),
+      confirm: (a) => ({ text: vary(a, 'confirm', ['Fechado!', 'Beleza, combinado.', 'Show, então é isso.', 'Certo! Volto pro que eu estava fazendo.']) }),
+      joke: (a) => ({ text: vary(a, 'joke', ['Por que o servidor foi ao médico? Estava com muito cache 🤒', 'Existem 10 tipos de pessoas: as que entendem binário e as que não.', 'Funciona na minha máquina… então vamos mandar a minha máquina pro cliente 😂', 'É DNS. Nunca é DNS. Foi DNS.']) }),
+      coffee(a) {
+        const has = (k) => game.scene.world.items.some((e) => e.kind === k);
+        if (!has('coffee') && !has('water')) return { text: vary(a, 'coffee', ['Bem que eu queria um café… mas não temos cafeteira nem bebedouro. Dá pra colocar no modo construção (B → Decoração).', 'Sem copa aqui, chefe. Uma cafeteira faria milagres pelo moral do time ☕']) };
+        return { text: vary(a, 'coffee', ['Já tomei meu café, valeu! Faço pausas rápidas entre as tarefas.', 'Daqui a pouco passo na copa. Quer que eu traga um?', has('beanbag') ? 'Uma água e cinco minutos no pufe e eu volto novo(a) 😄' : 'Água gelada e volto pro batente!']) };
+      },
+      shift(a) {
+        const c = a.crew, s = c.shift || { id: 'integral', start: 0, end: 24 };
+        const lbl = DL.shiftLabel ? DL.shiftLabel(s) : 'integral';
+        const oc = c.oncall && c.oncall.length ? ' Também fico de plantão na ' + c.oncall.map((t) => (DL.TURNOS.find((x) => x.id === t) || { label: t }).label).join(' e ') + '.' : '';
+        return { text: (s.id === 'integral' ? 'Estou em turno integral, 24 h por aqui.' : 'Meu turno é ' + lbl + '.') + oc + ' Dá pra mudar em Equipe → Escalas.' };
+      },
+      salary(a) {
+        const sal = DL.salaryOf ? DL.salaryOf(a) : 0, eco2 = eco;
+        return { text: 'Ganho ' + DL.money(sal) + ' por mês' + (eco2 ? ', e o próximo pagamento sai em ' + eco2.payInText() + '.' : '.') + ' ' + vary(a, 'salary', ['Subindo de nível, o salário acompanha 😉', 'Tá justo pelo que eu faço.', 'Se eu passar de nível, conversamos sobre aumento!']) };
+      },
+      workplace(a) {
+        const c = a.crew, needs = crew.api.needsOf(a), z = crew.api.zoneRoom(a);
+        if (!needs.length) return { text: 'Meu trabalho é andando pelo prédio, não preciso de posto fixo.' };
+        const miss = needs.filter((n) => !n.ok);
+        if (miss.length) return { text: DL.workGripe(miss[0].id, c.name, miss[0].where || (z ? z.name : null)) + ' Preciso de: ' + list(miss.map((n) => n.label.toLowerCase())) + '.', tone: 'warn' };
+        return { text: 'Meu posto ' + (z ? 'na ' + z.name + ' ' : '') + 'tem tudo o que preciso: ' + list(needs.map((n) => n.short.toLowerCase())) + '. 👍', tone: 'ok' };
+      },
       servers(a) {
         const srv = servers();
         if (!srv.length) return { text: 'Ainda não temos nenhum servidor. Que tal instalar um num rack? (B → Equipamentos → Servidor)' };
@@ -175,12 +265,12 @@
       money(a) {
         if (!eco) return { text: 'Não tenho os números agora.' };
         const CO = eco.company, K = know(a);
-        const flow = CO.revenue - CO.payroll - (CO.energy || 0) - CO.losses;
+        const flow = CO.revenue - (CO.energy || 0) - CO.losses;
         const worst = CO.problems.slice().sort((x, y) => y.loss.rate - x.loss.rate)[0];
         let t = 'A empresa tem ' + DL.money(CO.cash) + '. ';
         if (K.role === 'gerente' || K.k >= 6) {
-          t += 'Entram ' + DL.money(CO.revenue) + '/min dos servidores, a folha leva ' + DL.money(CO.payroll) + '/min';
-          t += CO.losses ? ' e os problemas custam ' + DL.money(CO.losses) + '/min. Resultado: ' + DL.money(flow) + '/min.' : '. Resultado: ' + (flow >= 0 ? '+' : '') + DL.money(flow) + '/min.';
+          t += 'Entram ' + DL.money(CO.revenue) + '/min dos servidores' + (CO.losses ? ' e os problemas custam ' + DL.money(CO.losses) + '/min' : '') + ': resultado de ' + (flow >= 0 ? '+' : '') + DL.money(flow) + '/min.';
+          t += ' A folha é de ' + DL.money(CO.payrollMonth || 0) + '/mês e sai em ' + eco.payInText() + (CO.cash < (CO.payrollMonth || 0) ? ' — o caixa ainda não cobre!' : '.');
         } else t += flow >= 0 ? 'Estamos no azul, ' + (flow >= 0 ? '+' : '') + DL.money(flow) + '/min.' : 'Estamos perdendo ' + DL.money(-flow) + '/min.';
         if (worst) t += ' O maior prejuízo é o ' + worst.name + ' (' + worst.loss.label.toLowerCase() + ', -$' + fmt(worst.loss.rate) + '/min) — e piora quanto mais demora.';
         else if (!CO.revenue) t += ' Cada servidor no ar rende dinheiro: precisamos colocar servidores online.';
@@ -239,8 +329,11 @@
       },
       orders: () => ({ text: game.staff ? game.staff.ordersSummary() : 'Não temos ordens de serviço.' }),
       vms: () => ({ text: DL.infraSummary ? DL.infraSummary() : 'Ainda não temos virtualização.' }),
-      unknown: () => ({ text: 'Hmm, não entendi. Posso falar sobre servidores, rede, problemas, ordens de serviço, VMs, o que estou fazendo, as finanças ou o que fazer agora.' }),
+      unknown: (a) => ({ text: vary(a, 'unknown', ['Hmm, não entendi. Posso falar sobre servidores, rede, problemas, ordens de serviço, VMs, o que estou fazendo, as finanças ou o que fazer agora.', 'Não peguei, ' + player() + ' 😅 Pergunta de outro jeito? Tipo "como tão os servidores?" ou "tem algum problema?"', 'Desculpa, não entendi. Quer saber dos servidores, da rede, do meu turno ou do que falta no meu posto?']) }),
     };
+
+    // the quick answer to a greeting that came with a real question
+    const chitLine = (a) => vary(a, 'chit', ['Tudo certo! ', 'De boa! ', 'Tudo tranquilo, ' + player() + '. ', 'Opa, tudo bem! ']);
 
     function doFix(a, d) {
       const def = crew.api.fixDefFor(a, d);
@@ -342,7 +435,9 @@
       push(a, { from: 'me', text });
       game.emit('player-talk', text);
       T.wait = 0.5 + rand() * 0.5;
-      T.pending = intent || detect(text);
+      const full = intent ? { intent, chit: false } : detectFull(text);
+      T.pending = full.intent;
+      T.chit = full.chit;
       renderLog();
     }
 
@@ -351,6 +446,7 @@
       if (!a) return;
       let r;
       try { r = (A[T.pending] || A.unknown)(a); } catch (err) { console.warn('talk', err); r = A.unknown(a); }
+      if (T.chit && r && r.text) r = Object.assign({}, r, { text: chitLine(a) + r.text });
       push(a, Object.assign({ from: 'bot' }, r));
       renderChips();
     }
@@ -470,7 +566,10 @@
     return {
       open, close, ask, update, key, detect,
       get active() { return T.a; },
-      answer: (a, intent) => (A[intent] || A.unknown)(a),
+      answer: (a, intent, text) => {
+        const r = (A[intent] || A.unknown)(a);
+        return text && detectFull(text).chit && r && r.text ? Object.assign({}, r, { text: chitLine(a) + r.text }) : r;
+      },
     };
   };
 })();

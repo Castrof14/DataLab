@@ -12,8 +12,8 @@
   /* Skills, experience, levels, stars                                   */
   /* ------------------------------------------------------------------ */
   const SKILLS = [['redes', 'Redes'], ['servidores', 'Servidores'], ['sistemas', 'Sistemas'], ['seguranca', 'Segurança'], ['gestao', 'Gestão']];
-  const ROLE_SKILL = { redes: 'redes', servidores: 'servidores', sysadmin: 'sistemas', tecnico: 'servidores', seguranca: 'seguranca', funcionario: 'gestao', gerente: 'gestao' };
-  const SECOND_SKILL = { redes: 'servidores', servidores: 'redes', sysadmin: 'servidores', tecnico: 'redes', seguranca: 'redes', funcionario: 'sistemas', gerente: 'sistemas' };
+  const ROLE_SKILL = { redes: 'redes', servidores: 'servidores', sysadmin: 'sistemas', tecnico: 'servidores', seguranca: 'seguranca', funcionario: 'gestao', gerente: 'gestao', atendente: 'gestao' };
+  const SECOND_SKILL = { redes: 'servidores', servidores: 'redes', sysadmin: 'servidores', tecnico: 'redes', seguranca: 'redes', funcionario: 'sistemas', gerente: 'sistemas', atendente: 'sistemas' };
   const MAX_LEVEL = 10;
   DL.SKILLS = SKILLS;
   DL.ROLE_SKILL = ROLE_SKILL;
@@ -161,7 +161,7 @@
           if (!srv.length) return { say: 'Nenhum servidor do ' + rack.id + ' está configurado ainda. Sem o que pingar.' };
           const down = srv.filter((d) => !up(ctx, d));
           if (down.length) return { say: 'Ping ok em ' + (srv.length - down.length) + '/' + srv.length + ' no ' + rack.id + '. ' + down.map((d) => d.name).join(', ') + ' sem resposta.', tone: 'warn' };
-          return { say: 'Ping ok em ' + srv.length + '/' + srv.length + ' servidores do ' + rack.id + '. Latência abaixo de 1 ms.' };
+          return { say: pick(['Ping ok em ' + srv.length + '/' + srv.length + ' servidores do ' + rack.id + '. Latência abaixo de 1 ms.', 'Rede do ' + rack.id + ' respondendo liso, zero perda.', 'Traceroute do ' + rack.id + ' limpinho até o gateway.']) };
         },
       },
       fixTask('fixnet', 'Resolver falha de rede', ['cable', 'port', 'link'], 'redes', 'Cabo solto, porta em erro ou interface desligada.'),
@@ -170,7 +170,7 @@
         desc: 'Atualiza o diagrama da rede no computador.',
         finish(ctx) {
           const sw = ctx.ops ? ctx.ops.devices().filter((d) => d.kind === 'switch').length : 0;
-          return { say: sw ? 'Diagrama da rede atualizado: ' + sw + ' switch(es) e ' + servers(ctx).length + ' servidor(es).' : 'Desenhei a rede planejada. Falta instalar o primeiro switch.' };
+          return { say: sw ? pick(['Diagrama da rede atualizado: ' + sw + ' switch(es) e ' + servers(ctx).length + ' servidor(es).', 'Topologia revisada, nenhuma mudança desde a última versão.', 'Atualizei as etiquetas de porta no diagrama da rede.', 'Mapa de VLANs e uplinks documentado na wiki.']) : 'Desenhei a rede planejada. Falta instalar o primeiro switch.' };
         },
       },
     ],
@@ -234,7 +234,7 @@
       {
         id: 'backup', name: 'Revisar backups', verb: 'Revisando backups', kind: 'pc', skill: 'sistemas', xp: 10, dur: [12, 18], auto: 1,
         desc: 'Confere a rotina de backup da madrugada.',
-        finish: (ctx) => ({ say: online(ctx).length ? 'Backup da madrugada ok: ' + online(ctx).length + ' servidor(es), nenhum erro.' : 'Agendei o backup para os servidores novos.' }),
+        finish: (ctx) => ({ say: online(ctx).length ? pick(['Backup da madrugada ok: ' + online(ctx).length + ' servidor(es), nenhum erro.', 'Testei a restauração de um backup aleatório: funcionou.', 'Rotina de backup conferida, retenção de 7 dias ok.']) : 'Agendei o backup para os servidores novos.' }),
       },
       {
         id: 'patch', name: 'Aplicar atualizações', verb: 'Aplicando atualizações', kind: 'equip', skill: 'sistemas', xp: 12, dur: [8, 12], auto: 1,
@@ -247,7 +247,7 @@
       {
         id: 'round', name: 'Fazer ronda', verb: 'Fazendo ronda', kind: 'patrol', skill: 'seguranca', xp: 12, dur: [0, 0], auto: 3,
         desc: 'Percorre as salas conferindo portas e acessos.',
-        finish: (ctx) => ({ say: 'Ronda concluída: ' + ctx.world.rooms.length + ' sala(s), portas ok.' }),
+        finish: (ctx) => ({ say: pick(['Ronda concluída: ' + ctx.world.rooms.length + ' sala(s), portas ok.', 'Rodei o prédio todo. Nada fora do lugar.', 'Ronda feita: portas trancadas e corredores livres.', 'Passei em todas as salas. Só o barulho de sempre das ventoinhas.']) }),
       },
       {
         id: 'cams', name: 'Monitorar câmeras', verb: 'Monitorando câmeras', kind: 'pc', skill: 'seguranca', xp: 10, dur: [14, 22], auto: 2,
@@ -258,7 +258,7 @@
         id: 'access', name: 'Verificar acessos', verb: 'Verificando acessos', kind: 'spot', skill: 'seguranca', xp: 10, dur: [5, 8], auto: 1,
         desc: 'Confere o controle de acesso da entrada.',
         targets: (ctx) => [ctx.reception()],
-        finish: () => ({ say: 'Conferi o controle de acesso da entrada. Crachás em dia.' }),
+        finish: () => ({ say: pick(['Conferi o controle de acesso da entrada. Crachás em dia.', 'Catraca da entrada ok, registro de visitantes conferido.', 'Revisei os acessos: dois crachás vencidos bloqueados.']) }),
       },
       {
         id: 'seals', name: 'Conferir lacres dos racks', verb: 'Conferindo lacres', kind: 'equip', skill: 'seguranca', xp: 10, dur: [5, 8], auto: 2,
@@ -273,7 +273,7 @@
         desc: 'Prioriza e responde os chamados abertos.',
         finish(ctx) {
           const open = ctx.ops ? ctx.ops.tasks().length : 0;
-          return { say: open ? 'Chamados organizados: ' + open + ' em aberto, priorizei os incidentes.' : 'Fila de chamados zerada por hoje.' };
+          return { say: open ? pick(['Chamados organizados: ' + open + ' em aberto, priorizei os incidentes.', 'Reordenei a fila: ' + open + ' chamado(s), incidentes primeiro.']) : pick(['Fila de chamados zerada por hoje.', 'Nenhum chamado pendente. Aproveitei para responder os e-mails.', 'Chamados em dia ✔️']) };
         },
       },
       {
@@ -291,7 +291,7 @@
       {
         id: 'docs', name: 'Atualizar documentação', verb: 'Atualizando a documentação', kind: 'pc', skill: 'sistemas', xp: 8, dur: [12, 18], auto: 2,
         desc: 'Procedimentos e manuais na wiki.',
-        finish: () => ({ say: 'Atualizei o procedimento de troca de cabos na wiki.' }),
+        finish: () => ({ say: pick(['Atualizei o procedimento de troca de cabos na wiki.', 'Documentei o passo a passo de reinício do nginx.', 'Revisei o manual de acesso à sala de servidores.', 'Wiki em dia: adicionei o checklist de passagem de turno.']) }),
       },
     ],
     gerente: [
@@ -384,6 +384,32 @@
   ];
   // server technicians can also take hardware to the bench when there is no IT technician around
   T.servidores.push(T.tecnico[0]);
+
+  // Front desk: an attendant (or an assistant set to attend in person) waits at the reception and
+  // receives the visitors who walk in (staff.js runs the conversation). c.attend: 'pc' | 'desk' | 'both'.
+  const attends = (c, how) => (c.attend || 'pc') === how || c.attend === 'both';
+  const FRONTDESK = {
+    id: 'frontdesk', name: 'Atender na recepção', verb: 'Na recepção, esperando clientes', kind: 'spot', skill: 'gestao', xp: 8, dur: [20, 34], auto: 4,
+    desc: 'Fica no balcão da recepção e recebe os clientes que chegam.', none: 'Sem recepção (crie uma sala do tipo Recepção) ou atendimento presencial desligado',
+    allow: (ctx) => attends(ctx.c, 'desk'),
+    targets: (ctx) => (ctx.staff && attends(ctx.c, 'desk') ? [ctx.staff.frontPost(ctx.a)].filter(Boolean) : []),
+    finish: () => (rand() < 0.25 ? { say: pick(['Recepção tranquila por enquanto.', 'Ninguém na fila. Aproveitei para organizar os crachás de visitante.', 'Balcão em ordem, esperando os próximos clientes.']) } : null),
+  };
+  const TICKETS = T.funcionario.find((d) => d.id === 'tickets');
+  const PC_TICKETS = Object.assign({}, TICKETS, { allow: (ctx) => attends(ctx.c, 'pc'), none: 'Atendimento só presencial (mude no cartão)' });
+  T.atendente = [
+    FRONTDESK,
+    Object.assign({}, PC_TICKETS, { auto: 3 }),
+    {
+      id: 'visitors', name: 'Registrar visitantes', verb: 'Registrando visitantes', kind: 'pc', skill: 'gestao', xp: 8, dur: [10, 16], auto: 1,
+      desc: 'Atualiza o cadastro de clientes e visitantes no computador.',
+      finish: () => ({ say: pick(['Cadastro de visitantes em dia.', 'Atualizei os contatos dos clientes que passaram hoje.']) }),
+    },
+    T.funcionario.find((d) => d.id === 'coffee'),
+  ];
+  // assistants can be set to attend in person too
+  T.funcionario[0] = PC_TICKETS;
+  T.funcionario.push(Object.assign({}, FRONTDESK, { auto: 3 }));
   // shared social moments (autonomous only): they still have a reason
   const SOCIAL = [
     {
@@ -391,10 +417,18 @@
       targets: (ctx) => ctx.members.filter((m) => m !== ctx.a && !m.crew.seated),
       finish: () => null,
     },
+    // fetch a cup at the coffee maker / water cooler, carry it back to the own desk (or stay around),
+    // drink a few sips and go back to work (crew.js: toFetch → fetching → toSip → sipping)
     {
-      id: 'break', name: 'Pausa para o café', verb: 'Pausa rápida para o café', kind: 'spot', skill: 'gestao', xp: 2, dur: [5, 8], auto: 1, social: true,
+      id: 'break', name: 'Pausa para o café', verb: 'Pausa rápida', kind: 'drink', skill: 'gestao', xp: 2, dur: [7, 11], auto: 1, social: true,
       targets: (ctx) => items(ctx, 'coffee').concat(items(ctx, 'water')),
-      finish: () => (rand() < 0.4 ? { say: pick(['Café recarregado. Voltando!', 'Água gelada salva o turno.']) } : null),
+      finish: (ctx, e) => (rand() < 0.35 ? { say: e && e.kind === 'water' ? pick(['Água gelada salva o turno.', 'Hidratado(a)! Voltando.', 'Nada como um copo d\'água entre um chamado e outro.']) : pick(['Café recarregado. Voltando!', 'Agora sim, com café o terminal até digita sozinho ☕', 'Esse café da copa está forte hoje.']) } : null),
+    },
+    // sit a little on a beanbag or sofa (prefers the ones in the own sector)
+    {
+      id: 'rest', name: 'Descansar um pouco', verb: 'Descansando um pouco', kind: 'rest', skill: 'gestao', xp: 1, dur: [8, 13], auto: 0.7, social: true,
+      targets: (ctx) => items(ctx, 'beanbag').concat(items(ctx, 'sofa')),
+      finish: () => (rand() < 0.3 ? { say: pick(['Esse pufe é perigoso, quase cochilei 😴', 'Cinco minutinhos e a cabeça volta a funcionar.', 'Pronto, energia recarregada.']) } : null),
     },
   ];
 
@@ -444,5 +478,107 @@
     return pick(out);
   }
 
-  DL.TALK = { PAIRS, observe, pick };
+  /* ------------------------------------------------------------------ */
+  /* Conversations between bots: short threads (2–4 lines) by topic —   */
+  /* work, problems, coffee, routine, the room around them, shifts —    */
+  /* gated by what is real right now and never repeated back to back.   */
+  /* "[a|b|c]" picks one option; {A} {B} speaker names, {P} the player. */
+  /* ------------------------------------------------------------------ */
+  const CMDS = [
+    ['ss -tulpn', 'Esse é ótimo para ver as portas abertas!'], ['journalctl -u nginx', 'Salva vidas quando o serviço cai sem motivo.'],
+    ['ip -br a', 'Resumão das interfaces numa linha só. Amo.'], ['show mac address-table', 'Ajuda a achar em que porta está cada máquina.'],
+    ['htop', 'Bem melhor que o top, né?'], ['df -h', 'Clássico pra caçar disco cheio.'], ['traceroute', 'Mostra onde o pacote se perde no caminho.'],
+  ];
+  const THREADS = [
+    { id: 'cafe-convite', topic: 'cafe', when: (x) => x.coffee, lines: ['A:[Alguém quer café?|Vou pegar um café, alguém vai?|Bora um café rapidinho?]', 'B:[Opa, eu quero!|Traz um pra mim, por favor ☕|Agora não, mas valeu!|Só se for sem açúcar.]'] },
+    { id: 'cafe-forte', topic: 'cafe', when: (x) => x.coffee, lines: ['A:[O café hoje tá|Esse café tá] [forte demais|aguado|perfeito] 😅', 'B:[Pelo menos acorda.|Melhor que nada!|Quem passou esse café merece um aumento.]'] },
+    { id: 'agua', topic: 'cafe', when: (x) => x.water, lines: ['A:[Esse bebedouro salva|Água gelada é vida] [nesse calor|com esse barulho de rack].', 'B:[Verdade, tô indo encher a garrafa.|Hidratação em dia, chefe aprova.]'] },
+    { id: 'bomdia', topic: 'rotina', when: (x) => x.hour >= 6 && x.hour < 11, lines: ['A:[Bom dia, {B}!|Dia, {B}!|E aí, {B}, bom dia!] [Dormiu bem?|Pronto(a) pra mais um turno?|Muita coisa hoje?]', 'B:[Bom dia! Mais ou menos, mas o café resolve.|Bom dia! Bora que hoje tem coisa.|Dia! Sempre tem, mas está sob controle.]'] },
+    { id: 'almoco', topic: 'rotina', when: (x) => x.hour >= 11 && x.hour < 14, lines: ['A:[Já almoçou?|Bora almoçar daqui a pouco?|Alguém vai pedir comida?]', 'B:[Ainda não, assim que fechar essa tarefa eu vou.|Trouxe marmita hoje.|Pede pra mim também!]'] },
+    { id: 'fimturno', topic: 'rotina', when: (x) => x.hour >= 17 && x.hour < 22, lines: ['A:[Quase fim do turno…|Mais um turno quase fechado.]', 'B:[Antes de sair, deixa tudo documentado.|Só falta passar o bastão pro pessoal da noite.|Ainda dá tempo de dar zebra 😅]'] },
+    { id: 'madrugada', topic: 'turno', when: (x) => x.hour >= 22 || x.hour < 5, lines: ['A:[Plantão noturno é outro clima, né?|Madrugada silenciosa hoje.]', 'B:[Só o barulho das ventoinhas.|Silêncio é bom sinal no datacenter.|Contanto que nenhum alarme toque…]'] },
+    { id: 'plantao', topic: 'turno', lines: ['A:[Quem tá de plantão hoje?|Quem cobre a noite hoje?]', 'B:{oncall}'] },
+    { id: 'srv-ok', topic: 'trabalho', when: (x) => x.srv, lines: ['A:[O {srv} tá|Olhei o {srv}, tá] [redondinho|estável|respondendo liso].', 'B:[Ótimo, menos um pra se preocupar.|Boa! Deixa no monitor que eu fico de olho.|Show.]'] },
+    { id: 'pendente', topic: 'trabalho', when: (x) => x.pend, lines: ['A:[Ainda tem servidor esperando cabo e configuração.|Tem máquina nova parada no rack, sem configurar.]', 'B:[{P} disse que ia configurar pelo terminal.|Se ninguém pegar, eu ligo os cabos.]'] },
+    { id: 'falha', topic: 'problemas', when: (x) => x.fault, lines: ['A:[Você viu o problema no {fault}?|O {fault} deu ruim de novo?|Quem tá vendo o {fault}?]', 'B:[Vi sim, já tá nas Tarefas.|Tô de olho. Se precisar, eu ajudo.|{P} deve pegar pelo terminal.]', 'A:[Fechou, qualquer coisa me chama.|Beleza.|Se não resolverem logo, eu vou lá.]'] },
+    { id: 'verde', topic: 'problemas', when: (x) => x.srv && !x.fault, lines: ['A:[Ufa, tudo verde de novo.|Monitor limpinho agora 👌|Nenhum alerta. Estranho até.]', 'B:[Que dure!|Nem fala alto senão quebra 😂|Bom trabalho, time.]'] },
+    { id: 'quebrado', topic: 'problemas', when: (x) => x.broken, lines: ['A:[O {broken} ainda tá na bancada?|Alguém sabe do {broken}?]', 'B:[O técnico tá cuidando.|Fonte queimada, já já volta.|Tá no conserto, calma.]'] },
+    { id: 'cmd', topic: 'aprendizado', lines: ['A:[Aprendi um comando novo: {cmd}.|Hoje descobri o {cmd}, muito útil.]', 'B:[{cmdwhy}|Me ensina depois?|Anota na wiki!]'] },
+    { id: 'wiki', topic: 'trabalho', lines: ['A:[Bora documentar isso antes que a gente esqueça?|Atualizou a wiki?]', 'B:[Boa ideia, coloco na wiki depois.|Ainda não, faço no fim do turno.|Documentação é amor ao próximo.]'] },
+    { id: 'senha', topic: 'trabalho', when: (x) => x.sw, lines: ['A:Me lembra de trocar a senha do switch depois?', 'B:[Anotado. E coloca no cofre de senhas.|Deixa comigo, eu cobro 😏]'] },
+    { id: 'ruido', topic: 'ambiente', when: (x) => x.racks >= 3, lines: ['A:[Esse barulho das ventoinhas…|Hoje os racks estão barulhentos.]', 'B:[É o som do dinheiro entrando 😄|Protetor auricular resolve.|Sinal de carga, normal.]'] },
+    { id: 'calor', topic: 'ambiente', when: (x) => x.hot, lines: ['A:[Tá quente perto do {hot}, hein.|O {hot} tá esquentando.]', 'B:[Vou ver se a refrigeração tá dando conta.|Talvez falte placa cega.|Melhor avisar {P}.]'] },
+    { id: 'cabos', topic: 'ambiente', when: (x) => x.messy, lines: ['A:Os cabos do {messy} estão uma bagunça…', 'B:[Quando der eu organizo.|Parece macarrão 🍝|Isso atrapalha o fluxo de ar, viu.]'] },
+    { id: 'pufe', topic: 'ambiente', when: (x) => x.beanbag, lines: ['A:[Quem colocou esse pufe aqui é um gênio.|Esse pufe é tentador demais.]', 'B:[Cuidado que ele derruba qualquer um no sono 😴|Cinco minutinhos ninguém percebe.]'] },
+    { id: 'plantas', topic: 'ambiente', when: (x) => x.plant, lines: ['A:[Alguém regou as plantas?|As plantas da {room} tão bonitas.]', 'B:[Reguei ontem!|Dá até vontade de trabalhar.|Planta no datacenter é luxo.]'] },
+    { id: 'falta', topic: 'ambiente', when: (x) => x.needy, lines: ['A:[O(a) {needy} reclamou que falta {need}.|Você viu que o(a) {needy} tá sem {need}?]', 'B:[Precisa falar com {P}.|É, assim não dá pra trabalhar direito.|Vou comentar na próxima reunião.]'] },
+    { id: 'novato', topic: 'rotina', when: (x) => x.newbie, lines: ['A:[E aí, {B}, adaptando bem?|Tá gostando da equipe, {B}?]', 'B:[Tô sim! Muita coisa nova.|Aos poucos pego o jeito.]', 'A:[Qualquer dúvida, me chama.|Relaxa, no começo é assim mesmo.]'] },
+    { id: 'recepcao', topic: 'trabalho', when: (x) => x.clients, lines: ['A:[Movimentada a recepção hoje.|Chegou cliente de novo na recepção.]', 'B:[Bom sinal: cliente é receita.|Tomara que seja contrato novo.]'] },
+    { id: 'caixa', topic: 'trabalho', when: (x) => x.cash != null, lines: ['A:[Como tão as finanças?|O caixa tá como?]', 'B:{cash}'] },
+    { id: 'piada', topic: 'humor', lines: ['A:[Já tentou desligar e ligar de novo?|Funciona na minha máquina 🤷|É DNS. Sempre é DNS.]', 'B:[Clássico!|Nunca falha 😂|Não começa…]'] },
+    { id: 'fds', topic: 'rotina', lines: ['A:[Fim de semana vou desligar o celular.|Esse fds vou fazer churrasco.|Folga amanhã, finalmente.]', 'B:[Sorte sua! Eu tô de plantão.|Me chama!|Merecido.]'] },
+    { id: 'patch', topic: 'trabalho', when: (x) => x.racks, lines: ['A:Você viu como ficou o cabeamento novo?', 'B:[Vi! Com patch panel fica outra coisa.|Ficou bonito, mas etiqueta tudo, hein.]'] },
+    { id: 'alicate', topic: 'trabalho', lines: ['A:[Alguém viu meu alicate de crimpar?|Cadê a caixa de conectores RJ45?]', 'B:[Está na estante, perto das caixas de cabo.|Acho que ficou na bancada.]'] },
+  ];
+  const expand = (s) => s.replace(/\[([^\]]+)\]/g, (m, body) => pick(body.split('|')));
+  const recentThreads = [];
+
+  // What is true right now, from the speaker's point of view
+  function facts(ctx, a, b) {
+    const ops = ctx.ops, W = ctx.world;
+    const x = { hour: ctx.hour != null ? ctx.hour : 9, A: a.crew.name, B: b ? b.crew.name : '', P: ctx.player };
+    x.coffee = items(ctx, 'coffee').length > 0;
+    x.water = items(ctx, 'water').length > 0;
+    x.beanbag = items(ctx, 'beanbag').length > 0;
+    x.plant = items(ctx, 'plant').length > 0;
+    x.room = ctx.roomName || 'sala';
+    const rs = items(ctx, 'rack');
+    x.racks = rs.length;
+    if (ops) {
+      const on = online(ctx).filter((d) => up(ctx, d));
+      if (on.length) x.srv = pick(on).name;
+      x.pend = servers(ctx).some((d) => d.state !== 'online');
+      const f = ops.devices().find((d) => d.fault && d.fault.found);
+      if (f) x.fault = f.name;
+      x.sw = ops.devices().some((d) => d.kind === 'switch');
+    }
+    if (ctx.staff) { const br = ctx.staff.broken()[0]; if (br) x.broken = br.label; x.clients = ctx.staff.clients && ctx.staff.clients.length > 0; }
+    const hot = rs.slice().sort((p, q) => tempOf(q) - tempOf(p))[0];
+    if (hot && tempOf(hot) > 27) x.hot = hot.id;
+    const messy = rs.find((e) => e.cableLook === 'messy');
+    if (messy) x.messy = messy.id;
+    const needy = ctx.members.find((m) => m.crew.missing && m.crew.missing.length);
+    if (needy) { x.needy = needy.crew.name; x.need = needy.crew.missing[0].short.toLowerCase(); }
+    x.newbie = !!b && b.crew.stats.level <= 1 && b.crew.stats.done < 4;
+    const oc = ctx.members.filter((m) => m.crew.oncall && m.crew.oncall.length);
+    x.oncall = oc.length ? pick(['Acho que é o(a) ' + oc[0].crew.name + '.', oc.map((m) => m.crew.name).join(' e ') + ', pelo que vi nas Escalas.']) : pick(['Ninguém escalado… melhor ver isso nas Escalas.', 'Não tem plantonista definido, acho.']);
+    const cmd = pick(CMDS);
+    x.cmd = cmd[0]; x.cmdwhy = cmd[1];
+    if (ctx.eco) {
+      const cash = ctx.eco.company.cash;
+      x.cash = cash < 0 ? 'No vermelho… precisamos de mais servidores no ar.' : cash < 30000 ? 'Apertado. Melhor não inventar compra agora.' : pick(['Tranquilo, dá pra crescer.', 'No azul! O pagamento sai certinho.', 'Bem, os servidores estão pagando as contas.']);
+    }
+    return x;
+  }
+
+  // A conversation between a (who starts) and b: [[0|1, text], …] or null
+  function thread(ctx, a, b, topic) {
+    if (!b) return null;
+    const x = facts(ctx, a, b);
+    const ok = THREADS.filter((t) => (!topic || t.topic === topic) && recentThreads.indexOf(t.id) < 0 && (!t.when || t.when(x)));
+    if (!ok.length) return null;
+    // real things in the room first: problems and the environment weigh more than small talk
+    const w = (t) => (t.topic === 'problemas' ? 3 : t.topic === 'ambiente' ? 2 : t.topic === 'humor' ? 0.6 : 1);
+    let k = rand() * ok.reduce((s, t) => s + w(t), 0), th = ok[ok.length - 1];
+    for (const t of ok) { if ((k -= w(t)) <= 0) { th = t; break; } }
+    recentThreads.push(th.id);
+    if (recentThreads.length > 14) recentThreads.shift();
+    return th.lines.map((l) => {
+      const who = l[0] === 'A' ? 0 : 1;
+      const txt = expand(l.slice(2)).replace(/\{(\w+)\}/g, (m, k2) => (x[k2] != null ? String(x[k2]) : m));
+      return [who, expand(txt)];
+    });
+  }
+
+  DL.TALK = { PAIRS, observe, pick, thread, facts };
 })();
