@@ -104,6 +104,21 @@
     screenToWorld(sx, sy) {
       return { x: (sx * this.dpr + this.ox) / this.S, y: (sy * this.dpr + this.oy) / this.S };
     }
+    // a drag on screen (css px) as a move in the world (iso.js turns it for the isometric camera)
+    screenDelta(dx, dy) {
+      return { x: (dx * this.dpr) / this.S, y: (dy * this.dpr) / this.S };
+    }
+    screenDir(dx, dy) {
+      return { x: dx, y: dy };
+    }
+    // the tiles currently on screen
+    tileRange() {
+      const S = this.S, W = this.world.W, H = this.world.H;
+      return {
+        x0: Math.max(0, Math.floor(this.ox / S / T)), y0: Math.max(0, Math.floor(this.oy / S / T)),
+        x1: Math.min(W - 1, Math.ceil((this.ox + this.canvas.width) / S / T)), y1: Math.min(H - 1, Math.ceil((this.oy + this.canvas.height) / S / T)),
+      };
+    }
 
     /* ---------- collision ---------- */
     solidAt(x, y) {
@@ -263,8 +278,9 @@
     }
 
     /* ---------- rendering ---------- */
-    worldToScreen(wx, wy) {
-      return { x: (wx * this.S - this.ox) / this.dpr, y: (wy * this.S - this.oy) / this.dpr };
+    // lift: height above the floor point (world px), e.g. a name tag over someone's head
+    worldToScreen(wx, wy, lift) {
+      return { x: (wx * this.S - this.ox) / this.dpr, y: ((wy - (lift || 0)) * this.S - this.oy) / this.dpr };
     }
 
     render() {

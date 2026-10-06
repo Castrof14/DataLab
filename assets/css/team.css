@@ -70,6 +70,17 @@
 .w-rows--pay small { color: var(--mute); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .w-rows--pay .cc__dot { flex: none; }
 
+/* month-end history in the finance card: revenue vs costs per month, the result under each */
+.w-months { display: flex; align-items: flex-end; gap: 10px; height: 92px; margin-top: 12px; padding-top: 4px; }
+.w-month { position: relative; flex: 1; display: flex; align-items: flex-end; justify-content: center; gap: 3px; height: 64px; }
+.w-month i { width: 9px; min-height: 2px; border-radius: 2px 2px 0 0; }
+.w-month i.is-in { background: #7ee0a1; }
+.w-month i.is-out { background: var(--sunset, #ff7a17); opacity: 0.8; }
+.w-month small { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); font: 400 10px/1 var(--font-mono); white-space: nowrap; }
+.w-month small.is-loss { color: var(--sunset); }
+.w-month em { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); font: 400 9px/1 var(--font-mono); font-style: normal; color: var(--mute); }
+.cat-item__price.is-free { color: #9be6b5; opacity: 1; }
+
 .cr-cost { padding: 10px 12px; border: 1px solid var(--hairline); border-radius: var(--r-sm); background: #0e0e0f; }
 .cr-cost[hidden] { display: none; }
 .cr-cost__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }

@@ -76,6 +76,8 @@
   function outfitDetails(g, dir, ty, L, shirt, shirtD, shirtL) {
     const ax = AX, o = L.outfit;
     if (!o || o === 'tee') return;
+    // shirt models from the shop (cosmetics.js)
+    if (DL.charOutfit && DL.charOutfit(g, dir, ty, L, shirt, shirtD, shirtL)) return;
     const white = '#e9e9e6';
     if (o === 'uniform') {
       // work uniform: collar in the role colour and a reflective stripe
@@ -193,6 +195,8 @@
       R(g, front + 3, ay - 2, 1, 1, L.shoes);
       R(g, front + 3, ay - 1, 1, 1, shoeD);
     }
+    // pants styles (cosmetics.js)
+    if (L.pantsStyle && DL.charLegs) DL.charLegs(g, dir, pose, L, sit, side);
 
     // torso + arms
     const ty = ay - 13 + bob;
@@ -423,7 +427,7 @@
       if (dir === 'down') { H(-4, -1, 8, 1); H(-5, 0, 10, 3); H(-6, 2, 2, 7); H(4, 2, 2, 7); H(-4, 3, 3, 1); H(-6, 8, 2, 1, hairD); H(4, 8, 2, 1, hairD); H(-3, 0, 4, 1, hairL); }
       else if (dir === 'up') { H(-4, -1, 8, 1); H(-5, 0, 10, 9); H(-6, 2, 1, 7); H(5, 2, 1, 7); H(-5, 8, 10, 1, hairD); H(-3, 0, 4, 1, hairL); }
       else { H(-4, -1, 8, 1); H(-5, 0, 10, 3); H(-6, 2, 6, 7); H(1, 3, 3, 1); H(-6, 8, 6, 1, hairD); H(-2, 0, 4, 1, hairL); }
-    }
+    } else if (DL.charHair) DL.charHair(g, dir, L, H, hair, hairD, hairL);
 
     // hats sit on top of any hairstyle
     if (L.hat === 'cap') {
@@ -436,7 +440,7 @@
       H(-4, -2, 8, 1, b); H(-5, -1, 10, 3, b); H(-5, 2, 10, 2, bD);
       for (let i = 0; i < 5; i++) H(-4 + i * 2, 2, 1, 2, b);
       H(-3, -1, 3, 1, bL);
-    }
+    } else if (L.hat && DL.charHat) DL.charHat(g, dir, L, H);
     if (L.glasses) {
       const f = '#1c1f26', lens = 'rgba(160,195,236,0.35)';
       if (dir === 'down') {
@@ -465,6 +469,8 @@
       else if (dir === 'up') { H(-6, 4, 2, 3, hs); H(4, 4, 2, 3, hs); }
       else { H(-2, 4, 2, 3, hs); H(0, 7, 3, 1, hs); H(3, 7, 1, 1, C.twilight); }
     }
+    // shop accessories: visor, sunglasses, scarf, chain, backpack (cosmetics.js)
+    if (DL.charTop) DL.charTop(g, dir, pose, L, { ty, hy, hx, side, sit });
   }
 
   function outline(src) {
@@ -553,7 +559,11 @@
       g.fillRect(x - 5, y - 1, 10, 1);
       g.fillRect(x - 4, y, 8, 1);
     }
+    // legendary bots: golden aura (cosmetics.js)
+    const aura = a.legend && DL.drawAura, at = a.auraT != null ? a.auraT : performance.now() / 1000;
+    if (aura) DL.drawAura(g, x, y, at, 'back');
     g.drawImage(a.frame(), x - AX, y - AY);
+    if (aura) DL.drawAura(g, x, y, at, 'front');
     if (alpha < 1) g.globalAlpha = 1;
   };
 

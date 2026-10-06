@@ -72,6 +72,8 @@
   /* Where things are                                                    */
   /* ------------------------------------------------------------------ */
   const items = (ctx, kind) => ctx.world.items.filter((e) => e.kind === kind);
+  // objects that offer an interaction (interact.js)
+  const offers = (ctx, type, ok) => (DL.Interact ? DL.Interact.offers(ctx.world, type, ok) : []);
   const devsOf = (ctx, rack) => (ctx.ops ? ctx.ops.devices().filter((d) => d.rack === rack) : []);
   const racks = (ctx, pred) => items(ctx, 'rack').filter((e) => e.units && (!pred || pred(e, devsOf(ctx, e))));
   const tempOf = (e) => (e.temp != null ? e.temp : e.tel ? e.tel.temp : 24);
@@ -285,8 +287,8 @@
       {
         id: 'coffee', name: 'Repor café e água', verb: 'Repondo café e água', kind: 'spot', skill: 'gestao', xp: 6, dur: [5, 7], auto: 1,
         desc: 'Mantém a copa abastecida.', none: 'Sem cafeteira ou bebedouro',
-        targets: (ctx) => items(ctx, 'coffee').concat(items(ctx, 'water')),
-        finish: () => ({ say: pick(['Café passado ☕ quem quiser, está na copa.', 'Bebedouro abastecido. Hidratem-se, pessoal!']) }),
+        targets: (ctx) => offers(ctx, 'drink'),
+        finish: (ctx, e) => ({ say: e && e.kind === 'fridge' ? 'Geladeira abastecida com refri e água 🧊' : e && e.kind === 'vending' ? 'Máquina de lanches reabastecida.' : pick(['Café passado ☕ quem quiser, está na copa.', 'Bebedouro abastecido. Hidratem-se, pessoal!']) }),
       },
       {
         id: 'docs', name: 'Atualizar documentação', verb: 'Atualizando a documentação', kind: 'pc', skill: 'sistemas', xp: 8, dur: [12, 18], auto: 2,
@@ -417,20 +419,51 @@
       targets: (ctx) => ctx.members.filter((m) => m !== ctx.a && !m.crew.seated),
       finish: () => null,
     },
-    // fetch a cup at the coffee maker / water cooler, carry it back to the own desk (or stay around),
-    // drink a few sips and go back to work (crew.js: toFetch → fetching → toSip → sipping)
+    // fetch something at the kitchen (coffee maker, espresso bar, water cooler, fridge, vending
+    // machine, microwave… interact.js), carry it back to the own desk (or stay around), drink / eat
+    // and go back to work (crew.js: toFetch → fetching → toSip → sipping)
     {
-      id: 'break', name: 'Pausa para o café', verb: 'Pausa rápida', kind: 'drink', skill: 'gestao', xp: 2, dur: [7, 11], auto: 1, social: true,
-      targets: (ctx) => items(ctx, 'coffee').concat(items(ctx, 'water')),
-      finish: (ctx, e) => (rand() < 0.35 ? { say: e && e.kind === 'water' ? pick(['Água gelada salva o turno.', 'Hidratado(a)! Voltando.', 'Nada como um copo d\'água entre um chamado e outro.']) : pick(['Café recarregado. Voltando!', 'Agora sim, com café o terminal até digita sozinho ☕', 'Esse café da copa está forte hoje.']) } : null),
+      id: 'break', name: 'Pausa na copa', verb: 'Pausa rápida', kind: 'drink', skill: 'gestao', xp: 2, dur: [7, 11], auto: 1, social: true,
+      targets: (ctx) => offers(ctx, 'drink'),
+      finish: (ctx) => (DL.Interact ? { say: DL.Interact.sayFor({ type: 'drink' }, ctx.c.lastCup || 'coffee') } : null),
     },
-    // sit a little on a beanbag or sofa (prefers the ones in the own sector)
+    // sit a little on a sofa, armchair, beanbag or pouf
     {
       id: 'rest', name: 'Descansar um pouco', verb: 'Descansando um pouco', kind: 'rest', skill: 'gestao', xp: 1, dur: [8, 13], auto: 0.7, social: true,
-      targets: (ctx) => items(ctx, 'beanbag').concat(items(ctx, 'sofa')),
-      finish: () => (rand() < 0.3 ? { say: pick(['Esse pufe é perigoso, quase cochilei 😴', 'Cinco minutinhos e a cabeça volta a funcionar.', 'Pronto, energia recarregada.']) } : null),
+      targets: (ctx) => offers(ctx, 'rest', (e, a) => !a.chair),
+      finish: () => (DL.Interact ? { say: DL.Interact.sayFor({ type: 'rest' }) } : null),
+    },
+    // a few minutes in front of the TV, or a round at the arcade
+    {
+      id: 'tv', name: 'Assistir TV', verb: 'Assistindo TV', kind: 'use', skill: 'gestao', xp: 1, dur: [8, 12], auto: 0.5, social: true,
+      targets: (ctx) => offers(ctx, 'watch', (e) => DL.Interact.freeUse(e, ctx.a)),
+      finish: () => (DL.Interact ? { say: DL.Interact.sayFor({ type: 'watch' }) } : null),
+    },
+    {
+      id: 'arcade', name: 'Jogar fliperama', verb: 'Jogando fliperama', kind: 'use', skill: 'gestao', xp: 1, dur: [9, 13], auto: 0.4, social: true,
+      targets: (ctx) => items(ctx, 'arcade').filter((e) => DL.Interact && DL.Interact.freeUse(e, ctx.a)),
+      finish: () => (rand() < 0.4 ? { say: pick(['Recorde novo no fliperama 🕹️', 'Perdi na última fase. Revanche depois do turno!']) } : null),
     },
   ];
+  // work tasks that use furniture: planning at a board, tests at a workbench
+  const boards = (ctx) => offers(ctx, 'use', (e) => /board|kanban/.test(e.kind) && DL.Interact.freeUse(e, ctx.a));
+  const benches = (ctx) => offers(ctx, 'use', (e, a) => a.bench && DL.Interact.freeUse(e, ctx.a));
+  const BOARD_TASK = (id, name, verb, skill, lines) => ({
+    id, name, verb, kind: 'use', skill, xp: 10, dur: [10, 15], auto: 1.2,
+    desc: 'Usa um quadro branco, kanban ou painel de vidro.', none: 'Nenhum quadro livre (coloque um quadro branco ou kanban)',
+    targets: boards, finish: () => ({ say: pick(lines) }),
+  });
+  T.gerente.push(BOARD_TASK('board', 'Planejar no quadro', 'Planejando no quadro', 'gestao', ['Atualizei o kanban: 3 tarefas em andamento, 2 prontas.', 'Desenhei o plano de expansão no quadro. Comentem!', 'Prioridades da semana no quadro ✔️']));
+  T.redes.push(BOARD_TASK('topo', 'Desenhar a topologia', 'Desenhando a topologia', 'redes', ['Topologia atualizada no quadro: core, distribuição e acesso.', 'Anotei as VLANs no quadro para todo mundo ver.']));
+  T.sysadmin.push(BOARD_TASK('runbook', 'Revisar procedimentos no quadro', 'Revisando procedimentos', 'sistemas', ['Passo a passo de reinício anotado no quadro.', 'Checklist de patch no quadro, sem desculpas agora.']));
+  const BENCH_TASK = {
+    id: 'benchtest', name: 'Testar peças na bancada', verb: 'Testando peças', kind: 'use', skill: 'servidores', xp: 10, dur: [10, 16], auto: 1.5,
+    desc: 'Testa fontes, discos e memórias de reserva numa bancada.', none: 'Nenhuma bancada livre (bancada técnica, de laboratório ou de reparo)',
+    targets: benches,
+    finish: () => ({ say: pick(['Testei 2 fontes e 4 pentes de memória da reserva: tudo ok.', 'Um SSD da reserva estava com setores ruins. Descartei.', 'Bancada organizada e peças testadas 🔧']) }),
+  };
+  T.tecnico.push(BENCH_TASK);
+  T.servidores.push(Object.assign({}, BENCH_TASK, { auto: 0.8 }));
 
   DL.JOBS = {
     BY_ROLE: T, SOCIAL, labelOf, FIX_NAME, devsOf, fixTask,

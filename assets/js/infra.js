@@ -524,6 +524,13 @@
       get isOpen() { return isOpen(); },
       get vms() { return V.vms; },
       nodes,
+      // saves (services/save-service.js): put back the VMs of a loaded game
+      restoreVms(list) {
+        V.vms = (list || []).map((v) => Object.assign({ t: 0, up: v.status === 'running' ? 600 : 0, cpu: 0, mem: 0, h: hist(), created: game.clock() }, v));
+        V.seq = Math.max(100, ...V.vms.map((v) => v.id || 0));
+        V.sel = null;
+        V.view = 'summary';
+      },
     };
   };
 })();

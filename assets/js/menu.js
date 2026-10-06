@@ -19,23 +19,7 @@
   const BACKDROP = 'dcm';
   const M = { screen: 'title', sub: null };
 
-  /* ------------------------------------------------------------------ */
-  /* Saves: the structure a real save system plugs into. A save is       */
-  /* { id, name, preset, savedAt, stats: { rooms, racks, crew, credits } }. */
-  /* Serialising the whole world is not implemented yet, so today a save */
-  /* restores its starting preset; `DL.Saves.put` is the hook to call.   */
-  /* ------------------------------------------------------------------ */
-  const SAVES_KEY = 'datalab.saves.v1';
-  DL.Saves = {
-    list: () => store.get(SAVES_KEY, []).sort((a, b) => b.savedAt - a.savedAt),
-    get: (id) => DL.Saves.list().find((s) => s.id === id) || null,
-    put(save) {
-      const all = store.get(SAVES_KEY, []).filter((s) => s.id !== save.id);
-      all.push(Object.assign({ id: 's' + Date.now().toString(36), savedAt: Date.now() }, save));
-      store.set(SAVES_KEY, all.slice(-12));
-    },
-    remove(id) { store.set(SAVES_KEY, store.get(SAVES_KEY, []).filter((s) => s.id !== id)); },
-  };
+  // Saves live in the player's account (services/save-service.js → Edge Function "game").
 
   /* ---------------- player identity (from the character editor) ---------------- */
   const playerProfile = () => D.crew.playerProfile || store.get('datalab.player.v1', null);
@@ -94,16 +78,6 @@
     { title: 'Bunker Industrial', by: 11, base: 'dcs', theme: 'industrial', likes: 964, visits: '5,3 mil', tag: 'Escolha da equipe', blurb: 'Concreto, tubos de LED e refrigeração de precisão em linha.' },
     { title: 'Campus Verde', by: 0, base: 'dcm', theme: 'minimal', likes: 812, visits: '4,6 mil', tag: 'Eficiência energética', blurb: 'PUE de 1,18 com plantas por todo o NOC e salão silencioso.' },
   ];
-
-  const SHOP = [
-    { id: 'skin_neon', cat: 'visual', name: 'Pacote Neon', desc: 'Faixas de LED e brilho extra nos racks.', price: 250, cur: 'datacoins', art: 'neon' },
-    { id: 'skin_gold', cat: 'visual', name: 'Rack Dourado', desc: 'Acabamento metálico para o rack principal.', price: 600, cur: 'datacoins', art: 'gold' },
-    { id: 'outfit_ops', cat: 'char', name: 'Uniforme de Plantão', desc: 'Jaqueta com faixa refletiva e crachá exclusivo.', price: 180, cur: 'datacoins', art: 'outfit' },
-    { id: 'pet_bot', cat: 'char', name: 'Robô Mascote', desc: 'Um pequeno robô que segue a equipe pelo salão.', price: 420, cur: 'datacoins', art: 'bot' },
-    { id: 'boost_xp', cat: 'boost', name: 'Treinamento Intensivo', desc: '+25% de XP para a equipe por um turno.', price: 120, cur: 'credits', art: 'xp' },
-    { id: 'boost_cool', cat: 'boost', name: 'Manutenção Preventiva', desc: 'Menos falhas de hardware no próximo turno.', price: 90, cur: 'credits', art: 'cool' },
-  ];
-  const SHOP_KEY = 'datalab.shop.v1';
 
   const MARKET = [
     { name: 'Layout “Corredor Frio”', kind: 'Layout de sala', seller: 6, price: 340, art: 'servers' },
@@ -167,48 +141,23 @@
     g.fillRect(0, 0, w, h);
   }
 
-  /* ---------------- art for shop / market cards ---------------- */
-  const ART = {
-    neon: 'linear-gradient(135deg,#1b1330,#3b1d6e 50%,#ff7a17)', gold: 'linear-gradient(135deg,#2a2112,#8a6a2a 55%,#ffd27a)',
-    outfit: 'linear-gradient(135deg,#1a1c20,#2f3a4d 55%,#ffc285)', bot: 'linear-gradient(135deg,#0d1726,#2a4a6e 55%,#a0c3ec)',
-    xp: 'linear-gradient(135deg,#1a1c20,#4b3a8a 55%,#c4b5fd)', cool: 'linear-gradient(135deg,#0d1726,#1f4d5c 55%,#7ee0a1)',
-  };
-  const GLYPH = { neon: '◈', gold: '▣', outfit: '◐', bot: '◉', xp: '▲', cool: '❄' };
-
   /* ------------------------------------------------------------------ */
   /* Screens                                                            */
   /* ------------------------------------------------------------------ */
   const wallet = () => D.economy.wallet;
   const balanceHtml = () =>
     '<span class="mm-bal"><span class="cur cur--cr" aria-hidden="true">◆</span><b>' + fmt(wallet().credits) + '</b><span class="eyebrow-sm">créditos</span></span>' +
-    '<span class="mm-bal"><span class="cur cur--dc" aria-hidden="true">⬢</span><b>' + fmt(wallet().datacoins) + '</b><span class="eyebrow-sm">DataCoins</span></span>';
+    '<span class="mm-bal"><span class="cur cur--dc" aria-hidden="true">⬢</span><b>' + fmt(wallet().gold || 0) + '</b><span class="eyebrow-sm">Gold</span></span>';
   const head = (eyebrow, title, extra) =>
     '<header class="mv__head"><button class="mv__back" type="button" data-go="menu" aria-label="Voltar ao menu"><span aria-hidden="true">←</span> Menu</button>' +
     '<div class="mv__titles"><p class="eyebrow-sm">' + eyebrow + '</p><h2 class="mv__title" id="menuViewTitle">' + title + '</h2></div>' + (extra || '') + '</header>';
   const soon = (text) => '<p class="mv__soon"><span class="dot dot--info" style="background:var(--breeze)"></span>' + text + '</p>';
 
   const SCREENS = {
+    // the account's cloud saves (filled by hydrateSaves: they come from the server)
     load() {
-      const saves = DL.Saves.list();
-      let h = head('Seus datacenters', 'Carregar jogo');
-      if (!saves.length) {
-        h += '<div class="mv-empty"><div class="mv-empty__art" aria-hidden="true"><i></i><i></i><i></i></div>' +
-          '<b>Nenhum jogo salvo ainda</b><p>Quando você salvar um datacenter, ele aparece aqui com salas, racks e equipe — pronto para continuar de onde parou.</p>' +
-          '<div class="mv-empty__actions"><button class="btn btn--primary" type="button" data-act="new">Começar um novo jogo <span class="arrow">→</span></button></div></div>';
-        h += '<div class="mv-slots" aria-hidden="true">' + [1, 2, 3].map((n) => '<div class="mv-slot is-empty"><span class="eyebrow-sm">Espaço ' + n + '</span><span>Vazio</span></div>').join('') + '</div>';
-        return h;
-      }
-      h += '<ul class="mv-saves">' + saves.map((s) => {
-        const st = s.stats || {}, d = new Date(s.savedAt);
-        return '<li class="mv-save"><canvas class="mv-save__map" data-room="' + esc(s.preset || 'zero') + '" data-theme="servers"></canvas>' +
-          '<div class="mv-save__info"><b>' + esc(s.name || 'Meu datacenter') + '</b><span class="eyebrow-sm">' + d.toLocaleDateString('pt-BR') + ' · ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' +
-          '<span class="mv-save__stats">' + (st.rooms || 0) + ' salas · ' + (st.racks || 0) + ' racks · ' + (st.crew || 0) + ' pessoas</span></div>' +
-          '<div class="mv-save__acts"><button class="btn btn--sm btn--primary" type="button" data-act="load" data-id="' + esc(s.id) + '">Continuar</button>' +
-          '<button class="btn btn--sm" type="button" data-act="del-save" data-id="' + esc(s.id) + '">Excluir</button></div></li>';
-      }).join('') + '</ul>';
-      return h;
+      return head('Seus datacenters · salvos na sua conta', 'Carregar jogo') + '<div data-cloud-saves><p class="mv-note">Carregando seus saves…</p></div>';
     },
-
     online() {
       return head('Multijogador', 'Jogar online') +
         '<div class="mv-online"><div class="mv-online__orb" aria-hidden="true"><i></i><i></i><i></i><span></span></div>' +
@@ -219,24 +168,12 @@
         '<div class="mv-empty__actions"><button class="btn btn--primary" type="button" data-act="new">Jogar solo <span class="arrow">→</span></button><button class="btn" type="button" data-go="menu">Voltar</button></div></div>';
     },
 
+    // the game's real shop and inventory (inventory.js), mounted here; purchases persist
     shop() {
-      const owned = store.get(SHOP_KEY, []);
-      let h = head('Itens cosméticos e reforços', 'Loja', '<div class="mv__bal" id="shopBal">' + balanceHtml() + '</div>');
-      h += '<p class="mv-note">Simulação — nenhuma cobrança real é feita. Os itens comprados ficam guardados na sua conta e serão ativados no jogo em uma próxima versão.</p>';
-      h += '<div class="mv-tabs" role="tablist">' + [['all', 'Tudo'], ['visual', 'Visual'], ['char', 'Personagem'], ['boost', 'Reforços'], ['coins', 'DataCoins']].map(([k, l], i) =>
-        '<button type="button" role="tab" class="mv-tab' + (i === 0 ? ' is-on' : '') + '" data-shop-tab="' + k + '">' + l + '</button>').join('') + '</div>';
-      h += '<div class="mv-grid" id="shopGrid">' + SHOP.map((it) => {
-        const has = owned.indexOf(it.id) >= 0;
-        return '<article class="mv-item" data-cat="' + it.cat + '"><div class="mv-item__art" style="background:' + ART[it.art] + '"><span>' + GLYPH[it.art] + '</span></div>' +
-          '<div class="mv-item__body"><b>' + it.name + '</b><p>' + it.desc + '</p></div>' +
-          '<div class="mv-item__foot"><span class="mv-price"><span class="cur ' + (it.cur === 'credits' ? 'cur--cr' : 'cur--dc') + '">' + (it.cur === 'credits' ? '◆' : '⬢') + '</span>' + fmt(it.price) + '</span>' +
-          (has ? '<span class="tag is-ok">Na sua conta</span>' : '<button class="btn btn--sm" type="button" data-act="buy" data-id="' + it.id + '">Comprar</button>') + '</div></article>';
-      }).join('') + DL.ECON.store.map((p) =>
-        '<article class="mv-item mv-item--coins" data-cat="coins"><div class="mv-item__art mv-item__art--coins"><span>⬢</span><b>' + fmt(p.coins) + '</b>' + (p.tag ? '<em>' + p.tag + '</em>' : '') + '</div>' +
-        '<div class="mv-item__body"><b>' + fmt(p.coins) + ' DataCoins</b><p>Pacote de moedas · simulação</p></div>' +
-        '<div class="mv-item__foot"><span class="mv-price">' + p.price + '</span><button class="btn btn--sm btn--primary" type="button" data-act="coins" data-sku="' + p.sku + '">Adicionar</button></div></article>'
-      ).join('') + '</div>';
-      return h;
+      return head('Skins, roupas, eventos e bots lendários · em Gold', 'Loja') + '<p class="mv-note">Simulação de pagamento — nenhuma cobrança real. Os itens vão para o seu inventário e já valem no jogo.</p><div class="st st--menu" data-store-mount="shop"></div>';
+    },
+    inventory() {
+      return head('Seus itens · equipar, vender, raridades', 'Inventário') + '<div class="st st--menu" data-store-mount="inv"></div>';
     },
 
     market() {
@@ -309,7 +246,40 @@
     });
     drawRooms(0);
     if (M.sub === 'ranking') renderRanking('score');
+    if (viewBody.querySelector('[data-cloud-saves]')) hydrateSaves();
+    const mount = viewBody.querySelector('[data-store-mount]');
+    if (mount && D.inventory) {
+      const opts = { go: (id) => openSub(id === 'inv' ? 'inventory' : id) };
+      if (mount.dataset.storeMount === 'shop') D.inventory.mountShop(mount, opts);
+      else D.inventory.mountInventory(mount, opts);
+    }
   }
+  // the 3 save slots of the account (slots created at signup but never played show as empty)
+  async function hydrateSaves() {
+    const box = viewBody.querySelector('[data-cloud-saves]');
+    if (!box || !DL.SaveService) return;
+    const list = await DL.SaveService.listCloud();
+    if (!viewBody.contains(box)) return;
+    const played = list.filter((s) => s.version > 0);
+    let h = '';
+    if (!played.length) {
+      h += '<div class="mv-empty"><div class="mv-empty__art" aria-hidden="true"><i></i><i></i><i></i></div>' +
+        '<b>Nenhum jogo salvo ainda</b><p>Seu primeiro datacenter é salvo na sua conta automaticamente: comece um Novo jogo.</p>' +
+        '<div class="mv-empty__actions"><button class="btn btn--primary" type="button" data-act="new">Começar um novo jogo <span class="arrow">→</span></button></div></div>';
+    } else {
+      h += '<ul class="mv-saves">' + played.map((s) => {
+        const st = s.stats || {}, d = new Date(s.updated_at);
+        return '<li class="mv-save"><canvas class="mv-save__map" data-room="zero" data-theme="servers"></canvas>' +
+          '<div class="mv-save__info"><b>' + esc(s.name || 'Meu datacenter') + '</b><span class="eyebrow-sm">Espaço ' + s.slot + ' · ' + d.toLocaleDateString('pt-BR') + ' · ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span>' +
+          '<span class="mv-save__stats">' + (st.rooms || 0) + ' salas · ' + (st.racks || 0) + ' racks · ' + (st.servers || 0) + ' servidores · ' + (st.crew || 0) + ' pessoas · $' + fmt(st.cash || 0) + '</span></div>' +
+          '<div class="mv-save__acts"><button class="btn btn--sm btn--primary" type="button" data-act="load" data-id="' + s.slot + '">Continuar</button>' +
+          '<button class="btn btn--sm" type="button" data-act="del-save" data-id="' + s.slot + '">Excluir</button></div></li>';
+      }).join('') + '</ul>';
+    }
+    box.innerHTML = h;
+    drawRooms(0);
+  }
+
   function drawRooms(t) {
     viewBody.querySelectorAll('canvas[data-room]').forEach((cv) => drawRoom(cv, cv.dataset.room, cv.dataset.theme, t));
   }
@@ -383,15 +353,18 @@
   function refreshMenuMeta() {
     $('mmName').textContent = playerName();
     const prof = playerProfile();
-    $('mmRole').textContent = prof && DL.ROLES[prof.role] ? DL.ROLES[prof.role].name : 'Operador(a)';
+    $('mmRole').textContent = (M.account ? '@' + M.account.username + ' · ' : '') + (prof && DL.ROLES[prof.role] ? DL.ROLES[prof.role].name : 'Operador(a)');
+    if (M.account && $('titleUser')) $('titleUser').textContent = 'Conectado como @' + M.account.username;
     drawFace($('mmFace'), sheetOf(playerProfile()));
     $('mmBal').innerHTML = balanceHtml();
-    const n = DL.Saves.list().length;
-    $('mmSaves').textContent = n ? n + (n === 1 ? ' jogo salvo' : ' jogos salvos') : 'Nenhum save';
+    if (DL.SaveService && DL.Cloud && DL.Cloud.signedIn) DL.SaveService.listCloud().then((list) => {
+      const n = list.filter((x) => x.version > 0).length;
+      $('mmSaves').textContent = n ? n + (n === 1 ? ' jogo salvo na conta' : ' jogos salvos na conta') : 'Nenhum jogo salvo ainda';
+    });
   }
 
-  // Leave the menu and hand over to the existing start card (preset choice + tutorial).
-  function newGame(preset) {
+  // Leave the menu and hand over to the existing start card (tutorial). Every new game starts from scratch.
+  function newGame() {
     closeSub(true);
     root.classList.add('is-leaving');
     setTimeout(() => {
@@ -399,7 +372,7 @@
       root.classList.remove('is-leaving');
       game.classList.remove('is-title');
       D.scene.o.attract = false;
-      D.choosePreset(preset || 'zero');
+      D.choosePreset('zero');
       $('intro').classList.add('is-open');
       $('tutStart').focus({ preventScroll: true });
     }, 520);
@@ -420,17 +393,23 @@
     D.scene.o.attract = true;
   }
 
-  function loadSave(id) {
-    const s = DL.Saves.get(id);
-    if (!s) return;
-    // Full world restore is not implemented yet: start from the save's preset, without the tutorial.
-    newGame(s.preset);
-    setTimeout(() => {
-      D.begin(false);
-      D.game.toast('info', s.name || 'Jogo carregado', 'Restauração completa do save chega em breve · base: ' + ((DL.PRESETS[s.preset] || DL.PRESETS.zero).name));
-    }, 600);
+  // Continue a cloud save: leave the menu, the game restores the world from the server (cloud-sync.js)
+  async function loadSave(slot) {
+    closeSub(true);
+    root.hidden = true;
+    game.classList.remove('is-title');
+    D.scene.o.attract = false;
+    const r = await DL.CloudSync.load(+slot);
+    if (!r.ok) { game.classList.add('is-title'); root.hidden = false; setScreen('menu'); flash(r.message || 'Não foi possível carregar.', 'warn'); }
   }
-
+  async function deleteSave(btn) {
+    if (btn.dataset.confirm !== '1') { btn.dataset.confirm = '1'; btn.textContent = 'Confirmar exclusão'; return; }
+    btn.disabled = true;
+    const r = await DL.SaveService.remove(+btn.dataset.id);
+    flash(r.ok ? 'Save excluído.' : r.message, r.ok ? 'ok' : 'warn');
+    refreshMenuMeta();
+    openSub('load');
+  }
   function soonToast(what) {
     flash((what || 'Este recurso') + ' chega com o modo online — estamos desenvolvendo.');
   }
@@ -450,13 +429,13 @@
       const id = go.dataset.go;
       if (id === 'menu') return closeSub();
       if (id === 'new') return newGame('zero');
+      if (id === 'account') return DL.AccountUI && DL.AccountUI.open();
       return openSub(id);
     }
-    const tab = ev.target.closest('[data-shop-tab],[data-rank]');
+    const tab = ev.target.closest('[data-rank]');
     if (tab) {
       tab.parentElement.querySelectorAll('.mv-tab').forEach((t) => t.classList.toggle('is-on', t === tab));
-      if (tab.dataset.rank) renderRanking(tab.dataset.rank);
-      else viewBody.querySelectorAll('#shopGrid .mv-item').forEach((it) => { it.hidden = tab.dataset.shopTab !== 'all' && it.dataset.cat !== tab.dataset.shopTab; });
+      renderRanking(tab.dataset.rank);
       return;
     }
     const a = ev.target.closest('[data-act]');
@@ -465,54 +444,17 @@
       case 'new': return newGame('zero');
       case 'use-room': return newGame(a.dataset.base);
       case 'load': return loadSave(a.dataset.id);
-      case 'del-save': DL.Saves.remove(a.dataset.id); refreshMenuMeta(); return openSub('load');
+      case 'del-save': return deleteSave(a);
       case 'soon': return soonToast(a.dataset.what);
       case 'copy-code': {
         const c = friendCode();
         if (navigator.clipboard) navigator.clipboard.writeText(c).catch(() => {});
         return flash('Código ' + c + ' copiado.', 'ok');
       }
-      case 'buy': {
-        const it = SHOP.find((x) => x.id === a.dataset.id);
-        if (!it) return;
-        if (wallet()[it.cur] < it.price) {
-          a.classList.add('is-shake');
-          setTimeout(() => a.classList.remove('is-shake'), 500);
-          return flash('Saldo insuficiente de ' + (it.cur === 'credits' ? 'créditos' : 'DataCoins') + ' — jogue para ganhar mais ou adicione DataCoins (simulação).', 'warn');
-        }
-        D.economy.earn(it.cur, -it.price, 'Loja: ' + it.name, { quiet: true });
-        const owned = store.get(SHOP_KEY, []);
-        owned.push(it.id);
-        store.set(SHOP_KEY, owned);
-        flash(it.name + ' adicionado à sua conta.', 'ok');
-        return rerenderKeepTab();
-      }
-      case 'coins': {
-        const pack = DL.ECON.store.find((p) => p.sku === a.dataset.sku);
-        if (!pack) return;
-        a.disabled = true;
-        a.textContent = 'Processando…';
-        DL.Payments.purchase(pack).then((r) => {
-          if (!r.ok) { a.disabled = false; a.textContent = 'Adicionar'; return flash('Compra não concluída.', 'warn'); }
-          D.economy.earn('datacoins', r.coins, 'Loja (simulação) · ' + r.receipt, { quiet: true });
-          flash('+' + fmt(r.coins) + ' DataCoins (simulação, sem cobrança).', 'ok');
-          rerenderKeepTab();
-        });
-      }
     }
   });
-  function rerenderKeepTab() {
-    const on = viewBody.querySelector('[data-shop-tab].is-on');
-    const tab = on ? on.dataset.shopTab : 'all';
-    const top = viewBody.scrollTop;
-    viewBody.innerHTML = SCREENS.shop();
-    const b = viewBody.querySelector('[data-shop-tab="' + tab + '"]');
-    if (b) b.click();
-    viewBody.scrollTop = top;
-    $('mmBal').innerHTML = balanceHtml();
-    const bal = $('shopBal');
-    if (bal) { bal.classList.add('is-bump'); setTimeout(() => bal.classList.remove('is-bump'), 450); }
-  }
+  // balances in the menu footer follow every purchase / sale / exchange
+  D.game.on('wallet', () => { if (!root.hidden) $('mmBal').innerHTML = balanceHtml(); });
   root.addEventListener('submit', (ev) => {
     ev.preventDefault();
     const inp = ev.target.querySelector('input');
@@ -528,6 +470,7 @@
   // Keys: the menu owns the keyboard while it is up (runs before demo.js' own handler).
   addEventListener('keydown', (ev) => {
     if (root.hidden) return;
+    if (DL.AccountUI && DL.AccountUI.isOpen) { if (ev.code === 'Escape') { DL.AccountUI.close(); ev.preventDefault(); } ev.stopImmediatePropagation(); return; }
     ev.stopImmediatePropagation();
     const typing = document.activeElement && document.activeElement.tagName === 'INPUT';
     if (ev.code === 'Escape') {
@@ -562,5 +505,27 @@
   setScreen('title');
   requestAnimationFrame(() => root.classList.add('is-ready'));
 
-  D.menu = { open: (id) => (id ? openSub(id) : setScreen('menu')), close: closeSub, newGame, backToMenu, get screen() { return M.screen; }, get sub() { return M.sub; } };
+  // leave the account (auth-gate.js brings the login back when the session ends)
+  const logoutBtn = $('mmLogout');
+  if (logoutBtn) logoutBtn.addEventListener('click', async () => {
+    logoutBtn.disabled = true;
+    logoutBtn.textContent = 'Saindo…';
+    await DL.Auth.signOut();
+  });
+  // in game: "Menu" saves to the cloud and goes back to the Main Menu
+  const menuBtn = $('menuBtn');
+  if (menuBtn) menuBtn.addEventListener('click', async () => {
+    menuBtn.disabled = true;
+    menuBtn.textContent = 'Salvando…';
+    if (DL.SaveService && DL.SaveService.slot) {
+      const r = await DL.SaveService.save({});
+      if (!r.ok && r.code !== 'idle') { D.game.toast('warn', 'Não foi possível salvar', r.message + ' · tente de novo'); menuBtn.disabled = false; menuBtn.textContent = 'Menu'; return; }
+    }
+    location.replace(location.pathname); // the session stays: straight back to the Main Menu
+  });
+
+  D.menu = { open: (id) => (id ? openSub(id) : setScreen('menu')), close: closeSub, newGame, backToMenu, get screen() { return M.screen; }, get sub() { return M.sub; },
+    // the logged-in account (auth-gate.js): shown in the menu footer and on the title screen
+    setAccount(p) { M.account = p; refreshMenuMeta(); },
+    refresh: refreshMenuMeta };
 })();

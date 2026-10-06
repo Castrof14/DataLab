@@ -784,6 +784,7 @@
       a.route = api().nav.route(a.x, a.y, goal.x, goal.y);
     }
     function removeClient(a) {
+      if (DL.Interact) DL.Interact.release(a);
       CL.list = CL.list.filter((x) => x !== a);
       scene.actors = scene.actors.filter((x) => x !== a);
       scene.refreshWorld(false);
@@ -803,6 +804,59 @@
       a.dist += 26 * dt;
       return !r.length;
     }
+    /* visitors use the reception's furniture too (interact.js) */
+    function visitorActivity(a, r) {
+      if (!DL.Interact) return false;
+      const W = world(), c = a.client, nav = api().nav, inR = (e) => inRoom(r, (e.host || e).tx, (e.host || e).ty);
+      const roll = rand();
+      if (roll < 0.5) {
+        for (const e of DL.Interact.offers(W, 'rest', (e) => inR(e))) {
+          const s = DL.Interact.freeSeat(e, W, a, a);
+          const route = s && nav.route(a.x, a.y, s.fromPt.x, s.fromPt.y);
+          if (!route) continue;
+          DL.Interact.claim(e, s.k, a);
+          c.seat = s;
+          a.route = route;
+          c.state = 'toSeat';
+          return true;
+        }
+      } else if (roll < 0.75 && !a.held) {
+        const ok = { water: 1, coffee: 1, espresso: 1, coffeebar: 1, vending: 1, kettle: 1 };
+        for (const e of DL.Interact.offers(W, 'drink', (e) => ok[e.kind] && inR(e))) {
+          const sp = DL.Interact.standPoint(e, W);
+          const route = sp && nav.route(a.x, a.y, sp.x, sp.y);
+          if (!route) continue;
+          c.drink = { e, sp };
+          a.route = route;
+          c.state = 'toDrink';
+          return true;
+        }
+      }
+      return false;
+    }
+    function sitVisitor(a) {
+      const s = a.client.seat;
+      if (!s) return;
+      if (!a.sitSheet) a.sitSheet = DL.makeSitSheet(a.look);
+      a.x = s.sit.x;
+      a.y = s.sit.y;
+      a.seated = true;
+      a.noShadow = true;
+      a.sortKey = s.sortKey;
+      a.frame = function () { return this.seated ? (this.blinkT > 0 ? this.sitSheet[s.dir].blink : this.sitSheet[s.dir].R) : DL.Actor.prototype.frame.call(this); };
+    }
+    // up from the seat before walking anywhere
+    function standVisitor(a) {
+      if (!a.seated) return;
+      const s = a.client.seat;
+      if (s) { a.x = s.onTile ? s.sit.x : s.fromPt.x; a.y = s.onTile ? s.sit.y : s.fromPt.y; }
+      a.seated = false;
+      a.noShadow = false;
+      a.sortKey = null;
+      a.client.seat = null;
+      if (DL.Interact) DL.Interact.release(a);
+    }
+
     function tickClients(dt) {
       const r = receptionRoom();
       if (!game.paused() && r) {
@@ -814,6 +868,7 @@
         a.tick(dt);
         const c = a.client;
         if (a.bubble && (a.bubble.left -= dt) <= 0) a.bubble = null;
+        if (a.held && (a.held.sipT -= dt) <= -0.9) a.held.sipT = between(1.6, 2.8);
         // the reception changed or vanished: the visitor leaves
         if ((!r || r.id !== c.room) && c.state !== 'out') { c.state = 'out'; c.t = 0.8; }
         switch (c.state) {
@@ -839,16 +894,22 @@
               if (!j || j.def.kind !== 'client' || j.target !== a || (!c.talking && c.servedT > 45)) { c.served = null; c.talking = false; c.servedT = 0; c.t = between(2, 4); }
               else { c.stay = Math.max(c.stay, 4); if (m.crew.state === 'serving') a.dir = DL.dirOf(m.x - a.x, m.y - a.y); break; }
             }
-            if (c.done) { if (c.stay <= 0) { c.state = 'leave'; a.route = api().nav.route(a.x, a.y, c.door.x, c.door.y); if (!a.route) { c.state = 'out'; c.t = 0.8; } } break; }
+            if (c.done) { if (c.stay <= 0) { standVisitor(a); c.state = 'leave'; a.route = api().nav.route(a.x, a.y, c.door.x, c.door.y); if (!a.route) { c.state = 'out'; c.t = 0.8; } } break; }
             // somebody attends in person: wait for them patiently
             if (attendants().length) {
               if (!c.said && c.stay < 40) { c.said = true; a.bubble = { text: pick(['Com licença… tem alguém atendendo?', 'Bom dia! Estou esperando ser atendido(a).', 'Oi! Aguardo aqui?']), left: 3.5, tone: 'chat' }; }
+              // while waiting: a seat or a coffee, if the reception offers one
+              if (!c.served && !a.seated && c.t <= 0 && c.stay > 8) {
+                c.t = between(6, 12);
+                const rr = (world().rooms || []).find((x) => x.id === c.room);
+                if (rr && visitorActivity(a, rr)) break;
+              }
               if (c.stay <= 0) {
                 c.gaveUp = true;
                 CL.lost++;
                 ops.logEvent('warn', '🛎️ ' + c.name + ' foi embora sem ser atendido(a) na recepção');
                 a.bubble = { text: pick(['Vou voltar outra hora…', 'Demorou demais, tchau.']), left: 3, tone: 'chat' };
-                c.state = 'leave';
+                standVisitor(a); c.state = 'leave';
                 a.route = api().nav.route(a.x, a.y, c.door.x, c.door.y);
                 if (!a.route) { c.state = 'out'; c.t = 0.8; }
               }
@@ -864,11 +925,13 @@
               if (host) chat().later(between(1.5, 2.5), () => { if (alive(host)) chat().post(host, pick(['Bem-vindo(a), ' + c.name + '! Já vou te atender.', c.name + ' chegou na recepção. Já estou indo!', 'Olá, ' + c.name + '! Fique à vontade, um minuto.'])); });
             }
             if (c.stay <= 0) {
-              c.state = 'leave';
+              standVisitor(a); c.state = 'leave';
               a.route = api().nav.route(a.x, a.y, c.door.x, c.door.y);
               if (!a.route) { c.state = 'out'; c.t = 0.8; }
             } else if (c.t <= 0) {
               const rr = (world().rooms || []).find((x) => x.id === c.room);
+              if (a.seated) { c.t = between(6, 12); break; } // comfortable: stays put until served
+              if (rr && visitorActivity(a, rr)) break;
               const g = rr && clientSpot(rr);
               a.route = g ? api().nav.route(a.x, a.y, g.x, g.y) : null;
               c.state = a.route ? 'walk' : 'wait';
@@ -876,6 +939,23 @@
             }
             break;
           }
+          /* while waiting: sit down for a while, or grab a coffee / water (interact.js) */
+          case 'toSeat':
+            if (walkClient(a, dt)) { a.moving = false; sitVisitor(a); c.state = 'wait'; c.t = between(14, 24); }
+            break;
+          case 'toDrink':
+            if (walkClient(a, dt)) { a.moving = false; a.dir = c.drink.sp.dir; c.state = 'drinkFill'; c.t = 1.4; c.drink.e.busy = true; }
+            break;
+          case 'drinkFill':
+            a.moving = false;
+            c.t -= dt;
+            if (c.t <= 0) {
+              c.drink.e.busy = false;
+              a.held = { what: DL.Interact.cupOf(DL.Interact.of(c.drink.e) || { cup: 'water' }), sipT: 1 };
+              c.state = 'wait';
+              c.t = between(6, 10);
+            }
+            break;
           case 'leave':
             if (walkClient(a, dt)) { a.moving = false; c.state = 'out'; c.t = 0.8; a.dir = 'down'; }
             break;
@@ -998,30 +1078,43 @@
       for (const rec of M.broken) {
         const e = rec.place;
         if (!e || !e.bounds) continue;
-        const b = e.bounds;
-        let x = b.x + b.w / 2, y = b.y + 2;
-        if (rec.dev && !e.rot) {
-          y = e.py - 15 + rec.dev.slot * 3;
-          x = e.px + 8;
-          if (rec.out) { g.fillStyle = '#07080a'; g.fillRect(e.px + 3, y, 10, 2); }
-        }
-        if (rec.item && rec.out) {
-          g.globalAlpha = 0.6 + 0.3 * Math.sin(t * 4);
-          g.fillStyle = '#ff7a17';
-          g.fillRect(b.x + 1, b.y + b.h - 2, 3, 1); g.fillRect(b.x + b.w - 4, b.y + b.h - 2, 3, 1);
-          g.globalAlpha = 1;
-        }
-        if (!rec.out) {
-          for (let i = 0; i < 3; i++) {
-            const k = (t * 0.45 + i / 3) % 1;
-            g.globalAlpha = 0.35 * (1 - k);
-            g.fillStyle = '#9aa3b0';
-            g.fillRect(Math.round(x - 1 + Math.sin(t * 2 + i) * 2), Math.round(y - 3 - k * 10), 2, 2);
-          }
-          g.globalAlpha = 1;
-        }
-        if (Math.sin(t * 6) > 0) { g.fillStyle = '#ff7a17'; g.fillRect(Math.round(x) - 1, Math.round(b.y) - 4, 2, 2); }
+        // isometric: the marks live in the object's own sprite coordinates
+        if (sc.iso) { g.save(); sc.spriteSpace(g, e); brokenFx(g, rec, e, t); g.restore(); }
+        else brokenFx(g, rec, e, t);
       }
+      // what the visitors hold (a coffee / water while they wait)
+      for (const a of CL.list) {
+        if (!a.held || a.seated || a.hidden) continue;
+        g.save();
+        if (sc.iso) sc.actorSpace(g, a);
+        DL.drawHeld(g, a, a.held.what, a.held.sipT < 0, t, 3);
+        g.restore();
+      }
+    }
+    function brokenFx(g, rec, e, t) {
+      const b = e.bounds;
+      let x = b.x + b.w / 2, y = b.y + 2;
+      if (rec.dev && !e.rot) {
+        y = e.py - 15 + rec.dev.slot * 3;
+        x = e.px + 8;
+        if (rec.out) { g.fillStyle = '#07080a'; g.fillRect(e.px + 3, y, 10, 2); }
+      }
+      if (rec.item && rec.out) {
+        g.globalAlpha = 0.6 + 0.3 * Math.sin(t * 4);
+        g.fillStyle = '#ff7a17';
+        g.fillRect(b.x + 1, b.y + b.h - 2, 3, 1); g.fillRect(b.x + b.w - 4, b.y + b.h - 2, 3, 1);
+        g.globalAlpha = 1;
+      }
+      if (!rec.out) {
+        for (let i = 0; i < 3; i++) {
+          const k = (t * 0.45 + i / 3) % 1;
+          g.globalAlpha = 0.35 * (1 - k);
+          g.fillStyle = '#9aa3b0';
+          g.fillRect(Math.round(x - 1 + Math.sin(t * 2 + i) * 2), Math.round(y - 3 - k * 10), 2, 2);
+        }
+        g.globalAlpha = 1;
+      }
+      if (Math.sin(t * 6) > 0) { g.fillStyle = '#ff7a17'; g.fillRect(Math.round(x) - 1, Math.round(b.y) - 4, 2, 2); }
     }
 
     /* ================================================================== */

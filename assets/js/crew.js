@@ -53,9 +53,14 @@
       body: p.body, outfit: p.outfit, vest: p.vest ? '#5a6170' : null, glasses: p.glasses, beard: p.beard, earrings: p.earrings,
       hat: p.hat || null, capColor: r.color, headset: p.headset,
       role: p.role, roleColor: r.color, badge: r.color, lanyard: r.color,
+      // shop cosmetics (cosmetics.js): pants style, accessories, the hat's own colour, the legendary visor
+      pantsStyle: p.pantsStyle || null, shades: p.shades, scarf: p.scarf, chain: p.chain, backpack: p.backpack,
+      hatColor: p.hatColor || null, visor: p.visor,
     };
   }
   DL.crewLook = lookOf;
+  // the creator's built-in options (the shop adds the ones the player owns)
+  DL.CHAR_OPTS = { SKINS, HAIRS, CLOTHES, PANTS, STYLES, OUTFITS, HATS, EXTRAS };
 
   /* ------------------------------------------------------------------ */
   /* Navigation: A* on the tile grid, diagonals without corner cutting,  */
@@ -366,7 +371,10 @@
       const pl = game.player;
       const L = lookOf(PL.profile);
       if (pl) { pl.look = L; pl.sheet = DL.makeSheet(L); pl.sitSheet = DL.makeSitSheet(L); pl.actSheet = DL.makeActSheet(L); }
-      if (save) { try { localStorage.setItem(PLAYER_KEY, JSON.stringify(PL.profile)); } catch (e) { /* private mode: keep it for this session */ } }
+      if (save) {
+        try { localStorage.setItem(PLAYER_KEY, JSON.stringify(PL.profile)); } catch (e) { /* private mode: keep it for this session */ }
+        game.emit('player-look', PL.profile); // cloud-sync.js keeps the account's avatar up to date
+      }
       if (el.meName) {
         const r = ROLES[PL.profile.role];
         el.meName.textContent = PL.profile.name;
@@ -422,7 +430,7 @@
       const tx = c.tx + (r === 2 ? -1 : r === 3 ? 1 : 0), ty = c.ty + (r === 0 ? -1 : r === 1 ? 1 : 0);
       const table = itemAt(tx, ty, (e) => e.kind === 'table');
       if (!table) return null;
-      const mon = world().items.find((e) => e.kind === 'monitor' && e.host === table && e.tx === tx && e.ty === ty);
+      const mon = world().items.find((e) => (e.kind === 'monitor' || e.kind === 'laptop') && e.host === table && e.tx === tx && e.ty === ty);
       if (!mon) return null;
       const sit = r === 2 ? { x: c.px + 5, y: c.py + 4 } : r === 3 ? { x: c.px + 11, y: c.py + 4 } : { x: c.px + 8, y: r === 1 ? c.py + 14 : c.py + 4 };
       return {
@@ -436,7 +444,7 @@
       if (!e || world().items.indexOf(e) < 0) return null;
       if (e.kind === 'desk') return deskStation(e);
       if (e.kind === 'chair') return e.parent ? deskStation(e.parent) : chairStation(e);
-      if (e.kind === 'monitor' && e.host) {
+      if ((e.kind === 'monitor' || e.kind === 'laptop') && e.host) {
         for (const c of world().items) {
           if (c.kind !== 'chair' || c.parent) continue;
           const s = chairStation(c);
@@ -625,20 +633,13 @@
       const h = e.host || e;
       return { x: h.px + (h.tw || 1) * 8, y: (h.ty + (h.th || 1)) * T + 10 };
     }
-    // a free seat on a beanbag / sofa: where to sit, where to step from, how to sort
-    function restSeat(e) {
-      if (!e || world().items.indexOf(e) < 0) return null;
-      const n = e.kind === 'sofa' ? e.tw || 2 : 1;
-      for (let k = 0; k < n; k++) {
-        if (C.members.some((m) => m.crew.restSeat && m.crew.restSeat.item === e && m.crew.restSeat.k === k && m.crew.job && m.crew.job.def.kind === 'rest')) continue;
-        const f = nav.nearestFree(e.tx + k, e.ty + (e.th || 1), 3);
-        if (!f) continue;
-        return { item: e, k, sit: { x: e.px + 8 + k * 16, y: e.py + (e.kind === 'sofa' ? 10 : 12) }, from: nav.center(f[0], f[1]), sortKey: (e.sortY || e.py + 16) + 0.5 };
-      }
-      return null;
+    // a free seat on a sofa / beanbag / pouf (interact.js knows the seats; the seat is reserved for `a`)
+    function restSeat(e, a) {
+      if (!e || world().items.indexOf(e) < 0 || !DL.Interact) return null;
+      const s = DL.Interact.freeSeat(e, world(), a, a ? { x: a.x, y: a.y } : null);
+      if (!s) return null;
+      return { item: e, k: s.k, sit: s.sit, dir: s.dir, from: s.fromPt, sortKey: s.sortKey };
     }
-
-    const restSeatAt = (s) => ({ x: s.item.px + 8 + s.k * 16, y: s.item.py + (s.item.kind === 'sofa' ? 10 : 12) });
 
     function install(rack) {
       const k = rack.units.indexOf(null);
@@ -666,7 +667,10 @@
       // standing actions: hands on the equipment while working on it, mouth moving while talking
       if (!this.moving && c.act) {
         const t = scene.t, s = c.act[this.dir] || c.act.down;
-        if (c.state === 'pickup' || c.state === 'installing' || c.state === 'repairing' || c.state === 'inspecting' || c.state === 'fetching' || (c.state === 'atSpot' && c.job && c.job.order)) {
+        if (c.state === 'using' && c.useAnim !== 'reach') {
+          // watching: now and then a comment about what is on screen
+          if (Math.sin(t * 0.9 + c.id) > 0.82 && Math.floor(t * 7) % 2) return s.talk;
+        } else if (c.state === 'pickup' || c.state === 'installing' || c.state === 'repairing' || c.state === 'inspecting' || c.state === 'fetching' || c.state === 'using' || (c.state === 'atSpot' && c.job && c.job.order)) {
           if (Math.floor(t * 2.6 + c.id) % 3) return s.reach;
         } else if ((c.state === 'talking' || c.state === 'serving' || (c.talkT > 0 && c.talkWith) || (this.bubble && this.bubble.left > 0.6)) && Math.floor(t * 7) % 2) return s.talk;
       }
@@ -693,7 +697,12 @@
     function hire(profile, opts) {
       opts = opts || {};
       if (C.members.length >= MAX_CREW) { game.toast('warn', 'Equipe cheia', 'Limite de ' + MAX_CREW + ' pessoas no turno'); return null; }
-      const stats = opts.stats || XP.newStats(profile.role, opts.level);
+      const stats = opts.stats || XP.newStats(profile.role, opts.legend ? 8 : opts.level);
+      if (opts.legend && !opts.stats) {
+        // legendary: very high in every area, the main one near the top
+        for (const [k] of DL.SKILLS) stats.skills[k] = Math.max(stats.skills[k], Math.round(80 + rand() * 10));
+        stats.skills[DL.ROLE_SKILL[profile.role] || 'gestao'] = 96;
+      }
       // each person negotiates their own salary (±8% around the role's base); hiring costs half of it
       const pay = opts.pay || Math.round((0.92 + rand() * 0.16) * 100) / 100;
       if (!opts.free && game.economy && game.economy.hireCharge) {
@@ -713,7 +722,10 @@
         // work schedule (shifts.js): 24 h by default; on-call shifts it may cover
         shift: { id: 'integral', start: 0, end: 24 }, oncall: [],
         missing: [], gripeT: 10 + rand() * 20, needsT: 0, cup: null, off: null,
+        // legendary bot: the inventory item it came from (inventory.js)
+        legend: opts.legend || null,
       };
+      a.legend = !!opts.legend;
       a.frame = frameOf;
       applyLook(a);
       const others = C.members.slice();
@@ -721,7 +733,13 @@
       autoPlace(a);
       scene.actors.push(a);
       scene.refreshWorld(false);
-      if (!opts.silent) {
+      if (!opts.silent && opts.legend) {
+        game.toast('ok', 'Bot lendário ativado', profile.name + ' entrou para a equipe · pode trabalhar em quase todas as funções');
+        chat.post(a, 'Sistemas online. Sou ' + profile.name + ', unidade lendária. Redes, servidores, sistemas, segurança — é só chamar. ✨', { tone: 'ok' });
+        const w = pick(others);
+        if (w) chat.later(between(1.6, 2.6), () => { if (alive(w) && alive(a)) chat.post(w, pick(['Uau, um bot lendário! Bem-vindo(a), ' + profile.name + '! 🤩', 'Esse brilho dourado é real? Boas-vindas, ' + profile.name + '!'])); });
+        select(a);
+      } else if (!opts.silent) {
         game.toast('ok', 'Contratação', profile.name + ' · ' + ROLES[profile.role].title + ' entrou para a equipe');
         chat.post(a, pick(['Oi, pessoal! Sou ' + profile.name + ', ' + ROLES[profile.role].title.toLowerCase() + '. Bora trabalhar!', 'Olá, time! ' + profile.name + ' aqui, cuidando de ' + ROLES[profile.role].desc.toLowerCase().replace(/\.$/, '') + '.']));
         const w = pick(others);
@@ -736,6 +754,7 @@
     function fire(a) {
       const c = a.crew;
       abortRepair(a);
+      if (DL.Interact) DL.Interact.release(a);
       c.cup = null;
       // dismissed while off duty: shows up once more to say goodbye
       if (c.off) { const r = reception(); if (c.off.phase === 'away') { a.x = r.x; a.y = r.y; } c.off = null; a.hidden = false; a.alpha = 1; }
@@ -758,7 +777,11 @@
       for (const m of C.members) if (m.crew.talkWith === a) { m.crew.talkT = 0; m.crew.talkWith = null; }
       C.leaving.push(a);
       if (C.sel === a) select(null);
-      game.toast('info', 'Dispensado', c.name + ' encerrou o turno');
+      if (c.legend) {
+        // a legendary bot is the player's: it goes back to the inventory, ready to be activated again
+        game.toast('info', 'Bot lendário guardado', c.name + ' voltou para o inventário');
+        game.emit('legend-free', { item: c.legend, name: c.name });
+      } else game.toast('info', 'Dispensado', c.name + ' encerrou o turno');
       chat.post(a, pick(['Poxa… foi bom trabalhar com vocês. 😢', 'Vou sentir falta desse barulho de ventoinha… 😢']), { tone: 'sad' });
       a.bubble = { text: '😢', left: 9, tone: 'sad' };
       const w = pick(C.members);
@@ -802,7 +825,20 @@
     }
 
     /* ---------- jobs ---------- */
-    const tasksOf = (a) => JOBS.BY_ROLE[a.crew.profile.role] || [];
+    // A legendary bot does (almost) every role's work: its own tasks first, then the other built-in
+    // roles' (not the manager's orders nor the reception desk). Same rules, shifts and sectors as anyone.
+    const LEGEND_ROLES = ['redes', 'servidores', 'sysadmin', 'tecnico', 'seguranca', 'funcionario'];
+    const tasksOf = (a) => {
+      const c = a.crew, own = JOBS.BY_ROLE[c.profile.role] || [];
+      if (!c.legend) return own;
+      const ver = (DL.rolesVersion || 0) + ':' + c.profile.role;
+      if (c.tasksVer === ver) return c.tasks;
+      const seen = new Set(), out = [];
+      for (const id of [c.profile.role].concat(LEGEND_ROLES)) for (const d of JOBS.BY_ROLE[id] || []) if (!seen.has(d.id)) { seen.add(d.id); out.push(d); }
+      c.tasks = out;
+      c.tasksVer = ver;
+      return out;
+    };
     const busyWith = (t, except) => C.members.some((m) => m !== except && m.crew.job && m.crew.job.target === t);
 
     // What a task can be done on right now: { targets } or { reason }
@@ -850,7 +886,7 @@
       // the workplace matters: without the structure the role needs, work drags (workplace.js)
       const slow = !def.social && c.missing && c.missing.length ? 1.5 : 1;
       const dur = between(def.dur[0], def.dur[1]) * (def.kind === 'client' ? 1 : speed * slow);
-      let route = null, station = null, place = null, restS = null;
+      let route = null, station = null, place = null, restS = null, stand = null;
       if (def.kind === 'pc') {
         if (opts.station) {
           const u = userOf(opts.station);
@@ -867,12 +903,18 @@
         route = [];
       } else if (def.kind === 'rest') {
         place = target;
-        restS = restSeat(target);
+        restS = restSeat(target, a);
         if (!restS) return 'Sem lugar livre no ' + DL.itemName(target).toLowerCase();
         route = nav.route(a.x, a.y, restS.from.x, restS.from.y, true);
+      } else if (def.kind === 'drink' || def.kind === 'use') {
+        // objects with an affordance (interact.js): stand on a free tile in front of them
+        place = def.place ? def.place(target) : target;
+        if (def.kind === 'use' && DL.Interact && !DL.Interact.freeUse(place, a)) return DL.itemName(place) + ' já está em uso';
+        stand = (DL.Interact && DL.Interact.standPoint(place, world())) || Object.assign(frontOf(place), { dir: 'up' });
+        route = nav.route(a.x, a.y, stand.x, stand.y, true);
       } else {
         place = def.place ? def.place(target) : target;
-        const p = def.kind === 'drink' ? frontOf(place) : standAt(place);
+        const p = standAt(place);
         route = nav.route(a.x, a.y, p.x, p.y, def.kind !== 'visit' && def.kind !== 'client');
       }
       if (!route) return 'Sem caminho até ' + (station ? station.label : JOBS.labelOf(place || target));
@@ -884,7 +926,13 @@
       c.menu = false;
       c.talkT = 0;
       c.cup = null;
-      c.job = { def, target, place, name: def.name, total: dur, left: dur, auto: !!opts.auto, quiet: !!opts.quiet, label: station ? station.label : JOBS.labelOf(def.kind === 'fix' || def.kind === 'repair' ? target : place || target) };
+      c.job = { def, target, place, stand, name: def.name, total: dur, left: dur, auto: !!opts.auto, quiet: !!opts.quiet, label: station ? station.label : JOBS.labelOf(def.kind === 'fix' || def.kind === 'repair' ? target : place || target) };
+      // seats and single-user objects are reserved while someone heads there (interact.js)
+      if (DL.Interact) {
+        DL.Interact.release(a);
+        if (restS) DL.Interact.claim(restS.item, restS.k, a);
+        else if (def.kind === 'use' && place) DL.Interact.claim(place, 'use', a);
+      }
       a.route = route;
       a.blockT = 0;
       c.rerouteT = 1.2;
@@ -894,6 +942,7 @@
       else if (def.kind === 'visit') c.state = 'toVisit';
       else if (def.kind === 'repair') { c.state = 'toBroken'; target.taken = a; }
       else if (def.kind === 'drink') c.state = 'toFetch';
+      else if (def.kind === 'use') { c.state = 'toUse'; c.useAnim = (DL.Interact && (DL.Interact.of(place) || {}).anim) || null; }
       else if (def.kind === 'rest') { c.state = 'toRest'; c.restSeat = restS; }
       else if (def.kind === 'client') { c.state = 'toClient'; c.job.label = def.label || c.job.label; }
       else c.state = 'toEquip';
@@ -926,6 +975,8 @@
     function cancelJob(a, quiet) {
       const c = a.crew;
       abortRepair(a);
+      if (DL.Interact) DL.Interact.release(a);
+      if (c.job && c.job.place) c.job.place.busy = false;
       c.cup = null;
       c.job = null;
       if (c.seated || c.state === 'sitting' || c.state === 'working') standUp(a);
@@ -965,6 +1016,7 @@
       }
       if (!def.social && def.id !== 'explore') game.emit('job-done', { a, name: def.name, auto: job.auto, failed: !!(res && res.failed), job, res });
       if (def.kind === 'repair' && job.target && job.target.taken === a) job.target.taken = null;
+      if (DL.Interact) DL.Interact.release(a);
       c.carry = null;
       c.job = null;
       if (c.seated || c.state === 'working') standUp(a);
@@ -976,6 +1028,9 @@
 
     function reward(a, xp) {
       const c = a.crew;
+      // legendary bots learn twice as fast; the "Treinamento Intensivo" item doubles everyone's XP
+      if (c.legend) xp *= 2;
+      if (DL.xpBoost) xp *= DL.xpBoost();
       const ups = XP.gainXp(c.stats, c.profile.role, xp);
       if (!ups) return;
       const sk = DL.ROLE_SKILL[c.profile.role];
@@ -1150,6 +1205,7 @@
         abortRepair(a);
       }
       c.cup = null;
+      if (DL.Interact) DL.Interact.release(a);
       if (c.seated || c.state === 'sitting' || c.state === 'standing' || c.state === 'restSit') standUpNow(a);
       release(a);
       c.job = null;
@@ -1352,16 +1408,20 @@
           if (walkStep(a, dt, speedOf(a))) {
             a.route = null;
             a.moving = false;
-            faceToItem(a, job.place && (job.place.host || job.place));
+            if (job.stand && job.stand.dir) { a.dir = job.stand.dir; c.facing = a.dir; } else faceToItem(a, job.place && (job.place.host || job.place));
             c.state = 'fetching';
-            c.phaseT = between(1.2, 1.8);
+            const af = DL.Interact && DL.Interact.of(job.place);
+            c.phaseT = af && af.fill ? af.fill : between(1.2, 1.8);
+            if (job.place) job.place.busy = true;
           }
           break;
         case 'fetching':
           a.moving = false;
           c.phaseT -= dt;
           if (c.phaseT <= 0) {
-            c.cup = job.place && job.place.kind === 'water' ? 'water' : 'coffee';
+            const af = DL.Interact && DL.Interact.of(job.place);
+            c.cup = af ? DL.Interact.cupOf(af) : job.place && job.place.kind === 'water' ? 'water' : 'coffee';
+            if (job.place) job.place.busy = false;
             // drink at the own desk when it is close and free, else a step away from the machine
             const home = homeStation(a);
             let to = null;
@@ -1381,7 +1441,7 @@
           c.sipT -= dt;
           if (c.sipT <= -0.9) c.sipT = between(1.4, 2.6); // cup at the mouth for ~0.9 s, then lowered
           job.left -= dt;
-          if (job.left <= 0) { c.cup = null; finishJob(a); }
+          if (job.left <= 0) { c.lastCup = c.cup; c.cup = null; finishJob(a); }
           break;
         /* a rest on a beanbag / sofa */
         case 'toRest': {
@@ -1392,7 +1452,7 @@
             a.moving = false;
             c.glide = { from: { x: a.x, y: a.y }, to: s.sit, t: 0, dur: 0.35 };
             c.seated = true;
-            c.sitDir = 'down';
+            c.sitDir = s.dir || 'down';
             c.pose = 'R';
             a.noShadow = true;
             a.sortKey = s.sortKey;
@@ -1416,6 +1476,24 @@
           if (c.phaseT <= 0) { c.pose = c.pose === 'R' ? 'L' : 'R'; c.phaseT = c.pose === 'R' ? between(2, 4) : between(0.8, 1.6); }
           if (c.pose === 'R' && Math.sin(scene.t * 0.7 + c.id) > 0.92) a.blinkT = 0.3;
           if (!c.restSeat || world().items.indexOf(c.restSeat.item) < 0) { cancelJob(a, true); break; }
+          job.left -= dt;
+          if (job.left <= 0) finishJob(a);
+          break;
+        /* using an object (interact.js): watch the TV, draw on the board, play, work at the bench */
+        case 'toUse':
+          if (!job.place || world().items.indexOf(job.place) < 0) { cancelJob(a, true); break; }
+          if (walkStep(a, dt, speedOf(a))) {
+            a.route = null;
+            a.moving = false;
+            a.dir = (job.stand && job.stand.dir) || 'up';
+            c.facing = a.dir;
+            c.state = 'using';
+          }
+          break;
+        case 'using':
+          a.moving = false;
+          a.dir = c.facing || 'up';
+          if (!job.place || world().items.indexOf(job.place) < 0) { cancelJob(a, true); break; }
           job.left -= dt;
           if (job.left <= 0) finishJob(a);
           break;
@@ -1617,8 +1695,8 @@
         const c = a.crew, job = c.job;
         // furniture moved while someone rests on it: get up where they came from
         if (job && job.def.kind === 'rest' && (c.state === 'resting' || c.state === 'restSit')) {
-          const s = c.restSeat, now = s && world().items.indexOf(s.item) >= 0 ? restSeatAt(s) : null;
-          if (!now || now.x !== s.sit.x || now.y !== s.sit.y) { standUpNow(a); c.job = null; c.state = 'idle'; c.wait = 0.4; a.route = null; continue; }
+          const s = c.restSeat, seat = s && has(s.item) && DL.Interact ? DL.Interact.seats(s.item, world()).find((x) => x.k === s.k) : null;
+          if (!seat || seat.sit.x !== s.sit.x || seat.sit.y !== s.sit.y) { standUpNow(a); c.job = null; c.state = 'idle'; c.wait = 0.4; a.route = null; DL.Interact && DL.Interact.release(a); continue; }
         }
         if (c.station) {
           const now = stationOf(c.station.key);
@@ -1671,7 +1749,7 @@
 
     function pickStation(wx, wy) {
       const tx = Math.floor(wx / T), ty = Math.floor(wy / T);
-      const list = world().items.filter((e) => e.bounds && (e.kind === 'desk' || e.kind === 'chair' || e.kind === 'monitor' || e.kind === 'table'));
+      const list = world().items.filter((e) => e.bounds && (e.kind === 'desk' || e.kind === 'chair' || e.kind === 'monitor' || e.kind === 'laptop' || e.kind === 'table'));
       list.sort((a, b) => b.sortY - a.sortY);
       for (const e of list) {
         const b = e.bounds;
@@ -1691,6 +1769,8 @@
       renderList();
     }
 
+    const CUP_NAME = { coffee: 'o café', water: 'a água', tea: 'o chá', soda: 'o refrigerante', snack: 'o lanche', food: 'a marmita' };
+    const CUP_DOING = { coffee: 'Tomando café', water: 'Bebendo água', tea: 'Tomando chá', soda: 'Tomando refrigerante', snack: 'Comendo um lanche', food: 'Almoçando' };
     function statusOf(a) {
       const c = a.crew, j = c.job;
       if (c.state === 'leaving') return 'Indo embora';
@@ -1717,10 +1797,12 @@
         case 'repairing': return 'Consertando ' + j.label + ' na bancada' + (j.bench ? ' (' + j.bench.label + ')' : '') + ' · ' + Math.ceil(Math.max(0, j.left)) + ' s';
         case 'return': return 'Devolvendo ' + j.label;
         case 'installing': return 'Reinstalando ' + j.label;
-        case 'toFetch': return 'Indo pegar ' + (j.place && j.place.kind === 'water' ? 'água' : 'café');
-        case 'fetching': return 'Enchendo o copo';
-        case 'toSip': return 'Voltando com o copo';
-        case 'sipping': return (c.cup === 'water' ? 'Bebendo água' : 'Tomando café') + ' · pausa rápida';
+        case 'toFetch': return 'Indo até ' + DL.itemName(j.place).toLowerCase() + ' · ' + ((DL.Interact && (DL.Interact.of(j.place) || {}).verb) || 'pausa').toLowerCase();
+        case 'fetching': return (DL.Interact && (DL.Interact.of(j.place) || {}).doing) || 'Enchendo o copo';
+        case 'toSip': return 'Voltando com ' + (CUP_NAME[c.cup] || 'o copo');
+        case 'sipping': return (CUP_DOING[c.cup] || 'Tomando café') + ' · pausa rápida';
+        case 'toUse': return 'Indo até ' + DL.itemName(j.place).toLowerCase();
+        case 'using': return ((DL.Interact && (DL.Interact.of(j.place) || {}).doing) || j.def.verb) + (j.auto ? '' : ' · ' + Math.ceil(Math.max(0, j.left)) + ' s');
         case 'toRest': return 'Indo descansar um pouco';
         case 'restSit': case 'resting': return 'Descansando no ' + DL.itemName(j.place).toLowerCase();
         case 'toClient': return 'Indo receber ' + (j.label || 'o cliente');
@@ -1732,7 +1814,7 @@
       const c = a.crew, j = c.job;
       if (!j) return 0;
       if (c.state === 'patrol') return 1 - (c.spots.length + (a.route && a.route.length ? 1 : 0)) / (c.spotsTotal || 1);
-      if (c.state === 'working' || c.state === 'inspecting' || c.state === 'atSpot' || c.state === 'talking' || c.state === 'sipping' || c.state === 'resting') return Math.max(0, Math.min(1, 1 - j.left / j.total));
+      if (c.state === 'working' || c.state === 'inspecting' || c.state === 'atSpot' || c.state === 'talking' || c.state === 'sipping' || c.state === 'resting' || c.state === 'using') return Math.max(0, Math.min(1, 1 - j.left / j.total));
       if (c.state === 'serving') return j.progress || 0.5;
       // repair: 15% taking it out, 70% at the bench, the rest bringing it back
       if (c.state === 'pickup' || c.state === 'carry') return 0.15;
@@ -1816,6 +1898,7 @@
       C.cardKey = key;
       let h = '<div class="cc__head"><span class="cc__dot" style="background:' + role.color + '"></span><b>' + esc(c.name) + '</b><span class="eyebrow-sm" style="color:' + role.color + '">' + role.name + '</span>' +
         '<button type="button" class="cc__x" data-cc="close" aria-label="Fechar">×</button></div>';
+      if (c.legend) h += '<p class="cc__legend"><span class="rar rar--legendary">Lendário</span>Faz o trabalho de quase todas as funções · aprende em dobro</p>';
       h += '<div class="cc__rank">' + starsHtml(stars) + '<span class="eyebrow-sm">Nível ' + st.level + '</span><span class="cc__xp" title="Experiência"><i data-live="xp"></i></span></div>';
       if (c.menu) {
         h += menuHtml(a);
@@ -1936,8 +2019,8 @@
       }
       el.list.innerHTML = C.members.map((a) => {
         const c = a.crew, r = roleOf(a);
-        return '<li><button type="button" class="crew-row' + (C.sel === a ? ' is-on' : '') + '" data-member="' + c.id + '">' +
-          '<span class="cc__dot" style="background:' + r.color + '"></span><span class="crew-row__name">' + esc(c.name) + '</span>' +
+        return '<li><button type="button" class="crew-row' + (C.sel === a ? ' is-on' : '') + (c.legend ? ' is-legend' : '') + '" data-member="' + c.id + '">' +
+          '<span class="cc__dot" style="background:' + r.color + '"></span><span class="crew-row__name">' + esc(c.name) + (c.legend ? ' <em class="rar rar--legendary">Lendário</em>' : '') + '</span>' +
           '<span class="eyebrow-sm crew-row__role">' + r.name + ' · Nv ' + c.stats.level + ' ' + starsHtml(XP.starsOf(c.stats, c.profile.role)) + '</span>' +
           '<span class="crew-row__place">' + esc((c.home ? (c.home.id || 'Estação') : 'Estação livre') + ' · ' + (zoneRoom(a) ? zoneRoom(a).name : 'Todas as salas')) +
           (c.shift && c.shift.id !== 'integral' ? ' · ' + esc(DL.shiftLabel ? DL.shiftLabel(c.shift) : '') : '') + (c.oncall && c.oncall.length ? ' · plantão' : '') + '</span>' +
@@ -1997,15 +2080,35 @@
     const swatches = (k, cols, label) => '<div class="swatches" role="radiogroup" aria-label="' + label + '">' + cols.map((c) => '<button type="button" class="swatch" role="radio" data-k="' + k + '" data-v="' + c + '" style="--c:' + c + '" aria-label="' + c + '"></button>').join('') + '</div>';
     const field = (label, body) => '<div class="cr-field"><span class="eyebrow-sm">' + label + '</span>' + body + '</div>';
 
+    // what the player owns from the shop joins the built-in options (inventory.js)
+    function ownedOpts() {
+      const inv = DL.Inventory, o = { hair: [], shirt: [], hat: [], pants: [], acc: [], colors: [] };
+      if (!inv) return o;
+      for (const it of DL.COSMETICS || []) {
+        if (it.cat !== 'char' || !inv.owns(it.id)) continue;
+        if (it.slot === 'hair') o.hair.push([it.value, it.name]);
+        else if (it.slot === 'shirt') o.shirt.push([it.value, it.name]);
+        else if (it.slot === 'hat') { if (!o.hat.some((x) => x[0] === it.value)) o.hat.push([it.value, it.name]); }
+        else if (it.slot === 'pants') o.pants.push([it.value, it.name]);
+        else if (it.slot === 'palette') o.colors = o.colors.concat(it.value);
+        else if (it.slot) o.acc.push([it.slot, it.name]);
+      }
+      return o;
+    }
+    const shopTag = (opts) => opts.map(([v, l]) => [v, l + ' ✦']);
+
     function buildForm() {
+      const own = ownedOpts();
       let h = '<div class="cr-cost" id="crCost" aria-live="polite"></div>';
       h += field('Nome', '<input class="input" id="crName" type="text" maxlength="16" autocomplete="off" spellcheck="false">');
       h += field('Aparência', chips('body', BODIES));
       h += field('Pele', swatches('skin', SKINS, 'Tom de pele'));
-      h += field('Cabelo', chips('hairStyle', STYLES) + swatches('hair', HAIRS, 'Cor do cabelo'));
-      h += field('Roupa / uniforme', chips('outfit', OUTFITS) + swatches('shirt', CLOTHES, 'Cor da roupa'));
-      h += field('Calça', swatches('pants', PANTS, 'Cor da calça'));
-      h += field('Acessórios', '<div class="chips">' + EXTRAS.map(([k, l]) => '<button type="button" class="chip" data-t="' + k + '" aria-pressed="false">' + l + '</button>').join('') + '</div>' + chips('hat', HATS.map(([v, l]) => [v, v ? l : 'Sem chapéu'])));
+      h += field('Cabelo', chips('hairStyle', STYLES.concat(shopTag(own.hair))) + swatches('hair', HAIRS, 'Cor do cabelo'));
+      h += field('Roupa / uniforme', chips('outfit', OUTFITS.concat(shopTag(own.shirt))) + swatches('shirt', CLOTHES.concat(own.colors), 'Cor da roupa'));
+      h += field('Calça', (own.pants.length ? chips('pantsStyle', [['', 'Reta']].concat(shopTag(own.pants))) : '') + swatches('pants', PANTS.concat(own.colors), 'Cor da calça'));
+      h += field('Acessórios', '<div class="chips">' + EXTRAS.concat(shopTag(own.acc)).map(([k, l]) => '<button type="button" class="chip" data-t="' + k + '" aria-pressed="false">' + l + '</button>').join('') + '</div>' + chips('hat', HATS.map(([v, l]) => [v, v ? l : 'Sem chapéu']).concat(shopTag(own.hat))));
+      h += '<p class="cr-shop-note">✦ itens da sua loja/inventário · <button type="button" class="linkbtn" data-cr-shop>abrir a loja</button></p>';
+      CR.invVer = DL.Inventory ? DL.Inventory.version : 0;
       h += field('Função', '<div class="roles" role="radiogroup">' + allRoleIds().map((id) => {
         const r = ROLES[id];
         return '<button type="button" class="role-card' + (r.custom ? ' is-custom' : '') + '" role="radio" data-k="role" data-v="' + id + '" style="--c:' + r.color + '"><span class="cc__dot"></span><b>' + esc(r.name) + (r.custom ? ' <em>criado</em>' : '') + '</b><span>' + esc(r.desc) + '</span></button>';
@@ -2039,9 +2142,11 @@
     el.form.addEventListener('click', (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;
+      if (b.hasAttribute('data-cr-shop')) { closeCreator(); if (game.store) game.store.open('char'); return; }
       const p = CR.profile;
       if (b.dataset.k) {
         p[b.dataset.k] = b.dataset.v;
+        if (b.dataset.k === 'hat') p.hatColor = null;
         if (b.dataset.k === 'role' && CR.pose === 'stand') CR.pose = 'work';
       } else if (b.dataset.t) p[b.dataset.t] = !p[b.dataset.t];
       syncForm();
@@ -2067,7 +2172,7 @@
       CR.profile = me ? Object.assign({}, PL.profile, { nameTouched: true }) : target ? Object.assign({}, target.crew.profile, { nameTouched: true }) : randomProfile();
       CR.pose = 'stand';
       CR.t = 0;
-      if (!el.form.firstChild || CR.rolesVer !== (DL.rolesVersion || 0)) buildForm();
+      if (!el.form.firstChild || CR.rolesVer !== (DL.rolesVersion || 0) || CR.invVer !== (DL.Inventory ? DL.Inventory.version : 0)) buildForm();
       el.title.textContent = me ? 'Meu personagem' : target ? 'Editar ' + target.crew.name : 'Nova contratação';
       if (el.sub) el.sub.textContent = me ? 'Você · quem comanda o datacenter' : 'Equipe · meu datacenter';
       el.save.firstChild.textContent = target ? 'Salvar ' : 'Contratar ';
@@ -2190,7 +2295,7 @@
     const tagEls = new Map(), sayEls = new Map();
     let meTag = null;
     function anchor(node, a, lift) {
-      const p = scene.worldToScreen(a.x, a.y - lift);
+      const p = scene.worldToScreen(a.x, a.y, lift);
       node.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) translate(-50%,-100%)';
     }
     function updateUi(dt) {
@@ -2212,6 +2317,7 @@
         const k = txt + r.color + alert + a.crew.stats.level + unread + miss;
         if (s.dataset.k !== k) { s.dataset.k = k; s.innerHTML = (alert ? '<b>!</b>' : '<i style="background:' + r.color + '"></i>') + esc(txt) + '<small>' + a.crew.stats.level + '</small>' + (miss ? '<em class="nt-miss" title="Falta estrutura no posto de trabalho">⚠</em>' : '') + (unread ? '<em title="Quer falar com você">💬</em>' : ''); }
         s.classList.toggle('is-alert', alert);
+        s.classList.toggle('is-legend', !!a.crew.legend);
         const show = (near(a) || alert || unread) && C.mode !== 'build' && C.sel !== a && !a.bubble && !a.hidden && !(a.alpha != null && a.alpha < 0.3);
         s.classList.toggle('is-on', show);
         if (show) anchor(s, a, lift(a));
@@ -2251,7 +2357,7 @@
       // card above the selected member (kept on screen)
       if (C.sel && el.card.classList.contains('is-on')) {
         const a = C.sel;
-        const p = scene.worldToScreen(a.x, a.y - lift(a));
+        const p = scene.worldToScreen(a.x, a.y, lift(a));
         const h = el.card.offsetHeight, w = el.card.offsetWidth;
         // keep clear of the team panel on the right when it is open
         const right = C.mode === 'crew' && !el.panel.hidden ? el.panel.getBoundingClientRect().left - 12 : innerWidth - 12;
@@ -2356,20 +2462,18 @@
 
     // a cup in the hand; at the mouth while sipping (coffee steams, water is clear blue)
     function drawCup(g, a, t) {
-      const c = a.crew, sip = c.state === 'sipping' && c.sipT < 0;
-      const side = a.dir === 'left' ? -5 : a.dir === 'right' ? 4 : 4;
-      const x = Math.round(a.x) + (sip ? (a.dir === 'left' ? -3 : a.dir === 'right' ? 2 : 1) : side);
-      const y = Math.round(a.y) - (sip ? 18 : 10);
-      if (a.dir === 'up' && sip) return; // drinking with the back turned: the cup is hidden by the head
-      if (c.cup === 'water') {
-        g.fillStyle = 'rgba(140,196,255,0.85)'; g.fillRect(x, y, 3, 4);
-        g.fillStyle = '#d6ecff'; g.fillRect(x, y, 3, 1);
-      } else {
-        g.fillStyle = '#e9e9e6'; g.fillRect(x, y, 3, 4);
-        g.fillStyle = '#3b2418'; g.fillRect(x, y, 3, 1);
-        g.fillStyle = '#e9e9e6'; g.fillRect(x + 3, y + 1, 1, 2);
-        if (!sip && Math.sin(t * 3 + c.id) > 0.2) { g.globalAlpha = 0.35; g.fillStyle = '#ffffff'; g.fillRect(x + 1, y - 2 - (Math.floor(t * 2) % 2), 1, 1); g.globalAlpha = 1; }
-      }
+      const c = a.crew;
+      DL.drawHeld(g, a, c.cup, c.state === 'sipping' && c.sipT < 0, t, c.id);
+    }
+
+    // isometric: draw in someone's (or something's) own sprite coordinates, then back to the floor
+    function around(g, a, fn) {
+      if (!scene.iso) { fn(); return; }
+      g.save();
+      if (a.crew || a.frame) scene.actorSpace(g, a);
+      else scene.spriteSpace(g, a);
+      fn();
+      g.restore();
     }
 
     function overlay(g, sc) {
@@ -2381,31 +2485,50 @@
         const e = c.job.place;
         const b = e.bounds || { x: e.px, y: e.py - 16, w: 16, h: 30 };
         g.fillStyle = col;
-        if (Math.sin(sc.t * 9) > 0) g.fillRect(Math.round(a.x) + 4, Math.round(a.y) - 12, 2, 2);
+        if (Math.sin(sc.t * 9) > 0) around(g, a, () => { g.fillStyle = col; g.fillRect(Math.round(a.x) + 4, Math.round(a.y) - 12, 2, 2); });
         const k = (sc.t * 0.9) % 1;
-        g.globalAlpha = 0.35;
-        g.fillRect(b.x + 2, Math.round(b.y + 4 + k * (b.h - 10)), b.w - 4, 1);
-        g.globalAlpha = 1;
+        around(g, e, () => {
+          g.fillStyle = col;
+          g.globalAlpha = 0.35;
+          g.fillRect(b.x + 2, Math.round(b.y + 4 + k * (b.h - 10)), b.w - 4, 1);
+          g.globalAlpha = 1;
+        });
       }
-      for (const a of C.members) maintenanceFx(g, a, sc.t);
-      for (const a of C.members) if (a.crew.cup && !a.hidden) drawCup(g, a, sc.t);
-      for (const a of C.leaving) tears(g, a, sc.t);
+      for (const a of C.members) around(g, a, () => maintenanceFx(g, a, sc.t));
+      for (const a of C.members) if (a.crew.cup && !a.hidden) around(g, a, () => drawCup(g, a, sc.t));
+      for (const a of C.leaving) around(g, a, () => tears(g, a, sc.t));
       if (C.mode !== 'crew') return;
       const s = C.hover;
       if (s) {
         const u = userOf(s);
         const ok = !u || u === C.sel;
         const al = 0.55 + 0.3 * Math.sin(sc.t * 5);
-        brackets(g, s.focus.bounds, ok ? 'rgba(126,224,161,' + al.toFixed(3) + ')' : 'rgba(255,122,23,' + al.toFixed(3) + ')');
+        const col = ok ? 'rgba(126,224,161,' + al.toFixed(3) + ')' : 'rgba(255,122,23,' + al.toFixed(3) + ')';
+        if (scene.iso) scene.markItem(g, s.focus, col);
+        else brackets(g, s.focus.bounds, col);
       }
     }
 
     /* ---------- input ---------- */
+    // isometric: people and stations are picked by what is drawn under the cursor
+    const isoPick = (sx, sy, w) => {
+      if (!scene.iso) return { actor: pickActor(w.x, w.y), station: () => pickStation(w.x, w.y) };
+      const actor = scene.pickAt(sx, sy, (o) => C.members.indexOf(o) >= 0 && !o.hidden);
+      return {
+        actor,
+        station: () => {
+          const e = scene.pickAt(sx, sy, (o) => o.kind === 'desk' || o.kind === 'chair' || o.kind === 'monitor' || o.kind === 'laptop' || o.kind === 'table');
+          return e ? stationOf(e) : null;
+        },
+      };
+    };
+
     function pointerMove(sx, sy) {
       const w = scene.screenToWorld(sx, sy);
       if (C.pan) {
-        scene.cam.x = C.pan.cx - ((sx - C.pan.sx) * scene.dpr) / scene.S;
-        scene.cam.y = C.pan.cy - ((sy - C.pan.sy) * scene.dpr) / scene.S;
+        const d = scene.screenDelta(sx - C.pan.sx, sy - C.pan.sy);
+        scene.cam.x = C.pan.cx - d.x;
+        scene.cam.y = C.pan.cy - d.y;
         return;
       }
       if (C.down && Math.hypot(sx - C.down.sx, sy - C.down.sy) > 4 && C.mode === 'crew') {
@@ -2413,9 +2536,10 @@
         C.down = null;
         return;
       }
-      if (C.mode !== 'crew') { C.hover = null; game.setCursor(pickActor(w.x, w.y) ? 'pointer' : ''); return; }
-      const actor = pickActor(w.x, w.y);
-      C.hover = actor ? null : pickStation(w.x, w.y);
+      const hit = isoPick(sx, sy, w);
+      if (C.mode !== 'crew') { C.hover = null; game.setCursor(hit.actor ? 'pointer' : ''); return; }
+      const actor = hit.actor;
+      C.hover = actor ? null : hit.station();
       game.setCursor(actor || C.hover ? 'pointer' : '');
     }
 
@@ -2431,10 +2555,11 @@
     function pointerDown(sx, sy, button) {
       const w = scene.screenToWorld(sx, sy);
       if (button === 2) { if (C.sel) { select(null); return true; } return false; }
-      const a = pickActor(w.x, w.y);
+      const hit = isoPick(sx, sy, w);
+      const a = hit.actor;
       if (a) { select(a); return true; }
       if (C.mode === 'crew') {
-        const s = pickStation(w.x, w.y);
+        const s = hit.station();
         if (s && C.sel) {
           const u = userOf(s);
           if (u === C.sel) return true;
@@ -2514,6 +2639,22 @@
       get creatorOpen() { return CR.open; },
       get menuOpen() { return !!(C.sel && C.sel.crew.menu); },
       get playerProfile() { return PL.profile; },
+      // change (and save) the player's look — the inventory equips clothes through this
+      updatePlayer(patch) { Object.assign(PL.profile, patch); applyPlayer(true); },
+      // loading a save: the current team leaves at once (no goodbye scene, no toasts)
+      clearAll() {
+        for (const a of C.members.concat(C.leaving)) {
+          if (DL.Interact) DL.Interact.release(a);
+          if (a.crew.station) release(a);
+        }
+        const gone = new Set(C.members.concat(C.leaving));
+        C.members = [];
+        C.leaving = [];
+        scene.actors = scene.actors.filter((m) => !gone.has(m));
+        select(null);
+        scene.refreshWorld(false);
+        renderList();
+      },
       chat,
       update, updateUi, underlay, overlay, pointerMove, pointerDown, pointerUp, key, setMode, select, inspect, pickActor,
       openCreator, closeCreator, statusOf, stations, stationOf, userOf, startShift,

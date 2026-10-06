@@ -598,6 +598,7 @@
     door: 1, wallseg: 1, glass: 1, glassH: 1, videowall: 1, camera: 1, ap: 1,
     cabinet: 1, drawers: 1, steelrack: 1, tvrack: 1, printer: 1,
   };
+  for (const k of DL.PROPS_ROT_NATIVE || []) ROT_NATIVE[k] = 1; // props.js kinds draw their own sides
   DL.ROT_NATIVE = ROT_NATIVE;
   // text / logos read wrong mirrored: those are only turned to the side, never flipped
   const NO_MIRROR = { sign: 1, rgbsign: 1, dclock: 1, banner: 1, poster: 1, painting: 1, wallscreen: 1 };

@@ -9,7 +9,8 @@
   const canvas = $('world');
   const narrow = () => innerWidth < 768;
   const world = DL.newWorld();
-  const scene = new DL.Scene(canvas, { world, renderFloor: DL.renderRooms, tilesWide: narrow() ? 10 : 21, minTilesHigh: 11, padTop: narrow() ? 120 : 96 });
+  // iso: the isometric 2.5D camera (iso.js); the simulation underneath stays on the tile grid
+  const scene = new DL.Scene(canvas, { world, renderFloor: DL.renderRooms, tilesWide: narrow() ? 10 : 21, minTilesHigh: 11, padTop: narrow() ? 120 : 96, iso: true });
   const W = scene.world;
   const player = scene.addPlayer(DL.LOOKS.player, W.spawn.x, W.spawn.y, 'down');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -37,7 +38,7 @@
     return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   };
   const fmtPower = (e) => (e.tel.unit === 'W' ? Math.round(e.power) : e.power.toFixed(e.power < 10 ? 2 : 1)) + '<small>' + e.tel.unit + '</small>';
-  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts'].some((id) => $(id).classList.contains('is-open'));
+  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account'].some((id) => $(id).classList.contains('is-open'));
   const canMove = () => S.phase !== 'intro' && !isOverlayOpen() && S.mode === 'explore';
 
   /* ---------------- toasts ---------------- */
@@ -125,6 +126,11 @@
   G.on('payday', () => updateMeta());
   // server specialisations + virtualization (Infra, I)
   const infra = DL.createInfra(G, { ops });
+  // inventory + shop: skins, clothes, special items, legendary bots — paid in Gold (inventory.js)
+  const inventory = DL.createInventory(G, { crew, economy, playing: () => S.phase === 'play' });
+  G.store = { open: (tab) => inventory.openShop(tab), inventory: (id) => inventory.openInventory(id) };
+  $('storeBtn').addEventListener('click', () => { $('storeBtn').blur(); inventory.openShop(); });
+  $('invBtn').addEventListener('click', () => { $('invBtn').blur(); inventory.openInventory(); });
   G.on('world', () => {
     if (S.panel && W.items.indexOf(S.panel) < 0) closePanel();
     buildLabels();
@@ -365,12 +371,81 @@
     const t = S.target;
     if (!t) return;
     if (t.crew) { crew.inspect(t); gesture('wave', 0.9); player.dir = DL.dirOf(t.x - player.x, t.y - player.y); }
+    else if (usable(t)) useObject(t);
     else if (S.panel === t) closePanel();
     else { openPanel(t); gesture('reach', 0.6); }
   }
 
   /* ---------------- my character: sit, work, talk, interact ---------------- */
-  const P = { seat: null, glide: null, pose: 'R', poseT: 0, phase: 'type', phaseT: 2, act: null, actT: 0, talkT: 0 };
+  // rest: on a sofa / pouf / loose chair · use: an object being used (TV, board, coffee machine…) · held: a cup / can / snack
+  const P = { seat: null, glide: null, pose: 'R', poseT: 0, phase: 'type', phaseT: 2, act: null, actT: 0, talkT: 0, rest: null, use: null, held: null };
+
+  // objects the player can use directly (interact.js); equipment with a panel keeps its panel
+  const usable = (e) => !!(e && !e.crew && !e.id && DL.Interact && DL.Interact.of(e));
+  function useObject(e) {
+    const af = DL.Interact.of(e);
+    closePanel();
+    if (af.type === 'rest') {
+      const s = DL.Interact.freeSeat(e, W, player, player);
+      if (!s) { toast('info', DL.itemName(e), 'Todos os lugares estão ocupados'); return; }
+      DL.Interact.claim(e, s.k, player);
+      P.rest = s;
+      P.glide = { from: { x: player.x, y: player.y }, to: s.sit, t: 0, dur: 0.3, sit: true };
+      player.vx = player.vy = 0;
+      player.moving = false;
+      player.seated = true;
+      player.noShadow = true;
+      player.sortKey = s.sortKey;
+      return;
+    }
+    if (af.type !== 'drink' && !DL.Interact.freeUse(e, player)) { toast('info', DL.itemName(e), 'Alguém já está usando'); return; }
+    const sp = DL.Interact.standPoint(e, W);
+    const ex = (e.host || e).px + (e.tw || 1) * 8, ey = (e.host || e).py + (e.th || 1) * 8;
+    player.dir = sp && Math.hypot(sp.x - player.x, sp.y - player.y) < 14 ? sp.dir : DL.dirOf(ex - player.x, ey - player.y);
+    const dur = af.type === 'drink' ? af.fill || 1.4 : af.dur[0] + Math.random() * (af.dur[1] - af.dur[0]);
+    if (af.type !== 'drink') DL.Interact.claim(e, 'use', player);
+    P.use = { e, af, left: dur, total: dur };
+    if (af.type === 'drink') e.busy = true;
+    if (af.anim === 'reach' || af.type === 'drink') gesture('reach', dur);
+    player.bubble = { text: af.type === 'watch' ? '📺' : af.type === 'drink' ? '…' : '✍️', left: Math.min(2.5, dur), tone: 'chat' };
+  }
+  function stopUse(done) {
+    const u = P.use;
+    if (!u) return;
+    P.use = null;
+    u.e.busy = false;
+    P.actT = 0;
+    if (u.af.type !== 'drink') DL.Interact.release(player);
+    if (done && u.af.type === 'drink') {
+      // something to drink / eat for a while: sips now and then, gone after a few
+      const what = DL.Interact.cupOf(u.af);
+      P.held = { what, left: what === 'food' || what === 'snack' ? 8 : 16, sipT: 1.2 };
+      player.bubble = { text: { coffee: '☕', tea: '🍵', water: '💧', soda: '🥤', snack: '🍪', food: '🍱' }[what] || '☕', left: 1.6, tone: 'chat' };
+    }
+    if (done && u.af.type !== 'drink' && Math.random() < 0.5) { const line = DL.Interact.sayFor(u.af); if (line) player.bubble = { text: line, left: 3, tone: 'chat' }; }
+  }
+  function restStand() {
+    const s = P.rest;
+    if (!s || (P.glide && !P.glide.sit)) return;
+    P.glide = { from: { x: player.x, y: player.y }, to: s.onTile ? s.sit : s.fromPt, t: 0, dur: 0.25, sit: false };
+    player.seated = false;
+    player.noShadow = false;
+    player.sortKey = null;
+    player.dir = 'down';
+  }
+  function updateUse(dt, moving) {
+    if (P.held) {
+      P.held.left -= dt;
+      P.held.sipT -= dt;
+      if (P.held.sipT <= -0.9) P.held.sipT = 1.6 + Math.random();
+      if (P.held.left <= 0) P.held = null;
+    }
+    if (!P.use) return;
+    // walking away ends it; a drink in progress still lands in the hand
+    if (moving || W.items.indexOf(P.use.e) < 0) { stopUse(P.use.af.type === 'drink' && P.use.left < P.use.total * 0.4); return; }
+    P.use.left -= dt;
+    if (P.use.left <= 0) stopUse(true);
+  }
   function gesture(kind, t) { P.act = kind; P.actT = t; }
   G.on('team-say', () => { P.talkT = 1.6; });
   G.on('player-talk', () => { P.talkT = 1.4; });
@@ -421,7 +496,15 @@
       const k = gl.t * gl.t * (3 - 2 * gl.t);
       player.x = gl.from.x + (gl.to.x - gl.from.x) * k;
       player.y = gl.from.y + (gl.to.y - gl.from.y) * k;
-      if (gl.t >= 1) { P.glide = null; if (!gl.sit) { P.seat = null; G.playerSeat = null; } }
+      if (gl.t >= 1) {
+        P.glide = null;
+        if (!gl.sit) { P.seat = null; G.playerSeat = null; if (P.rest) { DL.Interact.release(player); P.rest = null; } }
+      }
+      return true;
+    }
+    // resting on a sofa / pouf / chair: any move gets up (and the seat must still be there)
+    if (P.rest) {
+      if (wantsMove || W.items.indexOf(P.rest.item) < 0) restStand();
       return true;
     }
     if (!P.seat) return false;
@@ -444,9 +527,10 @@
   }
   player.frame = function () {
     if (this.seated && this.sitSheet) {
-      const set = this.sitSheet[P.seat ? P.seat.dir : 'up'] || this.sitSheet.up;
-      if (P.pose === 'R' && this.blinkT > 0) return set.blink;
-      return set[P.pose] || set.R;
+      const set = this.sitSheet[P.seat ? P.seat.dir : P.rest ? P.rest.dir : 'up'] || this.sitSheet.up;
+      const pose = P.rest ? 'R' : P.pose;
+      if (pose === 'R' && this.blinkT > 0) return set.blink;
+      return set[pose] || set.R;
     }
     if (!this.moving && this.actSheet) {
       const s = this.actSheet[this.dir] || this.actSheet.down, t = scene.t;
@@ -471,6 +555,7 @@
     if (economy.isOpen) { if (economy.key(ev)) ev.preventDefault(); return; }
     if (shifts.isOpen) { if (ev.code === 'Escape') { shifts.close(); ev.preventDefault(); } return; }
     if (infra.isOpen) { if (infra.key(ev)) ev.preventDefault(); return; }
+    if (inventory.isOpen) { if (inventory.key(ev)) ev.preventDefault(); return; }
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     if (S.phase === 'intro') {
@@ -485,10 +570,11 @@
       return;
     }
     if (free && ev.code === 'KeyT' && !ev.repeat) { ops.toggle(); ev.preventDefault(); return; }
+    if (free && (ev.code === 'KeyO' || ev.code === 'KeyU') && !ev.repeat) { if (ev.code === 'KeyO') inventory.openShop(); else inventory.openInventory(); ev.preventDefault(); return; }
     if (free && ev.code === 'KeyM' && S.mode !== 'build' && !ev.repeat) { monitor.open(); ev.preventDefault(); return; }
     if (free && S.mode !== 'build' && infra.key(ev)) { ev.preventDefault(); return; }
     // F: sit at the closest free workstation / stand up
-    if (free && S.mode === 'explore' && ev.code === 'KeyF' && !ev.repeat) { if (P.seat) seatStand(); else seatDown(nearestSeat()); ev.preventDefault(); return; }
+    if (free && S.mode === 'explore' && ev.code === 'KeyF' && !ev.repeat) { if (P.rest) restStand(); else if (P.seat) seatStand(); else { stopUse(false); seatDown(nearestSeat()); } ev.preventDefault(); return; }
     // Enter: write in the team chat
     if (free && S.mode !== 'build' && ev.code === 'Enter' && !ev.repeat && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) { crew.chat.focusInput(); ev.preventDefault(); return; }
     if (free && S.mode === 'build' && builder.key(ev)) { ev.preventDefault(); return; }
@@ -523,30 +609,19 @@
   $('tutStart').addEventListener('click', () => begin(true));
   $('tutSkipIntro').addEventListener('click', () => begin(false));
 
-  // Start options: build from scratch or one of the presets (previewed live behind the card).
+  // New games always start from scratch; other presets only serve as the title-screen backdrop.
   let preset = 'zero';
-  const choices = $('startChoices');
-  choices.innerHTML = DL.PRESET_ORDER.map((id) => {
-    const p = DL.PRESETS[id];
-    return '<button type="button" class="start-opt" role="radio" data-preset="' + id + '"><b>' + p.name + '</b><span>' + p.desc + '</span><em class="eyebrow-sm">' + p.tag + '</em></button>';
-  }).join('');
   function choosePreset(id) {
     preset = id;
-    choices.querySelectorAll('[data-preset]').forEach((b) => {
-      const on = b.dataset.preset === id;
-      b.classList.toggle('is-on', on);
-      b.setAttribute('aria-checked', on ? 'true' : 'false');
-    });
     infra.reset();
-    if (P.seat || P.glide) { P.seat = null; P.glide = null; G.playerSeat = null; player.seated = false; player.noShadow = false; player.sortKey = null; }
+    if (P.seat || P.glide || P.rest) { P.seat = null; P.glide = null; P.rest = null; G.playerSeat = null; player.seated = false; player.noShadow = false; player.sortKey = null; }
+    P.use = null;
+    P.held = null;
+    if (DL.Interact) DL.Interact.release(player);
     const refused = DL.applyPreset(id, { scene, player, builder, ops });
     if (refused.length) console.warn('preset ' + id + ': itens recusados', refused);
     S.refused = refused;
   }
-  choices.addEventListener('click', (ev) => {
-    const b = ev.target.closest('[data-preset]');
-    if (b) choosePreset(b.dataset.preset);
-  });
 
   // Learning mode (difficulty.js): chosen on the start card, shown on the HUD and in the terminal
   const modeChoices = $('modeChoices');
@@ -581,6 +656,8 @@
       scene.cam.y = Math.max(0, Math.min(scene.mapH, scene.cam.y));
     }
     if (m === 'build') builder.enter();
+    // building: inner walls come down (cutaway) so the floor plan stays visible
+    scene.wallCut = m === 'build';
     fitDock();
     crew.setMode(m);
     game.classList.toggle('is-build', m === 'build');
@@ -611,19 +688,39 @@
     const r = canvas.getBoundingClientRect();
     return [ev.clientX - r.left, ev.clientY - r.top];
   };
+  // Camera drag: build and crew modes pan when the press lands on empty floor (builder.js / crew.js);
+  // exploring, a drag on empty space looks around freely until the player walks again. Letting go
+  // keeps a little momentum (step → camGlide).
   canvas.addEventListener('pointerdown', (ev) => {
     if (S.phase === 'intro' || isOverlayOpen() || (ev.pointerType === 'touch' && S.mode === 'explore')) return;
     const [x, y] = local(ev);
     if (ev.button === 0) canvas.setPointerCapture(ev.pointerId);
+    S.ptrDown = ev.button === 0;
+    S.camVel = null;
     if (S.mode === 'build') builder.pointerDown(x, y, ev.button);
-    else crew.pointerDown(x, y, ev.button);
+    else {
+      const used = crew.pointerDown(x, y, ev.button);
+      if (!used && S.mode === 'explore' && ev.button === 0) S.drag = { sx: x, sy: y, cx: scene.cam.x, cy: scene.cam.y, on: false };
+    }
   });
   canvas.addEventListener('pointermove', (ev) => {
     const [x, y] = local(ev);
+    if (S.drag) {
+      if (!S.drag.on && Math.hypot(x - S.drag.sx, y - S.drag.sy) > 4) { S.drag.on = true; S.freeCam = true; setCursor('grabbing'); }
+      if (S.drag.on) {
+        const d = scene.screenDelta(x - S.drag.sx, y - S.drag.sy);
+        scene.cam.x = Math.max(0, Math.min(scene.mapW, S.drag.cx - d.x));
+        scene.cam.y = Math.max(0, Math.min(scene.mapH, S.drag.cy - d.y));
+        return;
+      }
+    }
     if (S.mode === 'build') builder.pointerMove(x, y);
     else crew.pointerMove(x, y);
   });
   const up = () => {
+    if (S.drag && S.drag.on) setCursor('');
+    S.drag = null;
+    S.ptrDown = false;
     if (S.mode === 'build') builder.pointerUp();
     else crew.pointerUp();
   };
@@ -669,12 +766,15 @@
     if (P.talkT > 0) P.talkT -= dt;
     // talking with someone in the conversation panel: look at them
     if (talk.active && !P.seat && !player.moving) player.dir = DL.dirOf(talk.active.x - player.x, talk.active.y - player.y);
-    if (P.seat || P.glide) {
+    if (P.seat || P.glide || P.rest) {
       const wants = S.mode === 'explore' && canMove() && (keys.has('left') || keys.has('right') || keys.has('up') || keys.has('down') || Math.hypot(touchVec.x, touchVec.y) > 0.2);
       updateSeat(dt, wants);
+      updateUse(dt, false);
+      if (wants) S.freeCam = false;
       player.vx = player.vy = 0;
       player.moving = false;
       if (S.mode === 'explore') {
+        if (S.freeCam) return;
         const kc = 1 - Math.exp(-dt * (reduced ? 30 : 5.5));
         scene.cam.x += (player.x - scene.cam.x) * kc;
         scene.cam.y += (player.y - 12 - scene.cam.y) * kc;
@@ -690,8 +790,10 @@
         if (keys.has('up')) cy -= 1;
         if (keys.has('down')) cy += 1;
         const sp = 300 / Math.max(1, scene.S / 3);
-        scene.cam.x = Math.max(0, Math.min(scene.mapW, scene.cam.x + cx * sp * dt));
-        scene.cam.y = Math.max(0, Math.min(scene.mapH, scene.cam.y + cy * sp * dt));
+        // keys pan along the screen (in the isometric view that is diagonal on the grid)
+        const m = scene.screenDir(cx, cy), k = scene.iso && (cx || cy) ? 1.15 : 1;
+        scene.cam.x = Math.max(0, Math.min(scene.mapW, scene.cam.x + m.x * k * sp * dt));
+        scene.cam.y = Math.max(0, Math.min(scene.mapH, scene.cam.y + m.y * k * sp * dt));
       }
       player.vx = player.vy = 0;
       player.moving = false;
@@ -709,8 +811,10 @@
     if (len > 1) { ix /= len; iy /= len; }
     const SPEED = 74;
     const k = 1 - Math.exp(-dt * (len > 0 ? 14 : 22));
-    player.vx += (ix * SPEED - player.vx) * k;
-    player.vy += (iy * SPEED - player.vy) * k;
+    // W/A/S/D follow the screen: up on screen is diagonal on the grid in the isometric view
+    const wd = scene.screenDir(ix, iy);
+    player.vx += (wd.x * SPEED - player.vx) * k;
+    player.vy += (wd.y * SPEED - player.vy) * k;
     if (!len && Math.hypot(player.vx, player.vy) < 2) player.vx = player.vy = 0;
 
     const x0 = player.x, y0 = player.y;
@@ -718,6 +822,7 @@
     const moved = Math.hypot(player.x - x0, player.y - y0);
     const was = player.moving;
     player.moving = len > 0.1 && moved > 0.05;
+    updateUse(dt, len > 0.1);
     if (player.moving && !was) player.dist = 0;
     player.dist += moved;
     S.walked += moved;
@@ -730,9 +835,33 @@
       } else player.dir = ax > ay ? horiz : vert;
     }
 
+    // looking around after a drag: walking brings the camera back to the player (smoothly)
+    if (len > 0.1) S.freeCam = false;
+    if (S.freeCam) return;
     const kc = 1 - Math.exp(-dt * (reduced ? 30 : 5.5));
-    scene.cam.x += (player.x + player.vx * 0.22 - scene.cam.x) * kc;
-    scene.cam.y += (player.y - 12 + player.vy * 0.22 - scene.cam.y) * kc;
+    // aim a little above the feet (straight up on screen in both views)
+    const up = scene.iso ? 7 : 0;
+    scene.cam.x += (player.x - up + player.vx * 0.22 - scene.cam.x) * kc;
+    scene.cam.y += (player.y - 12 + up * 0.7 + player.vy * 0.22 - scene.cam.y) * kc;
+  }
+
+  // Momentum after a drag: while the button is held the camera's speed is measured; released, it
+  // glides on and slows down. Only where the camera is free (build, crew, or looking around).
+  function camGlide(dt) {
+    const c = scene.cam, last = S.lastCam || { x: c.x, y: c.y };
+    const free = S.mode !== 'explore' || S.freeCam;
+    if (S.ptrDown && dt > 0) {
+      const vx = (c.x - last.x) / dt, vy = (c.y - last.y) / dt;
+      S.camVel = S.camVel ? { x: S.camVel.x * 0.6 + vx * 0.4, y: S.camVel.y * 0.6 + vy * 0.4 } : { x: vx, y: vy };
+    } else if (S.camVel && free && !reduced) {
+      c.x = Math.max(0, Math.min(scene.mapW, c.x + S.camVel.x * dt));
+      c.y = Math.max(0, Math.min(scene.mapH, c.y + S.camVel.y * dt));
+      const k = Math.exp(-dt * 5);
+      S.camVel.x *= k;
+      S.camVel.y *= k;
+      if (Math.hypot(S.camVel.x, S.camVel.y) < 4) S.camVel = null;
+    } else if (!S.ptrDown) S.camVel = null;
+    S.lastCam = { x: c.x, y: c.y };
   }
 
   function findTarget() {
@@ -750,6 +879,17 @@
       if (n.hidden) continue; // off duty
       const d = Math.hypot(n.x - player.x, n.y - player.y) - 2;
       if (d < 20 && d < bestD) { bestD = d; best = n; }
+    }
+    // things to use: coffee machines, sofas, TVs, boards… (interact.js) — the closest footprint
+    if (DL.Interact && !P.rest) {
+      for (const e of W.items) {
+        if (!usable(e) || (P.use && P.use.e === e)) continue;
+        const h = e.host || e, x0 = h.px, y0 = h.py, x1 = x0 + (h.tw || 1) * T, y1 = y0 + (h.th || 1) * T;
+        const dx = Math.max(x0 - player.x, 0, player.x - x1), dy = Math.max(y0 - player.y, 0, player.y - y1);
+        // on a table, aim at the object itself; on the wall, at the tile below it
+        const d = Math.hypot(dx, dy) + (e.host ? Math.hypot(e.px + 8 - player.x, e.py + 8 - player.y) * 0.25 : 0) - 4;
+        if (d < 12 && d < bestD) { bestD = d; best = e; }
+      }
     }
     return best;
   }
@@ -780,18 +920,17 @@
     const show = t && canMove() && !(S.panel && S.panel === t) && !(t.crew && crew.selected === t);
     if (show) {
       const isActor = !!t.crew;
-      const ax = isActor ? t.x : t.bounds.x + t.bounds.w / 2;
-      const ay = isActor ? t.y - 33 : t.bounds.y - 3;
-      const p = scene.worldToScreen(ax, ay);
+      const p = isActor ? scene.worldToScreen(t.x, t.y, 33) : scene.iso ? scene.itemTop(t, 3) : scene.worldToScreen(t.bounds.x + t.bounds.w / 2, t.bounds.y - 3);
       prompt.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) translate(-50%,-100%)';
-      const key = isActor ? 'crew-' + t.crew.id + t.crew.name : t.id;
+      const use = !isActor && usable(t) ? DL.Interact.of(t) : null;
+      const key = isActor ? 'crew-' + t.crew.id + t.crew.name : use ? 'use-' + t.kind + t.tx + ',' + t.ty : t.id;
       if (key !== promptKey) {
         promptKey = key;
-        $('promptVerb').textContent = isActor ? 'Gerenciar' : 'Inspecionar';
-        $('promptName').textContent = isActor ? t.crew.name : t.id;
+        $('promptVerb').textContent = isActor ? 'Gerenciar' : use ? use.verb : 'Inspecionar';
+        $('promptName').textContent = isActor ? t.crew.name : use ? DL.itemName(t) : t.id;
       }
     }
-    prompt.classList.toggle('is-on', !!show);
+    prompt.classList.toggle('is-on', !!show && !(P.use && P.use.e === t));
   }
 
   /* ---------------- in-world overlay ---------------- */
@@ -822,10 +961,19 @@
     staff.overlay(g, sc);
     crew.overlay(g, sc);
     tutorial.overlay(g, sc);
-    if (S.flash && S.time < S.flash.until && S.flash.e.bounds) brackets(g, S.flash.e.bounds, 0.6 + 0.4 * Math.sin(sc.t * 10));
+    // the cup / can / snack in my hand
+    if (P.held && !player.seated) {
+      g.save();
+      if (scene.iso) scene.actorSpace(g, player);
+      DL.drawHeld(g, player, P.held.what, P.held.sipT < 0, sc.t, 7);
+      g.restore();
+    }
+    // isometric: brackets around the object as drawn; top-down: around its sprite bounds
+    const mark = (e, a) => (scene.iso ? scene.markItem(g, e, 'rgba(255,255,255,' + a.toFixed(3) + ')') : brackets(g, e.bounds, a));
+    if (S.flash && S.time < S.flash.until && S.flash.e.bounds) mark(S.flash.e, 0.6 + 0.4 * Math.sin(sc.t * 10));
     if (S.mode !== 'explore') return;
     const sel = S.panel || (S.target && !S.target.crew && canMove() ? S.target : null);
-    if (sel && sel.bounds) brackets(g, sel.bounds, S.panel === sel ? 0.9 : 0.5 + 0.3 * Math.sin(sc.t * 5));
+    if (sel && sel.bounds) mark(sel, S.panel === sel ? 0.9 : 0.5 + 0.3 * Math.sin(sc.t * 5));
   };
 
   /* ---------------- minimap ---------------- */
@@ -864,7 +1012,14 @@
     g.clearRect(0, 0, W.W * MS, W.H * MS);
     g.drawImage(mmStatic, 0, 0);
     g.strokeStyle = 'rgba(255,255,255,0.18)';
-    g.strokeRect(scene.ox / scene.S * k + 0.5, scene.oy / scene.S * k + 0.5, canvas.width / scene.S * k - 1, canvas.height / scene.S * k - 1);
+    if (scene.iso) {
+      // the isometric view covers a diamond of the map
+      const cw = canvas.width / scene.dpr, ch = canvas.height / scene.dpr;
+      g.beginPath();
+      [[0, 0], [cw, 0], [cw, ch], [0, ch]].forEach(([x, y], i) => { const p = scene.screenToWorld(x, y); g[i ? 'lineTo' : 'moveTo'](p.x * k, p.y * k); });
+      g.closePath();
+      g.stroke();
+    } else g.strokeRect(scene.ox / scene.S * k + 0.5, scene.oy / scene.S * k + 0.5, canvas.width / scene.S * k - 1, canvas.height / scene.S * k - 1);
     for (const a of crew.members) {
       if (a.hidden) continue;
       g.fillStyle = DL.ROLES[a.crew.profile.role].color;
@@ -881,6 +1036,7 @@
   function step(dt) {
     if (S.phase !== 'intro') S.time += dt;
     updatePlayer(dt);
+    camGlide(dt);
     S.target = canMove() ? findTarget() : null;
     crew.update(dt);
     if (S.phase !== 'intro') director.update(dt);
@@ -921,6 +1077,8 @@
     if (S.phase !== 'intro') return;
     S.phase = 'play';
     $('intro').classList.remove('is-open');
+    // from scratch: a small budget and the starter kit; ready-made environments are already operating
+    economy.start(preset);
     // presets come with a team already on its routine
     for (const role of DL.PRESETS[preset].crew || []) {
       const p = crew.api.randomProfile();
@@ -936,6 +1094,9 @@
     if (document.activeElement) document.activeElement.blur();
     if (withTutorial) tutorial.begin();
     else setMode('build');
+    S.preset = preset;
+    // (cloud-sync.js: with an account, the new game gets a cloud save slot)
+    G.emit('game-begin', { preset });
   }
 
   let lastFrame = performance.now();
@@ -964,7 +1125,7 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
     // fast-forward the simulation (game minutes) without drawing — for automated checks
     advance(sec, dt) { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) { step(dt); scene.update(dt); } },
   };

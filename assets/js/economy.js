@@ -1,5 +1,6 @@
-/* DataLab — economy: two currencies (Créditos earned by playing, DataCoins as the premium balance),
-   the company's cash flow (revenue from healthy servers, losses while problems stay open), the
+/* DataLab — economy: the company's money ($: infrastructure, land, salaries, operation) kept apart
+   from the player's own balances (Créditos earned by playing; Gold, the golden premium coin that buys
+   skins, special items and legendary bots — never company spending), the company's cash flow (revenue from healthy servers, losses while problems stay open), the
    "datacenter concluído" checklist and progress milestones that hand out rewards.
    Time: one real second is one game minute (the HUD clock), so every "/min" rate below is per
    game minute. All numbers live in DL.ECON so they are easy to tune. */
@@ -8,8 +9,30 @@
   const DL = window.DL;
 
   DL.ECON = {
-    startCash: 100000,          // company balance at the start of a session ($)
-    revenuePerServer: 20,       // $/min for each online server that answers
+    // Two phases. Setup: a small budget to learn building — nothing costs money over time and the
+    // starter kit pays the tutorial's first rack, computer, server, switch, hire and configuration.
+    // Live (from the first server installed): salaries, energy, rent, internet and maintenance start,
+    // ramping up over `opexRamp` minutes; servers earn by type; problems cost money.
+    startCash: 15000,           // company balance at the start of a fresh game ($)
+    presetCash: { office: 45000, noc: 70000, dcs: 110000, dcm: 180000 }, // ready-made environments start live
+    starterKit: { rack: 1, desk: 1, server: 1, switch: 1, patch: 1, hire: 1, config: 1, lot: 1 },
+    // Land: the starting lot is free; each expansion is paid per new m², dearer the bigger the lot
+    // already is and the more floor is built on it (see DL.lotPrice). Shrinking gives nothing back.
+    lot: { base: 18, freeArea: 90, growth: 1.05, builtK: 600 },
+    opexRamp: 180,              // minutes for operating costs to reach their full rate (30% → 100%)
+    opexFloor: 0.3,
+    rentPerTile: 0.02,          // $/min per tile of built floor
+    linkCost: 6,                // $/min: the internet link, once a switch is installed
+    maintPerDevice: 1.5,        // $/min per installed server / switch / storage (support contracts)
+    trafficPerServer: 10,       // $/min per online server: bandwidth + software licences
+    marketScale: 150,           // demand saturates gently: revenue × 1 / (1 + servers / marketScale)
+    serverSetupFee: 450,        // licences + configuration, paid when a server goes online
+    firstContract: 3000,        // the first client signs when the first server goes online
+    loanAmount: 20000,          // emergency loan when the cash runs dry (live phase)
+    loanFee: 0.1,               // repaid with 10% on top…
+    loanRepay: 0.2,             // …taking 20% of each minute's profit (at least loanMinRepay $/min)
+    loanMinRepay: 2,
+    revenuePerServer: 36,       // $/min for each online server that answers (before market saturation)
     // Payroll: every member has an individual monthly salary (role base × level × a personal factor
     // negotiated at hiring), paid once a month. One day on the HUD clock (24 game hours = 24 real
     // minutes) is one month of the company's operation, so pay day is at 00:00.
@@ -40,14 +63,25 @@
     },
     // Progress milestones. `every` repeats (20, 40, 60…); add new counters / rewards here later.
     milestones: [
-      { id: 'dc20', counter: 'datacenters', every: 20, title: 'Marco de datacenters', label: (n) => n + ' datacenters concluídos', reward: { datacoins: 100 } },
+      { id: 'dc20', counter: 'datacenters', every: 20, title: 'Marco de datacenters', label: (n) => n + ' datacenters concluídos', reward: { gold: 100 } },
     ],
-    // DataCoin packs (simulation only — no payment is taken)
+    // Gold: earned by playing (each datacenter completed), exchanged from Créditos, or in packs
+    gold: { welcome: 100, datacenter: 20, rate: 10 }, // rate: créditos per 1 Gold
+    // Gold packs (simulation only — no payment is taken)
     store: [
-      { sku: 'dc_100', coins: 100, price: 'R$ 4,90' },
-      { sku: 'dc_550', coins: 550, price: 'R$ 19,90', tag: '+10%' },
-      { sku: 'dc_1200', coins: 1200, price: 'R$ 39,90', tag: '+20%' },
+      { sku: 'gold_100', coins: 100, price: 'R$ 4,90' },
+      { sku: 'gold_550', coins: 550, price: 'R$ 19,90', tag: '+10%' },
+      { sku: 'gold_1200', coins: 1200, price: 'R$ 39,90', tag: '+20%' },
     ],
+  };
+
+  // Price of growing the lot from `lot` by dw × dh with `built` m² of floor on it ($, rounded to 50).
+  DL.lotPrice = function (lot, dw, dh, built) {
+    const L = DL.ECON.lot, area = lot.w * lot.h;
+    const added = (lot.w + Math.max(0, dw)) * (lot.h + Math.max(0, dh)) - area;
+    if (added <= 0) return 0;
+    const perTile = L.base * Math.pow(Math.max(1, area / L.freeArea), L.growth) * (1 + (built || 0) / L.builtK);
+    return Math.round((added * perTile) / 50) * 50;
   };
 
   /* ------------------------------------------------------------------ */
@@ -88,36 +122,84 @@
     };
 
     /* ---------- wallet (persists in this browser) ---------- */
-    const W = { credits: 0, datacoins: 0, counters: { datacenters: 0, incidents: 0 }, ledger: [] };
+    const W = { credits: 0, gold: 0, counters: { datacenters: 0, incidents: 0 }, ledger: [] };
     try { Object.assign(W, JSON.parse(localStorage.getItem(WALLET_KEY) || '{}')); } catch (e) { /* fresh wallet */ }
     W.counters = Object.assign({ datacenters: 0, incidents: 0 }, W.counters);
-    const save = () => { try { localStorage.setItem(WALLET_KEY, JSON.stringify(W)); } catch (e) { /* private mode */ } };
+    // Cloud mode (logged in, services/*.js): balances come from the server and are never written to
+    // this browser's storage; what the session earns is reported in the next save (CLAIM) and the
+    // server decides how much of it counts.
+    const CLOUD = { on: false, local: null };
+    const CLAIM = { revenue: 0, opex: 0, credits: 0, incidents: [], dc_done: false, since: 0 };
+    function resetClaim() { CLAIM.revenue = 0; CLAIM.opex = 0; CLAIM.credits = 0; CLAIM.incidents = []; CLAIM.dc_done = false; CLAIM.since = game.time ? game.time() : 0; }
+    const save = () => { if (CLOUD.on) return; try { localStorage.setItem(WALLET_KEY, JSON.stringify(W)); } catch (e) { /* private mode */ } };
+    // DataCoins became Gold (the same premium coin): carry the old balance over once, plus the welcome gift
+    if (!W.goldSince) {
+      W.gold = Math.max(0, (W.gold || 0) + (W.datacoins || 0) + E.gold.welcome);
+      delete W.datacoins;
+      for (const l of W.ledger) if (l.cur === 'datacoins') l.cur = 'gold';
+      W.goldSince = Date.now();
+      W.ledger.unshift({ cur: 'gold', amount: E.gold.welcome, why: 'Boas-vindas · moeda dourada', t: '--:--' });
+      save();
+    }
+    const CUR = { credits: 'créditos', gold: 'Gold' };
+    const curOf = (c) => (c === 'datacoins' ? 'gold' : c);
 
     /* ---------- company ---------- */
     const CO = { cash: E.startCash, revenue: 0, losses: 0, payroll: 0, lost: 0, earned: 0, problems: [], hourAcc: 0, acc: 0, dcChecked: 0,
       servers: 0, storage: 0, wifi: 0, energy: 0, kw: 0, camCut: 0, spent: 0, sold: 0, rateAt: -1, poe: null, slow: [],
       // payroll: monthly total, last pay day (game minutes since the session started), history
-      payrollMonth: 0, lastPay: 0, month: 1, paid: [], hired: 0 };
+      payrollMonth: 0, lastPay: 0, month: 1, paid: [], hired: 0,
+      // phase ('setup' → 'live'), starter kit left, operating costs per minute, this month's books, loan
+      phase: 'setup', liveAt: 0, kit: Object.assign({}, E.starterKit), rent: 0, link: 0, maint: 0, opexK: 0, net: 0,
+      mo: null, months: [], debt: 0, loans: 0 };
+    const freshMonth = () => ({ revenue: 0, sales: 0, salaries: 0, energy: 0, rent: 0, link: 0, maint: 0, traffic: 0, losses: 0, setup: 0, purchases: 0, hires: 0 });
+    CO.mo = freshMonth();
     const queue = []; // reward screens waiting to be shown
 
     // the learning mode pays more (Experiente) or less (Iniciante) — difficulty.js
     const rewardK = () => (DL.learn ? DL.learn().reward : 1);
 
     function earn(cur, amount, why, opts) {
+      cur = curOf(cur);
       if (amount > 0 && cur === 'credits' && !(opts && opts.raw)) amount *= rewardK();
       amount = Math.round(amount);
       if (!amount) return;
-      W[cur] += amount;
+      if (CLOUD.on && !(opts && opts.server)) {
+        // the server grants Gold (datacenter, purchases…) — local Gold changes don't exist in cloud mode
+        if (cur === 'gold') return;
+        if (cur === 'credits' && amount > 0) CLAIM.credits += amount;
+      }
+      W[cur] = (W[cur] || 0) + amount;
       W.ledger.unshift({ cur, amount, why, t: game.clock() });
       if (W.ledger.length > 30) W.ledger.pop();
       save();
       render();
-      if (!(opts && opts.quiet)) floater((amount > 0 ? '+' : '') + fmt(amount) + (cur === 'credits' ? ' créditos' : ' DataCoins'), cur);
+      game.emit('wallet', { cur, amount });
+      if (!(opts && opts.quiet)) floater((amount > 0 ? '+' : '') + fmt(amount) + ' ' + CUR[cur], cur);
+    }
+    // Pay from the player's balances (never from the company). Returns null when paid, or the reason.
+    function spend(cur, amount, why) {
+      cur = curOf(cur);
+      amount = Math.round(amount);
+      if (amount <= 0) return null;
+      if ((W[cur] || 0) < amount) return 'Saldo insuficiente: faltam ' + fmt(amount - (W[cur] || 0)) + ' ' + CUR[cur];
+      earn(cur, -amount, why, { quiet: true });
+      return null;
+    }
+    // Créditos → Gold at the fixed rate (whole Gold only)
+    function exchange(credits) {
+      const gold = Math.floor(credits / E.gold.rate);
+      if (gold < 1) return 'Mínimo de ' + E.gold.rate + ' créditos';
+      const cost = gold * E.gold.rate;
+      if (W.credits < cost) return 'Créditos insuficientes';
+      earn('credits', -cost, 'Câmbio → ' + gold + ' Gold', { quiet: true, raw: true });
+      earn('gold', gold, 'Câmbio de ' + fmt(cost) + ' créditos');
+      return null;
     }
 
     function grant(reward, why) {
       if (reward.credits) earn('credits', reward.credits, why);
-      if (reward.datacoins) earn('datacoins', reward.datacoins, why);
+      if (reward.gold || reward.datacoins) earn('gold', reward.gold || reward.datacoins, why);
     }
 
     // count progress; milestones with `every` fire on each multiple
@@ -162,10 +244,11 @@
     function rates() {
       if (CO.rateAt >= 0 && scene.t - CO.rateAt < 0.5) return;
       CO.rateAt = scene.t;
-      let srv = 0;
+      let srv = 0, up = 0;
       const slow = [];
       for (const d of ops.devices()) {
         if (d.kind !== 'server' || d.state !== 'online' || d.fault || !ops.health(d).up) continue;
+        up++;
         const m = DL.hwOf(d), net = ops.netOf(d);
         // the server's specialisation (infra.js) earns more or less, depending on whether its needs are met
         srv += E.revenuePerServer * m.perf * net.factor * (DL.svcFactor ? DL.svcFactor(d) : 1);
@@ -183,11 +266,27 @@
       }
       const poe = ops.poeStatus();
       CO.poe = poe;
-      CO.servers = srv;
+      // more servers, more customers to find: each extra one earns a little less (still worth it)
+      CO.demand = 1 / (1 + up / E.marketScale);
+      CO.upCount = up;
+      CO.servers = srv * CO.demand;
       CO.storage = sto;
       CO.wifi = poe.ap * E.wifiPerAp;
       CO.kw = kw;
-      CO.energy = kw * E.energyPerKw;
+      // infrastructure: rent of the built floor, the internet link, support contracts — ramping in
+      const w = world();
+      let tiles = 0;
+      for (let i = 0; i < w.tiles.length; i++) { const t = w.tiles[i]; if (t === '.' || t === ',' || t === '_') tiles++; }
+      const devs = ops.devices().filter((d) => d.kind !== 'patch');
+      const live = CO.phase === 'live';
+      CO.opexK = live ? Math.min(1, E.opexFloor + (1 - E.opexFloor) * Math.max(0, nowMin() - CO.liveAt) / E.opexRamp) : 0;
+      CO.tiles = tiles;
+      CO.devCount = devs.length + w.items.filter((e) => e.kind === 'storage').length;
+      CO.energy = kw * E.energyPerKw * CO.opexK;
+      CO.rent = tiles * E.rentPerTile * CO.opexK;
+      CO.link = devs.some((d) => d.kind === 'switch') ? E.linkCost * CO.opexK : 0;
+      CO.maint = CO.devCount * E.maintPerDevice * CO.opexK;
+      CO.traffic = up * E.trafficPerServer * CO.opexK;
       CO.camCut = Math.min(E.cameraCutMax, poe.camera * E.cameraCut);
       CO.slow = slow;
     }
@@ -215,26 +314,69 @@
       }).filter((p) => p.amount > 0);
     }
 
+    // Month end (00:00 on the clock): salaries were paid minute by minute; this closes the books.
     function payDay() {
       const at = nowMin();
       const slips = payslips(at);
-      const total = slips.reduce((s, p) => s + p.amount, 0);
+      const total = Math.round(CO.mo.salaries);
       CO.lastPay = at;
       CO.month++;
-      if (!total) return;
-      CO.cash -= total;
-      CO.paid.unshift({ month: CO.month - 1, total, n: slips.length, t: game.clock() });
-      if (CO.paid.length > 6) CO.paid.pop();
-      floater('-' + money(total) + ' · salários', 'spend');
-      game.toast(CO.cash < 0 ? 'warn' : 'info', 'Dia de pagamento · mês ' + (CO.month - 1), money(total) + ' em salários para ' + slips.length + ' pessoa(s)' + (CO.cash < 0 ? ' · caixa negativo!' : ' · saldo ' + money(CO.cash)));
+      const m = CO.mo, income = m.revenue + m.sales, costs = m.salaries + m.energy + m.rent + m.link + m.maint + m.traffic + m.losses + m.setup;
+      CO.months.unshift({ month: CO.month - 1, income: Math.round(income), costs: Math.round(costs), profit: Math.round(income - costs), invest: Math.round(m.purchases + m.hires) });
+      if (CO.months.length > 6) CO.months.pop();
+      CO.mo = freshMonth();
+      if (total) {
+        CO.paid.unshift({ month: CO.month - 1, total, n: slips.length, t: game.clock() });
+        if (CO.paid.length > 6) CO.paid.pop();
+      }
+      if (CO.phase !== 'live') return;
+      const r = CO.months[0];
+      game.toast(r.profit >= 0 ? 'ok' : 'warn', 'Fechamento do mês ' + r.month, 'Receitas ' + money(r.income) + ' · despesas ' + money(r.costs) + ' (salários ' + money(total) + ') · ' + (r.profit >= 0 ? 'lucro ' : 'prejuízo ') + money(Math.abs(r.profit)));
       game.emit('payday', { total, slips, cash: CO.cash });
       render();
     }
 
+    // the starter kit: the tutorial's first rack, computer, server, switch… cost nothing (setup phase)
+    const kitKey = (def) => (def.kind === 'desk' || def.id === 'desk' ? 'desk' : def.unit || def.id);
+    // (it stays valid until used: the tutorial buys the switch after the first server)
+    function priceOf(def) {
+      return CO.kit[kitKey(def)] > 0 ? 0 : def.price || 0;
+    }
+
+    // Land: what the next expansion costs (the starter kit pays the first one) and paying for it.
+    function lotCost(lot, dw, dh, built) {
+      return CO.kit.lot > 0 ? 0 : DL.lotPrice(lot, dw, dh, built);
+    }
+    function lotCharge(lot, dw, dh, built) {
+      if (CO.kit.lot > 0) {
+        CO.kit.lot--;
+        floater('Kit inicial · expansão do terreno grátis', 'cash');
+        render();
+        return null;
+      }
+      const cost = DL.lotPrice(lot, dw, dh, built);
+      if (!cost) return null;
+      if (CO.cash < cost) return 'Caixa insuficiente: a expansão custa ' + money(cost) + ' (saldo ' + money(CO.cash) + ')';
+      CO.cash -= cost;
+      CO.spent += cost;
+      CO.mo.purchases += cost;
+      CO.land = (CO.land || 0) + cost;
+      floater('-' + money(cost) + ' · terreno', 'spend');
+      render();
+      return null;
+    }
+
     // Hiring costs money up front (recruitment + onboarding). Returns null when paid, or the reason.
     function hireCharge(role, level, pay, name) {
+      if (CO.kit.hire > 0) {
+        CO.kit.hire--;
+        floater('Kit inicial · contratação de ' + name + ' grátis', 'cash');
+        render();
+        return null;
+      }
       const cost = DL.hireCostFor(role, level, pay);
       if (CO.cash - cost < 0) return 'Caixa insuficiente: a contratação custa ' + money(cost);
+      CO.mo.hires += cost;
       CO.cash -= cost;
       CO.spent += cost;
       CO.hired += cost;
@@ -243,18 +385,73 @@
       return null;
     }
 
+    // the first server installed (by the player) starts the real economy
+    function goLive(silent) {
+      if (CO.phase === 'live') return;
+      CO.phase = 'live';
+      CO.liveAt = nowMin();
+      CO.rateAt = -1;
+      if (!silent) {
+        game.toast('ok', 'Primeiro servidor instalado', 'A empresa começou a operar: salários, energia, aluguel e internet entram aos poucos; servidores no ar geram receita.');
+        game.emit('economy-live', {});
+      }
+      render();
+    }
+    // A fresh company for a new game: preparation phase with the starter kit (from scratch), or a
+    // ready-made environment that is already operating (presets).
+    function start(preset) {
+      const live = preset && preset !== 'zero';
+      Object.assign(CO, {
+        cash: live ? E.presetCash[preset] || E.startCash * 4 : E.startCash, phase: 'setup', liveAt: 0, kit: Object.assign({}, E.starterKit),
+        spent: 0, sold: 0, earned: 0, lost: 0, hired: 0, debt: 0, loans: 0, month: 1, firstContract: live, lastPay: nowMin(), paid: [], months: [], mo: freshMonth(), rateAt: -1,
+      });
+      CO.payAt = null;
+      if (live) goLive(true);
+      render();
+    }
+
+    // out of cash: the bank lends once more (with a fee), repaid automatically from the profit
+    function emergencyLoan() {
+      const amount = E.loanAmount;
+      CO.cash += amount;
+      CO.debt += Math.round(amount * (1 + E.loanFee));
+      CO.loans++;
+      floater('+' + money(amount) + ' · empréstimo', 'cash');
+      game.toast('warn', 'Empréstimo emergencial', 'O caixa zerou: o banco liberou ' + money(amount) + '. A dívida (' + money(CO.debt) + ') é paga sozinha com parte do lucro. Corte custos ou ponha mais servidores no ar.');
+    }
+
     function tick(dt) {
+      if (CO.phase !== 'live' && ops.devices().some((d) => d.kind === 'server' && !d.pre)) goLive();
+      // while the tutorial is still teaching, the costs wait (the ramp starts when it is over)
+      const frozen = !!(game.paused && game.paused());
+      CO.frozen = frozen;
+      if (CO.phase === 'live' && frozen) CO.liveAt = nowMin();
       rates();
+      const live = CO.phase === 'live' && !frozen, k = CO.opexK;
       CO.problems = problems();
-      CO.losses = CO.problems.reduce((s, d) => s + d.loss.rate, 0) * (1 - CO.camCut);
+      // preparation: nothing runs yet, so nothing is lost either
+      CO.losses = live ? CO.problems.reduce((s, d) => s + d.loss.rate, 0) * (1 - CO.camCut) : 0;
       CO.revenue = (CO.servers + CO.storage + CO.wifi) * rewardK();
       CO.payrollMonth = payrollMonth();
-      CO.payroll = CO.payrollMonth / E.monthMinutes; // average cost per minute (paid once a month)
+      CO.payroll = live ? (CO.payrollMonth / E.monthMinutes) * k : 0; // salaries, paid minute by minute
+      if (!live) { CO.energy = 0; CO.rent = 0; CO.link = 0; CO.maint = 0; CO.traffic = 0; }
       const mins = dt; // 1 s = 1 game minute
+      const costs = CO.energy + CO.rent + CO.link + CO.maint + CO.traffic + CO.losses + CO.payroll;
+      CO.net = CO.revenue - costs;
+      // the loan is repaid from the profit
+      let repay = 0;
+      if (CO.debt > 0 && CO.net > 0) repay = Math.min(CO.debt, Math.max(E.loanMinRepay, CO.net * E.loanRepay) * mins);
+      CO.debt -= repay;
       for (const d of CO.problems) d.loss.total += d.loss.rate * (1 - CO.camCut) * mins;
-      CO.cash += (CO.revenue - CO.energy - CO.losses) * mins;
+      CO.cash += CO.net * mins - repay;
       CO.lost += CO.losses * mins;
       CO.earned += CO.revenue * mins;
+      const m = CO.mo;
+      m.revenue += CO.revenue * mins; m.salaries += CO.payroll * mins; m.energy += CO.energy * mins; m.rent += CO.rent * mins;
+      m.link += CO.link * mins; m.maint += CO.maint * mins; m.traffic += CO.traffic * mins; m.losses += CO.losses * mins;
+      if (live) { CLAIM.revenue += CO.revenue * mins; CLAIM.opex += costs * mins; }
+      // (in cloud mode the bank is the server's balance: no local emergency loans)
+      if (live && !CLOUD.on && CO.cash < -500 && CO.loans < 6) emergencyLoan();
       if (nowMin() >= nextPayAtCached()) { payDay(); CO.payAt = null; }
       // keeping servers running pays credits every game hour
       CO.hourAcc += mins;
@@ -267,8 +464,17 @@
 
     /* ---------- equipment bought and sold in build mode ---------- */
     game.on('purchase', (info) => {
+      // the starter kit covers it (build.js asked priceOf first)
+      const kk = info.def && kitKey(info.def);
+      if (info.def && CO.kit[kk] > 0 && !info.price) {
+        CO.kit[kk]--;
+        floater('Kit inicial · ' + info.name + ' grátis', 'cash');
+        render();
+        return;
+      }
       CO.cash -= info.price;
       CO.spent += info.price;
+      CO.mo.purchases += info.price;
       CO.rateAt = -1;
       floater('-' + money(info.price) + ' · ' + info.name, 'spend');
       render();
@@ -284,7 +490,29 @@
 
     /* ---------- events that pay ---------- */
     game.on('job-done', (info) => earn('credits', info.auto ? E.credits.taskAuto : E.credits.taskOrder, 'Tarefa: ' + info.name, { quiet: info.auto }));
-    game.on('server-online', (info) => earn('credits', E.credits.serverSetup, info.d.name + ' configurado'));
+    game.on('server-online', (info) => {
+      earn('credits', E.credits.serverSetup, info.d.name + ' configurado');
+      // licences + configuration (the first one is part of the starter kit)
+      if (info.d.pre) return;
+      // the first server in the air brings the first client: the company's first revenue
+      if (!CO.firstContract) {
+        CO.firstContract = true;
+        const amount = Math.round((E.firstContract * rewardK()) / 50) * 50;
+        CO.cash += amount;
+        CO.earned += amount;
+        CO.mo.sales += amount;
+        CLAIM.revenue += amount;
+        floater('+' + money(amount) + ' · primeiro contrato', 'cash');
+        game.toast('ok', 'Primeira receita!', 'O primeiro cliente contratou hospedagem: +' + money(amount) + '. Agora cada servidor no ar rende por minuto.');
+      }
+      if (CO.kit.config > 0) { CO.kit.config--; floater('Kit inicial · configuração grátis', 'cash'); return; }
+      if (CO.phase !== 'live') return;
+      CO.cash -= E.serverSetupFee;
+      CO.mo.setup += E.serverSetupFee;
+      CLAIM.opex += E.serverSetupFee;
+      floater('-' + money(E.serverSetupFee) + ' · licenças e configuração', 'spend');
+      render();
+    });
     game.on('fixed', (info) => {
       const open = Math.max(0, scene.t - (info.at || scene.t));
       const C = E.credits;
@@ -293,6 +521,7 @@
       if (info.by) amount *= C.crewFix;
       earn('credits', amount, 'Incidente resolvido · ' + info.d.name + ' em ' + Math.round(open) + ' min');
       count('incidents');
+      if (CLAIM.incidents.length < 20) CLAIM.incidents.push({ device: info.d.key, type: info.type || (info.d.fault && info.d.fault.type) || 'fault', open: Math.round(open), by: info.by ? 'crew' : 'player', loss: Math.round(info.lost || 0) });
       if (info.lost) game.toast('ok', 'Prejuízo estancado', info.d.name + ' custou ' + money(info.lost) + ' enquanto esteve com problema');
     });
 
@@ -317,8 +546,10 @@
       if (w.dcDone || game.paused()) return;
       if (!checklist().every((c) => c.ok)) return;
       w.dcDone = true;
+      CLAIM.dc_done = true;
       earn('credits', E.credits.datacenter, 'Datacenter concluído');
-      game.toast('ok', 'Datacenter concluído', 'Tudo no ar e sem incidentes · +' + E.credits.datacenter + ' créditos');
+      earn('gold', E.gold.datacenter, 'Datacenter concluído');
+      game.toast('ok', 'Datacenter concluído', 'Tudo no ar e sem incidentes · +' + E.credits.datacenter + ' créditos · +' + E.gold.datacenter + ' Gold');
       game.emit('datacenter-done', { n: W.counters.datacenters + 1 });
       count('datacenters');
     }
@@ -326,18 +557,20 @@
     /* ---------- UI ---------- */
     function render() {
       el.credits.textContent = fmt(W.credits);
-      el.coins.textContent = fmt(W.datacoins);
+      el.coins.textContent = fmt(W.gold);
       el.cash.textContent = money(CO.cash);
-      // operating result (salaries are paid once a month, shown on their own line)
-      const flow = CO.revenue - CO.energy - CO.losses;
-      el.flow.textContent = CO.losses > 0 ? 'Prejuízo -$' + fmt(CO.losses) + '/min' : (flow >= 0 ? '+' : '') + money(flow) + '/min';
-      el.flow.className = 'econ__flow ' + (CO.losses > 0 ? 'is-loss' : flow >= 0 ? 'is-up' : 'is-down');
-      el.btn.classList.toggle('is-loss', CO.losses > 0);
+      // the company's result per minute: revenue minus every cost (salaries included)
+      const net = CO.net || 0, setup = CO.phase !== 'live';
+      el.flow.textContent = setup ? 'Preparação · sem custos' : CO.frozen && net >= 0 && !CO.revenue ? 'Tutorial · custos pausados' : (net >= 0 ? 'Lucro +' : 'Prejuízo -') + money(Math.abs(net)).replace('-', '') + '/min';
+      el.flow.className = 'econ__flow ' + (setup ? 'is-up' : CO.losses > 0 || net < 0 ? 'is-loss' : 'is-up');
+      el.btn.classList.toggle('is-loss', !setup && (CO.losses > 0 || net < 0));
       el.cash.classList.toggle('is-neg', CO.cash < 0);
       if (el.pay) {
-        const txt = CO.payrollMonth ? 'Folha ' + money(CO.payrollMonth) + ' · em ' + fmtIn(payIn()) : 'Sem folha';
+        const kit = Object.keys(CO.kit).filter((k) => CO.kit[k] > 0).length;
+        const txt = setup ? 'Economia começa no 1º servidor' + (kit ? ' · kit inicial ativo' : '')
+          : 'Salários ' + money(CO.payrollMonth) + '/mês · infra ' + money(CO.energy + CO.rent + CO.link + CO.maint + (CO.traffic || 0)) + '/min' + (CO.debt > 0 ? ' · dívida ' + money(CO.debt) : '');
         if (el.pay.textContent !== txt) el.pay.textContent = txt;
-        el.pay.classList.toggle('is-warn', CO.payrollMonth > 0 && CO.cash < CO.payrollMonth);
+        el.pay.classList.toggle('is-warn', !setup && (CO.debt > 0 || net < 0));
       }
     }
 
@@ -370,7 +603,7 @@
         if (s.dataset.k !== txt) { s.dataset.k = txt; s.innerHTML = txt; }
         // stack tags of the same rack
         const i = CO.problems.filter((x) => x.rack === d.rack).indexOf(d);
-        const b = d.rack.bounds, p = scene.worldToScreen(b.x + b.w / 2, b.y - 2);
+        const b = d.rack.bounds, p = scene.iso ? scene.itemTop(d.rack, 2) : scene.worldToScreen(b.x + b.w / 2, b.y - 2);
         s.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + (p.y - i * 34).toFixed(1) + 'px) translate(-50%,-100%)';
         s.classList.toggle('is-on', show);
       }
@@ -386,22 +619,49 @@
     function walletHtml() {
       const cl = checklist();
       const m = E.milestones[0], n = W.counters[m.counter] || 0, next = (Math.floor(n / m.every) + 1) * m.every;
-      const flow = CO.revenue - CO.energy - CO.losses, net = flow - CO.payroll;
+      const net = CO.net || 0, setup = CO.phase !== 'live';
       const L = DL.learn ? DL.learn() : null, rk = rewardK();
+      const row = (label, v, cls) => '<li><span>' + label + '</span><b class="' + (cls || '') + '">' + v + '</b></li>';
+      const plus = (v) => '+' + money(v) + '/min', minus = (v) => '-' + money(v) + '/min';
       let h = '<div class="w-grid">';
-      h += '<section class="w-card"><span class="eyebrow-sm">Empresa</span><p class="w-big' + (CO.cash < 0 ? ' is-neg' : '') + '">' + money(CO.cash) + '</p>' +
-        '<ul class="w-rows"><li><span>Receita dos servidores' + (rk !== 1 ? ' (modo ' + esc(L.name) + ' ×' + rk.toLocaleString('pt-BR') + ')' : '') + '</span><b class="is-up">+' + money(CO.servers * rk) + '/min</b></li>' +
-        (CO.storage ? '<li><span>Storage alugado</span><b class="is-up">+' + money(CO.storage * rk) + '/min</b></li>' : '') +
-        (CO.wifi ? '<li><span>Wi-Fi de visitantes (' + CO.poe.ap + ' AP)</span><b class="is-up">+' + money(CO.wifi * rk) + '/min</b></li>' : '') +
-        '<li><span>Energia · ' + (Math.round(CO.kw * 10) / 10).toLocaleString('pt-BR') + ' kW</span><b>-' + money(CO.energy) + '/min</b></li>' +
-        '<li><span>Prejuízo com problemas' + (CO.camCut ? ' (câmeras −' + Math.round(CO.camCut * 100) + '%)' : '') + '</span><b class="' + (CO.losses ? 'is-loss' : '') + '">-' + money(CO.losses) + '/min</b></li>' +
-        '<li class="w-total"><span>Resultado da operação</span><b class="' + (flow >= 0 ? 'is-up' : 'is-loss') + '">' + (flow >= 0 ? '+' : '') + money(flow) + '/min</b></li>' +
-        '<li><span>Com a folha diluída (' + money(CO.payroll) + '/min)</span><b class="' + (net >= 0 ? 'is-up' : 'is-loss') + '">' + (net >= 0 ? '+' : '') + money(net) + '/min</b></li></ul>';
-      // payroll: who earns what, when it is paid
-      const slips = payslips(nextPayAtCached());
-      const due = slips.reduce((s, p) => s + p.amount, 0);
-      h += '<span class="eyebrow-sm w-sub">Folha de pagamento · mês ' + CO.month + '</span>' +
-        '<p class="w-note w-pay">Salários pagos todo mês, à 00:00 do relógio (1 dia no relógio = 1 mês da empresa). Próximo pagamento em <b>' + fmtIn(payIn()) + '</b>: <b class="' + (CO.cash < due ? 'is-loss' : '') + '">' + money(due) + '</b>' + (CO.cash < due ? ' · o caixa não cobre!' : '') + '</p>';
+      h += '<section class="w-card"><span class="eyebrow-sm">Empresa · ' + (setup ? 'fase de preparação' : 'em operação') + '</span><p class="w-big' + (CO.cash < 0 ? ' is-neg' : '') + '">' + money(CO.cash) + '</p>';
+      if (setup) {
+        const kit = { rack: 'rack', desk: 'computador', server: 'servidor', switch: 'switch', patch: 'patch panel', hire: '1ª contratação', config: '1ª configuração', lot: '1ª expansão do terreno' };
+        const left = Object.keys(kit).filter((k) => CO.kit[k] > 0).map((k) => kit[k]);
+        h += '<p class="w-note">Ainda não há custos: a empresa começa a operar quando você <b>instalar o primeiro servidor</b>. Use este orçamento para montar a primeira sala.' +
+          (left.length ? ' <b>Kit inicial grátis:</b> ' + left.join(', ') + '.' : '') + '</p>';
+      }
+      // revenue
+      h += '<span class="eyebrow-sm w-sub">Receitas</span><ul class="w-rows">' +
+        row('Servidores no ar · ' + (CO.upCount || 0) + (CO.demand && CO.demand < 0.99 ? ' · demanda ' + Math.round(CO.demand * 100) + '%' : '') + (rk !== 1 ? ' (modo ' + esc(L.name) + ' ×' + rk.toLocaleString('pt-BR') + ')' : ''), plus(CO.servers * rk), 'is-up') +
+        (CO.storage ? row('Storage alugado', plus(CO.storage * rk), 'is-up') : '') +
+        (CO.wifi ? row('Wi-Fi de visitantes (' + CO.poe.ap + ' AP)', plus(CO.wifi * rk), 'is-up') : '') +
+        row('Vendas na recepção (este mês)', '+' + money(CO.mo.sales), 'is-up') + '</ul>';
+      // costs
+      h += '<span class="eyebrow-sm w-sub">Despesas' + (!setup && CO.opexK < 1 ? ' · entrando aos poucos (' + Math.round(CO.opexK * 100) + '%)' : '') + '</span><ul class="w-rows">' +
+        row('Salários (' + members().length + ' pessoa' + (members().length === 1 ? '' : 's') + ')', minus(CO.payroll)) +
+        row('Energia · ' + (Math.round(CO.kw * 10) / 10).toLocaleString('pt-BR') + ' kW', minus(CO.energy)) +
+        row('Aluguel · ' + (CO.tiles || 0) + ' m² de piso', minus(CO.rent)) +
+        row('Link de internet', minus(CO.link)) +
+        row('Manutenção · ' + (CO.devCount || 0) + ' equipamento(s)', minus(CO.maint)) +
+        row('Tráfego e licenças · ' + (CO.upCount || 0) + ' servidor(es) no ar', minus(CO.traffic || 0)) +
+        row('Prejuízo com problemas' + (CO.camCut ? ' (câmeras −' + Math.round(CO.camCut * 100) + '%)' : ''), minus(CO.losses), CO.losses ? 'is-loss' : '') +
+        '<li class="w-total"><span>' + (net >= 0 ? 'Lucro' : 'Prejuízo') + ' por minuto</span><b class="' + (net >= 0 ? 'is-up' : 'is-loss') + '">' + (net >= 0 ? '+' : '-') + money(Math.abs(net)).replace('-', '') + '/min</b></li></ul>';
+      if (CO.debt > 0) h += '<p class="w-note"><b class="is-loss">Dívida: ' + money(CO.debt) + '</b> · paga automaticamente com ' + Math.round(E.loanRepay * 100) + '% do lucro.</p>';
+      // this month and the last ones
+      const mo = CO.mo, inc = mo.revenue + mo.sales, cost = mo.salaries + mo.energy + mo.rent + mo.link + mo.maint + mo.traffic + mo.losses + mo.setup;
+      h += '<span class="eyebrow-sm w-sub">Este mês · ' + CO.month + '</span><ul class="w-rows">' +
+        row('Receitas', '+' + money(inc), 'is-up') + row('Salários', '-' + money(mo.salaries)) + row('Infraestrutura (energia, aluguel, link, manutenção, tráfego)', '-' + money(mo.energy + mo.rent + mo.link + mo.maint + mo.traffic)) +
+        (mo.setup ? row('Licenças e configuração de servidores', '-' + money(mo.setup)) : '') + (mo.losses ? row('Prejuízo com problemas', '-' + money(mo.losses), 'is-loss') : '') +
+        '<li class="w-total"><span>Resultado do mês</span><b class="' + (inc - cost >= 0 ? 'is-up' : 'is-loss') + '">' + money(inc - cost) + '</b></li>' +
+        row('Investimentos (compras e contratações)', '-' + money(mo.purchases + mo.hires)) + '</ul>';
+      if (CO.months.length) {
+        const max = Math.max(1, ...CO.months.map((x) => Math.max(Math.abs(x.income), Math.abs(x.costs))));
+        h += '<div class="w-months">' + CO.months.slice().reverse().map((x) => '<div class="w-month" title="Mês ' + x.month + ': receitas ' + money(x.income) + ', despesas ' + money(x.costs) + '"><i class="is-in" style="height:' + Math.round((x.income / max) * 100) + '%"></i><i class="is-out" style="height:' + Math.round((x.costs / max) * 100) + '%"></i><small class="' + (x.profit >= 0 ? 'is-up' : 'is-loss') + '">' + (x.profit >= 0 ? '+' : '') + fmt(x.profit) + '</small><em>m' + x.month + '</em></div>').join('') + '</div>';
+      }
+      // payroll: who earns what
+      h += '<span class="eyebrow-sm w-sub">Folha de pagamento</span>' +
+        '<p class="w-note w-pay">Salários debitados minuto a minuto; o mês fecha à 00:00 do relógio (1 dia = 1 mês da empresa), em <b>' + fmtIn(payIn()) + '</b>.</p>';
       if (members().length) {
         h += '<ul class="w-rows w-rows--pay">' + members().map((a) => {
           const R = DL.ROLES[a.crew.profile.role] || {};
@@ -419,20 +679,22 @@
           '<li><span>' + esc(x.d.name) + ' · ' + esc(x.why) + '</span><b class="is-loss">' + x.pct + '%</b></li>').join('') + '</ul>';
       }
       if (CO.poe && CO.poe.off) h += '<p class="w-note">' + CO.poe.off + ' access point(s)/câmera(s) sem energia: instale um switch PoE na mesma sala.</p>';
-      if (CO.spent || CO.sold) h += '<p class="w-note">Investido em equipamentos: ' + money(CO.spent) + (CO.sold ? ' · revendido: ' + money(CO.sold) : '') + '</p>';
+      if (CO.spent || CO.sold) h += '<p class="w-note">Investido em equipamentos e terreno: ' + money(CO.spent) + (CO.land ? ' (terreno ' + money(CO.land) + ')' : '') + (CO.sold ? ' · revendido: ' + money(CO.sold) : '') + '</p>';
       h += '</section>';
-      h += '<section class="w-card"><span class="eyebrow-sm">Saldos</span>' +
+      h += '<section class="w-card"><span class="eyebrow-sm">Saldos do jogador · separados do caixa da empresa</span>' +
         '<div class="w-bal"><div><span class="cur cur--cr">◆</span><b>' + fmt(W.credits) + '</b><small>Créditos · ganhos jogando</small></div>' +
-        '<div><span class="cur cur--dc">⬢</span><b>' + fmt(W.datacoins) + '</b><small>DataCoins · moeda premium</small></div></div>' +
+        '<div><span class="cur cur--dc">⬢</span><b class="is-gold">' + fmt(W.gold) + '</b><small>Gold · moeda dourada (skins, itens especiais, bots lendários)</small></div></div>' +
+        '<div class="w-xchg"><span>Câmbio: ' + E.gold.rate + ' créditos = 1 Gold</span>' +
+        [100, 500].map((n) => '<button type="button" class="btn btn--sm" data-xchg="' + n + '"' + (W.credits < n ? ' disabled' : '') + '>' + n + ' ◆ → ' + n / E.gold.rate + ' Gold</button>').join('') + '</div>' +
         '<span class="eyebrow-sm w-sub">Progresso</span><p class="w-prog"><b>' + n + '</b> datacenter(s) concluído(s) · próxima recompensa em <b>' + next + '</b></p>' +
         '<div class="w-bar"><i style="transform:scaleX(' + ((n % m.every) / m.every).toFixed(3) + ')"></i></div>' +
         '<span class="eyebrow-sm w-sub">Este datacenter' + (world().dcDone ? ' · concluído ✓' : '') + '</span><ul class="w-check">' +
         cl.map((c) => '<li class="' + (c.ok ? 'is-ok' : '') + '"><i></i>' + c.label + '</li>').join('') + '</ul></section>';
-      h += '<section class="w-card w-card--wide"><span class="eyebrow-sm">Loja de DataCoins · simulação</span><div class="w-store">' + E.store.map((p) =>
+      h += '<section class="w-card w-card--wide"><span class="eyebrow-sm">Pacotes de Gold · simulação</span><div class="w-store">' + E.store.map((p) =>
         '<button type="button" class="w-pack" data-sku="' + p.sku + '"><span class="cur cur--dc">⬢</span><b>' + fmt(p.coins) + '</b>' + (p.tag ? '<em>' + p.tag + '</em>' : '') + '<small>' + p.price + '</small></button>').join('') +
         '</div><p class="w-note">Modo de teste: nenhuma cobrança é feita e nenhum dado de pagamento é pedido. A compra real virá depois.</p>' +
         '<span class="eyebrow-sm w-sub">Extrato</span><ul class="w-ledger">' + (W.ledger.slice(0, 6).map((l) =>
-          '<li><span class="mono">' + l.t + '</span><span>' + esc(l.why) + '</span><b class="' + (l.cur === 'datacoins' ? 'is-dc' : '') + '">' + (l.amount > 0 ? '+' : '') + fmt(l.amount) + (l.cur === 'datacoins' ? ' ⬢' : ' ◆') + '</b></li>').join('') || '<li class="m">Nada ainda. Conclua tarefas e resolva incidentes.</li>') + '</ul></section>';
+          '<li><span class="mono">' + l.t + '</span><span>' + esc(l.why) + '</span><b class="' + (curOf(l.cur) === 'gold' ? 'is-dc' : '') + '">' + (l.amount > 0 ? '+' : '') + fmt(l.amount) + (curOf(l.cur) === 'gold' ? ' ⬢' : ' ◆') + '</b></li>').join('') || '<li class="m">Nada ainda. Conclua tarefas e resolva incidentes.</li>') + '</ul></section>';
       return h + '</div>';
     }
 
@@ -448,7 +710,7 @@
       if (!q) return;
       const { m, n } = q;
       const parts = [];
-      if (m.reward.datacoins) parts.push('<p class="rw-amount"><span class="cur cur--dc">⬢</span>+' + fmt(m.reward.datacoins) + '<small>DataCoins</small></p>');
+      if (m.reward.gold || m.reward.datacoins) parts.push('<p class="rw-amount"><span class="cur cur--dc">⬢</span>+' + fmt(m.reward.gold || m.reward.datacoins) + '<small>Gold</small></p>');
       if (m.reward.credits) parts.push('<p class="rw-amount"><span class="cur cur--cr">◆</span>+' + fmt(m.reward.credits) + '<small>Créditos</small></p>');
       el.rewardBody.innerHTML = '<p class="eyebrow-sm"><span class="dot dot--live"></span>&nbsp; Recompensa · ' + esc(m.title) + '</p>' +
         '<h2 class="card__title card__title--sm">' + esc(m.label(n)) + '</h2>' + parts.join('') +
@@ -466,15 +728,32 @@
     $('rewardClose').addEventListener('click', closeReward);
     el.wallet.addEventListener('pointerdown', (ev) => { if (ev.target === el.wallet) closeWallet(); });
     el.walletBody.addEventListener('click', (ev) => {
+      const x = ev.target.closest('[data-xchg]');
+      if (x && CLOUD.on && DL.EconomyService) {
+        x.disabled = true;
+        DL.EconomyService.exchange(+x.dataset.xchg).then((r) => {
+          if (!r.ok) game.toast('warn', 'Câmbio', r.message);
+          if (el.wallet.classList.contains('is-open')) el.walletBody.innerHTML = walletHtml();
+        });
+        return;
+      }
+      if (x) {
+        const why = exchange(+x.dataset.xchg);
+        if (why) game.toast('warn', 'Câmbio', why);
+        el.walletBody.innerHTML = walletHtml();
+        return;
+      }
       const b = ev.target.closest('[data-sku]');
       if (!b || b.disabled) return;
       const pack = E.store.find((p) => p.sku === b.dataset.sku);
+      // with an account, Gold only comes from the server: no simulated packs (real payments: future)
+      if (CLOUD.on) { game.toast('info', 'Pacotes de Gold', 'Com conta conectada, Gold só vem do servidor. Pagamentos reais ainda não estão disponíveis.'); return; }
       b.disabled = true;
       b.classList.add('is-busy');
       DL.Payments.purchase(pack).then((r) => {
         if (r && r.ok) {
-          earn('datacoins', r.coins, 'Compra simulada · ' + fmt(r.coins) + ' DataCoins');
-          game.toast('ok', 'Compra simulada', '+' + fmt(r.coins) + ' DataCoins · nenhuma cobrança feita');
+          earn('gold', r.coins, 'Compra simulada · ' + fmt(r.coins) + ' Gold');
+          game.toast('ok', 'Compra simulada', '+' + fmt(r.coins) + ' Gold · nenhuma cobrança feita');
         }
         if (el.wallet.classList.contains('is-open')) el.walletBody.innerHTML = walletHtml();
       });
@@ -506,10 +785,54 @@
 
     render();
     return {
-      update, updateUi: updateTags, key, earn, grant, count, checklist, lossOf, openWallet, closeWallet,
-      hireCharge, payDay,
-      charge(amount, why) { CO.cash -= amount; CO.spent += amount; floater('-' + money(amount) + ' · ' + why, 'spend'); render(); },
-      income(amount, why) { CO.cash += amount; CO.earned += amount; floater('+' + money(amount) + ' · ' + why, 'cash'); render(); },
+      update, updateUi: updateTags, key, earn, spend, exchange, grant, count, checklist, lossOf, openWallet, closeWallet,
+      hireCharge, payDay, start, priceOf, goLive, lotCost, lotCharge,
+      get phase() { return CO.phase; },
+      charge(amount, why) { CO.cash -= amount; CO.spent += amount; CO.mo.purchases += amount; floater('-' + money(amount) + ' · ' + why, 'spend'); render(); },
+      income(amount, why) { CO.cash += amount; CO.earned += amount; CO.mo.sales += amount; CLAIM.revenue += amount; floater('+' + money(amount) + ' · ' + why, 'cash'); render(); },
+      /* ---------- cloud (services/*.js) ---------- */
+      get cloud() { return CLOUD.on; },
+      // turn cloud mode on with the server's balances, or off back to this browser's own wallet
+      setCloud(on, wallet) {
+        if (on && !CLOUD.on) CLOUD.local = { credits: W.credits, gold: W.gold, ledger: W.ledger.slice() };
+        if (!on && CLOUD.on && CLOUD.local) Object.assign(W, CLOUD.local);
+        CLOUD.on = !!on;
+        if (on && wallet) { W.gold = wallet.gold; W.credits = wallet.credits; W.ledger = []; }
+        resetClaim();
+        render();
+      },
+      // what this session earned / spent since the last save (the server validates and caps it)
+      takeClaim() {
+        const c = { elapsed_min: Math.max(0, Math.round(nowMin() - CLAIM.since)), revenue: Math.round(CLAIM.revenue), opex: Math.round(CLAIM.opex),
+          credits: Math.round(CLAIM.credits), incidents: CLAIM.incidents.slice(0, 20), dc_done: CLAIM.dc_done || !!world().dcDone, phase: CO.phase };
+        return c;
+      },
+      resetClaim,
+      // the server's answer wins: cash, kit, phase, month, balances
+      applyServer(s) {
+        if (!s) return;
+        if (s.cash != null) CO.cash = Number(s.cash);
+        if (s.kit) CO.kit = Object.assign({}, s.kit);
+        if (s.phase === 'live' && CO.phase !== 'live') goLive(true);
+        if (s.month) CO.month = Math.max(CO.month, s.month);
+        if (s.first_contract != null) CO.firstContract = !!s.first_contract;
+        if (s.gold != null) W.gold = Number(s.gold);
+        if (s.credits != null) W.credits = Number(s.credits);
+        if (s.wallet) { W.gold = Number(s.wallet.gold); W.credits = Number(s.wallet.credits); }
+        render();
+        game.emit('wallet', { server: true });
+      },
+      // the company part of a save (and restoring it)
+      snapshot() { return { phase: CO.phase, month: CO.month, kit: Object.assign({}, CO.kit), firstContract: !!CO.firstContract, cash: Math.round(CO.cash), debt: Math.round(CO.debt), loans: CO.loans, dcDone: !!world().dcDone }; },
+      restore(s) {
+        if (!s) return;
+        Object.assign(CO, { cash: Number(s.cash) || 0, kit: Object.assign({}, s.kit || {}), month: s.month || 1, firstContract: !!s.firstContract, debt: s.debt || 0, loans: s.loans || 0, lastPay: nowMin(), payAt: null, rateAt: -1, mo: freshMonth(), months: [], paid: [] });
+        CO.phase = 'setup';
+        if (s.phase === 'live') goLive(true);
+        if (s.dcDone) world().dcDone = true;
+        resetClaim();
+        render();
+      },
       get payIn() { return payIn(); },
       payInText: () => fmtIn(payIn()),
       get isOpen() { return el.wallet.classList.contains('is-open') || el.reward.classList.contains('is-open'); },

@@ -1,0 +1,36 @@
+# DataLab · Supabase CLI config (local dev + function settings).
+# `supabase link --project-ref <ref>` connects this folder to the real project.
+project_id = "datalab"
+
+[api]
+# only public is exposed; the game logic lives in the private schema (reached by the Edge Functions)
+schemas = ["public"]
+extra_search_path = ["public"]
+
+[auth]
+site_url = "http://localhost:5500"
+additional_redirect_urls = ["http://localhost:5500/jogo.html", "http://127.0.0.1:5500/jogo.html"]
+jwt_expiry = 3600
+enable_refresh_token_rotation = true
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+secure_password_change = true
+
+# Every function also validates the token itself (requireUser) — the gateway check is a second layer.
+[functions.shop]
+verify_jwt = true
+
+[functions.inventory]
+verify_jwt = true
+
+[functions.economy]
+verify_jwt = true
+
+[functions.game]
+verify_jwt = true
+
+[functions.admin]
+verify_jwt = true

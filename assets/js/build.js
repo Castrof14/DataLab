@@ -300,8 +300,10 @@
     }
     for (const e of w.items) {
       if (!e.solid || e.host || SKIP[e.kind]) continue;
+      const hole = DL.itemHole ? DL.itemHole(e) : null;
       for (let j = 0; j < e.th; j++) {
         for (let i = 0; i < e.tw; i++) {
+          if (hole && hole[0] === i && hole[1] === j) continue;
           const x = e.tx + i, y = e.ty + j;
           if (x >= 0 && y >= 0 && x < W && y < H) solid[y * W + x] = 1;
         }
@@ -571,7 +573,8 @@
   // Walls on fresh partitions get a centred door (new worlds, presets, a room drawn next to another).
   function doorsForFresh(w, occ) {
     const add = [];
-    for (const s of w.freshRuns || []) { const d = centredDoor(s, occ); if (d) add.push(d); }
+    // (auto: the free door a new partition gets — saves tell it apart from bought doors)
+    for (const s of w.freshRuns || []) { const d = centredDoor(s, occ); if (d) { d.auto = true; add.push(d); } }
     if (add.length) { w.items = w.items.concat(add); layout(w); }
     return add;
   }
@@ -667,7 +670,7 @@
     { id: 'door2', cat: 'wall', name: 'Porta dupla', mount: 'wallslot', len: 2, price: 900, desc: 'Porta de duas folhas, ocupa 2 tiles de parede.' },
   ];
   // more models and furniture (hardware.js, furniture.js), then the themed objects (decor.js)
-  for (const d of (DL.HW_CATALOG || []).concat(DL.FURN_CATALOG || [], DL.DECO_CATALOG || [])) CATALOG.push(d);
+  for (const d of (DL.HW_CATALOG || []).concat(DL.FURN_CATALOG || [], DL.DECO_CATALOG || [], DL.PROPS_CATALOG || [])) CATALOG.push(d);
   const THEME_PRICE = { rug_robot: 300, rug_claude: 300, rug_gpt: 300, rug_rgb: 450, poster: 60, neon: 250, clock: 70, arcade: 2500, beanbag: 180, ledtube: 160, pcgamer: 3800, hologram: 1900, toolcart: 650, bonsai: 90, banner: 220 };
   for (const d of DL.DECOR_CATALOG || []) CATALOG.push(Object.assign({ price: THEME_PRICE[d.id] || 100 }, d));
   // everything turns (rack units live inside a rack, so they don't)
@@ -684,7 +687,7 @@
     door: 'Porta', wallseg: 'Parede',
   };
   Object.assign(NAMES, DL.DECOR_NAMES || {}, DL.HW_NAMES || {});
-  const SETUP_NAMES = { mono1: 'Mesa · 1 monitor', mono3: 'Mesa · 3 monitores', mono4: 'Mesa · 4 monitores', gamer: 'Setup gamer', gamerpc: 'Setup com PC gamer', tech: 'Estação técnica', noc: 'Estação de NOC', admin: 'Estação de administrador', support: 'Estação de atendimento' };
+  const SETUP_NAMES = Object.assign({ mono1: 'Mesa · 1 monitor', mono3: 'Mesa · 3 monitores', mono4: 'Mesa · 4 monitores', gamer: 'Setup gamer', gamerpc: 'Setup com PC gamer', tech: 'Estação técnica', noc: 'Estação de NOC', admin: 'Estação de administrador', support: 'Estação de atendimento' }, DL.PROPS_SETUP_NAMES || {});
   DL.SETUP_NAMES = SETUP_NAMES;
   DL.itemName = (e) => {
     if (e.kind === 'door' && e.len > 1) return 'Porta dupla';
@@ -697,6 +700,8 @@
   if (DL.ITEM_STYLES && DL.ITEM_STYLES.desk && !DL.ITEM_STYLES.desk.some((o) => o.key === 'setup')) {
     DL.ITEM_STYLES.desk.unshift({ key: 'setup', label: 'Setup', options: [['', '2 mon.'], ['mono1', '1 mon.'], ['mono3', '3 mon.'], ['mono4', '4 mon.'], ['gamer', 'Gamer'], ['gamerpc', 'PC gamer'], ['tech', 'Técnica'], ['noc', 'NOC'], ['admin', 'Admin'], ['support', 'Atendimento']] });
   }
+  // the bigger catalog's inspector options (props.js)
+  if (DL.applyPropsStyles) DL.applyPropsStyles();
   // rugs lie under everything; wall pieces hang on the north wall (neither blocks the floor)
   const isRug = (e) => e.kind === 'rug' || !!e.rug;
 
@@ -826,7 +831,9 @@
     function cells(e) {
       const out = [];
       if (e.host) return out;
-      for (let j = 0; j < e.th; j++) for (let i = 0; i < e.tw; i++) out.push([e.tx + i, e.ty + j]);
+      // an L table leaves its inner corner free (for the chair)
+      const hole = DL.itemHole ? DL.itemHole(e) : null;
+      for (let j = 0; j < e.th; j++) for (let i = 0; i < e.tw; i++) if (!hole || hole[0] !== i || hole[1] !== j) out.push([e.tx + i, e.ty + j]);
       return out;
     }
 
@@ -879,12 +886,24 @@
     function itemOnTile(tx, ty, pred) {
       for (const e of world.items) {
         if (e.host || SKIP[e.kind] || (pred && !pred(e))) continue;
+        const hole = DL.itemHole ? DL.itemHole(e) : null;
+        if (hole && tx === e.tx + hole[0] && ty === e.ty + hole[1]) continue;
         if (tx >= e.tx && tx < e.tx + e.tw && ty >= e.ty && ty < e.ty + e.th) return e;
       }
       return null;
     }
 
+    // isometric: what is drawn under the cursor (tall things cover the floor behind them);
+    // undefined when the point did not come from the mouse (automated placement)
+    const underMouse = (wx, wy, pred) => {
+      const m = B.mouse;
+      if (!scene.iso || !m || m.wx !== wx || m.wy !== wy) return undefined;
+      return scene.pickAt(m.sx, m.sy, pred);
+    };
+
     function pick(wx, wy) {
+      const hit = underMouse(wx, wy, (e) => !SKIP[e.kind] && !!e.bounds && world.items.indexOf(e) >= 0);
+      if (hit !== undefined) return hit ? hit.parent || hit : null;
       const list = world.items.filter((e) => !SKIP[e.kind] && e.bounds).sort((a, b) => b.sortY - a.sortY);
       for (const e of list) {
         const b = e.bounds;
@@ -909,7 +928,23 @@
     /* ---------- actions ---------- */
     function ghostAt(wx, wy) {
       const def = B.def;
-      const tx = Math.floor(wx / T), ty = Math.floor(wy / T);
+      const m = B.mouse, live = scene.iso && m && m.wx === wx && m.wy === wy;
+      if (live && def.mount === 'wall') {
+        // aim at the back wall itself, not at the floor behind it
+        const p = scene.wallPointAt(m.sx, m.sy);
+        if (p) { wx = p.x; wy = p.y; }
+      }
+      let tx = Math.floor(wx / T), ty = Math.floor(wy / T);
+      if (live && (def.mount === 'rack' || def.mount === 'surface')) {
+        const host = scene.pickAt(m.sx, m.sy, (e) => (def.mount === 'rack' ? e.kind === 'rack' && !!e.units : e.kind === 'table'));
+        if (host && def.mount === 'rack') { tx = host.tx; ty = host.ty; }
+        if (host && def.mount === 'surface') {
+          // the tile of the table top under the cursor
+          const p = scene.screenToWorld(m.sx, m.sy, DL.isoSurfaceTop ? DL.isoSurfaceTop(host) : 12);
+          tx = Math.max(host.tx, Math.min(host.tx + host.tw - 1, Math.floor(p.x / T)));
+          ty = Math.max(host.ty, Math.min(host.ty + host.th - 1, Math.floor(p.y / T)));
+        }
+      }
       if (def.mount === 'wallslot') {
         const d = doorGhost(tx, ty, def.len, B.rot);
         return { e: d.e, group: [d.e], tx: d.e.tx, ty: d.e.ty, reason: d.reason };
@@ -944,14 +979,18 @@
     const RESALE = 0.5;
     const company = () => (game.economy && game.economy.company) || null;
     // the player's own placements are paid; presets and theme decoration (api.place) come free
+    // the economy may discount it (economy.js: the starter kit pays the first rack, server, switch…)
+    const priceOf = (def) => (game.economy && game.economy.priceOf ? game.economy.priceOf(def) : def.price || 0);
     function pay(def) {
-      const price = def.price || 0;
-      if (!price || B.free) return 0;
+      const price = priceOf(def);
+      if (B.free || !def.price) return 0;
+      if (!price) { game.emit('purchase', { price: 0, name: def.name, def }); renderCatalogSoon(); return 0; }
       const co = company();
       if (co && co.cash < price) { nope('Saldo insuficiente · custa ' + DL.money(price)); return -1; }
       game.emit('purchase', { price, name: def.name, def });
       return price;
     }
+    const renderCatalogSoon = () => setTimeout(() => { if (B.active && B.tab !== 'room' && B.tab !== 'style') renderCatalog(); }, 0);
     function refund(amount, name) {
       if (amount > 0 && !B.free) game.emit('refund', { amount: Math.round(amount * RESALE), name });
     }
@@ -1350,15 +1389,34 @@
       renderRoom();
     }
 
-    function resizeLot(dw, dh) {
-      if (!world.lot) { nope('Este mapa não tem terreno livre'); return; }
+    // Land costs company money (economy.js): the starting lot is free, each expansion is paid per new m²
+    // and gets dearer with the lot's size and the floor already built. `paid` = the player's buttons
+    // (presets and automated checks call it free, like api.place).
+    const builtArea = () => world.areas.reduce((s, a) => s + a.w * a.h, 0);
+    function lotQuote(dw, dh) {
+      if (!world.lot || (dw <= 0 && dh <= 0)) return 0;
+      const eco = game.economy;
+      if (eco && eco.lotCost) return eco.lotCost(world.lot, dw, dh, builtArea());
+      return DL.lotPrice ? DL.lotPrice(world.lot, dw, dh, builtArea()) : 0;
+    }
+    function resizeLot(dw, dh, paid) {
+      if (!world.lot) { nope('Este mapa não tem terreno livre'); return false; }
       const lot = { w: world.lot.w + dw, h: world.lot.h + dh };
-      if (lot.w > LIM.mapW || lot.h > LIM.mapH) { nope('Limite do terreno: ' + LIM.mapW + ' × ' + LIM.mapH); return; }
-      if (lot.w < 6 || lot.h < 6) { nope('Terreno mínimo: 6 × 6'); return; }
-      if (tryRooms(cloneAreas(), null, { lot }) && (dw > 0 || dh > 0)) {
-        game.focus(dw > 0 ? (lot.w - 3) * T : scene.cam.x, dh > 0 ? (lot.h - 3) * T : scene.cam.y);
+      if (lot.w > LIM.mapW || lot.h > LIM.mapH) { nope('Limite do terreno: ' + LIM.mapW + ' × ' + LIM.mapH); return false; }
+      if (lot.w < 6 || lot.h < 6) { nope('Terreno mínimo: 6 × 6'); return false; }
+      const next = cloneAreas(), plan = planRooms(next, { lot });
+      if (plan.reason) { nope(plan.reason); renderRoom(); return false; }
+      const grow = dw > 0 || dh > 0;
+      if (paid && grow && game.economy && game.economy.lotCharge) {
+        const why = game.economy.lotCharge(world.lot, dw, dh, builtArea());
+        if (why) { nope(why); game.toast('warn', 'Expansão recusada', why); renderRoom(); return false; }
       }
+      applyPlan(next, plan);
+      game.sfx('place');
+      if (grow) game.focus(dw > 0 ? (lot.w - 3) * T : scene.cam.x, dh > 0 ? (lot.h - 3) * T : scene.cam.y);
+      game.emit('lot', { lot: world.lot, dw, dh, paid: !!paid });
       renderRoom();
+      return true;
     }
 
     /* ---------- room types (names + a matching look) ---------- */
@@ -1641,7 +1699,8 @@
         b.type = 'button';
         b.className = 'cat-item' + (B.def === def ? ' is-on' : '');
         b.dataset.def = def.id;
-        b.title = def.desc + (def.price ? ' · ' + DL.money(def.price) : '');
+        const price = def.price ? priceOf(def) : 0;
+        b.title = def.desc + (def.price ? ' · ' + (price ? DL.money(price) : 'grátis (kit inicial)') : '');
         if (!thumbs.has(def.id)) thumbs.set(def.id, thumb(def));
         const c = thumbs.get(def.id), cv = document.createElement('canvas');
         cv.width = c.width; cv.height = c.height;
@@ -1652,8 +1711,8 @@
         b.appendChild(s);
         if (def.price) {
           const p = document.createElement('em');
-          p.className = 'cat-item__price';
-          p.textContent = DL.money(def.price);
+          p.className = 'cat-item__price' + (price ? '' : ' is-free');
+          p.textContent = price ? DL.money(price) : 'Kit · grátis';
           b.appendChild(p);
         }
         el.items.appendChild(b);
@@ -1677,8 +1736,19 @@
         h += '<div class="room-mats"><span class="eyebrow-sm">Material <kbd>R</kbd></span>' + WALL_MATS.map(([id, l]) => '<button type="button" class="chip chip--xs' + (B.wallMat === id ? ' is-on' : '') + '" data-wall-mat="' + id + '">' + l + '</button>').join('') + '</div>';
       }
       if (world.lot) {
+        const pw = lotQuote(4, 0), ph = lotQuote(0, 4), lbl = (p) => (p ? DL.money(p) : 'grátis');
         h += '<div class="room-lot"><span class="eyebrow-sm">Terreno</span>' +
-          step('Larg.', 'lw', world.lot.w, false) + step('Alt.', 'lh', world.lot.h, false) + '</div>';
+          step('Larg.', 'lw', world.lot.w, false) + step('Alt.', 'lh', world.lot.h, false) +
+          '<span class="lot-prices" title="O preço sobe com o tamanho do terreno e com a área construída">+4 larg. <b>' + lbl(pw) + '</b> · +4 alt. <b>' + lbl(ph) + '</b></span></div>';
+      }
+      const ask = B.lotAsk;
+      if (B.lotBusy) h += '<div class="lot-ask" role="status"><span>Confirmando a compra do terreno com o servidor…</span></div>';
+      if (ask && world.lot) {
+        const price = lotQuote(ask.dw, ask.dh), co = company(), after = co ? co.cash - price : 0;
+        const nw = world.lot.w + ask.dw, nh = world.lot.h + ask.dh, add = nw * nh - world.lot.w * world.lot.h;
+        h += '<div class="lot-ask" role="alertdialog" aria-label="Confirmar expansão do terreno"><span>Expandir o terreno para <b>' + nw + ' × ' + nh + '</b> (+' + add + ' m²) por <b class="lot-ask__price">' + (price ? DL.money(price) : 'grátis · kit inicial') + '</b>' +
+          (co && price ? ' · caixa depois: <b class="' + (after < 0 ? 'is-neg' : '') + '">' + DL.money(after) + '</b>' : '') + '</span>' +
+          '<button type="button" class="btn btn--sm btn--primary" data-room="lot-ok"' + (co && after < 0 ? ' disabled' : '') + '>Confirmar</button><button type="button" class="btn btn--sm" data-room="lot-no">Cancelar</button></div>';
       }
       h += '</div><div class="room-list">';
       rooms.forEach((x, i) => {
@@ -1747,6 +1817,8 @@
           }
           h += '</div>';
         }
+        // skins from the inventory: this rack / storage can wear its own (inventory.js)
+        if (DL.inspectorSkin) h += DL.inspectorSkin(e);
         if (e.units) {
           const n = e.units.filter(Boolean).length;
           h += '<p class="insp__note">' + n + ' / 9 unidades · ' + DL.hwFmt.kw(e.tel ? e.tel.power : 0) + (n ? ' · <button type="button" class="linkbtn" data-ins="unit">tirar a última</button>' : ' · use Servidor ou Switch do catálogo') + '</p>';
@@ -1799,7 +1871,7 @@
       if (el.style) el.style.hidden = B.tab !== 'style';
       el.items.querySelectorAll('.cat-item').forEach((b) => b.classList.toggle('is-on', !!B.def && b.dataset.def === B.def.id));
       const mode = B.move ? 'move' : B.def ? (B.def.mount === 'wallslot' ? 'door' : B.def.mount === 'rack' ? 'mount' : 'place') : B.tab === 'room' ? (B.roomTool === 'select' ? 'room' : B.roomTool) : B.tab === 'style' ? 'style' : B.tool;
-      el.hint.innerHTML = HINTS[mode] + (B.def && B.def.price && !B.move ? ' · <b>' + B.def.name + '</b> custa ' + DL.money(B.def.price) : '');
+      el.hint.innerHTML = HINTS[mode] + (B.def && B.def.price && !B.move ? ' · <b>' + B.def.name + '</b> ' + (priceOf(B.def) ? 'custa ' + DL.money(priceOf(B.def)) : 'sai grátis (kit inicial)') : '');
       el.dock.querySelector('.tools').hidden = B.tab === 'room' || B.tab === 'style';
       game.setCursor(B.move || B.def || (B.tab === 'room' && B.roomTool !== 'select') ? 'crosshair' : B.tool === 'remove' ? 'not-allowed' : '');
     }
@@ -1856,10 +1928,27 @@
         else if (a === 'floor') toggleFloor(i);
         else if (a === 'add-e') addRoom(i, 'e');
         else if (a === 'add-s') addRoom(i, 's');
-        else if (a === 'lw+') resizeLot(4, 0);
-        else if (a === 'lw-') resizeLot(-2, 0);
-        else if (a === 'lh+') resizeLot(0, 4);
-        else if (a === 'lh-') resizeLot(0, -2);
+        // growing the land asks first (with the price); shrinking is free but gives nothing back
+        else if (a === 'lw+') { B.lotAsk = { dw: 4, dh: 0 }; renderRoom(); }
+        else if (a === 'lh+') { B.lotAsk = { dw: 0, dh: 4 }; renderRoom(); }
+        else if (a === 'lot-ok') {
+          const q = B.lotAsk;
+          B.lotAsk = null;
+          if (!q) renderRoom();
+          else if (game.cloudLot) {
+            // cloud save: the server charges the land first; the lot grows only when it says yes
+            B.lotBusy = true;
+            renderRoom();
+            game.cloudLot(q.dw, q.dh, builtArea()).then((r) => {
+              B.lotBusy = false;
+              if (r && r.ok) resizeLot(q.dw, q.dh, false);
+              else { nope((r && r.message) || 'Servidor indisponível'); game.toast('warn', 'Expansão recusada', (r && r.message) || 'Servidor indisponível'); renderRoom(); }
+            });
+          } else resizeLot(q.dw, q.dh, true);
+        }
+        else if (a === 'lot-no') { B.lotAsk = null; renderRoom(); }
+        else if (a === 'lw-') { B.lotAsk = null; resizeLot(-2, 0, true); }
+        else if (a === 'lh-') { B.lotAsk = null; resizeLot(0, -2, true); }
         else if (a === 'del') removeRoom(i);
       }
       b.blur();
@@ -1877,6 +1966,8 @@
     el.insp.addEventListener('click', (ev) => {
       const st = ev.target.closest('[data-sty]');
       if (st && B.sel) { DL.itemStyleSet(B.sel, st.dataset.sty, st.dataset.v); pos(B.sel); renderInspector(); return; }
+      const sk = ev.target.closest('[data-item-skin]');
+      if (sk && B.sel && DL.applyItemSkin) { DL.applyItemSkin(B.sel, sk.dataset.itemSkin); renderInspector(); return; }
       const b = ev.target.closest('[data-ins]');
       if (!b || !B.sel) return;
       const e = B.sel;
@@ -1905,8 +1996,9 @@
         }
       }
       if (B.pan) {
-        scene.cam.x = B.pan.cx - (sx - B.pan.sx) * scene.dpr / scene.S;
-        scene.cam.y = B.pan.cy - (sy - B.pan.sy) * scene.dpr / scene.S;
+        const d = scene.screenDelta(sx - B.pan.sx, sy - B.pan.sy);
+        scene.cam.x = B.pan.cx - d.x;
+        scene.cam.y = B.pan.cy - d.y;
         return;
       }
       if (B.down && !B.move && B.down.item && Math.hypot(sx - B.down.sx, sy - B.down.sy) > 5) {
@@ -2053,6 +2145,15 @@
     /* ---------- drawing ---------- */
     function dev(g, wx, wy, ww, wh, fill, stroke) {
       const S = scene.S;
+      if (scene.iso) {
+        // isometric: the same rectangle laid on the floor
+        g.save();
+        scene.groundTransform(g);
+        if (fill) { g.fillStyle = fill; g.fillRect(wx, wy, ww, wh); }
+        if (stroke) { g.strokeStyle = stroke; g.lineWidth = 1.2 / S; g.strokeRect(wx, wy, ww, wh); }
+        g.restore();
+        return;
+      }
       const x = Math.round(wx * S - scene.ox), y = Math.round(wy * S - scene.oy);
       const w = Math.round((wx + ww) * S - scene.ox) - x, h = Math.round((wy + wh) * S - scene.oy) - y;
       if (fill) { g.fillStyle = fill; g.fillRect(x, y, w, h); }
@@ -2070,16 +2171,21 @@
       g.save();
       g.setTransform(1, 0, 0, 1, 0, 0);
       const S = scene.S, W = world.W, H = world.H;
-      const x0 = Math.max(0, Math.floor(scene.ox / S / T)), y0 = Math.max(0, Math.floor(scene.oy / S / T));
-      const x1 = Math.min(W - 1, Math.ceil((scene.ox + scene.canvas.width) / S / T)), y1 = Math.min(H - 1, Math.ceil((scene.oy + scene.canvas.height) / S / T));
+      const { x0, y0, x1, y1 } = scene.tileRange();
+      // tile grid: one device pixel lines (on the floor plane in the isometric view)
+      if (scene.iso) scene.groundTransform(g);
+      const gridCell = (x, y) => {
+        if (scene.iso) { g.fillRect(x * T, y * T, T, 1 / S); g.fillRect(x * T, y * T, 1 / S, T); return; }
+        const px = Math.round(x * T * S - scene.ox), py = Math.round(y * T * S - scene.oy);
+        g.fillRect(px, py, Math.round(T * S), 1);
+        g.fillRect(px, py, 1, Math.round(T * S));
+      };
       g.fillStyle = 'rgba(255,255,255,0.055)';
       for (let y = y0; y <= y1; y++) {
         for (let x = x0; x <= x1; x++) {
           const t = world.tiles[y * W + x];
           if (t === '#' || t === 'g' || t === 'G' || t === 'w') continue;
-          const px = Math.round(x * T * S - scene.ox), py = Math.round(y * T * S - scene.oy);
-          g.fillRect(px, py, Math.round(T * S), 1);
-          g.fillRect(px, py, 1, Math.round(T * S));
+          gridCell(x, y);
         }
       }
       if (B.tab === 'style') {
@@ -2095,9 +2201,7 @@
           for (let y = y0; y <= Math.min(y1, world.lot.h - 1); y++) {
             for (let x = x0; x <= Math.min(x1, world.lot.w - 1); x++) {
               if (world.tiles[y * W + x] !== '#') continue;
-              const px = Math.round(x * T * S - scene.ox), py = Math.round(y * T * S - scene.oy);
-              g.fillRect(px, py, Math.round(T * S), 1);
-              g.fillRect(px, py, 1, Math.round(T * S));
+              gridCell(x, y);
             }
           }
           dev(g, 0, 0, world.lot.w * T, world.lot.h * T, null, 'rgba(255,255,255,0.12)');
@@ -2175,28 +2279,35 @@
 
     function overlay(g, sc) {
       if (!B.active) return;
+      // ghosts are drawn like the real thing: projected in the isometric view
+      const drawGhost = scene.iso ? (e, t) => scene.drawItemIso(g, e, t) : (e, t) => DL.drawItem(g, e, t);
       if (B.wd && B.wd.plan && !B.wd.erase) {
         // translucent wall pieces where the new wall will stand, joined like the real thing
         const fresh = new Set(B.wd.plan.tiles.filter((t) => t.st === 'new').map((t) => tkey(t.x, t.y)));
         const axs = new Map(B.wd.plan.tiles.map((t) => [tkey(t.x, t.y), t.ax]));
         const J = wallJoins((x, y) => (fresh.has(tkey(x, y)) ? 'w' : tileAt(x, y)), (x, y) => (fresh.has(tkey(x, y)) ? axs.get(tkey(x, y)) : wallAx(world.wallSet.get(tkey(x, y)))) + (axs.has(tkey(x, y)) ? axs.get(tkey(x, y)) : ''));
         g.globalAlpha = B.wd.plan.reason ? 0.35 : 0.7;
-        for (const t of B.wd.plan.tiles.filter((t) => t.st === 'new').sort((a, b) => a.y - b.y)) {
-          DL.drawItem(g, { kind: 'wallseg', px: t.x * T, py: t.y * T, tx: t.x, ty: t.y, mat: B.wallMat, l: J.h(t.x, t.y, t.x - 1), r: J.h(t.x, t.y, t.x + 1), u: J.v(t.x, t.y, t.y - 1), d: J.v(t.x, t.y, t.y + 1) }, sc.t);
+        for (const t of B.wd.plan.tiles.filter((t) => t.st === 'new').sort((a, b) => a.y - b.y || a.x - b.x)) {
+          drawGhost({ kind: 'wallseg', px: t.x * T, py: t.y * T, tx: t.x, ty: t.y, tw: 1, th: 1, mat: B.wallMat, l: J.h(t.x, t.y, t.x - 1), r: J.h(t.x, t.y, t.x + 1), u: J.v(t.x, t.y, t.y - 1), d: J.v(t.x, t.y, t.y + 1) }, sc.t);
         }
         g.globalAlpha = 1;
       }
       const ghost = B.move ? B.move.group : B.ghost && B.ghost.group;
       if (ghost) {
         g.globalAlpha = 0.78;
-        for (const e of ghost.slice().sort((a, b) => a.sortY - b.sortY)) DL.drawItem(g, e, sc.t);
+        const depth = scene.iso ? (e) => e.px + e.py + (e.tw || 1) * 8 + (e.th || 1) * 8 + (e.host ? 0.5 : 0) : (e) => e.sortY;
+        for (const e of ghost.slice().sort((a, b) => depth(a) - depth(b))) drawGhost(e, sc.t);
         g.globalAlpha = 1;
       }
       if (B.ghost && B.def && B.def.mount === 'rack' && B.ghost.mount && !B.ghost.reason) {
         const r = B.ghost.mount, k = r.units.indexOf(null);
         const a = 0.5 + 0.35 * Math.sin(sc.t * 6);
+        g.save();
+        // the free slot on the rack's front (its own sprite coordinates)
+        if (scene.iso) scene.spriteSpace(g, r);
         g.fillStyle = 'rgba(126,224,161,' + a.toFixed(3) + ')';
         g.fillRect(r.px + 3, r.py - 15 + k * 3, 10, 2);
+        g.restore();
       }
     }
 
@@ -2206,7 +2317,7 @@
       if (!B.active) return;
       if (B.sel && el.insp.classList.contains('is-on')) {
         const b = B.sel.bounds || { x: B.sel.px, y: B.sel.py, w: 16, h: 16 };
-        const p = scene.worldToScreen(b.x + b.w / 2, b.y - 4);
+        const p = scene.iso ? scene.itemTop(B.sel, 4) : scene.worldToScreen(b.x + b.w / 2, b.y - 4);
         el.insp.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) translate(-50%,-100%)';
       }
       const hp = null; // wall tools colour the tiles under the cursor instead
@@ -2273,7 +2384,22 @@
         try { place(); } finally { B.free = false; }
         B.def = null; B.ghost = null;
         return r;
-      }, removeItem, rotate, startMove, dropMove, resizeRoom, addRoom, removeRoom, select, commit, check, createRoom, resizeLot, setRoomRect, setTab, setRoomTool, chooseDef, planRooms,
+      }, removeItem, rotate, startMove, dropMove, resizeRoom, addRoom, removeRoom, select, commit, check, createRoom, resizeLot, setRoomRect,
+        lotQuote, buyLot: (dw, dh) => resizeLot(dw, dh, true), builtArea,
+        // loading a save: put each rack unit back in its exact slot (catalog ids, null = empty)
+        restoreUnits(e, list, costs) {
+          if (!e || !e.units) return;
+          e.units = new Array(9).fill(null);
+          e.unitModel = new Array(9).fill(null);
+          (list || []).slice(0, 9).forEach((id, k) => {
+            const def = id && DEF[id];
+            if (!def || def.mount !== 'rack') return;
+            e.units[k] = def.unit || def.id;
+            e.unitModel[k] = def.unit ? def.id : null;
+          });
+          e.unitCost = Array.isArray(costs) ? costs.slice(0, 9).map((c) => +c || 0) : new Array(9).fill(0);
+          syncRack(e);
+        }, setTab, setRoomTool, chooseDef, planRooms,
         // free walls + doors
         buildWall: (x0, y0, x1, y1, mat, box) => { const keep = B.wallMat; B.wallMat = mat || 'solid'; const wd = { x0, y0, x1, y1, box: !!box }; const r = wallPlan(wd).reason; applyWall(wd); B.wallMat = keep; return r; },
         eraseWall: (x0, y0, x1, y1) => { const wd = { x0, y0, x1, y1, erase: true }; const r = wallPlan(wd).reason; applyWall(wd); return r; },

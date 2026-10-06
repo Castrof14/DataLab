@@ -392,3 +392,47 @@ STATUS (03/10/2026, 14ª sessão) — ECONOMIA, TERMINAL, MODOS, ATENDIMENTO, ES
 - Testes (puppeteer-core + Chrome, no scratchpad): test-all.js (34 checagens), econ.js (4 presets ×
   3 modos, 26 h de jogo), regress.js (landing, menu, tutorial, construção, apps, mobile 390×844).
   DataLabDemo.advance(seg) acelera a simulação sem desenhar.
+-------------------------------------------------------
+STATUS (05/10/2026, 16ª sessão) — TERRENO PAGO, GOLD, LOJA, INVENTÁRIO, SKINS, BOTS LENDÁRIOS
+-------------------------------------------------------
+- Terreno (build.js + economy.js): expansão paga com o caixa da empresa (DL.lotPrice: $/m² novo ×
+  (área do terreno/90)^1,05 × (1 + área construída/600)); 1ª expansão grátis (kit.lot). "+" pede
+  confirmação com preço e caixa depois; "−" reduz sem reembolso. api.lotQuote / api.buyLot;
+  api.resizeLot continua grátis (presets/testes). Tutorial: passo 1 guia até "Confirmar".
+- Moedas: DataCoins virou Gold (moeda dourada, W.gold; saldo antigo migrado + 100 de boas-vindas).
+  Empresa ($) = infra/terreno/salários; Gold = skins, itens especiais, bots lendários. economy.spend,
+  economy.exchange (10 créditos = 1 Gold), +20 Gold por datacenter concluído, pacotes simulados.
+- cosmetics.js (novo): DL.COSMETICS (catálogo), DL.RARITY (Comum→Lendário), DL.EVENTS + eventActive,
+  skins de rack/servidor/switch/storage, acessórios de rack, fitas de LED (DL.drawItem embrulhado;
+  iso.js usa DL.skinKey no cache), roupas/calças/cabelos/chapéus/acessórios (ganchos DL.charOutfit/
+  charLegs/charHair/charHat/charTop chamados por sprites.js), aura dourada (DL.drawAura).
+- inventory.js (novo): datalab.inventory.v1 (itens, quantidade, origem, data, evento; skins equipadas),
+  comprar/vender (50%)/resgatar presente de evento/usar consumível/ativar e guardar bot lendário;
+  janelas #store (O) e #inventory (U) + telas Loja e Inventário no menu principal. Itens de evento:
+  marcados EVENTO, não vendem, ficam após o fim do evento; api.grant(id, src) para eventos futuros.
+  Inspetor do rack/storage: skin própria por objeto (e.skin).
+- crew.js: opções da loja no editor (✦), api.updatePlayer, bots lendários (opts.legend): nível 8,
+  habilidades 80+, tarefas de quase todos os cargos, XP em dobro, aura, selo; dispensar = volta ao
+  inventário. DL.xpBoost (Treinamento Intensivo).
+- Testes (scratchpad, CDP + Chrome): store-test.mjs 47/47 (terreno, compra, venda, equipar, eventos,
+  lendários, câmbio, filtros, persistência após recarregar, menu); regress.js 9/9; econ.js ok.
+  test-all.js: 3 falhas já existentes antes (textos "Folha", kit de contratação, "Próximo pagamento").
+
+-------------------------------------------------------
+STATUS (05/10/2026, 17ª sessão) — BACKEND SUPABASE (contas, saves na nuvem, economia e inventário no servidor)
+-------------------------------------------------------
+- supabase/: migrations (0100 core … 0600 funções), seed.sql (gerado de scripts/export-catalog.js +
+  build-seed.mjs), datalab_full.sql (tudo junto p/ o SQL Editor), Edge Functions shop/inventory/economy/
+  game/admin (+ _shared), config.toml, README.md (passo a passo, 1º admin, testes).
+- Modelo de segurança: public.* só leitura via RLS (dono das linhas); nenhuma escrita sensível pelo
+  navegador; lógica em private.* (fora da API) chamada pelas Edge Functions via SUPABASE_DB_URL com o
+  user id do JWT validado; trava da carteira por jogador + request_id único (sem gasto duplo); rate limit.
+- Economia no servidor: compras cobradas pelo diff do save (preços do servidor, kit, baseline do preset),
+  receita/créditos com teto por tempo real, salários mínimos, terreno pago na hora, anti-farm do
+  "datacenter concluído" (tempo mínimo + 3/dia) e dos créditos por servidor online.
+- Cliente: services/ (cloud, auth, save, economy, inventory, admin), cloud-sync.js, account.js (Conta),
+  config.js só com publishable key (recusa service_role), SDK com SRI, CSP no demo.html.
+- Save real do mundo (save-service.js): também offline (3 espaços locais; "Carregar jogo" do menu restaura).
+- Testes (scratchpad): db-test.mjs 83/83 (PGlite: RLS, trapaças, economia, concessões), Edge Functions
+  reais no Deno contra PGlite via socket + navegador: e2e-browser.mjs 29/29, save-test 21/21,
+  store-test 47/47, regress.js 9/9.

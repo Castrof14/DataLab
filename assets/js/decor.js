@@ -220,7 +220,7 @@
     return true;
   }
 
-  DL.decorRender = { floorTile, wallFace, bakeLight, styleOf };
+  DL.decorRender = { floorTile, wallFace, bakeLight, styleOf, rgbColor, WALL_DEFAULT };
 
   /* ------------------------------------------------------------------ */
   /* Dynamic light: room RGB + glowing objects (drawn every frame)       */

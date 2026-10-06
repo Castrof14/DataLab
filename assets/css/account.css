@@ -1,0 +1,55 @@
+/* DataLab — account window (login, profile, saves, staff panel) */
+.overlay--account { z-index: 60; }
+.card--account { width: min(720px, 100%); display: flex; flex-direction: column; gap: 14px; }
+.card--account > * { flex-shrink: 0; } /* the card scrolls; its parts keep their height */
+.acc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.acc-tabs { margin: 0; }
+.acc-form { display: flex; flex-direction: column; gap: 12px; }
+.acc-field { display: flex; flex-direction: column; gap: 6px; }
+.acc-field .input { width: 100%; }
+.acc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.acc-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.acc-small { font-size: 12px; line-height: 17px; color: var(--mute); }
+.acc-note { padding: 14px; border: 1px solid var(--hairline); border-radius: var(--r-sm); font-size: 13px; line-height: 20px; color: var(--body); }
+.acc-note b { font-weight: 400; color: var(--ink); }
+.acc-msg { padding: 10px 12px; border-radius: var(--r-sm); font-size: 13px; border: 1px solid var(--hairline); }
+.acc-msg.is-ok { border-color: rgba(126, 224, 161, 0.45); color: #c9f2d7; }
+.acc-msg.is-warn { border-color: rgba(255, 122, 23, 0.5); color: var(--sunset-soft); }
+.acc-profile { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center; }
+.acc-profile > div { display: flex; flex-direction: column; gap: 3px; }
+.acc-profile b { font-weight: 400; font-size: 16px; }
+.acc-face { width: 48px; height: 48px; border-radius: 50%; background: #16181d; image-rendering: pixelated; }
+.acc-roles { display: flex; gap: 6px; }
+.acc-roles i { font: 400 10px/1 var(--font-mono); font-style: normal; text-transform: uppercase; letter-spacing: 1px; padding: 4px 7px; border-radius: var(--r-pill); background: rgba(242, 193, 78, 0.14); color: #ffe7a6; }
+.acc-bal { display: grid; grid-template-columns: repeat(6, auto); align-items: center; gap: 4px 6px; font: 400 13px/1 var(--font-mono); }
+.acc-bal small { font-size: 10px; color: var(--mute); }
+.acc-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; border: 1px solid var(--hairline); border-radius: var(--r-sm); overflow: hidden; background: var(--hairline); }
+.acc-stats > div { padding: 10px 12px; background: #0d0d0e; }
+.acc-stats dt { font-size: 10px; }
+.acc-stats dd { margin: 4px 0 0; font-size: 15px; color: var(--ink); }
+@media (max-width: 600px) { .acc-stats { grid-template-columns: 1fr 1fr; } }
+.acc-slots, .acc-users, .acc-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.acc-slot { display: grid; grid-template-columns: 28px 1fr auto; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: var(--r-sm); }
+.acc-slot.is-active { border-color: rgba(126, 224, 161, 0.45); }
+.acc-slot > div:not(.acc-acts) { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.acc-slot b { font-weight: 400; }
+.acc-slot em { font-style: normal; font: 400 10px/1 var(--font-mono); color: var(--signal); margin-left: 6px; }
+.acc-slot__n { font: 400 18px/1 var(--font-mono); color: var(--mute); text-align: center; }
+.acc-users li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: var(--r-sm); font-size: 13px; }
+.acc-users b { font-weight: 400; }
+.acc-grant { padding: 12px; border: 1px solid rgba(242, 193, 78, 0.3); border-radius: var(--r-sm); }
+.acc-log li { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; padding: 6px 0; border-bottom: 1px solid var(--hairline); font-size: 12px; color: var(--body); }
+.acc-log li em { grid-column: 2; font-style: normal; color: var(--mute); }
+.acc-log b { font-weight: 400; color: var(--ink); }
+.acc-admin { display: flex; flex-direction: column; gap: 12px; }
+.acc-btn { gap: 6px; }
+.acc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--mute); }
+.acc-dot.is-online { background: var(--signal); box-shadow: 0 0 6px var(--signal); }
+.acc-dot.is-signed-out { background: var(--sunset-soft); }
+@media (max-width: 600px) {
+  .acc-row { grid-template-columns: 1fr; }
+  .acc-profile { grid-template-columns: 48px 1fr; }
+  .acc-bal { grid-column: 1 / -1; }
+  .acc-slot { grid-template-columns: 24px 1fr; }
+  .acc-slot .acc-acts { grid-column: 1 / -1; }
+}

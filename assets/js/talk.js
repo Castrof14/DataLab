@@ -290,7 +290,7 @@
         if (messy) return { text: 'Organize os cabos do ' + messy.id + ' (Cabeamento → Organizar cabos). Ajuda no fluxo de ar.', actions: [act('Mostrar no mapa', 'where', messy)] };
         if (eco) {
           const miss = eco.checklist().find((c) => !c.ok);
-          if (miss && !game.scene.world.dcDone) return { text: 'Para concluir este datacenter falta: ' + miss.label.toLowerCase() + '. Cada datacenter concluído conta para a recompensa de DataCoins.' };
+          if (miss && !game.scene.world.dcDone) return { text: 'Para concluir este datacenter falta: ' + miss.label.toLowerCase() + '. Cada datacenter concluído conta para a recompensa de Gold.' };
         }
         return { text: 'Está tudo em ordem! Que tal dar a cara da equipe para a sala? B → Estilo da sala.', tone: 'ok' };
       },

@@ -1,0 +1,128 @@
+# DataLab · backend Supabase
+
+O jogo continua funcionando **offline** exatamente como antes. Com o Supabase configurado, ele passa a ter contas, saves na nuvem, inventário e moedas validados pelo servidor.
+
+## Arquitetura
+
+```
+Navegador (assets/js)                         Supabase
+───────────────────────                       ──────────────────────────────────────────────
+services/cloud.js      ── publishable key ──▶ Auth (login, sessão, recuperação de senha)
+services/auth-service  ── RLS (só leitura) ──▶ public.*  (cada jogador lê só as próprias linhas)
+services/save-service  ┐
+services/economy-…     ├─ JWT do usuário ───▶ Edge Functions: shop · inventory · economy · game · admin
+services/inventory-…   │                       │ valida o JWT (Auth) + papel + entrada + rate limit
+services/admin-service ┘                       ▼
+                                               private.*  (lógica no banco, conexão direta SUPABASE_DB_URL)
+```
+
+- **O navegador nunca escreve** dinheiro, Gold, créditos, itens, saves, papéis ou concessões. Ele só tem permissão de `UPDATE` em `profiles (username, display_name, avatar)`. E o avatar é limpo por trigger: só ficam os cosméticos que o jogador possui.
+- **A lógica sensível fica em `private.*`**, schema que não é exposto pela API. Quem chama essas funções são as Edge Functions, com o `user_id` tirado do JWT validado e nunca do corpo da requisição.
+- **Cada requisição de um jogador é serializada**: a linha da carteira é travada com `FOR UPDATE`. Somado ao `request_id` único, isso impede gasto duplo e duplicação de itens.
+- **Economia**: a simulação roda no navegador, mas o servidor é a fonte da verdade:
+  - preços pela tabela do servidor;
+  - cobrança pelo que mudou entre saves, com kit inicial e itens do preset grátis só no 1º save;
+  - receita e créditos limitados pelo que o datacenter pode render no tempo real decorrido;
+  - custo mínimo de salários;
+  - terreno cobrado na hora (`economy.expand_lot`);
+  - bots lendários e skins conferidos contra a posse.
+- **Chaves**: o navegador usa só a *publishable key*. A `service_role` não é usada em lugar nenhum. As funções falam com o banco por `SUPABASE_DB_URL`, um segredo injetado pelo Supabase.
+
+## Arquivos
+
+| Caminho | O que é |
+|---|---|
+| `migrations/20261005000100_core.sql` | schemas, enums, `profiles`, `user_roles`, `wallets`, `inventories`, `username_available()` |
+| `migrations/20261005000200_catalog.sql` | `rarities`, `currencies`, `shop_categories`, `events`, `items`, `skins`, `event_items`, `legendary_bot_templates`, `server_types`, `equipment_prices`, `achievements`, `game_config` |
+| `migrations/20261005000300_inventory.sql` | `inventory_items`, `equipped_items`, `legendary_bots`, `item_grants`, `user_achievements`, `private.rate_limits` |
+| `migrations/20261005000400_game.sql` | `companies`, `datacenters`, `game_saves`, `terrain`, `buildings`, `rooms`, `furniture`, `employees`, `bot_skills`, `bot_schedules`, `salaries`, `servers`, `virtual_machines`, `incidents`, `finances`, `transactions` |
+| `migrations/20261005000500_security.sql` | RLS em todas as tabelas, grants mínimos, sanitização do avatar |
+| `migrations/20261005000600_functions.sql` | lógica do servidor: cadastro, loja, inventário, câmbio, concessões, papéis, novo jogo, terreno, save/load |
+| `seed.sql` | raridades, moedas, categorias, eventos, itens/skins (inclusive Founder/Developer/Beta/Special), bots lendários, tipos de servidor, preços do catálogo, conquistas, configuração da economia |
+| `datalab_full.sql` | tudo acima concatenado, para colar no SQL Editor |
+| `functions/{shop,inventory,economy,game,admin}` | Edge Functions; `functions/_shared` traz http, auth e db |
+| `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |
+| `config.toml` | configuração da CLI (`verify_jwt = true` em todas as funções) |
+
+## Configuração passo a passo
+
+1. **Crie o projeto** em [supabase.com](https://supabase.com) → *New project*.
+2. **Banco**: vá em *SQL Editor* → *New query*, cole `supabase/datalab_full.sql` e clique em *Run*.
+   Para usar a CLI em vez disso:
+   ```bash
+   npm i -g supabase          # ou: npx supabase ...
+   supabase login
+   supabase link --project-ref SEU_PROJECT_REF
+   supabase db push           # aplica supabase/migrations
+   psql "$SUPABASE_DB_URL" -f supabase/seed.sql   # ou cole seed.sql no SQL Editor
+   ```
+3. **Auth** (*Authentication*):
+   - *Providers → Email*: habilite. Deixe *Confirm email* ligado em produção.
+   - *URL Configuration*: em *Site URL*, coloque a URL onde o jogo fica publicado (ex.: `https://seu-site/jogo.html`). Adicione a mesma URL em *Redirect URLs*: o link de recuperação de senha volta para ela.
+   - *Policies*: senha mínima de 8 caracteres e proteção contra senhas vazadas, se o plano permitir.
+4. **Edge Functions**:
+   ```bash
+   supabase secrets set ALLOWED_ORIGINS="https://seu-site,http://localhost:5500"
+   supabase functions deploy shop inventory economy game admin
+   ```
+   `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_DB_URL` já existem no ambiente das funções e não precisam ser cadastradas.
+5. **Navegador**: em *Project Settings → API*, copie a *Project URL* e a ***publishable key*** (anon) para `assets/js/supabase/config.js`:
+   ```js
+   window.DATALAB_CONFIG = { supabaseUrl: 'https://SEU_REF.supabase.co', supabasePublishableKey: 'sb_publishable_…', autosaveSeconds: 60 };
+   ```
+   **Nunca** coloque ali a *secret / service_role key*: o jogo se recusa a iniciar se detectar uma.
+   Se o projeto usar domínio próprio, adicione esse domínio ao `connect-src` da meta CSP em `jogo.html`.
+6. **Publique** a pasta do jogo (qualquer hospedagem estática, ex.: Netlify, Vercel, GitHub Pages) na URL do passo 3.
+
+## Primeiro administrador
+
+1. Crie a conta pelo jogo (*Conta → Criar conta*) e confirme o e-mail.
+2. No *SQL Editor*, rode uma única vez:
+   ```sql
+   insert into public.user_roles (user_id, role)
+   select id, 'admin' from auth.users where email = 'SEU_EMAIL@exemplo.com'
+   on conflict do nothing;
+   ```
+3. Entre de novo no jogo: a aba **Administração** aparece em *Conta*. Daí em diante, papéis (`admin`, `developer`, `moderator`) são dados pela própria aba (só admins).
+   - `developer`: concede itens.
+   - `moderator`: só consulta o registro.
+   - Só `admin` concede moedas e muda papéis.
+   - O último admin não pode ser removido.
+
+## Como testar
+
+**Login**
+- *Conta → Criar conta*: usuário único, e-mail e senha com 8+ caracteres e números. Confirme o e-mail e entre.
+- Recarregue a página: a sessão continua.
+- *Esqueci a senha* manda o link. Ao clicar nele, o jogo abre o formulário de nova senha.
+- *Sair* volta ao modo offline.
+
+**Salvar e carregar**
+- Logado, comece um *Novo jogo*: ele ocupa o 1º espaço livre (até 3) e salva sozinho a cada 60 s.
+- Em *Conta → Saves*, use *Salvar agora* e depois *Carregar*. O mundo inteiro volta: salas, paredes, portas, racks por slot, cabos, VMs, equipe, skins e caixa do servidor.
+- No banco, confira `select * from game_saves;`, `furniture`, `servers`, `employees` e `transactions`.
+
+**Inventário**
+- Loja (O) → compre um item: o Gold sai da `wallets` e o item aparece em `inventory_items`.
+- Inventário (U) → *Equipar* cria a linha em `equipped_items`; *Vender* devolve metade em Gold.
+- No console do navegador, rode `DataLabDemo.economy.wallet.gold = 99999` e tente comprar: o servidor responde "Gold insuficiente".
+
+**Concessão de item**
+- Em *Conta → Administração*:
+  1. Busque o jogador e marque-o.
+  2. Escolha o item (ex.: *Rack Fundador · FOUNDER*), a quantidade, o tipo e o motivo.
+  3. Clique em *Conceder*.
+- O registro mostra quem concedeu, para quem, o quê e o porquê; no banco, veja `select * from item_grants;`.
+- Com um usuário sem papel, a função `admin` responde **403**.
+
+**Economia**
+- *Construir → Espaços → Terreno +*: o preço aparece antes; *Confirmar* cobra no servidor (`terrain`, `transactions` com `kind = 'land'`).
+- Instale um servidor e espere o autosave: `transactions` registra `equipment` com o preço do servidor.
+- Rode `DataLabDemo.economy.company.cash = 1e9` e salve: o caixa volta ao valor do servidor.
+- Câmbio em *Finanças* ou *Loja → Gold*: 10 créditos = 1 Gold, feito no servidor.
+
+## Limites conhecidos
+
+- A simulação (receita, despesas, incidentes) roda no navegador, e o servidor aceita esses números **até um teto** proporcional ao hardware online e ao tempo real decorrido. Um cliente adulterado consegue no máximo render no teto, e o caixa da empresa **não vira Gold**.
+- Créditos também têm teto por tempo real e o "datacenter concluído" tem limite diário. Por isso o caminho até o Gold é estreito.
+- Pagamentos reais não estão implementados: os pacotes de Gold ficam desligados quando há conta conectada.
