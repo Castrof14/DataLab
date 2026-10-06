@@ -1127,6 +1127,7 @@
   // exposed for debugging / automated checks
   window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
     // fast-forward the simulation (game minutes) without drawing — for automated checks
+    step,
     advance(sec, dt) { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) { step(dt); scene.update(dt); } },
   };
 })();

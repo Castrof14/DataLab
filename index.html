@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>DataLab — Opere um datacenter</title>
-  <meta name="description" content="DataLab é um jogo 2D em que você caminha por um datacenter vivo, inspeciona equipamentos e resolve incidentes de rede — aprendendo infraestrutura no caminho.">
+  <meta name="description" content="DataLab é um jogo isométrico em que você caminha por um datacenter vivo, inspeciona equipamentos e resolve incidentes de rede — aprendendo infraestrutura no caminho.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%221%22 width=%2214%22 height=%2214%22 rx=%223%22 fill=%22%230a0a0a%22 stroke=%22%23fff%22/%3E%3Crect x=%224%22 y=%227%22 width=%228%22 height=%222%22 fill=%22%23ff7a17%22/%3E%3C/svg%3E">
   <meta name="theme-color" content="#0a0a0a">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -34,7 +34,7 @@
         <p class="eyebrow hero__eyebrow reveal"><span class="dot dot--live"></span>Pré-alpha · v0.9</p>
         <h1 class="display-xl hero__title reveal">Opere um datacenter.<br><span class="mute">Um rack de cada vez.</span></h1>
         <div class="hero__row reveal">
-          <p class="lead">DataLab é um jogo 2D em que você caminha por um datacenter vivo, inspeciona equipamentos de verdade e resolve incidentes de rede — aprendendo infraestrutura no caminho.</p>
+          <p class="lead">DataLab é um jogo isométrico em que você caminha por um datacenter vivo, inspeciona equipamentos de verdade e resolve incidentes de rede — aprendendo infraestrutura no caminho.</p>
           <div class="hero__ctas">
             <a class="btn btn--primary btn--lg" href="jogo.html">Entrar e jogar <span class="arrow">→</span></a>
             <a class="btn btn--lg" href="#conceito">Ver o conceito</a>
@@ -43,12 +43,13 @@
       </div>
       <div class="container">
         <figure class="stage reveal" aria-label="Prévia ao vivo do datacenter DC-01">
-          <canvas id="heroCanvas"></canvas>
+          <!-- the real game in showcase mode (jogo.html?hero, assets/js/hero.js): always matches the current look -->
+          <iframe id="heroFrame" src="jogo.html?hero" title="Prévia ao vivo do DataLab" tabindex="-1" aria-hidden="true"></iframe>
           <div class="stage__shade" aria-hidden="true"></div>
           <figcaption class="stage__hud" aria-hidden="true">
-            <span class="eyebrow-sm stage__tl">DC-01 · Sala principal</span>
+            <span class="eyebrow-sm stage__tl">DC-01 · Salão de servidores</span>
             <span class="eyebrow-sm stage__tr"><span class="dot dot--live"></span>Ao vivo · <span id="heroClock">02:14</span></span>
-            <span class="eyebrow-sm stage__bl">20 racks · 3 técnicos · <span class="warn"><span class="dot dot--warn dot--live"></span> 1 incidente</span></span>
+            <span class="eyebrow-sm stage__bl">4 salas · 30 racks · 8 técnicos</span>
             <a class="btn btn--sm stage__br" href="jogo.html" tabindex="-1">Entrar na sala <span class="arrow">→</span></a>
           </figcaption>
         </figure>

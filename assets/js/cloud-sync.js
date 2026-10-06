@@ -7,7 +7,7 @@
 (function () {
   'use strict';
   const DL = window.DL, D = window.DataLabDemo;
-  if (!D || !DL.Cloud) return;
+  if (!D || !DL.Cloud || DL.HERO) return;
   const G = D.game;
   const LOOK_KEYS = ['name', 'body', 'skin', 'hair', 'hairStyle', 'outfit', 'shirt', 'pants', 'pantsStyle', 'shoes', 'vest', 'glasses', 'beard', 'headset', 'earrings', 'hat', 'hatColor', 'shades', 'scarf', 'backpack', 'chain', 'role'];
   const S = { on: false, lookT: 0 };

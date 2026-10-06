@@ -5,7 +5,7 @@
 (function () {
   'use strict';
   const DL = window.DL, D = window.DataLabDemo;
-  if (!D) return;
+  if (!D || DL.HERO) return;
   const $ = (id) => document.getElementById(id);
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const fmt = (n) => Math.round(n).toLocaleString('pt-BR');

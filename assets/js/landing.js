@@ -30,34 +30,30 @@
     }, { threshold: 0.01 }).observe(el);
   }
 
-  /* ---------- hero: the real DC-01 scene in attract mode ---------- */
-  const heroCanvas = document.getElementById('heroCanvas');
-  const narrow = () => innerWidth < 768;
-  const hero = new DL.Scene(heroCanvas, { tilesWide: narrow() ? 11 : 25, minTilesHigh: narrow() ? 13 : 10, attract: true });
-  hero.setIncident(true);
-  hero.t = 40;
+  /* ---------- hero: the real game in showcase mode (jogo.html?hero, hero.js) ---------- */
+  const heroFrame = document.getElementById('heroFrame');
+  const heroSay = (msg) => { try { heroFrame.contentWindow.postMessage(msg, location.origin); } catch (e) { /* not loaded yet */ } };
   const clockEl = document.getElementById('heroClock');
-  let clockAcc = 0, minutes = 134;
-  const heroStep = (dt) => {
-    clockAcc += dt;
-    if (clockAcc > 4) {
-      clockAcc = 0;
-      minutes++;
-      clockEl.textContent = String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
-    }
+  let minutes = 134, clockTimer = 0;
+  const clockTick = () => {
+    minutes++;
+    clockEl.textContent = String(Math.floor(minutes / 60)).padStart(2, '0') + ':' + String(minutes % 60).padStart(2, '0');
   };
-  if (reduced) {
-    hero.update(0.016);
-    hero.render();
-  } else {
-    whenVisible(heroCanvas, () => hero.start(heroStep), () => hero.stop());
+  let heroOn = !reduced;
+  // reduced motion: a still frame of the scene
+  heroFrame.addEventListener('load', () => { if (!heroOn) setTimeout(() => heroSay('datalab:pause'), 600); });
+  if (!reduced) {
+    whenVisible(heroFrame, () => {
+      heroOn = true;
+      heroSay('datalab:play');
+      if (!clockTimer) clockTimer = setInterval(clockTick, 4000);
+    }, () => {
+      heroOn = false;
+      heroSay('datalab:pause');
+      clearInterval(clockTimer);
+      clockTimer = 0;
+    });
   }
-  addEventListener('resize', () => {
-    hero.o.tilesWide = narrow() ? 11 : 25;
-    hero.o.minTilesHigh = narrow() ? 13 : 10;
-    hero.resize();
-    if (!hero.running) hero.render();
-  });
 
   /* ---------- integer-scaled pixel stage for small showcases ---------- */
   function pixelStage(canvas, bw, bh, draw) {

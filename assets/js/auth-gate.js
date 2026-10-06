@@ -7,7 +7,7 @@
   const DL = window.DL;
   const $ = (id) => document.getElementById(id);
   const el = { box: $('auth'), card: $('authCard') };
-  if (!el.box) return;
+  if (!el.box || DL.HERO) return; // landing showcase (hero.js): no account involved
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const params = new URLSearchParams(location.search + '&' + location.hash.replace(/^#/, ''));
   const V = {
