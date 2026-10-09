@@ -402,7 +402,7 @@
         if (f.found || f.player) game.toast('ok', 'Problema resolvido', d.name + ' de volta ao normal' + (f.fixedBy ? ' · ' + f.fixedBy : '') + ' · o monitor volta ao verde');
         game.sfx('done');
         recompute();
-        game.emit('fixed', { d, type: f.type, by: f.fixedBy || null, at: f.at, found: f.found, lost: d.loss ? Math.round(d.loss.total) : 0 });
+        game.emit('fixed', { d, type: f.type, by: f.fixedBy || null, at: f.at, found: f.found });
       }
     }
 
@@ -531,8 +531,7 @@
       for (const x of list) {
         const d = x.d;
         h += '<li class="ops-item' + (x.kind === 'fault' ? ' is-fault' : '') + '"><div class="ops-item__head"><span class="dot' + (x.kind === 'fault' ? ' dot--warn dot--live' : ' dot--info') + '"></span><b>' + esc(x.title) + '</b></div>' +
-          '<p class="ops-item__where">' + esc(d.where) + (x.by ? ' · avisado por ' + esc(x.by) : '') + '</p>' +
-          (x.kind === 'fault' ? '<p class="ops-item__loss" data-loss="' + d.key + '"></p>' : '');
+          '<p class="ops-item__where">' + esc(d.where) + (x.by ? ' · avisado por ' + esc(x.by) : '') + '</p>';
         if (x.kind === 'setup') {
           h += stepper(d);
           if (d.state === 'new') h += '<p class="ops-item__why">' + esc(d.path && d.path.links.length ? d.path.reason : 'Todo servidor precisa de um cabo da eth0 até uma porta de switch (direto ou pelo patch panel).') + '</p>';

@@ -180,7 +180,7 @@
       el.group.textContent = 'Tutorial';
       el.step.textContent = 'Concluído';
       el.title.textContent = 'Esse é o seu datacenter.';
-      el.text.textContent = 'Agora a empresa está operando: servidores no ar geram receita, salários e infraestrutura custam (entrando aos poucos). Acompanhe lucro e despesas no card de finanças e resolva os problemas rápido — cada minuto parado dá prejuízo.';
+      el.text.textContent = 'Agora a empresa está operando: servidores no ar geram receita, salários e infraestrutura custam (entrando aos poucos). Acompanhe lucro e despesas no card de finanças e resolva os problemas rápido — equipamento com problema não gera receita.';
       el.act.innerHTML = '<kbd>B</kbd> construir · <kbd>C</kbd> equipe · <kbd>M</kbd> monitor · <kbd>T</kbd> tarefas';
       bars.forEach((b) => { b.classList.add('is-done'); b.classList.remove('is-current'); });
       el.skip.hidden = true;

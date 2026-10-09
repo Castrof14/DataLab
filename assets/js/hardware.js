@@ -147,7 +147,7 @@
     C.push({ id, kind: 'storage', cat: 'equip', group: 'Storage', name: m.name, price: m.price, set: { model: id }, desc: m.desc });
   }
   C.push({ id: 'ap', cat: 'equip', group: 'Rede', name: 'Access point Wi-Fi', mount: 'wall', price: HW.poe.ap.price, desc: HW.poe.ap.desc + ' Rende com visitantes conectados.' });
-  C.push({ id: 'camera', cat: 'equip', group: 'Rede', name: 'Câmera IP', mount: 'wall', price: HW.poe.camera.price, desc: HW.poe.camera.desc + ' Cada câmera ligada reduz o prejuízo dos incidentes.' });
+  C.push({ id: 'camera', cat: 'equip', group: 'Rede', name: 'Câmera IP', mount: 'wall', price: HW.poe.camera.price, desc: HW.poe.camera.desc });
   DL.HW_CATALOG = C;
   DL.HW_NAMES = { ap: 'Access point Wi-Fi', camera: 'Câmera IP' };
 

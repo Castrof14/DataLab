@@ -1,6 +1,6 @@
 /* DataLab — economy: the company's money ($: infrastructure, land, salaries, operation) kept apart
    from the player's own balances (Créditos earned by playing; Gold, the golden premium coin that buys
-   skins, special items and legendary bots — never company spending), the company's cash flow (revenue from healthy servers, losses while problems stay open), the
+   skins, special items and legendary bots — never company spending), the company's cash flow (revenue from healthy servers, problems no longer cost money: a broken server simply stops earning), the
    "datacenter concluído" checklist and progress milestones that hand out rewards.
    Time: one real second is one game minute (the HUD clock), so every "/min" rate below is per
    game minute. All numbers live in DL.ECON so they are easy to tune. */
@@ -46,12 +46,7 @@
     // keeps up; storage rents its usable capacity; equipment pays for the power it draws
     storagePerTB: 0.35,         // $/min per usable TB (× the array's speed)
     wifiPerAp: 4,               // $/min for each powered access point (guest Wi-Fi)
-    cameraCut: 0.06,            // each powered camera cuts incident losses by 6%…
-    cameraCutMax: 0.3,          // …up to 30%
     energyPerKw: 1.5,           // $/min per kW drawn by the equipment
-    loss: { offline: 35, port: 25, service: 22, disk: 12 }, // $/min while the problem is open
-    lossGrowth: 90,             // after this many minutes open the loss has doubled…
-    lossMax: 2,                 // …up to this multiple
     credits: {
       taskOrder: 6, taskAuto: 2,          // a crew task finished (ordered by you / routine)
       serverSetup: 50,                    // a server you configured goes online
@@ -144,14 +139,14 @@
     const curOf = (c) => (c === 'datacoins' ? 'gold' : c);
 
     /* ---------- company ---------- */
-    const CO = { cash: E.startCash, revenue: 0, losses: 0, payroll: 0, lost: 0, earned: 0, problems: [], hourAcc: 0, acc: 0, dcChecked: 0,
-      servers: 0, storage: 0, wifi: 0, energy: 0, kw: 0, camCut: 0, spent: 0, sold: 0, rateAt: -1, poe: null, slow: [],
+    const CO = { cash: E.startCash, revenue: 0, payroll: 0, earned: 0, problems: [], hourAcc: 0, acc: 0, dcChecked: 0,
+      servers: 0, storage: 0, wifi: 0, energy: 0, kw: 0, spent: 0, sold: 0, rateAt: -1, poe: null, slow: [],
       // payroll: monthly total, last pay day (game minutes since the session started), history
       payrollMonth: 0, lastPay: 0, month: 1, paid: [], hired: 0,
       // phase ('setup' → 'live'), starter kit left, operating costs per minute, this month's books, loan
       phase: 'setup', liveAt: 0, kit: Object.assign({}, E.starterKit), rent: 0, link: 0, maint: 0, opexK: 0, net: 0,
       mo: null, months: [], debt: 0, loans: 0 };
-    const freshMonth = () => ({ revenue: 0, sales: 0, salaries: 0, energy: 0, rent: 0, link: 0, maint: 0, traffic: 0, losses: 0, setup: 0, purchases: 0, hires: 0 });
+    const freshMonth = () => ({ revenue: 0, sales: 0, salaries: 0, energy: 0, rent: 0, link: 0, maint: 0, traffic: 0, setup: 0, purchases: 0, hires: 0 });
     CO.mo = freshMonth();
     const queue = []; // reward screens waiting to be shown
 
@@ -214,7 +209,7 @@
       if (queue.length && !el.reward.classList.contains('is-open')) showReward();
     }
 
-    /* ---------- problems cost money ---------- */
+    /* ---------- open problems (tracked for the UI; they cost nothing) ---------- */
     const KIND = { link: 'offline', cable: 'offline', port: 'port', service: 'service', disk: 'disk' };
     const LABEL = { offline: 'Servidor offline', port: 'Porta do switch em erro', service: 'Serviço web parado', disk: 'Disco cheio' };
 
@@ -225,10 +220,7 @@
         let kind = d.fault ? KIND[d.fault.type] : null;
         if (!kind && d.kind === 'server' && d.state === 'online' && !ops.health(d).up) kind = 'offline';
         if (!kind) { d.loss = null; continue; }
-        if (!d.loss || d.loss.kind !== kind) d.loss = { kind, since: scene.t, total: 0 };
-        const open = scene.t - d.loss.since; // seconds = game minutes
-        d.loss.rate = E.loss[kind] * Math.min(E.lossMax, 1 + open / E.lossGrowth);
-        d.loss.label = LABEL[kind];
+        if (!d.loss || d.loss.kind !== kind) d.loss = { kind, since: scene.t, label: LABEL[kind] };
         out.push(d);
       }
       return out;
@@ -286,7 +278,6 @@
       CO.link = devs.some((d) => d.kind === 'switch') ? E.linkCost * CO.opexK : 0;
       CO.maint = CO.devCount * E.maintPerDevice * CO.opexK;
       CO.traffic = up * E.trafficPerServer * CO.opexK;
-      CO.camCut = Math.min(E.cameraCutMax, poe.camera * E.cameraCut);
       CO.slow = slow;
     }
 
@@ -320,7 +311,7 @@
       const total = Math.round(CO.mo.salaries);
       CO.lastPay = at;
       CO.month++;
-      const m = CO.mo, income = m.revenue + m.sales, costs = m.salaries + m.energy + m.rent + m.link + m.maint + m.traffic + m.losses + m.setup;
+      const m = CO.mo, income = m.revenue + m.sales, costs = m.salaries + m.energy + m.rent + m.link + m.maint + m.traffic + m.setup;
       CO.months.unshift({ month: CO.month - 1, income: Math.round(income), costs: Math.round(costs), profit: Math.round(income - costs), invest: Math.round(m.purchases + m.hires) });
       if (CO.months.length > 6) CO.months.pop();
       CO.mo = freshMonth();
@@ -428,26 +419,22 @@
       rates();
       const live = CO.phase === 'live' && !frozen, k = CO.opexK;
       CO.problems = problems();
-      // preparation: nothing runs yet, so nothing is lost either
-      CO.losses = live ? CO.problems.reduce((s, d) => s + d.loss.rate, 0) * (1 - CO.camCut) : 0;
       CO.revenue = (CO.servers + CO.storage + CO.wifi) * rewardK();
       CO.payrollMonth = payrollMonth();
       CO.payroll = live ? (CO.payrollMonth / E.monthMinutes) * k : 0; // salaries, paid minute by minute
       if (!live) { CO.energy = 0; CO.rent = 0; CO.link = 0; CO.maint = 0; CO.traffic = 0; }
       const mins = dt; // 1 s = 1 game minute
-      const costs = CO.energy + CO.rent + CO.link + CO.maint + CO.traffic + CO.losses + CO.payroll;
+      const costs = CO.energy + CO.rent + CO.link + CO.maint + CO.traffic + CO.payroll;
       CO.net = CO.revenue - costs;
       // the loan is repaid from the profit
       let repay = 0;
       if (CO.debt > 0 && CO.net > 0) repay = Math.min(CO.debt, Math.max(E.loanMinRepay, CO.net * E.loanRepay) * mins);
       CO.debt -= repay;
-      for (const d of CO.problems) d.loss.total += d.loss.rate * (1 - CO.camCut) * mins;
       CO.cash += CO.net * mins - repay;
-      CO.lost += CO.losses * mins;
       CO.earned += CO.revenue * mins;
       const m = CO.mo;
       m.revenue += CO.revenue * mins; m.salaries += CO.payroll * mins; m.energy += CO.energy * mins; m.rent += CO.rent * mins;
-      m.link += CO.link * mins; m.maint += CO.maint * mins; m.traffic += CO.traffic * mins; m.losses += CO.losses * mins;
+      m.link += CO.link * mins; m.maint += CO.maint * mins; m.traffic += CO.traffic * mins;
       if (live) { CLAIM.revenue += CO.revenue * mins; CLAIM.opex += costs * mins; }
       // (in cloud mode the bank is the server's balance: no local emergency loans)
       if (live && !CLOUD.on && CO.cash < -500 && CO.loans < 6) emergencyLoan();
@@ -520,8 +507,7 @@
       if (info.by) amount *= C.crewFix;
       earn('credits', amount, 'Incidente resolvido · ' + info.d.name + ' em ' + Math.round(open) + ' min');
       count('incidents');
-      if (CLAIM.incidents.length < 20) CLAIM.incidents.push({ device: info.d.key, type: info.type || (info.d.fault && info.d.fault.type) || 'fault', open: Math.round(open), by: info.by ? 'crew' : 'player', loss: Math.round(info.lost || 0) });
-      if (info.lost) game.toast('ok', 'Prejuízo estancado', info.d.name + ' custou ' + money(info.lost) + ' enquanto esteve com problema');
+      if (CLAIM.incidents.length < 20) CLAIM.incidents.push({ device: info.d.key, type: info.type || (info.d.fault && info.d.fault.type) || 'fault', open: Math.round(open), by: info.by ? 'crew' : 'player' });
     });
 
     /* ---------- "datacenter concluído" ---------- */
@@ -561,8 +547,8 @@
       // the company's result per minute: revenue minus every cost (salaries included)
       const net = CO.net || 0, setup = CO.phase !== 'live';
       el.flow.textContent = setup ? 'Preparação · sem custos' : CO.frozen && net >= 0 && !CO.revenue ? 'Tutorial · custos pausados' : (net >= 0 ? 'Lucro +' : 'Prejuízo -') + money(Math.abs(net)).replace('-', '') + '/min';
-      el.flow.className = 'econ__flow ' + (setup ? 'is-up' : CO.losses > 0 || net < 0 ? 'is-loss' : 'is-up');
-      el.btn.classList.toggle('is-loss', !setup && (CO.losses > 0 || net < 0));
+      el.flow.className = 'econ__flow ' + (setup ? 'is-up' : net < 0 ? 'is-loss' : 'is-up');
+      el.btn.classList.toggle('is-loss', !setup && net < 0);
       el.cash.classList.toggle('is-neg', CO.cash < 0);
       if (el.pay) {
         const kit = Object.keys(CO.kit).filter((k) => CO.kit[k] > 0).length;
@@ -598,7 +584,7 @@
           el.tags.appendChild(s);
           tagEls.set(d.key, s);
         }
-        const txt = '<b>' + esc(d.name) + ' · ' + d.loss.label + '</b><em>Prejuízo: -$' + fmt(d.loss.rate) + '/min</em>';
+        const txt = '<b>' + esc(d.name) + ' · ' + d.loss.label + '</b>';
         if (s.dataset.k !== txt) { s.dataset.k = txt; s.innerHTML = txt; }
         // stack tags of the same rack
         const i = CO.problems.filter((x) => x.rack === d.rack).indexOf(d);
@@ -607,12 +593,6 @@
         s.classList.toggle('is-on', show);
       }
       for (const [k, s] of tagEls) if (!seen.has(k)) { s.remove(); tagEls.delete(k); }
-      // live loss line in the tasks panel
-      document.querySelectorAll('[data-loss]').forEach((n) => {
-        const d = ops.get(n.dataset.loss);
-        const L = d && d.loss;
-        n.textContent = L ? 'Prejuízo: -$' + fmt(L.rate) + '/min · ' + money(L.total) + ' perdidos' : '';
-      });
     }
 
     function walletHtml() {
@@ -644,14 +624,13 @@
         row('Link de internet', minus(CO.link)) +
         row('Manutenção · ' + (CO.devCount || 0) + ' equipamento(s)', minus(CO.maint)) +
         row('Tráfego e licenças · ' + (CO.upCount || 0) + ' servidor(es) no ar', minus(CO.traffic || 0)) +
-        row('Prejuízo com problemas' + (CO.camCut ? ' (câmeras −' + Math.round(CO.camCut * 100) + '%)' : ''), minus(CO.losses), CO.losses ? 'is-loss' : '') +
         '<li class="w-total"><span>' + (net >= 0 ? 'Lucro' : 'Prejuízo') + ' por minuto</span><b class="' + (net >= 0 ? 'is-up' : 'is-loss') + '">' + (net >= 0 ? '+' : '-') + money(Math.abs(net)).replace('-', '') + '/min</b></li></ul>';
       if (CO.debt > 0) h += '<p class="w-note"><b class="is-loss">Dívida: ' + money(CO.debt) + '</b> · paga automaticamente com ' + Math.round(E.loanRepay * 100) + '% do lucro.</p>';
       // this month and the last ones
-      const mo = CO.mo, inc = mo.revenue + mo.sales, cost = mo.salaries + mo.energy + mo.rent + mo.link + mo.maint + mo.traffic + mo.losses + mo.setup;
+      const mo = CO.mo, inc = mo.revenue + mo.sales, cost = mo.salaries + mo.energy + mo.rent + mo.link + mo.maint + mo.traffic + mo.setup;
       h += '<span class="eyebrow-sm w-sub">Este mês · ' + CO.month + '</span><ul class="w-rows">' +
         row('Receitas', '+' + money(inc), 'is-up') + row('Salários', '-' + money(mo.salaries)) + row('Infraestrutura (energia, aluguel, link, manutenção, tráfego)', '-' + money(mo.energy + mo.rent + mo.link + mo.maint + mo.traffic)) +
-        (mo.setup ? row('Licenças e configuração de servidores', '-' + money(mo.setup)) : '') + (mo.losses ? row('Prejuízo com problemas', '-' + money(mo.losses), 'is-loss') : '') +
+        (mo.setup ? row('Licenças e configuração de servidores', '-' + money(mo.setup)) : '') + 
         '<li class="w-total"><span>Resultado do mês</span><b class="' + (inc - cost >= 0 ? 'is-up' : 'is-loss') + '">' + money(inc - cost) + '</b></li>' +
         row('Investimentos (compras e contratações)', '-' + money(mo.purchases + mo.hires)) + '</ul>';
       if (CO.months.length) {
@@ -669,10 +648,10 @@
       } else h += '<p class="w-note">Ninguém contratado: sem folha. Contratar custa metade de um salário (recrutamento).</p>';
       if (CO.paid.length) h += '<p class="w-note">Pagos: ' + CO.paid.slice(0, 3).map((p) => 'mês ' + p.month + ' ' + money(p.total)).join(' · ') + (CO.hired ? ' · contratações ' + money(CO.hired) : '') + '</p>';
       if (CO.problems.length) {
-        h += '<span class="eyebrow-sm w-sub">Custando dinheiro agora</span><ul class="w-rows">' + CO.problems.map((d) =>
-          '<li><span>' + esc(d.name) + ' · ' + d.loss.label + '</span><b class="is-loss">-$' + fmt(d.loss.rate) + '/min</b></li>').join('') + '</ul>' +
-          '<p class="w-note">Quanto mais tempo aberto, maior o prejuízo (até ' + E.lossMax + '×). Resolver rápido também rende mais créditos.</p>';
-      } else h += '<p class="w-note">Nenhum problema custando dinheiro. Um servidor intermediário no ar rende ' + money(E.revenuePerServer) + '/min; básico, avançado e high-end rendem conforme o desempenho do modelo.</p>';
+        h += '<span class="eyebrow-sm w-sub">Problemas abertos</span><ul class="w-rows">' + CO.problems.map((d) =>
+          '<li><span>' + esc(d.name) + '</span><b class="is-loss">' + d.loss.label + '</b></li>').join('') + '</ul>' +
+          '<p class="w-note">Equipamento com problema não gera receita. Resolver rápido também rende mais créditos.</p>';
+      } else h += '<p class="w-note">Nenhum problema aberto. Um servidor intermediário no ar rende ' + money(E.revenuePerServer) + '/min; básico, avançado e high-end rendem conforme o desempenho do modelo.</p>';
       if (CO.slow.length) {
         h += '<span class="eyebrow-sm w-sub">Gargalos de rede</span><ul class="w-rows">' + CO.slow.slice(0, 4).map((x) =>
           '<li><span>' + esc(x.d.name) + ' · ' + esc(x.why) + '</span><b class="is-loss">' + x.pct + '%</b></li>').join('') + '</ul>';

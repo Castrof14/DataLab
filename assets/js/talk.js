@@ -24,7 +24,6 @@
   const norm = (s) => norm0(s).replace(/[a-z]+/g, (w) => (SLANG[w] != null ? SLANG[w] : w));
   DL.normSlang = norm;
   const list = (names) => (names.length < 2 ? names.join('') : names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1]);
-  const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
 
   // precise diagnosis (someone who knows) vs a vague one (someone outside their area / beginner)
   const HINT = {
@@ -132,11 +131,10 @@
       a.crew.said[key] = o;
       return o;
     }
-    const found = () => ops.devices().filter((d) => d.fault && d.fault.found).sort((x, y) => (y.loss ? y.loss.rate : 0) - (x.loss ? x.loss.rate : 0));
+    const found = () => ops.devices().filter((d) => d.fault && d.fault.found);
     const hidden = () => ops.devices().filter((d) => d.fault && !d.fault.found);
     const servers = () => ops.devices().filter((d) => d.kind === 'server');
     const fixerFor = (d) => crew.members.find((m) => !m.crew.off && crew.api.fixDefFor(m, d));
-    const costLine = (d) => (d.loss ? ' Isso está custando $' + fmt(d.loss.rate) + '/min.' : '');
     const racks = () => game.scene.world.items.filter((e) => e.kind === 'rack' && e.units);
     const act = (label, id, ref) => ({ label, id, ref });
 
@@ -221,10 +219,10 @@
         const K = know(a);
         const fresh = discover(a);
         const f = found();
-        if (fresh) return { text: 'Deixa eu olhar… Achei! ' + diag(a, fresh) + ' Já registrei nas Tarefas.' + costLine(fresh), tone: 'warn', actions: problemActions(a, fresh) };
+        if (fresh) return { text: 'Deixa eu olhar… Achei! ' + diag(a, fresh) + ' Já registrei nas Tarefas.', tone: 'warn', actions: problemActions(a, fresh) };
         if (f.length) {
           const d = f[0];
-          let t = diag(a, d) + costLine(d);
+          let t = diag(a, d);
           if (f.length > 1) t += ' E tem mais ' + (f.length - 1) + ' ocorrência(s) nas Tarefas (T).';
           if (!expertOn(a, d.fault.type) && fixerFor(d)) t += ' ' + fixerFor(d).crew.name + ' entende mais disso que eu.';
           return { text: t, tone: 'warn', actions: problemActions(a, d) };
@@ -265,20 +263,20 @@
       money(a) {
         if (!eco) return { text: 'Não tenho os números agora.' };
         const CO = eco.company, K = know(a);
-        const flow = CO.revenue - (CO.energy || 0) - CO.losses;
-        const worst = CO.problems.slice().sort((x, y) => y.loss.rate - x.loss.rate)[0];
+        const flow = CO.revenue - (CO.energy || 0);
+        const worst = CO.problems[0];
         let t = 'A empresa tem ' + DL.money(CO.cash) + '. ';
         if (K.role === 'gerente' || K.k >= 6) {
-          t += 'Entram ' + DL.money(CO.revenue) + '/min dos servidores' + (CO.losses ? ' e os problemas custam ' + DL.money(CO.losses) + '/min' : '') + ': resultado de ' + (flow >= 0 ? '+' : '') + DL.money(flow) + '/min.';
+          t += 'Entram ' + DL.money(CO.revenue) + '/min dos servidores' + ': resultado de ' + (flow >= 0 ? '+' : '') + DL.money(flow) + '/min.';
           t += ' A folha é de ' + DL.money(CO.payrollMonth || 0) + '/mês e sai em ' + eco.payInText() + (CO.cash < (CO.payrollMonth || 0) ? ' — o caixa ainda não cobre!' : '.');
         } else t += flow >= 0 ? 'Estamos no azul, ' + (flow >= 0 ? '+' : '') + DL.money(flow) + '/min.' : 'Estamos perdendo ' + DL.money(-flow) + '/min.';
-        if (worst) t += ' O maior prejuízo é o ' + worst.name + ' (' + worst.loss.label.toLowerCase() + ', -$' + fmt(worst.loss.rate) + '/min) — e piora quanto mais demora.';
+        if (worst) t += ' O ' + worst.name + ' está com problema (' + worst.loss.label.toLowerCase() + ') e não rende enquanto não for resolvido.';
         else if (!CO.revenue) t += ' Cada servidor no ar rende dinheiro: precisamos colocar servidores online.';
         return { text: t, tone: worst ? 'warn' : flow >= 0 ? 'ok' : 'warn', actions: worst && worst.fault ? problemActions(a, worst) : [] };
       },
       next(a) {
         const f = found();
-        if (f.length) { const d = f[0]; return { text: 'Resolva o ' + d.name + ' primeiro.' + costLine(d) + ' ' + diag(a, d), tone: 'warn', actions: problemActions(a, d) }; }
+        if (f.length) { const d = f[0]; return { text: 'Resolva o ' + d.name + ' primeiro. ' + diag(a, d), tone: 'warn', actions: problemActions(a, d) }; }
         const srv = servers();
         const link = srv.find((d) => d.state === 'link');
         if (link) return { text: 'O ' + link.name + ' já tem cabo, falta configurar no terminal: Tarefas (T) → Abrir terminal. Ele passa a dar receita assim que ficar online.', actions: [act('Abrir terminal', 'term', link)] };
@@ -527,23 +525,10 @@
       const a = info.who && alive(info.who) ? info.who : null;
       if (!a || !info.d.fault) return;
       const d = info.d;
-      const text = 'Encontrei um problema: ' + diag(a, d) + costLine(d);
+      const text = 'Encontrei um problema: ' + diag(a, d);
       push(a, { from: 'bot', text, tone: 'warn', actions: problemActions(a, d) });
       ping(a, text, 'warn');
     });
-    // a problem dragging on gets the manager (or whoever is around) to speak up
-    function lossWatch() {
-      if (!eco) return;
-      for (const d of eco.company.problems) {
-        if (!d.loss || d.loss.total < 3000 || d.loss.pinged) continue;
-        d.loss.pinged = true;
-        const a = crew.members.find((m) => m.crew.profile.role === 'gerente') || crew.members[0];
-        if (!a) return;
-        const text = 'Já perdemos ' + DL.money(d.loss.total) + ' com o ' + d.name + ' (' + d.loss.label.toLowerCase() + '). Precisamos resolver isso agora.';
-        push(a, { from: 'bot', text, tone: 'warn', actions: d.fault ? problemActions(a, d) : [] });
-        ping(a, text, 'warn');
-      }
-    }
 
     function update(dt) {
       if (T.a && !alive(T.a)) close();
@@ -553,7 +538,6 @@
       if (T.acc > 0.5) {
         T.acc = 0;
         liveStatus();
-        lossWatch();
       }
     }
 

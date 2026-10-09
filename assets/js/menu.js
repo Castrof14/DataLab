@@ -524,6 +524,29 @@
     location.replace(location.pathname); // the session stays: straight back to the Main Menu
   });
 
+  // in game: "Salvar" (or Ctrl/Cmd+S) saves to the cloud slot without leaving
+  const saveBtn = $('saveBtn');
+  async function saveNow() {
+    if (!saveBtn || saveBtn.disabled) return;
+    if (!DL.SaveService || !DL.SaveService.slot || !DL.Cloud || !DL.Cloud.signedIn) { D.game.toast('warn', 'Não foi possível salvar', 'Entre na sua conta e escolha um espaço de save para salvar o jogo.'); return; }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Salvando…';
+    const r = await DL.SaveService.save({});
+    saveBtn.disabled = false;
+    if (r.ok) {
+      saveBtn.textContent = 'Salvo ✓';
+      D.game.toast('ok', 'Jogo salvo', 'Seu progresso foi salvo na sua conta.');
+      setTimeout(() => { saveBtn.textContent = 'Salvar'; }, 2000);
+    } else {
+      saveBtn.textContent = 'Salvar';
+      D.game.toast('warn', 'Não foi possível salvar', r.message + ' · tente de novo');
+    }
+  }
+  if (saveBtn) saveBtn.addEventListener('click', saveNow);
+  addEventListener('keydown', (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.code === 'KeyS' && D.state && D.state.phase === 'play') { ev.preventDefault(); saveNow(); }
+  });
+
   D.menu = { open: (id) => (id ? openSub(id) : setScreen('menu')), close: closeSub, newGame, backToMenu, get screen() { return M.screen; }, get sub() { return M.sub; },
     // the logged-in account (auth-gate.js): shown in the menu footer and on the title screen
     setAccount(p) { M.account = p; refreshMenuMeta(); },
