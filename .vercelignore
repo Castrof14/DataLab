@@ -1,0 +1,5 @@
+# DataLab · only the static game goes to Vercel (the backend lives in Supabase)
+supabase/
+.env*
+PROXIMOS-PASSOS.txt
+DESIGN-x.ai.md

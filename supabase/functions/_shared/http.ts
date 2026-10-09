@@ -8,10 +8,15 @@ export class HttpError extends Error {
 }
 
 // ALLOWED_ORIGINS="https://datalab.example.com,http://localhost:5500" (secret / env var)
+// A "*" matches one DNS label part, for Vercel preview deploys:
+//   https://datalab-*-castrof14s-projects.vercel.app
+// (never a bare "https://*.vercel.app": anyone can deploy there)
 const allowed = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
   .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+  .map((s) => s.trim().replace(/\/+$/, ''))
+  .filter(Boolean)
+  .map((s) => (s.includes('*') ? new RegExp('^' + s.split('*').map((p) => p.replace(/[.+?^${}()|[\]\\]/g, '\\$&')).join('[a-z0-9-]+') + '$', 'i') : s));
+const isAllowed = (origin: string) => allowed.some((a) => (typeof a === 'string' ? a === origin : a.test(origin)));
 
 export function corsHeaders(req: Request): Record<string, string> {
   const origin = req.headers.get('Origin') ?? '';
@@ -21,7 +26,7 @@ export function corsHeaders(req: Request): Record<string, string> {
     'Access-Control-Max-Age': '600',
     Vary: 'Origin',
   };
-  if (origin && allowed.includes(origin)) h['Access-Control-Allow-Origin'] = origin;
+  if (origin && isAllowed(origin)) h['Access-Control-Allow-Origin'] = origin;
   return h;
 }
 

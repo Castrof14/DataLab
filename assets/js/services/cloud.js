@@ -82,6 +82,15 @@
     return true;
   }
 
+  // A "network" error from a deployed site is almost always CORS: the site's address is missing from
+  // the Edge Functions' ALLOWED_ORIGINS secret (the browser hides the real reason). Said once.
+  let hinted = false;
+  function networkHint(fn) {
+    if (hinted || !navigator.onLine) return;
+    hinted = true;
+    console.warn('DataLab: a Edge Function "' + fn + '" não respondeu. Se o jogo está publicado (ex.: Vercel), confira se ' + location.origin + ' está no secret ALLOWED_ORIGINS do Supabase (supabase secrets set ALLOWED_ORIGINS=...).');
+  }
+
   // Call an Edge Function. Always resolves: { ok: true, data } | { ok: false, code, message, status }
   async function call(fn, body) {
     if (!C.client) return { ok: false, code: 'offline', message: MESSAGES.offline, status: 0 };
@@ -95,9 +104,11 @@
         try { info = await error.context.json(); } catch (e) { info = null; }
       }
       const code = (info && info.error) || (status ? 'http_' + status : 'network');
+      if (code === 'network') networkHint(fn);
       if (status === 401) emit('expired', {});
       return { ok: false, code, status, message: (info && info.message) || MESSAGES[code] || MESSAGES.network };
     } catch (e) {
+      networkHint(fn);
       return { ok: false, code: 'network', status: 0, message: MESSAGES.network };
     }
   }

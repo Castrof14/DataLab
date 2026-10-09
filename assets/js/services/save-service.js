@@ -214,7 +214,13 @@
       } finally { S.busy = false; }
     },
     async load(slot) {
-      const r = await DL.Cloud.call('game', { action: 'load', slot });
+      // loading changes nothing on the server: a network blip is retried before giving up
+      let r;
+      for (let i = 0; i < 3; i++) {
+        r = await DL.Cloud.call('game', { action: 'load', slot });
+        if (r.ok || r.code !== 'network') break;
+        await new Promise((res) => setTimeout(res, 800 * (i + 1)));
+      }
       if (!r.ok) return r;
       const D = game();
       if (!r.data.save.data) return { ok: false, code: 'empty', message: 'Este espaço ainda não foi salvo.' };
