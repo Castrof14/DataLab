@@ -67,11 +67,10 @@
     ],
     // Gold: earned by playing (each datacenter completed), exchanged from Créditos, or in packs
     gold: { welcome: 100, datacenter: 20, rate: 10 }, // rate: créditos per 1 Gold
-    // Gold packs (simulation only — no payment is taken)
+    // Gold packs: paid with AbacatePay when logged in (price and coins come from public.gold_packs on
+    // the server; keep these in sync for display). Without an account they are only a simulation.
     store: [
-      { sku: 'gold_100', coins: 100, price: 'R$ 4,90' },
-      { sku: 'gold_550', coins: 550, price: 'R$ 19,90', tag: '+10%' },
-      { sku: 'gold_1200', coins: 1200, price: 'R$ 39,90', tag: '+20%' },
+      { sku: 'gold_100', coins: 100, price: 'R$ 4,00' },
     ],
   };
 
@@ -690,9 +689,10 @@
         '<div class="w-bar"><i style="transform:scaleX(' + ((n % m.every) / m.every).toFixed(3) + ')"></i></div>' +
         '<span class="eyebrow-sm w-sub">Este datacenter' + (world().dcDone ? ' · concluído ✓' : '') + '</span><ul class="w-check">' +
         cl.map((c) => '<li class="' + (c.ok ? 'is-ok' : '') + '"><i></i>' + c.label + '</li>').join('') + '</ul></section>';
-      h += '<section class="w-card w-card--wide"><span class="eyebrow-sm">Pacotes de Gold · simulação</span><div class="w-store">' + E.store.map((p) =>
+      const real = CLOUD.on && DL.PaymentService;
+      h += '<section class="w-card w-card--wide"><span class="eyebrow-sm">Pacotes de Gold' + (real ? ' · Pix ou cartão' : ' · simulação') + '</span><div class="w-store">' + E.store.map((p) =>
         '<button type="button" class="w-pack" data-sku="' + p.sku + '"><span class="cur cur--dc">⬢</span><b>' + fmt(p.coins) + '</b>' + (p.tag ? '<em>' + p.tag + '</em>' : '') + '<small>' + p.price + '</small></button>').join('') +
-        '</div><p class="w-note">Modo de teste: nenhuma cobrança é feita e nenhum dado de pagamento é pedido. A compra real virá depois.</p>' +
+        '</div><p class="w-note">' + (real ? 'O pagamento abre numa nova aba, pela AbacatePay. O Gold entra na sua conta assim que o pagamento é confirmado.' : 'Modo de teste: nenhuma cobrança é feita e nenhum dado de pagamento é pedido.') + '</p>' +
         '<span class="eyebrow-sm w-sub">Extrato</span><ul class="w-ledger">' + (W.ledger.slice(0, 6).map((l) =>
           '<li><span class="mono">' + l.t + '</span><span>' + esc(l.why) + '</span><b class="' + (curOf(l.cur) === 'gold' ? 'is-dc' : '') + '">' + (l.amount > 0 ? '+' : '') + fmt(l.amount) + (curOf(l.cur) === 'gold' ? ' ⬢' : ' ◆') + '</b></li>').join('') || '<li class="m">Nada ainda. Conclua tarefas e resolva incidentes.</li>') + '</ul></section>';
       return h + '</div>';
@@ -746,8 +746,11 @@
       const b = ev.target.closest('[data-sku]');
       if (!b || b.disabled) return;
       const pack = E.store.find((p) => p.sku === b.dataset.sku);
-      // with an account, Gold only comes from the server: no simulated packs (real payments: future)
-      if (CLOUD.on) { game.toast('info', 'Pacotes de Gold', 'Com conta conectada, Gold só vem do servidor. Pagamentos reais ainda não estão disponíveis.'); return; }
+      // with an account, Gold only comes from the server: real payment (AbacatePay)
+      if (CLOUD.on) {
+        if (DL.PaymentService) DL.PaymentService.buy(pack.sku, game.toast);
+        return;
+      }
       b.disabled = true;
       b.classList.add('is-busy');
       DL.Payments.purchase(pack).then((r) => {

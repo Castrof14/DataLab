@@ -40,7 +40,8 @@ services/admin-service ┘                       ▼
 | `migrations/20261005000600_functions.sql` | lógica do servidor: cadastro, loja, inventário, câmbio, concessões, papéis, novo jogo, terreno, save/load |
 | `seed.sql` | raridades, moedas, categorias, eventos, itens/skins (inclusive Founder/Developer/Beta/Special), bots lendários, tipos de servidor, preços do catálogo, conquistas, configuração da economia |
 | `datalab_full.sql` | tudo acima concatenado, para colar no SQL Editor |
-| `functions/{shop,inventory,economy,game,admin}` | Edge Functions; `functions/_shared` traz http, auth e db |
+| `migrations/20261005000800_payments.sql` | `gold_packs`, `payment_orders`, crédito de Gold por pagamento confirmado |
+| `functions/{shop,inventory,economy,game,admin,payments,payments-webhook}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |
 | `config.toml` | configuração da CLI (`verify_jwt = true` em todas as funções) |
 
@@ -73,6 +74,43 @@ services/admin-service ┘                       ▼
    **Nunca** coloque ali a *secret / service_role key*: o jogo se recusa a iniciar se detectar uma.
    Se o projeto usar domínio próprio, adicione esse domínio ao `connect-src` da meta CSP em `jogo.html`.
 6. **Publique** a pasta do jogo (qualquer hospedagem estática, ex.: Netlify, Vercel, GitHub Pages) na URL do passo 3.
+
+## Pagamentos (AbacatePay)
+
+Comprar Gold com dinheiro real: **Loja → Gold** ou **Finanças → Pacotes de Gold** (só com conta).
+
+```
+jogo ──checkout──▶ payments ──▶ AbacatePay: cria um checkout só deste pedido (externalId = id do pedido)
+  │                    └─ payment_orders (pending)
+  └─ abre a página de pagamento numa nova aba; o jogo pergunta "status" a cada 4 s
+AbacatePay ──checkout.completed──▶ payments-webhook ─┐
+jogo ──status──▶ payments ───────────────────────────┴▶ consulta o checkout NA API da AbacatePay
+                                                        └─ PAID e valor ≥ preço → private.payment_settle credita o Gold (uma vez só)
+```
+
+- O preço e as moedas de cada pacote ficam em `public.gold_packs` (servidor). O navegador só mostra.
+- Um link fixo de checkout **não** serve: não diz qual conta pagou. Cada compra gera o próprio checkout.
+- O webhook é só um aviso: o Gold só entra depois que a própria API da AbacatePay confirma `PAID`.
+- Estorno (`checkout.refunded`) tira de volta o Gold que ainda estiver na carteira.
+
+**Configuração**
+1. Rode a migration `20261005000800_payments.sql` (ou o `datalab_full.sql` atualizado). Ela cria o pacote `gold_100`: 100 Gold por R$ 4,00.
+2. Na AbacatePay, crie uma chave de API (*Integrar → API Keys*). Comece com a chave de **dev mode** para testar sem cobrança.
+3. Secrets das funções:
+   ```bash
+   supabase secrets set ABACATEPAY_API_KEY="abc_..." ABACATEPAY_WEBHOOK_SECRET="uma-senha-longa-aleatoria" SITE_URL="https://seu-site"
+   supabase functions deploy payments payments-webhook
+   ```
+   `SITE_URL` é para onde a AbacatePay devolve o jogador (`/pagamento.html`). Precisa ser `https`.
+4. Produto: no 1º checkout, a função procura na AbacatePay um produto com `externalId = gold_100`. Se não achar, cria um com o preço da tabela. Para usar um produto que você já criou no painel, informe o id dele:
+   ```sql
+   update public.gold_packs set provider_product_id = 'prod_...' where sku = 'gold_100';
+   ```
+5. Webhook na AbacatePay (*Webhooks → Criar*), evento `checkout.completed` (e `checkout.refunded`):
+   `https://SEU_REF.supabase.co/functions/v1/payments-webhook?webhookSecret=` + o mesmo valor de `ABACATEPAY_WEBHOOK_SECRET`.
+6. Novo pacote: insira em `gold_packs` (sku, name, coins, price_cents) e acrescente o mesmo sku em `DL.ECON.store` (`assets/js/economy.js`).
+
+**Testar** (chave dev): compre na Loja → pague o Pix de teste na aba aberta → o toast "Pagamento confirmado" aparece e o Gold sobe. No banco: `select * from payment_orders;` e `select * from transactions where kind = 'payment';`.
 
 ## Primeiro administrador
 
@@ -125,4 +163,4 @@ services/admin-service ┘                       ▼
 
 - A simulação (receita, despesas, incidentes) roda no navegador, e o servidor aceita esses números **até um teto** proporcional ao hardware online e ao tempo real decorrido. Um cliente adulterado consegue no máximo render no teto, e o caixa da empresa **não vira Gold**.
 - Créditos também têm teto por tempo real e o "datacenter concluído" tem limite diário. Por isso o caminho até o Gold é estreito.
-- Pagamentos reais não estão implementados: os pacotes de Gold ficam desligados quando há conta conectada.
+- Pagamentos reais: só pela AbacatePay (veja *Pagamentos*). Sem conta, os pacotes da loja continuam sendo simulação local.

@@ -459,9 +459,10 @@
       let h = '<div class="st-gold"><section class="st-gold__card"><span class="eyebrow-sm">Câmbio · créditos → Gold</span><p class="st-gold__big"><span class="cur cur--cr"></span>' + E.gold.rate + ' créditos = <span class="cur cur--dc"></span>1 Gold</p>' +
         '<p class="st-why">Créditos você ganha jogando: tarefas, servidores configurados, incidentes resolvidos, datacenters concluídos.</p><div class="st-gold__row">' +
         [50, 100, 500, 1000].map((n) => '<button type="button" class="btn btn--sm" data-do="xchg" data-n="' + n + '"' + (W.credits < n ? ' disabled' : '') + '>' + fmt(n) + ' ◆ → ' + fmt(n / E.gold.rate) + ' Gold</button>').join('') + '</div></section>';
-      h += '<section class="st-gold__card"><span class="eyebrow-sm">Pacotes · simulação</span><div class="st-gold__row">' + E.store.map((p) =>
+      const real = S.remote && DL.PaymentService;
+      h += '<section class="st-gold__card"><span class="eyebrow-sm">Comprar Gold' + (real ? ' · Pix ou cartão' : ' · simulação') + '</span><div class="st-gold__row">' + E.store.map((p) =>
         '<button type="button" class="st-pack" data-do="pack" data-sku="' + p.sku + '"><span class="cur cur--dc"></span><b>' + fmt(p.coins) + '</b>' + (p.tag ? '<em>' + p.tag + '</em>' : '') + '<small>' + p.price + '</small></button>').join('') +
-        '</div><p class="st-why">Modo de teste: nenhuma cobrança é feita e nenhum dado de pagamento é pedido.</p></section>';
+        '</div><p class="st-why">' + (real ? 'O pagamento abre numa nova aba, pela AbacatePay. O Gold entra na sua conta assim que o pagamento é confirmado.' : 'Modo de teste: nenhuma cobrança é feita e nenhum dado de pagamento é pedido.') + '</p></section>';
       h += '<section class="st-gold__card"><span class="eyebrow-sm">Como ganhar Gold jogando</span><ul class="st-gold__list"><li>+' + E.gold.datacenter + ' Gold a cada datacenter concluído</li><li>+100 Gold a cada 20 datacenters (marco)</li><li>Venda itens que não usa: metade do preço volta</li></ul></section></div>';
       return h;
     }
@@ -573,7 +574,8 @@
             fail(economy.exchange(+b.dataset.n));
             break;
           case 'pack': {
-            if (S.remote) { fail('Com conta conectada, Gold só vem do servidor. Pagamentos reais ainda não estão disponíveis.'); return; }
+            // with an account: real payment (AbacatePay), credited by the server
+            if (S.remote) { if (DL.PaymentService) DL.PaymentService.buy(b.dataset.sku, game.toast); return; }
             const pack = DL.ECON.store.find((p) => p.sku === b.dataset.sku);
             b.disabled = true;
             b.classList.add('is-busy');

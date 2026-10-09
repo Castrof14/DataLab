@@ -34,3 +34,10 @@ verify_jwt = true
 
 [functions.admin]
 verify_jwt = true
+
+[functions.payments]
+verify_jwt = true
+
+# called by AbacatePay (no Supabase JWT): protected by ?webhookSecret= and settled from AbacatePay's API
+[functions.payments-webhook]
+verify_jwt = false
