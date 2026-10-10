@@ -210,8 +210,8 @@
     }
 
     /* ---------- open problems (tracked for the UI; they cost nothing) ---------- */
-    const KIND = { link: 'offline', cable: 'offline', port: 'port', service: 'service', disk: 'disk' };
-    const LABEL = { offline: 'Servidor offline', port: 'Porta do switch em erro', service: 'Serviço web parado', disk: 'Disco cheio' };
+    const KIND = { link: 'offline', cable: 'offline', port: 'port', service: 'service', disk: 'disk', winsvc: 'winsvc', lockout: 'lockout' };
+    const LABEL = { offline: 'Servidor offline', port: 'Porta do switch em erro', service: 'Serviço web parado', disk: 'Disco cheio', winsvc: 'Serviço do Windows parado', lockout: 'Conta bloqueada no AD' };
 
     function problems() {
       const out = [];

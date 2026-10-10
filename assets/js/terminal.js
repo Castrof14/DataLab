@@ -46,7 +46,7 @@
       steps: [
         { text: 'Veja as interfaces de rede do servidor.', help: ['ip-addr'], done: (d, ran) => ran.has('ip-show') || ran.has('link-show') },
         { text: 'A eth0 está DOWN. Ligue a interface.', help: ['ip-link-up', 'sudo'], done: (d) => eth(d).up },
-        { text: 'Atribua o IP ' + d.ip + '/24 à eth0.', help: ['ip-addr-add'], done: (d) => eth(d).ips.indexOf(d.ip + '/24') >= 0 },
+        { text: 'Atribua o IP ' + d.ip + '/24 à eth0.', help: ['ip-addr-add'], cmd: 'sudo ip addr add ' + d.ip + '/24 dev eth0', done: (d) => eth(d).ips.indexOf(d.ip + '/24') >= 0 },
         { text: 'Crie a rota padrão pelo gateway 10.0.1.1.', help: ['ip-route-add', 'ip-route'], done: (d) => d.os.route === '10.0.1.1' },
         { text: 'Teste a conexão com o gateway.', help: ['ping'], done: (d, ran) => ran.has('ping-ok:10.0.1.1') },
       ],
@@ -415,8 +415,12 @@
     };
     const X = { open: false, dev: null, lesson: null, ran: new Set(), history: [], hi: -1, misses: 0, step: 0, onDone: null, helpOpen: false };
 
+    // which interpreter runs on this device: switch CLI, Windows Server (winserver.js) or Linux
+    const isWin = (d) => !!(DL.isWin && DL.isWin(d));
+    const shellOf = (d) => (d.kind === 'switch' ? swcli : isWin(d) ? DL.winShell : linux);
     const promptOf = (d) => {
       if (d.kind === 'switch') return d.name + ({ user: '>', priv: '#', conf: '(config)#', if: '(config-if)#' }[d.sw.mode]);
+      if (isWin(d)) return DL.winPrompt(d);
       return 'admin@' + d.os.hostname + ':~$';
     };
 
@@ -457,12 +461,13 @@
       el.mode.title = m.desc || '';
     }
     // the command a step expects, as a hint (Iniciante shows it right in the step)
-    const stepCmd = (s) => (s.help && HELP[s.help[0]] ? HELP[s.help[0]].ex.split('\n')[0] : '');
+    // (a step may carry its exact command — with this server's IP / name — instead of the generic example)
+    const stepCmd = (s) => s.cmd || (s.help && HELP[s.help[0]] ? HELP[s.help[0]].ex.split('\n')[0] : '');
     // why a command failed, in plain words (Iniciante)
     const FIRST = ['ip', 'ping', 'sudo', 'systemctl', 'curl', 'df', 'du', 'journalctl', 'hostnamectl', 'hostname', 'help', 'clear', 'exit', 'enable', 'show', 'configure', 'interface', 'shutdown', 'no', 'end', 'lscpu', 'free', 'uptime', 'whoami'];
     function closest(w) {
       let best = null, bd = 3;
-      for (const c of FIRST) {
+      for (const c of X.dev && isWin(X.dev) && DL.WIN_FIRST ? DL.WIN_FIRST : FIRST) {
         const d = lev(w, c);
         if (d < bd) { bd = d; best = c; }
       }
@@ -476,6 +481,14 @@
     function explain(line, r) {
       const txt = r.out.join(' ');
       const w = line.trim().split(/\s+/)[0].toLowerCase();
+      // the Windows shell explains its own teaching errors
+      if (r.why) return r.why;
+      if (X.dev && isWin(X.dev)) {
+        if (r.ran.indexOf('unknown') >= 0) { const c = closest(w); return 'O Windows não conhece "' + esc(w) + '".' + (c ? ' Você quis dizer <code>' + esc(c) + '</code>?' : '') + ' Digite <code>help</code> para ver os comandos por área.'; }
+        if (r.ran.indexOf('ping-fail') >= 0) return 'O ping não voltou. Leia a dica em cinza: ela diz se é o cabo, o adaptador, o IP ou o gateway.';
+        if (r.ran.indexOf('error') >= 0) return 'O comando deu erro. A mensagem em laranja diz o motivo e a linha cinza sugere o formato certo.';
+        return null;
+      }
       if (/Operation not permitted|Access denied|Permission denied/.test(txt)) return 'Esse comando altera o sistema, então precisa de permissão de administrador. Coloque <b>sudo</b> na frente: <code>sudo ' + esc(line.trim()) + '</code>';
       if (r.ran.indexOf('unknown') >= 0) { const c = closest(w); return 'O sistema não conhece "' + esc(w) + '".' + (c ? ' Você quis dizer <code>' + c + '</code>?' : '') + ' Digite <code>help</code> para ver a lista.'; }
       if (/Cannot find device/.test(txt)) return 'Essa interface não existe. As interfaces deste servidor são <b>lo</b> e <b>eth0</b> — veja com <code>ip addr</code>.';
@@ -498,11 +511,21 @@
 
     function renderSide() {
       if (!X.lesson) {
+        const ms = isWin(X.dev) && DL.winMissions ? DL.winMissions(X.dev) : [];
+        el.helpBtn.hidden = false;
+        if (ms.length) {
+          // Windows Server: optional missions (each teaches one part of the server and pays once)
+          el.task.textContent = 'Windows Server · Missões';
+          el.goal.textContent = 'Nenhuma tarefa urgente. Escolha uma missão para praticar — ou explore à vontade (help conceitos).';
+          const html = ms.map((m, k) => '<li class="' + (m.done ? 'is-done' : '') + '"><span class="term__chk">' + (m.done ? '✓' : k + 1) + '</span><span><b class="term__mtitle">' + esc(m.title) + '</b> <em class="term__mreward">+' + m.reward + ' créditos</em><small class="term__mdesc">' + esc(m.desc) + '</small>' +
+            (m.done ? '' : m.lock ? '<small class="term__mlock">🔒 ' + esc(m.lock) + '</small>' : '<button type="button" class="btn btn--sm btn--primary term__act" data-term-mission="' + m.id + '">Iniciar missão</button>') + '</span></li>').join('');
+          if (el.steps.dataset.k !== html) { el.steps.dataset.k = html; el.steps.innerHTML = html; }
+          return;
+        }
         el.task.textContent = 'Console livre';
         el.goal.textContent = 'Nenhuma tarefa aberta neste equipamento. Explore à vontade — digite help.';
         el.steps.innerHTML = '';
         el.steps.dataset.k = '';
-        el.helpBtn.hidden = false;
         return;
       }
       const i = curStep(), m = L();
@@ -535,11 +558,14 @@
 
     function renderHelp() {
       const i = curStep(), m = L();
-      const keys = X.lesson && i < X.lesson.steps.length ? X.lesson.steps[i].help : X.dev.kind === 'switch' ? ['enable', 'show-int', 'conf-t'] : ['ip-addr', 'ping', 'sudo'];
+      const win = isWin(X.dev);
+      const keys = X.lesson && i < X.lesson.steps.length ? X.lesson.steps[i].help : X.dev.kind === 'switch' ? ['enable', 'show-int', 'conf-t'] : win ? ['win-ipconfig', 'win-features', 'win-service'] : ['ip-addr', 'ping', 'sudo'];
       const stepLabel = X.lesson && i < X.lesson.steps.length ? (m.stepText === 'hidden' ? 'o próximo passo' : X.lesson.steps[i].text) : '';
       let h = '<p class="term__hint">' + (stepLabel ? 'Para ' + (m.stepText === 'hidden' ? '' : 'este passo: ') + '<b>' + esc(stepLabel) + '</b>' : 'Comandos mais usados aqui:') +
         ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth);
-      h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter((k) => (X.dev.kind === 'switch') === ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'end'].includes(k))
+      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'end'];
+      const forDev = (k) => (X.dev.kind === 'switch' ? SWITCH_KEYS.includes(k) : win ? HELP[k].os === 'win' || k === 'cabling' : !HELP[k].os && !SWITCH_KEYS.includes(k));
+      h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter(forDev)
         .map((k) => '<button type="button" class="chip" data-help="' + k + '">' + esc(HELP[k].cmd.split(' <')[0]) + '</button>').join('') + '<div data-help-out></div></details>';
       el.help.innerHTML = h;
     }
@@ -566,7 +592,7 @@
       if (line.trim()) X.history.push(line);
       if (X.history.length > 100) X.history.shift();
       const before = curStep();
-      const r = (d.kind === 'switch' ? swcli : linux)(d, line, ctx);
+      const r = shellOf(d)(d, line, ctx);
       if (r.out.length) print(r.out, null, true);
       for (const e of r.ran) X.ran.add(e);
       game.onCommand && game.onCommand(d, r.ran);
@@ -603,6 +629,12 @@
     }
 
     function open(dev, lessonType, onDone) {
+      // a Windows mission left half-way comes back when the console is reopened with nothing urgent
+      if (!lessonType && isWin(dev) && /^mis-/.test(dev.lessonKey || '') && LESSONS[dev.lessonKey] && dev.os.win.done.indexOf(dev.lessonKey) < 0) {
+        const id = dev.lessonKey;
+        lessonType = id;
+        onDone = () => DL.winMissionDone(dev, id, game);
+      }
       X.dev = dev;
       X.lesson = lessonType && LESSONS[lessonType] ? LESSONS[lessonType](dev) : null;
       X.onDone = onDone || null;
@@ -616,6 +648,7 @@
       el.where.textContent = dev.where;
       print(dev.kind === 'switch'
         ? ['<span class="m">Conectado pela porta de console de ' + esc(dev.name) + '.</span>', '<span class="m">Digite help para ver os comandos.</span>', '']
+        : isWin(dev) ? DL.winBanner(dev)
         : ['<span class="m">Ubuntu 24.04 LTS · ' + esc(dev.name) + ' · conectado pelo console do rack</span>', '<span class="m">Digite help para ver os comandos. ↑ repete comandos anteriores.</span>', '']);
       const m = L();
       if (X.lesson) {
@@ -661,14 +694,39 @@
       } else if (ev.key === 'Tab') {
         ev.preventDefault();
         const v = el.input.value, pre = v.indexOf('sudo ') === 0 ? 'sudo ' : '', body = v.slice(pre.length);
-        const m = COMPLETE.filter((c) => c.indexOf(body) === 0 && c !== body);
+        // PowerShell completes regardless of case
+        const m = X.dev && isWin(X.dev) && DL.WIN_COMPLETE
+          ? DL.WIN_COMPLETE.filter((c) => c.toLowerCase().indexOf(body.toLowerCase()) === 0 && c.toLowerCase() !== body.toLowerCase())
+          : COMPLETE.filter((c) => c.indexOf(body) === 0 && c !== body);
         if (m.length === 1) el.input.value = pre + m[0];
         else if (m.length > 1) print(['<span class="m">' + m.map(esc).join('   ') + '</span>']);
       } else if (ev.key === 'l' && ev.ctrlKey) { ev.preventDefault(); ctx.clear(); }
       ev.stopPropagation();
     });
     el.close.addEventListener('click', close);
+    // a Windows Server mission chosen in the side panel becomes the console's lesson
+    function startMission(id) {
+      const d = X.dev;
+      if (!d || !LESSONS[id]) return;
+      if (DL.winMissionStart) DL.winMissionStart(d, id);
+      X.lesson = LESSONS[id](d);
+      X.onDone = () => DL.winMissionDone(d, id, game);
+      d.ran = new Set();
+      d.lessonKey = id;
+      X.ran = d.ran;
+      X.misses = 0;
+      el.steps.dataset.k = '';
+      const m = L(), first = X.lesson.steps[0];
+      print(['', '<span class="ok">Missão:</span> ' + esc(X.lesson.goal), '<span class="m">' + (m.stepText === 'hidden' ? 'Modo Experiente: descubra os passos.' : 'Primeiro passo: ' + esc(first.text) + (m.id === 'iniciante' && stepCmd(first) ? ' · experimente <code>' + esc(stepCmd(first)) + '</code>' : '')) + '</span>', ''], null, true);
+      if (X.helpOpen) renderHelp();
+      renderSide();
+      // a step may already be true (e.g. the role was installed earlier)
+      if (curStep() >= X.lesson.steps.length) finish();
+      el.input.focus({ preventScroll: true });
+    }
     el.steps.addEventListener('click', (ev) => {
+      const ms = ev.target.closest('[data-term-mission]');
+      if (ms) { startMission(ms.dataset.termMission); return; }
       if (!ev.target.closest('[data-term-act="cabling"]')) return;
       const d = X.dev;
       close();
@@ -692,7 +750,7 @@
       get lesson() { return X.lesson; },
       get step() { return curStep(); },
       refresh() { if (X.open) { renderSide(); if (X.lesson && curStep() >= X.lesson.steps.length) finish(); } },
-      run,
+      run, startMission,
     };
   };
 })();

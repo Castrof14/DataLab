@@ -64,10 +64,11 @@
     const used = new Set(list.filter((s) => s.version > 0).map((s) => s.slot));
     const slot = [1, 2, 3].find((n) => !used.has(n));
     if (!slot) { toast('warn', 'Saves na nuvem cheios', 'Este jogo fica só neste navegador. Libere um espaço em Conta → Saves.'); return; }
-    const r = await DL.SaveService.newGame(slot, (DL.PRESETS[preset] || {}).name || 'Meu datacenter', preset);
+    const name = (DL.PRESETS[preset] || {}).name || 'Meu datacenter';
+    const r = await DL.SaveService.newGame(slot, name, preset);
     if (!r.ok) { toast('warn', 'Save na nuvem', r.message); return; }
     setSlot(slot);
-    const s = await DL.SaveService.save({ name: 'Meu datacenter' });
+    const s = await DL.SaveService.save({ name });
     if (s.ok) toast('ok', 'Salvo na nuvem', 'Espaço ' + slot + ' · salvamento automático ligado');
   });
 
@@ -103,5 +104,7 @@
     get active() { return S.on; },
   };
 
-  DL.Cloud.init();
+  // auth-gate.js starts the session check long before this file loads: on a slow connection (a deploy,
+  // not localhost) the first 'auth' event can fire before the listener above exists — catch up here.
+  DL.Cloud.init().then(() => { if (DL.Cloud.user && !S.on) { S.on = true; signedIn(DL.Cloud.user); } });
 })();

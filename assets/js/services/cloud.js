@@ -55,7 +55,13 @@
   }
 
   async function init() {
-    const cfg = window.DATALAB_CONFIG || {};
+    if (!window.DATALAB_CONFIG) {
+      // config.js never ran: on a deploy this means the file was not published (check .vercelignore)
+      C.status = 'misconfigured';
+      console.error('DataLab: assets/js/supabase/config.js não foi carregado (' + location.origin + '). Confira se o arquivo foi publicado — padrões sem "/" inicial no .vercelignore removem pastas em qualquer nível.');
+      return false;
+    }
+    const cfg = window.DATALAB_CONFIG;
     const url = String(cfg.supabaseUrl || '').trim(), key = String(cfg.supabasePublishableKey || '').trim();
     if (!url || !key) { C.status = 'offline'; return false; }
     if (looksSecret(key)) {

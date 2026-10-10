@@ -98,6 +98,14 @@
     if (V.linkError) { go('login', 'O link expirou ou é inválido: ' + V.linkError.replace(/\+/g, ' '), 'warn'); history.replaceState(null, '', location.pathname); return; }
     if (DL.Cloud.signedIn && V.recovery) { go('newpass'); return; }
     if (DL.Cloud.signedIn) { enter(); return; }
+    // An e-mail link (?code=…) that didn't turn into a session: with PKCE the link only completes in the
+    // browser that asked for it. The confirmation itself already happened on Supabase's side.
+    if (params.get('code')) {
+      history.replaceState(null, '', location.pathname);
+      if (V.recovery) { V.recovery = false; go('forgot', 'Abra o link de recuperação no mesmo navegador em que você pediu (ou peça outro aqui).', 'warn'); return; }
+      go('login', 'E-mail confirmado! Entre com seu e-mail e senha.', 'ok');
+      return;
+    }
     go('login');
   }
 

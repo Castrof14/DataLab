@@ -75,6 +75,18 @@ services/admin-service ┘                       ▼
    Se o projeto usar domínio próprio, adicione esse domínio ao `connect-src` da meta CSP em `jogo.html`.
 6. **Publique** a pasta do jogo (qualquer hospedagem estática, ex.: Netlify, Vercel, GitHub Pages) na URL do passo 3.
 
+### Vercel: checklist do login
+- `assets/js/supabase/config.js` **precisa** ir junto no deploy. O `.vercelignore` usa regras do `.gitignore`:
+  `supabase/` (sem `/` no começo) removia também `assets/js/supabase/` e o jogo publicado ficava sem URL/chave
+  ("Servidor indisponível"). Use sempre `/supabase/`. Teste: abra `https://SEU-SITE/assets/js/supabase/config.js`.
+- *Authentication → URL Configuration*: **Site URL** = `https://SEU-SITE.vercel.app/jogo.html`; em **Redirect URLs**
+  adicione `https://SEU-SITE.vercel.app/**` (e, para previews, `https://datalab-*-SEU-TIME.vercel.app/**`).
+  Sem isso, o link de confirmação/recuperação volta para `localhost` e o login PKCE falha (o "code verifier" fica
+  no navegador do domínio da Vercel).
+- `supabase secrets set ALLOWED_ORIGINS="https://SEU-SITE.vercel.app,https://datalab-*-SEU-TIME.vercel.app,http://localhost:5500"`
+  e redeploy das funções; senão salvar/carregar falha como "erro de rede" (CORS).
+- Nenhuma variável de ambiente é necessária na Vercel: o site é estático e só usa a chave publishable.
+
 ## Pagamentos (AbacatePay)
 
 Comprar Gold com dinheiro real: **Loja → Gold** ou **Finanças → Pacotes de Gold** (só com conta).

@@ -1746,7 +1746,7 @@
       if (ask && world.lot) {
         const price = lotQuote(ask.dw, ask.dh), co = company(), after = co ? co.cash - price : 0;
         const nw = world.lot.w + ask.dw, nh = world.lot.h + ask.dh, add = nw * nh - world.lot.w * world.lot.h;
-        h += '<div class="lot-ask" role="alertdialog" aria-label="Confirmar expansão do terreno"><span>Expandir o terreno para <b>' + nw + ' × ' + nh + '</b> (+' + add + ' m²) por <b class="lot-ask__price">' + (price ? DL.money(price) : 'grátis · kit inicial') + '</b>' +
+        h += '<div class="lot-ask" role="alertdialog" aria-label="Confirmar expansão do terreno"><span>Expandir o terreno para <b>' + nw + ' × ' + nh + '</b> (+' + add + ' m²) ' + (price ? 'por ' : '— ') + '<b class="lot-ask__price">' + (price ? DL.money(price) : 'grátis · kit inicial') + '</b>' +
           (co && price ? ' · caixa depois: <b class="' + (after < 0 ? 'is-neg' : '') + '">' + DL.money(after) + '</b>' : '') + '</span>' +
           '<button type="button" class="btn btn--sm btn--primary" data-room="lot-ok"' + (co && after < 0 ? ' disabled' : '') + '>Confirmar</button><button type="button" class="btn btn--sm" data-room="lot-no">Cancelar</button></div>';
       }

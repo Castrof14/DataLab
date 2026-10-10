@@ -24,6 +24,11 @@
 .term__why code, .term__out .m code { font: inherit; color: var(--ink); }
 .term__depth { display: inline-block; margin-left: 4px; font: 400 10px/16px var(--font-mono); letter-spacing: 0.6px; text-transform: uppercase; color: var(--mute); }
 .term__steps li > span:last-child { min-width: 0; word-break: break-word; }
+/* Windows Server missions (terminal side panel) */
+.term__mtitle { font-weight: 400; color: var(--ink); }
+.term__mreward { font: 400 11px/16px var(--font-mono); letter-spacing: 0.6px; font-style: normal; color: var(--signal); white-space: nowrap; }
+.term__mdesc, .term__mlock { display: block; margin-top: 2px; font-size: 12px; line-height: 16px; color: var(--mute); }
+.term__mlock { color: var(--body); }
 @media (max-width: 860px) {
   .term { grid-template-rows: minmax(0, 1fr) auto; height: calc(100dvh - 32px); }
   .term__side { max-height: 38dvh; }
