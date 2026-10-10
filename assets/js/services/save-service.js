@@ -175,11 +175,16 @@
   // name: the slot's save name, kept so the autosave doesn't rename it back to the default
   const S = { slot: null, name: null, busy: false, timer: 0, last: 0, lastError: null };
 
+  // the account's slots (RLS: only the player's own rows); a failed read comes back as [] with .error set
   async function listCloud() {
     const q = DL.Cloud.from('game_saves');
-    if (!q) return [];
-    const { data, error } = await q.select('slot, name, version, stats, updated_at, play_minutes').order('slot');
-    return error ? [] : data;
+    const failed = (msg) => Object.assign([], { error: msg });
+    if (!q) return failed('Sem conexão com o servidor do DataLab.');
+    try {
+      const { data, error } = await q.select('slot, name, version, stats, updated_at, play_minutes').order('slot');
+      if (error) { console.warn('DataLab: lista de saves', error.code, error.message); return failed('Não foi possível ler seus saves (' + (error.code || 'erro') + ').'); }
+      return data || [];
+    } catch (e) { return failed('Falha de rede ao ler seus saves.'); }
   }
 
   DL.SaveService = {

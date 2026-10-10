@@ -464,3 +464,26 @@ STATUS (09/10/2026, 18ª sessão) — LOGIN NA VERCEL + AUDITORIA + WINDOWS SERV
 - Testes (scratchpad, CDP + Chrome): win.mjs 38/38, smoke.mjs 18/18 (5 presets, 6 h de jogo, janelas,
   lições, save), store-test 47/47, auth.mjs 6/6 (SDK falso: corrida, login, link PKCE, config ausente),
   node --check em todos os .js. save-test antigo usava saveLocal (removido): obsoleto.
+
+-------------------------------------------------------
+STATUS (09/10/2026, 19ª sessão) — SAVES NA VERCEL + ECONOMIA
+-------------------------------------------------------
+- Saves na Vercel (causa, confirmada em produção): o secret ALLOWED_ORIGINS das Edge Functions só tinha
+  localhost/127.0.0.1. O preflight CORS de https://datalab-six.vercel.app volta sem Access-Control-Allow-Origin,
+  então game:new falhava e o jogo ficava sem espaço de save ("escolha um espaço de save"). Login funcionava
+  (Auth não usa a lista). CORREÇÃO MANUAL: supabase secrets set ... (comando em supabase/README.md).
+  Funções game/shop/economy/inventory estão publicadas; tabelas com RLS (só as próprias linhas).
+- Cliente: "Salvar"/Ctrl+S e "Menu" pedem um espaço se o jogo ainda não tem (CloudSync.ensureSlot) e mostram
+  a causa real; erro de rede num site publicado explica ALLOWED_ORIGINS; listCloud devolve .error (menu
+  Carregar e Conta → Saves mostram o erro + "Tentar de novo" em vez de "nenhum jogo salvo"); "Menu" sem
+  conseguir salvar pede um 2º clique para sair sem salvar.
+- Economia (economy.js / DL.ECON): problemas nunca descontam dinheiro (só param de render) e conserto em até
+  30 min paga bônus de SLA; custos fixos menores (tráfego 4, link 3, manutenção 0,8, licença 250, plantão 250,
+  rampa 240 min); receita por servidor 48. Contratos de clientes (9 metas: 3/5/8/12/20 servidores, Web+DNS,
+  banco, AD, 3 VMs) pagam uma vez e ficam no save (econ.contracts; saves antigos marcam as metas já cumpridas
+  sem pagar). HUD: "Receita +$X/min · despesas -$Y/min"; Finanças lista contratos, plantões e o mês.
+  Servidor (game_save) não precisou mudar: os tetos anti-trapaça continuam acima dos novos valores.
+- Testes: econ-zero.mjs 11/11 (do zero: nunca negativo em 2 dias, meses com lucro, falha não desconta,
+  SLA, contrato, save antigo), save-flow.mjs 6/6 (SDK falso: CORS bloqueado → erro claro; liberado → cria
+  espaço, salva, reaproveita, lista, carrega; erro de RLS aparece), smoke 18/18, win 38/38, store 47/47,
+  auth 6/6, node --check 49/49.

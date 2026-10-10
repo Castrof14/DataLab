@@ -84,7 +84,12 @@ services/admin-service ┘                       ▼
   Sem isso, o link de confirmação/recuperação volta para `localhost` e o login PKCE falha (o "code verifier" fica
   no navegador do domínio da Vercel).
 - `supabase secrets set ALLOWED_ORIGINS="https://SEU-SITE.vercel.app,https://datalab-*-SEU-TIME.vercel.app,http://localhost:5500"`
-  e redeploy das funções; senão salvar/carregar falha como "erro de rede" (CORS).
+  e redeploy das funções; senão salvar/carregar falha como "erro de rede" (CORS). O login funciona mesmo assim
+  (Auth não usa essa lista), mas nenhuma Edge Function responde ao site: sem espaço de save, sem inventário.
+  Projeto atual (site `https://datalab-six.vercel.app`):
+  `supabase secrets set --project-ref lhqatamrukslqjqgmzqz ALLOWED_ORIGINS="https://datalab-six.vercel.app,https://datalab-*-castrof14s-projects.vercel.app,http://localhost:5500,http://127.0.0.1:5500"`
+  Teste (deve devolver `Access-Control-Allow-Origin`):
+  `curl -i -X OPTIONS https://lhqatamrukslqjqgmzqz.supabase.co/functions/v1/game -H "Origin: https://datalab-six.vercel.app"`
 - Nenhuma variável de ambiente é necessária na Vercel: o site é estático e só usa a chave publishable.
 
 ## Pagamentos (AbacatePay)

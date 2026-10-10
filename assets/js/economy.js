@@ -12,27 +12,46 @@
     // Two phases. Setup: a small budget to learn building — nothing costs money over time and the
     // starter kit pays the tutorial's first rack, computer, server, switch, hire and configuration.
     // Live (from the first server installed): salaries, energy, rent, internet and maintenance start,
-    // ramping up over `opexRamp` minutes; servers earn by type; problems cost money.
+    // ramping up over `opexRamp` minutes; servers earn by type. Problems NEVER take money away: they
+    // raise alerts and a broken server simply stops earning until it is fixed (and a quick fix pays
+    // the client's SLA bonus).
+    // Balance target: one basic server already pays the first team, so a fresh company grows
+    // instead of sinking; every extra server pays for itself in a couple of game hours.
     startCash: 15000,           // company balance at the start of a fresh game ($)
     presetCash: { office: 45000, noc: 70000, dcs: 110000, dcm: 180000 }, // ready-made environments start live
     starterKit: { rack: 1, desk: 1, server: 1, switch: 1, patch: 1, hire: 1, config: 1, lot: 1 },
     // Land: the starting lot is free; each expansion is paid per new m², dearer the bigger the lot
     // already is and the more floor is built on it (see DL.lotPrice). Shrinking gives nothing back.
     lot: { base: 18, freeArea: 90, growth: 1.05, builtK: 600 },
-    opexRamp: 180,              // minutes for operating costs to reach their full rate (30% → 100%)
+    opexRamp: 240,              // minutes for operating costs to reach their full rate (30% → 100%)
     opexFloor: 0.3,
     rentPerTile: 0.02,          // $/min per tile of built floor
-    linkCost: 6,                // $/min: the internet link, once a switch is installed
-    maintPerDevice: 1.5,        // $/min per installed server / switch / storage (support contracts)
-    trafficPerServer: 10,       // $/min per online server: bandwidth + software licences
+    linkCost: 3,                // $/min: the internet link, once a switch is installed
+    maintPerDevice: 0.8,        // $/min per installed server / switch / storage (support contracts)
+    trafficPerServer: 4,        // $/min per online server: bandwidth + software licences
     marketScale: 150,           // demand saturates gently: revenue × 1 / (1 + servers / marketScale)
-    serverSetupFee: 450,        // licences + configuration, paid when a server goes online
+    serverSetupFee: 250,        // licences + configuration, paid when a server goes online
     firstContract: 3000,        // the first client signs when the first server goes online
     loanAmount: 20000,          // emergency loan when the cash runs dry (live phase)
     loanFee: 0.1,               // repaid with 10% on top…
     loanRepay: 0.2,             // …taking 20% of each minute's profit (at least loanMinRepay $/min)
     loanMinRepay: 2,
-    revenuePerServer: 36,       // $/min for each online server that answers (before market saturation)
+    revenuePerServer: 48,       // $/min for each online server that answers (before market saturation)
+    // a problem fixed within slaWindow minutes pays the client's SLA bonus (less the slower the fix)
+    slaBonus: 300, slaWindow: 30,
+    // Client contracts: one-off payments when the datacenter reaches a goal (kept in the save).
+    // up: healthy servers online · svc: specialisations online and healthy · vms: running VMs
+    contracts: [
+      { id: 'up3', name: 'Loja virtual', goal: '3 servidores no ar', need: { up: 3 }, cash: 4000 },
+      { id: 'web', name: 'Hospedagem de sites', goal: 'servidor Web + DNS no ar', need: { svc: ['web', 'dns'] }, cash: 5000 },
+      { id: 'up5', name: 'Rede de clínicas', goal: '5 servidores no ar', need: { up: 5 }, cash: 7000 },
+      { id: 'db', name: 'Sistema de gestão (ERP)', goal: 'Banco de dados no ar', need: { svc: ['db'] }, cash: 6000 },
+      { id: 'win', name: 'Rede corporativa', goal: 'Windows Server com domínio (AD)', need: { svc: ['win'], domain: true }, cash: 6000 },
+      { id: 'up8', name: 'Startup de aplicativos', goal: '8 servidores no ar', need: { up: 8 }, cash: 10000 },
+      { id: 'vm3', name: 'Nuvem privada', goal: '3 VMs rodando', need: { vms: 3 }, cash: 8000 },
+      { id: 'up12', name: 'Varejista nacional', goal: '12 servidores no ar', need: { up: 12 }, cash: 15000 },
+      { id: 'up20', name: 'Banco digital', goal: '20 servidores no ar', need: { up: 20 }, cash: 25000 },
+    ],
     // Payroll: every member has an individual monthly salary (role base × level × a personal factor
     // negotiated at hiring), paid once a month. One day on the HUD clock (24 game hours = 24 real
     // minutes) is one month of the company's operation, so pay day is at 00:00.
@@ -41,7 +60,7 @@
     salaryCustom: 4800,         // roles created by the player
     salaryPerLevel: 0.06,       // +6% per level above 1
     hireFee: 0.5,               // hiring costs half a monthly salary (recruitment + onboarding)
-    onCallFee: 400,             // each time an on-call member is called in to cover a shift
+    onCallFee: 250,             // each time an on-call member is called in to cover a shift
     // hardware (hardware.js): a server rends revenuePerServer × its model's perf × how well its network
     // keeps up; storage rents its usable capacity; equipment pays for the power it draws
     storagePerTB: 0.35,         // $/min per usable TB (× the array's speed)
@@ -145,8 +164,10 @@
       payrollMonth: 0, lastPay: 0, month: 1, paid: [], hired: 0,
       // phase ('setup' → 'live'), starter kit left, operating costs per minute, this month's books, loan
       phase: 'setup', liveAt: 0, kit: Object.assign({}, E.starterKit), rent: 0, link: 0, maint: 0, opexK: 0, net: 0,
-      mo: null, months: [], debt: 0, loans: 0 };
-    const freshMonth = () => ({ revenue: 0, sales: 0, salaries: 0, energy: 0, rent: 0, link: 0, maint: 0, traffic: 0, setup: 0, purchases: 0, hires: 0 });
+      mo: null, months: [], debt: 0, loans: 0, contracts: [] };
+    const freshMonth = () => ({ revenue: 0, sales: 0, contracts: 0, salaries: 0, energy: 0, rent: 0, link: 0, maint: 0, traffic: 0, setup: 0, oncall: 0, purchases: 0, hires: 0 });
+    const monthIncome = (m) => m.revenue + m.sales + (m.contracts || 0);
+    const monthCosts = (m) => m.salaries + m.energy + m.rent + m.link + m.maint + m.traffic + m.setup + (m.oncall || 0);
     CO.mo = freshMonth();
     const queue = []; // reward screens waiting to be shown
 
@@ -311,7 +332,7 @@
       const total = Math.round(CO.mo.salaries);
       CO.lastPay = at;
       CO.month++;
-      const m = CO.mo, income = m.revenue + m.sales, costs = m.salaries + m.energy + m.rent + m.link + m.maint + m.traffic + m.setup;
+      const m = CO.mo, income = monthIncome(m), costs = monthCosts(m);
       CO.months.unshift({ month: CO.month - 1, income: Math.round(income), costs: Math.round(costs), profit: Math.round(income - costs), invest: Math.round(m.purchases + m.hires) });
       if (CO.months.length > 6) CO.months.pop();
       CO.mo = freshMonth();
@@ -394,10 +415,46 @@
       Object.assign(CO, {
         cash: live ? E.presetCash[preset] || E.startCash * 4 : E.startCash, phase: 'setup', liveAt: 0, kit: Object.assign({}, E.starterKit),
         spent: 0, sold: 0, earned: 0, lost: 0, hired: 0, debt: 0, loans: 0, month: 1, firstContract: live, lastPay: nowMin(), paid: [], months: [], mo: freshMonth(), rateAt: -1,
+        contracts: [], contractAt: 0,
       });
       CO.payAt = null;
       if (live) goLive(true);
+      // a ready-made environment already meets some goals: those clients came with it (nothing paid)
+      CO.seedContracts = !!live;
       render();
+    }
+
+    /* ---------- client contracts: one-off payments for reaching goals ---------- */
+    function contractMet(c) {
+      const n = c.need, healthy = ops.devices().filter((d) => d.kind === 'server' && d.state === 'online' && !d.fault && ops.health(d).up);
+      if (n.up && healthy.length < n.up) return false;
+      if (n.svc && !n.svc.every((s) => healthy.some((d) => (d.svc || null) === s))) return false;
+      if (n.domain && !healthy.some((d) => d.svc === 'win' && DL.winFactor && DL.winFactor(d) >= 0.85)) return false;
+      if (n.vms) {
+        const inf = window.DataLabDemo && window.DataLabDemo.infra;
+        if (!inf || inf.vms.filter((v) => v.status === 'running').length < n.vms) return false;
+      }
+      return true;
+    }
+    function checkContracts() {
+      if (CO.phase !== 'live' || (game.paused && game.paused())) return;
+      for (const c of E.contracts) {
+        if (CO.contracts.indexOf(c.id) >= 0 || !contractMet(c)) continue;
+        CO.contracts.push(c.id);
+        if (CO.seedContracts) continue;
+        const amount = Math.round((c.cash * rewardK()) / 50) * 50;
+        CO.cash += amount;
+        CO.earned += amount;
+        CO.mo.contracts += amount;
+        CLAIM.revenue += amount;
+        floater('+' + money(amount) + ' · contrato', 'cash');
+        game.toast('ok', 'Novo contrato · ' + c.name, c.goal + ' · +' + money(amount));
+        if (sys.ops && sys.ops.logEvent) sys.ops.logEvent('info', '📄 Contrato fechado: ' + c.name + ' (+' + money(amount) + ')');
+        game.emit('contract', { id: c.id, amount });
+        render();
+        return; // one per check: each gets its own toast
+      }
+      CO.seedContracts = false;
     }
 
     // out of cash: the bank lends once more (with a fee), repaid automatically from the profit
@@ -506,6 +563,14 @@
       let amount = C.incident + C.incidentFast * speed;
       if (info.by) amount *= C.crewFix;
       earn('credits', amount, 'Incidente resolvido · ' + info.d.name + ' em ' + Math.round(open) + ' min');
+      // a quick fix keeps the client's SLA: a cash bonus (never a fine for a slow one)
+      if (CO.phase === 'live' && open <= E.slaWindow) {
+        const bonus = Math.round((E.slaBonus * (1 - open / E.slaWindow / 2) * rewardK()) / 10) * 10;
+        if (bonus > 0) {
+          CO.cash += bonus; CO.earned += bonus; CO.mo.contracts += bonus; CLAIM.revenue += bonus;
+          floater('+' + money(bonus) + ' · SLA cumprido', 'cash');
+        }
+      }
       count('incidents');
       if (CLAIM.incidents.length < 20) CLAIM.incidents.push({ device: info.d.key, type: info.type || (info.d.fault && info.d.fault.type) || 'fault', open: Math.round(open), by: info.by ? 'crew' : 'player' });
     });
@@ -552,8 +617,9 @@
       el.cash.classList.toggle('is-neg', CO.cash < 0);
       if (el.pay) {
         const kit = Object.keys(CO.kit).filter((k) => CO.kit[k] > 0).length;
+        const out = CO.payroll + CO.energy + CO.rent + CO.link + CO.maint + (CO.traffic || 0);
         const txt = setup ? 'Economia começa no 1º servidor' + (kit ? ' · kit inicial ativo' : '')
-          : 'Salários ' + money(CO.payrollMonth) + '/mês · infra ' + money(CO.energy + CO.rent + CO.link + CO.maint + (CO.traffic || 0)) + '/min' + (CO.debt > 0 ? ' · dívida ' + money(CO.debt) : '');
+          : 'Receita +' + money(CO.revenue) + '/min · despesas -' + money(out) + '/min' + (CO.debt > 0 ? ' · dívida ' + money(CO.debt) : '');
         if (el.pay.textContent !== txt) el.pay.textContent = txt;
         el.pay.classList.toggle('is-warn', !setup && (CO.debt > 0 || net < 0));
       }
@@ -615,7 +681,8 @@
         row('Servidores no ar · ' + (CO.upCount || 0) + (CO.demand && CO.demand < 0.99 ? ' · demanda ' + Math.round(CO.demand * 100) + '%' : '') + (rk !== 1 ? ' (modo ' + esc(L.name) + ' ×' + rk.toLocaleString('pt-BR') + ')' : ''), plus(CO.servers * rk), 'is-up') +
         (CO.storage ? row('Storage alugado', plus(CO.storage * rk), 'is-up') : '') +
         (CO.wifi ? row('Wi-Fi de visitantes (' + CO.poe.ap + ' AP)', plus(CO.wifi * rk), 'is-up') : '') +
-        row('Vendas na recepção (este mês)', '+' + money(CO.mo.sales), 'is-up') + '</ul>';
+        row('Vendas na recepção (este mês)', '+' + money(CO.mo.sales), 'is-up') +
+        row('Contratos e bônus de SLA (este mês)', '+' + money(CO.mo.contracts), 'is-up') + '</ul>';
       // costs
       h += '<span class="eyebrow-sm w-sub">Despesas' + (!setup && CO.opexK < 1 ? ' · entrando aos poucos (' + Math.round(CO.opexK * 100) + '%)' : '') + '</span><ul class="w-rows">' +
         row('Salários (' + members().length + ' pessoa' + (members().length === 1 ? '' : 's') + ')', minus(CO.payroll)) +
@@ -627,10 +694,11 @@
         '<li class="w-total"><span>' + (net >= 0 ? 'Lucro' : 'Prejuízo') + ' por minuto</span><b class="' + (net >= 0 ? 'is-up' : 'is-loss') + '">' + (net >= 0 ? '+' : '-') + money(Math.abs(net)).replace('-', '') + '/min</b></li></ul>';
       if (CO.debt > 0) h += '<p class="w-note"><b class="is-loss">Dívida: ' + money(CO.debt) + '</b> · paga automaticamente com ' + Math.round(E.loanRepay * 100) + '% do lucro.</p>';
       // this month and the last ones
-      const mo = CO.mo, inc = mo.revenue + mo.sales, cost = mo.salaries + mo.energy + mo.rent + mo.link + mo.maint + mo.traffic + mo.setup;
+      const mo = CO.mo, inc = monthIncome(mo), cost = monthCosts(mo);
       h += '<span class="eyebrow-sm w-sub">Este mês · ' + CO.month + '</span><ul class="w-rows">' +
-        row('Receitas', '+' + money(inc), 'is-up') + row('Salários', '-' + money(mo.salaries)) + row('Infraestrutura (energia, aluguel, link, manutenção, tráfego)', '-' + money(mo.energy + mo.rent + mo.link + mo.maint + mo.traffic)) +
-        (mo.setup ? row('Licenças e configuração de servidores', '-' + money(mo.setup)) : '') + 
+        row('Receitas (servidores, storage, Wi-Fi, vendas, contratos)', '+' + money(inc), 'is-up') + row('Salários', '-' + money(mo.salaries)) + row('Infraestrutura (energia, aluguel, link, manutenção, tráfego)', '-' + money(mo.energy + mo.rent + mo.link + mo.maint + mo.traffic)) +
+        (mo.setup ? row('Licenças e configuração de servidores', '-' + money(mo.setup)) : '') +
+        (mo.oncall ? row('Plantões', '-' + money(mo.oncall)) : '') +
         '<li class="w-total"><span>Resultado do mês</span><b class="' + (inc - cost >= 0 ? 'is-up' : 'is-loss') + '">' + money(inc - cost) + '</b></li>' +
         row('Investimentos (compras e contratações)', '-' + money(mo.purchases + mo.hires)) + '</ul>';
       if (CO.months.length) {
@@ -647,10 +715,15 @@
         }).join('') + '<li class="w-total"><span>Total mensal</span><b>-' + money(CO.payrollMonth) + '</b></li></ul>';
       } else h += '<p class="w-note">Ninguém contratado: sem folha. Contratar custa metade de um salário (recrutamento).</p>';
       if (CO.paid.length) h += '<p class="w-note">Pagos: ' + CO.paid.slice(0, 3).map((p) => 'mês ' + p.month + ' ' + money(p.total)).join(' · ') + (CO.hired ? ' · contratações ' + money(CO.hired) : '') + '</p>';
+      // client contracts: goals that pay once
+      const left = E.contracts.filter((c) => CO.contracts.indexOf(c.id) < 0);
+      h += '<span class="eyebrow-sm w-sub">Contratos de clientes · ' + (E.contracts.length - left.length) + '/' + E.contracts.length + '</span>';
+      if (left.length) h += '<ul class="w-rows">' + left.slice(0, 4).map((c) => row(esc(c.name) + ' <small>' + esc(c.goal) + '</small>', '+' + money(Math.round((c.cash * rk) / 50) * 50), 'is-up')).join('') + '</ul>';
+      else h += '<p class="w-note">Todos os contratos fechados.</p>';
       if (CO.problems.length) {
         h += '<span class="eyebrow-sm w-sub">Problemas abertos</span><ul class="w-rows">' + CO.problems.map((d) =>
           '<li><span>' + esc(d.name) + '</span><b class="is-loss">' + d.loss.label + '</b></li>').join('') + '</ul>' +
-          '<p class="w-note">Equipamento com problema não gera receita. Resolver rápido também rende mais créditos.</p>';
+          '<p class="w-note">Problemas não descontam dinheiro: o equipamento só deixa de render até ser consertado. Resolver em até ' + E.slaWindow + ' min paga o bônus de SLA do cliente.</p>';
       } else h += '<p class="w-note">Nenhum problema aberto. Um servidor intermediário no ar rende ' + money(E.revenuePerServer) + '/min; básico, avançado e high-end rendem conforme o desempenho do modelo.</p>';
       if (CO.slow.length) {
         h += '<span class="eyebrow-sm w-sub">Gargalos de rede</span><ul class="w-rows">' + CO.slow.slice(0, 4).map((x) =>
@@ -754,7 +827,7 @@
         }
       }
       CO.dcChecked += dt;
-      if (CO.dcChecked > 1) { CO.dcChecked = 0; checkDatacenter(); }
+      if (CO.dcChecked > 1) { CO.dcChecked = 0; checkDatacenter(); checkContracts(); }
     }
 
     function key(ev) {
@@ -770,7 +843,8 @@
       update, updateUi: updateTags, key, earn, spend, exchange, grant, count, checklist, lossOf, openWallet, closeWallet,
       hireCharge, payDay, start, priceOf, goLive, lotCost, lotCharge,
       get phase() { return CO.phase; },
-      charge(amount, why) { CO.cash -= amount; CO.spent += amount; CO.mo.purchases += amount; floater('-' + money(amount) + ' · ' + why, 'spend'); render(); },
+      // an operating cost outside the per-minute rates (on-call cover): counted with the month's costs
+      charge(amount, why) { CO.cash -= amount; CO.mo.oncall += amount; CLAIM.opex += amount; floater('-' + money(amount) + ' · ' + why, 'spend'); render(); },
       income(amount, why) { CO.cash += amount; CO.earned += amount; CO.mo.sales += amount; CLAIM.revenue += amount; floater('+' + money(amount) + ' · ' + why, 'cash'); render(); },
       /* ---------- cloud (services/*.js) ---------- */
       get cloud() { return CLOUD.on; },
@@ -805,10 +879,12 @@
         game.emit('wallet', { server: true });
       },
       // the company part of a save (and restoring it)
-      snapshot() { return { phase: CO.phase, month: CO.month, kit: Object.assign({}, CO.kit), firstContract: !!CO.firstContract, cash: Math.round(CO.cash), debt: Math.round(CO.debt), loans: CO.loans, dcDone: !!world().dcDone }; },
+      snapshot() { return { phase: CO.phase, month: CO.month, kit: Object.assign({}, CO.kit), firstContract: !!CO.firstContract, cash: Math.round(CO.cash), debt: Math.round(CO.debt), loans: CO.loans, dcDone: !!world().dcDone, contracts: CO.contracts.slice() }; },
       restore(s) {
         if (!s) return;
-        Object.assign(CO, { cash: Number(s.cash) || 0, kit: Object.assign({}, s.kit || {}), month: s.month || 1, firstContract: !!s.firstContract, debt: s.debt || 0, loans: s.loans || 0, lastPay: nowMin(), payAt: null, rateAt: -1, mo: freshMonth(), months: [], paid: [] });
+        // (saves from before contracts existed: the goals already met came with the company — no payout)
+        Object.assign(CO, { cash: Number(s.cash) || 0, kit: Object.assign({}, s.kit || {}), month: s.month || 1, firstContract: !!s.firstContract, debt: s.debt || 0, loans: s.loans || 0, lastPay: nowMin(), payAt: null, rateAt: -1, mo: freshMonth(), months: [], paid: [],
+          contracts: Array.isArray(s.contracts) ? s.contracts.filter((x) => typeof x === 'string').slice(0, 50) : [], seedContracts: !Array.isArray(s.contracts) });
         CO.phase = 'setup';
         if (s.phase === 'live') goLive(true);
         if (s.dcDone) world().dcDone = true;

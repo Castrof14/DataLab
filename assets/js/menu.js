@@ -262,7 +262,10 @@
     if (!viewBody.contains(box)) return;
     const played = list.filter((s) => s.version > 0);
     let h = '';
-    if (!played.length) {
+    if (list.error) {
+      h += '<div class="mv-empty"><b>Não foi possível carregar seus saves</b><p>' + esc(list.error) + '</p>' +
+        '<div class="mv-empty__actions"><button class="btn" type="button" data-act="retry-saves">Tentar de novo</button></div></div>';
+    } else if (!played.length) {
       h += '<div class="mv-empty"><div class="mv-empty__art" aria-hidden="true"><i></i><i></i><i></i></div>' +
         '<b>Nenhum jogo salvo ainda</b><p>Seu primeiro datacenter é salvo na sua conta automaticamente: comece um Novo jogo.</p>' +
         '<div class="mv-empty__actions"><button class="btn btn--primary" type="button" data-act="new">Começar um novo jogo <span class="arrow">→</span></button></div></div>';
@@ -359,7 +362,7 @@
     $('mmBal').innerHTML = balanceHtml();
     if (DL.SaveService && DL.Cloud && DL.Cloud.signedIn) DL.SaveService.listCloud().then((list) => {
       const n = list.filter((x) => x.version > 0).length;
-      $('mmSaves').textContent = n ? n + (n === 1 ? ' jogo salvo na conta' : ' jogos salvos na conta') : 'Nenhum jogo salvo ainda';
+      $('mmSaves').textContent = list.error ? 'Saves indisponíveis no momento' : n ?n + (n === 1 ? ' jogo salvo na conta' : ' jogos salvos na conta') : 'Nenhum jogo salvo ainda';
     });
   }
 
@@ -445,6 +448,7 @@
       case 'use-room': return newGame(a.dataset.base);
       case 'load': return loadSave(a.dataset.id);
       case 'del-save': return deleteSave(a);
+      case 'retry-saves': return openSub('load');
       case 'soon': return soonToast(a.dataset.what);
       case 'copy-code': {
         const c = friendCode();
@@ -517,21 +521,40 @@
   if (menuBtn) menuBtn.addEventListener('click', async () => {
     menuBtn.disabled = true;
     menuBtn.textContent = 'Salvando…';
-    if (DL.SaveService && DL.SaveService.slot) {
-      const r = await DL.SaveService.save({});
-      if (!r.ok && r.code !== 'idle') { D.game.toast('warn', 'Não foi possível salvar', r.message + ' · tente de novo'); menuBtn.disabled = false; menuBtn.textContent = 'Menu'; return; }
+    if (DL.SaveService && D.state.phase === 'play') {
+      // a game that never got its slot gets one now; leaving without saving needs a second click
+      const r = await saveToSlot();
+      if (!r.ok && r.code !== 'idle' && menuBtn.dataset.force !== '1') {
+        D.game.toast('warn', 'Não foi possível salvar', r.message + ' · clique em Menu de novo para sair sem salvar');
+        menuBtn.dataset.force = '1'; menuBtn.disabled = false; menuBtn.textContent = 'Sair sem salvar';
+        setTimeout(() => { delete menuBtn.dataset.force; menuBtn.textContent = 'Menu'; }, 8000);
+        return;
+      }
     }
     location.replace(location.pathname); // the session stays: straight back to the Main Menu
   });
+
+  // save the running game into its cloud slot, claiming one first if the game has none yet
+  async function saveToSlot() {
+    if (!DL.Cloud || !DL.Cloud.signedIn) return { ok: false, code: 'unauthorized', message: 'Sua sessão terminou: entre na sua conta para salvar.' };
+    if (!DL.SaveService.slot) {
+      if (!DL.CloudSync) return { ok: false, code: 'offline', message: 'Sem conexão com o servidor do DataLab.' };
+      const s = await DL.CloudSync.ensureSlot();
+      if (!s.ok) return s;
+    }
+    if (DL.SaveService.busy) { // an autosave is on its way: wait for it, then save the latest state
+      for (let i = 0; i < 40 && DL.SaveService.busy; i++) await new Promise((res) => setTimeout(res, 250));
+    }
+    return DL.SaveService.save({});
+  }
 
   // in game: "Salvar" (or Ctrl/Cmd+S) saves to the cloud slot without leaving
   const saveBtn = $('saveBtn');
   async function saveNow() {
     if (!saveBtn || saveBtn.disabled) return;
-    if (!DL.SaveService || !DL.SaveService.slot || !DL.Cloud || !DL.Cloud.signedIn) { D.game.toast('warn', 'Não foi possível salvar', 'Entre na sua conta e escolha um espaço de save para salvar o jogo.'); return; }
     saveBtn.disabled = true;
     saveBtn.textContent = 'Salvando…';
-    const r = await DL.SaveService.save({});
+    const r = await saveToSlot();
     saveBtn.disabled = false;
     if (r.ok) {
       saveBtn.textContent = 'Salvo ✓';
@@ -539,7 +562,7 @@
       setTimeout(() => { saveBtn.textContent = 'Salvar'; }, 2000);
     } else {
       saveBtn.textContent = 'Salvar';
-      D.game.toast('warn', 'Não foi possível salvar', r.message + ' · tente de novo');
+      D.game.toast('warn', 'Não foi possível salvar', r.message);
     }
   }
   if (saveBtn) saveBtn.addEventListener('click', saveNow);

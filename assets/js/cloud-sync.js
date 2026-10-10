@@ -54,22 +54,39 @@
     if (!r.ok && r.code !== 'idle') toast('warn', 'Save na nuvem', r.message);
   });
 
+  // Give the running game a cloud slot: the first one never played (the signup creates slot 1 empty,
+  // with the company). Used when a game begins, and again by "Salvar" if that first try failed.
+  // Resolves { ok, slot } | { ok: false, code, message } — the message says what really went wrong.
+  async function ensureSlot() {
+    if (DL.SaveService.slot) return { ok: true, slot: DL.SaveService.slot };
+    if (!DL.Cloud.signedIn) return { ok: false, code: 'unauthorized', message: 'Sua sessão terminou: entre na sua conta para salvar.' };
+    if (S.claiming) return S.claiming;
+    S.claiming = (async () => {
+      const list = await DL.SaveService.listCloud();
+      if (list.error) return { ok: false, code: 'list', message: list.error };
+      const used = new Set(list.filter((s) => s.version > 0).map((s) => s.slot));
+      const slot = [1, 2, 3].find((n) => !used.has(n));
+      if (!slot) return { ok: false, code: 'full', message: 'Os 3 espaços de save estão ocupados. Libere um em Conta → Saves (ou no Main Menu → Carregar).' };
+      const preset = D.state.preset || 'zero';
+      const name = S.name || (DL.PRESETS[preset] || {}).name || 'Meu datacenter';
+      const r = await DL.SaveService.newGame(slot, name, preset);
+      if (!r.ok) return r;
+      setSlot(slot);
+      return { ok: true, slot, fresh: true, name };
+    })();
+    try { return await S.claiming; } finally { S.claiming = null; }
+  }
+
   // a new game with an account gets the first free cloud slot
   G.on('game-begin', async ({ preset }) => {
     if (S.loading) return; // a save is being loaded into this game
     setSlot(null);
     if (!DL.Cloud.signedIn) return;
-    // a slot is free when it was never played (the signup creates slot 1 empty, with the company)
-    const list = await DL.SaveService.listCloud();
-    const used = new Set(list.filter((s) => s.version > 0).map((s) => s.slot));
-    const slot = [1, 2, 3].find((n) => !used.has(n));
-    if (!slot) { toast('warn', 'Saves na nuvem cheios', 'Este jogo fica só neste navegador. Libere um espaço em Conta → Saves.'); return; }
-    const name = (DL.PRESETS[preset] || {}).name || 'Meu datacenter';
-    const r = await DL.SaveService.newGame(slot, name, preset);
+    S.name = (DL.PRESETS[preset] || {}).name || 'Meu datacenter';
+    const r = await ensureSlot();
     if (!r.ok) { toast('warn', 'Save na nuvem', r.message); return; }
-    setSlot(slot);
-    const s = await DL.SaveService.save({ name });
-    if (s.ok) toast('ok', 'Salvo na nuvem', 'Espaço ' + slot + ' · salvamento automático ligado');
+    const s = await DL.SaveService.save({ name: r.name });
+    if (s.ok) toast('ok', 'Salvo na nuvem', 'Espaço ' + r.slot + ' · salvamento automático ligado');
   });
 
   // keep the account's avatar (debounced)
@@ -85,7 +102,7 @@
   G.on('player-look', pushLook);
 
   DL.CloudSync = {
-    setSlot,
+    setSlot, ensureSlot,
     async load(slot) {
       // loading needs a running game: leave the menu / start card first
       if (D.state.phase !== 'play') {
