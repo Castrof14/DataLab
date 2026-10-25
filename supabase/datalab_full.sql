@@ -1,4 +1,5 @@
--- DataLab · SQL completo (gerado: migrations em ordem + seed). Cole no SQL Editor do Supabase e execute uma vez.
+-- DataLab · SQL completo (gerado: migrations em ordem + seed). Cole no SQL Editor do Supabase e execute.
+-- Pode ser executado de novo sem problema (tudo usa if not exists / create or replace / on conflict).
 -- Fonte da verdade: supabase/migrations/*.sql e supabase/seed.sql (este arquivo é só a concatenação).
 
 -- ===================================================================
@@ -1652,6 +1653,104 @@ begin
 end $$;
 
 -- ===================================================================
+-- 20261025000100_no_running_costs.sql
+-- ===================================================================
+-- DataLab · 009 · no running costs
+-- The company only loses money when the player buys something (equipment, land, a hire). The game no
+-- longer charges salaries or infrastructure, so the save must not charge a payroll floor either:
+-- opex_floor = 0 turns off the minimum operating cost in private.game_save (purchases and hires are
+-- still priced by the server as before).
+update public.game_config
+   set value = jsonb_set(value, '{opex_floor}', '0'::jsonb), updated_at = now()
+ where key = 'economy';
+
+-- ===================================================================
+-- 20261025000200_titles.sql
+-- ===================================================================
+-- DataLab · 010 · player titles
+-- Titles are badges shown next to the player's name (menu, account, in-game nametag). Staff roles give
+-- theirs automatically in the client (admin → Admin, developer → Dev, moderator → Moderador); the titles
+-- below are granted by staff and carry no permission at all (unlike user_roles).
+-- Never writable from the browser: only private.admin_set_title, through the "admin" Edge Function.
+
+create table if not exists public.user_titles (
+  user_id uuid not null references public.profiles (id) on delete cascade,
+  title text not null check (title in ('founder', 'beta', 'creator', 'supporter', 'vip')),
+  granted_by uuid references public.profiles (id) on delete set null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, title)
+);
+
+-- read only your own (same rule as user_roles in 0500)
+alter table public.user_titles enable row level security;
+drop policy if exists user_titles_own on public.user_titles;
+create policy user_titles_own on public.user_titles for select to authenticated using (user_id = (select auth.uid()));
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'authenticated') and exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on public.user_titles from anon, authenticated;
+    grant select on public.user_titles to authenticated;
+  end if;
+end $$;
+
+-- admins and developers hand out titles
+create or replace function private.admin_set_title(p_actor uuid, p_target uuid, p_title text, p_on boolean) returns jsonb
+language plpgsql as $$
+begin
+  if not private.has_role(p_actor, array['admin', 'developer']::public.app_role[]) then perform private.fail('forbidden', 'Sem permissão para mudar títulos.'); end if;
+  if p_title not in ('founder', 'beta', 'creator', 'supporter', 'vip') then perform private.fail('bad_title', 'Título inválido.'); end if;
+  if not exists (select 1 from public.profiles where id = p_target) then perform private.fail('user_not_found', 'Jogador não encontrado.'); end if;
+  if p_on then
+    insert into public.user_titles (user_id, title, granted_by) values (p_target, p_title, p_actor) on conflict do nothing;
+  else
+    delete from public.user_titles where user_id = p_target and title = p_title;
+  end if;
+  return coalesce((select jsonb_agg(title) from public.user_titles where user_id = p_target), '[]');
+end $$;
+
+-- player search now also returns the titles
+create or replace function private.admin_find_users(p_actor uuid, p_query text) returns jsonb
+language plpgsql stable as $$
+begin
+  if not private.has_role(p_actor, array['admin', 'developer', 'moderator']::public.app_role[]) then perform private.fail('forbidden', 'Sem permissão.'); end if;
+  return coalesce((select jsonb_agg(jsonb_build_object('id', p.id, 'username', p.username, 'display_name', p.display_name, 'created_at', p.created_at,
+      'roles', coalesce((select jsonb_agg(role) from public.user_roles r where r.user_id = p.id), '[]'),
+      'titles', coalesce((select jsonb_agg(title) from public.user_titles t where t.user_id = p.id), '[]')) order by p.username)
+    from (select * from public.profiles where p_query is null or char_length(p_query) < 2 or username ilike '%' || replace(replace(p_query, '%', ''), '_', '\_') || '%' or id::text = p_query limit 25) p), '[]');
+end $$;
+
+do $$ begin
+  revoke all on function private.admin_set_title(uuid, uuid, text, boolean) from public;
+  revoke all on function private.admin_find_users(uuid, text) from public;
+  if exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on function private.admin_set_title(uuid, uuid, text, boolean) from anon, authenticated;
+    revoke all on function private.admin_find_users(uuid, text) from anon, authenticated;
+  end if;
+end $$;
+
+-- ===================================================================
+-- 20261025000300_no_starter_kit.sql
+-- ===================================================================
+-- DataLab · 011 · no starter kit
+-- The game no longer gives anything for free at the start: the first rack, computer, server, switch,
+-- patch panel, hire, configuration and land expansion are paid like everything else (economy.js
+-- starterKit = {}). The server must agree, or private.game_save would price those items at 0 and the
+-- cash it answers with would not match the game.
+update public.game_config
+   set value = jsonb_set(value, '{starter_kit}', '{}'::jsonb), updated_at = now()
+ where key = 'economy';
+
+-- companies that still had part of the kit left lose it (nothing else changes)
+update public.companies set starter_kit = '{}'::jsonb where starter_kit <> '{}'::jsonb;
+
+-- ===================================================================
+-- 20261025000400_gold_100_product.sql
+-- ===================================================================
+-- DataLab · 012 · AbacatePay product of the 100 Gold pack
+-- The product was created by hand in the AbacatePay dashboard (R$ 4,00). Pinning its id here stops the
+-- "payments" function from looking it up by externalId and creating a duplicate product.
+update public.gold_packs set provider_product_id = 'prod_DK23A3Kz3Dqt5PQMASbj6kPK' where sku = 'gold_100';
+
+-- ===================================================================
 -- seed.sql
 -- ===================================================================
 -- DataLab · seed (generated by supabase/scripts/build-seed.mjs from the game catalog — do not edit by hand)
@@ -2083,7 +2182,7 @@ insert into public.achievements (id, name, description, reward) values ('land_ow
 insert into public.achievements (id, name, description, reward) values ('legend_owner', 'Lenda na equipe', 'Tenha um bot lendário.', '{}'::jsonb) on conflict (id) do update set name = excluded.name, description = excluded.description, reward = excluded.reward;
 
 -- economy config
-insert into public.game_config (key, value) values ('economy', '{"start_cash":15000,"presets":{"zero":{"name":"Do zero","lot":{"w":10,"h":9},"items":{"plant":1,"water":1},"crew":0,"cash":15000,"live":false},"office":{"name":"Escritório pequeno","lot":{"w":20,"h":11},"items":{"plant":3,"water":1,"table":1,"coffee":1,"vase":1,"sofa":1,"lamp":1,"bin":1,"desk1":2,"desk":2,"deskadmin":1,"desk3":1,"rack":1,"switch":1,"server":2,"shelf":1,"whiteboard":1},"crew":4,"cash":45000,"live":true},"noc":{"name":"NOC","lot":{"w":24,"h":14},"items":{"plant":4,"water":2,"desknoc":4,"desk3":2,"desk4":1,"deskadmin":1,"whiteboard":1,"table":1,"coffee":1,"lamp":1,"rack":4,"switch":1,"server":11,"storage":1,"crac":1},"crew":4,"cash":70000,"live":true},"dcs":{"name":"Datacenter pequeno","lot":{"w":24,"h":13},"items":{"desktech":1,"desk3":1,"sofa":1,"plant":1,"water":1,"rack":12,"patch":4,"switch":4,"server":24,"storage":2,"crac":2,"bin":1},"crew":4,"cash":110000,"live":true},"dcm":{"name":"Datacenter médio","lot":{"w":34,"h":24},"items":{"desknoc":3,"desk4":1,"desktech":1,"deskadmin":1,"desk":1,"deskgamerpc":1,"sofa":2,"whiteboard":1,"plant":4,"water":2,"rack":30,"patch":3,"switch":10,"server":73,"storage":4,"crac":3,"bin":1,"desksupport":1,"lamp":1,"beanbag":1,"table":1,"coffee":1},"crew":8,"cash":180000,"live":true}},"starter_kit":{"rack":1,"desk":1,"server":1,"switch":1,"patch":1,"hire":1,"config":1,"lot":1},"lot":{"base":18,"freeArea":90,"growth":1.05,"builtK":600},"salary":{"funcionario":4000,"atendente":3600,"seguranca":4400,"tecnico":5200,"redes":6000,"servidores":6000,"sysadmin":6800,"gerente":8800},"salary_custom":4800,"salary_per_level":0.06,"hire_fee":0.5,"month_minutes":1440,"opex_floor":0,"max_rev_per_server":2333,"max_rev_per_storage":261,"max_rev_per_ap":11,"max_sales_per_min":600,"first_contract":4051,"grace_minutes":180,"min_cash":-500000,"credits_per_min":4,"credits_per_online_min":0.06,"credits_per_server_online":68,"credits_per_incident":95,"credits_dc":270,"gold_dc":20,"dc_min_minutes":60,"dc_rewards_per_day":3,"gold_rate":10,"welcome_gold":100}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
+insert into public.game_config (key, value) values ('economy', '{"start_cash":15000,"presets":{"zero":{"name":"Do zero","lot":{"w":10,"h":9},"items":{"plant":1,"water":1},"crew":0,"cash":15000,"live":false},"office":{"name":"Escritório pequeno","lot":{"w":20,"h":11},"items":{"plant":3,"water":1,"table":1,"coffee":1,"vase":1,"sofa":1,"lamp":1,"bin":1,"desk1":2,"desk":2,"deskadmin":1,"desk3":1,"rack":1,"switch":1,"server":2,"shelf":1,"whiteboard":1},"crew":4,"cash":45000,"live":true},"noc":{"name":"NOC","lot":{"w":24,"h":14},"items":{"plant":4,"water":2,"desknoc":4,"desk3":2,"desk4":1,"deskadmin":1,"whiteboard":1,"table":1,"coffee":1,"lamp":1,"rack":4,"switch":1,"server":11,"storage":1,"crac":1},"crew":4,"cash":70000,"live":true},"dcs":{"name":"Datacenter pequeno","lot":{"w":24,"h":13},"items":{"desktech":1,"desk3":1,"sofa":1,"plant":1,"water":1,"rack":12,"patch":4,"switch":4,"server":24,"storage":2,"crac":2,"bin":1},"crew":4,"cash":110000,"live":true},"dcm":{"name":"Datacenter médio","lot":{"w":34,"h":24},"items":{"desknoc":3,"desk4":1,"desktech":1,"deskadmin":1,"desk":1,"deskgamerpc":1,"sofa":2,"whiteboard":1,"plant":4,"water":2,"rack":30,"patch":3,"switch":10,"server":73,"storage":4,"crac":3,"bin":1,"desksupport":1,"lamp":1,"beanbag":1,"table":1,"coffee":1},"crew":8,"cash":180000,"live":true}},"starter_kit":{},"lot":{"base":18,"freeArea":90,"growth":1.05,"builtK":600},"salary":{"funcionario":4000,"atendente":3600,"seguranca":4400,"tecnico":5200,"redes":6000,"servidores":6000,"sysadmin":6800,"gerente":8800},"salary_custom":4800,"salary_per_level":0.06,"hire_fee":0.5,"month_minutes":1440,"opex_floor":0,"max_rev_per_server":2333,"max_rev_per_storage":261,"max_rev_per_ap":11,"max_sales_per_min":600,"first_contract":4051,"grace_minutes":180,"min_cash":-500000,"credits_per_min":4,"credits_per_online_min":0.06,"credits_per_server_online":68,"credits_per_incident":95,"credits_dc":270,"gold_dc":20,"dc_min_minutes":60,"dc_rewards_per_day":3,"gold_rate":10,"welcome_gold":100}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 insert into public.game_config (key, value) values ('server_specializations', '{"web":{"name":"Web / API","short":"WEB","color":"#a0c3ec"},"db":{"name":"Banco de dados","short":"DB","color":"#ffc285"},"game":{"name":"Jogos","short":"GAME","color":"#f472b6"},"ai":{"name":"IA","short":"IA","color":"#7ee0a1"},"storage":{"name":"Arquivos / Storage","short":"FILES","color":"#c4b5fd"},"virt":{"name":"Virtualização","short":"PVE","color":"#ff7a17"},"dns":{"name":"DNS","short":"DNS","color":"#5eead4"},"mail":{"name":"E-mail","short":"MAIL","color":"#f2c14e"},"corp":{"name":"Aplicações corporativas","short":"ERP","color":"#fca5a5"},"net":{"name":"Servidor de rede","short":"NET","color":"#9aa3b0"}}'::jsonb) on conflict (key) do update set value = excluded.value, updated_at = now();
 
 commit;
