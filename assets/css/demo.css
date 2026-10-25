@@ -973,6 +973,33 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
 .ops-steps li { flex: 1; padding-top: 6px; border-top: 2px solid var(--hairline); font: 400 10px/13px var(--font-mono); letter-spacing: 0.6px; text-transform: uppercase; color: var(--mute); }
 .ops-steps li.is-done { border-top-color: var(--signal); color: var(--body); }
 .ops-steps li.is-current { border-top-color: var(--breeze); color: var(--ink); }
+/* a lesson on two devices (terminal.js): which console each step happens on + the button to go there */
+.term__on { margin-right: 2px; padding: 0 5px; border: 1px solid var(--hairline); border-radius: var(--r-pill); font: 400 10px/14px var(--font-mono); font-style: normal; letter-spacing: 0.6px; color: var(--mute); }
+.term__on.is-here { border-color: color-mix(in srgb, var(--breeze) 55%, transparent); color: var(--breeze); }
+.term__away { display: block; margin-top: 6px; font-size: 12px; line-height: 16px; color: var(--sunset-soft); }
+/* a question step in the console side panel (terminal.js): the answer field */
+.term__answer { display: flex; gap: 6px; margin-top: 8px; }
+.term__answer .input { flex: 1 1 auto; min-width: 0; height: 28px; padding: 0 8px; font: 400 13px/28px var(--font-mono); }
+.term__answer .btn { flex: none; height: 28px; padding: 0 10px; font-size: 13px; }
+/* career problems (problems.js): XP tag + checklist */
+.ops-item.is-prob:not(.is-fault) { border-color: rgba(160, 195, 236, 0.35); }
+.ops-xp { flex: none; margin-left: auto; padding: 1px 7px; border: 1px solid color-mix(in srgb, var(--signal) 55%, transparent); border-radius: var(--r-pill); font: 400 10px/14px var(--font-mono); letter-spacing: 0.6px; color: var(--signal); white-space: nowrap; }
+/* "Atribuir a…": who is on it / who can take it */
+.prob-who { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; line-height: 16px; color: var(--body); }
+.prob-who b { font-weight: 400; color: var(--ink); }
+.prob-pick { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--hairline); }
+.prob-pick ul { margin: 6px 0 0; padding: 0; list-style: none; }
+.prob-pick__who { display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 1px solid transparent; border-radius: var(--r-sm); background: none; color: var(--body); font: inherit; font-size: 12px; line-height: 16px; text-align: left; cursor: pointer; }
+.prob-pick__who:hover, .prob-pick__who:focus-visible { border-color: var(--hairline); background: rgba(255, 255, 255, 0.04); outline: none; }
+.prob-pick__who b { flex: none; font-weight: 400; color: var(--ink); }
+.prob-pick__who span:last-child { min-width: 0; color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prob-steps { margin: 10px 0 0; padding: 0; list-style: none; }
+.prob-steps li { display: flex; gap: 8px; padding: 3px 0; font-size: 12px; line-height: 16px; color: var(--mute); }
+.prob-steps li span { flex: none; width: 16px; font: 400 11px/16px var(--font-mono); text-align: center; }
+.prob-steps li.is-done { color: var(--body); }
+.prob-steps li.is-done span { color: var(--signal); }
+.prob-steps li.is-current { color: var(--ink); }
+.prob-steps li.is-current span { color: var(--breeze); }
 .ops-empty { padding: var(--s-md) 0; font-size: 14px; line-height: 20px; color: var(--body); }
 .ops-empty .eyebrow-sm { margin-top: 6px; }
 .ops-panel__sub { margin-top: var(--s-lg); }
@@ -1030,6 +1057,8 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
 .career__bar { position: relative; height: 16px; margin-top: 8px; border-radius: var(--r-pill); background: var(--hairline); overflow: hidden; }
 .career__bar i { position: absolute; inset: 0; background: var(--signal); transform-origin: left; opacity: 0.55; transition: transform 0.4s var(--ease-out); }
 .career__bar .mono { position: relative; display: block; text-align: center; font: 400 10px/16px var(--font-mono); color: var(--ink); }
+.career__bar--xp i { background: var(--breeze); }
+.career__xp { margin-top: 10px; }
 .career__how { margin-top: 8px; font-size: 12px; line-height: 16px; color: var(--mute); }
 .career__crew { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hairline); font-size: 12px; line-height: 16px; color: var(--body); }
 .ops-log { margin-top: 8px; max-height: 140px; overflow-y: auto; border-top: 1px solid var(--hairline); }

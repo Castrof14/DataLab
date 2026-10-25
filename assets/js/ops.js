@@ -44,7 +44,7 @@
     const world = () => scene.world;
     const $ = (id) => document.getElementById(id);
     const el = { btn: $('opsBtn'), badge: $('opsBadge'), panel: $('opsPanel'), list: $('opsList'), log: $('opsLog') };
-    const O = { devs: new Map(), seq: { server: 0, switch: 0, patch: 0 }, links: [], linkSeq: 0, next: 70, faultCd: 0, preinstall: false, log: [], key: '', acc: 0 };
+    const O = { devs: new Map(), seq: { server: 0, switch: 0, patch: 0 }, links: [], linkSeq: 0, next: 70, faultCd: 0, preinstall: false, log: [], key: '', acc: 0, who: null };
 
     /* ------------------------------------------------------------------ */
     /* Registry                                                            */
@@ -129,13 +129,14 @@
       return O.links.find((l) => (l.a.dev === key && l.a.port === port) || (l.b.dev === key && l.b.port === port)) || null;
     }
 
+    // opts.who: the crew member plugging it (the 'cabled' event tells the player's work from the team's)
     function addLink(a, b, opts) {
       opts = opts || {};
       if (a.dev === b.dev && a.port === b.port) return { reason: 'Escolha outra porta' };
       if (linkAt(a.dev, a.port) || linkAt(b.dev, b.port)) return { reason: 'Porta ocupada' };
       const l = { id: ++O.linkSeq, a: { dev: a.dev, port: a.port }, b: { dev: b.dev, port: b.port }, loose: null };
       O.links.push(l);
-      if (!opts.quiet) { markMessy(l); recompute(); }
+      if (!opts.quiet) { markMessy(l); O.who = opts.who || null; recompute(); O.who = null; }
       return { link: l };
     }
 
@@ -217,6 +218,7 @@
           if (!O.preinstall) {
             logEvent('ok', d.name + ' ligado ao ' + t.sw.name + ' ' + t.port + ' · agora configure no terminal');
             game.toast('ok', 'Cabo conectado', d.name + ' → ' + t.sw.name + ' ' + t.port + ' · próximo: configurar no terminal');
+            game.emit('cabled', { d, who: O.who || null });
           }
         } else if (d.state === 'link' && !t.ok) d.state = 'new';
         else if (d.state === 'online' && !t.ok && !d.fault && !O.preinstall) { d.fault = { type: 'cable', found: false, at: now, player: true }; d.ran = new Set(); d.lessonKey = null; }
@@ -249,10 +251,12 @@
     }
 
     // Tidy a set of racks: cables are routed through the cable managers again.
-    function tidy(racks) {
+    // who: the crew member who did it (none = the player, in the cabling view)
+    function tidy(racks, who) {
       for (const r of racks) { r.tidy = true; r.messyNoted = false; }
       recompute();
       logEvent('ok', 'Cabos organizados em ' + racks.map((r) => r.id).join(', ') + ' · melhor fluxo de ar e manutenção mais fácil');
+      game.emit('tidy', { racks, who: who || null });
     }
 
     // Presets arrive already cabled: each server to the nearest switch with a free port
@@ -485,7 +489,22 @@
       const win = DL.isWin && DL.isWin(d);
       let lesson = d.fault && d.fault.found ? d.fault.type : d.state === 'link' ? (win ? 'winsetup' : 'setup') : null;
       if (win && lesson && DL.winLessonFor) lesson = DL.winLessonFor(d, lesson);
+      // a career problem on this device opens its own lesson (problems.js): when nothing else is urgent here,
+      // or when the problem itself is about this fault
+      const prob = game.problems && game.problems.consoleFor(d, !!lesson);
+      if (prob) { game.problems.openConsole(prob, d); return; }
       sys.terminal.open(d, lesson, () => complete(d, lesson));
+    }
+
+    // A crew member configures a new server the way the setup lesson does (same end state), then it goes online.
+    function configure(d) {
+      if (d.kind !== 'server' || d.state !== 'link' || (DL.isWin && DL.isWin(d))) return false;
+      const e0 = d.os.ifaces.eth0;
+      e0.up = true;
+      if (e0.ips.indexOf(d.ip + '/24') < 0) e0.ips.push(d.ip + '/24');
+      d.os.route = '10.0.1.1';
+      complete(d, 'setup');
+      return d.state === 'online';
     }
 
     function complete(d, lesson) {
@@ -510,13 +529,20 @@
       render(true);
     }
 
+    // faults first, then career problems (problems.js), then servers to set up
+    const ORDER = { fault: 0, problem: 1, setup: 2 };
     function tasks() {
       const out = [];
+      const probs = game.problems ? game.problems.list() : [];
+      // the fault / the new server a problem is about shows up once, as the problem
+      const taken = new Set([].concat(...probs.filter((p) => p.x && (p.def.complete !== 'lesson' || (p.def.setup && p.def.setup.fault))).map(game.problems.devicesOf)));
       for (const d of devices()) {
+        if (taken.has(d)) continue;
         if (d.fault && d.fault.found) out.push({ d, kind: 'fault', title: FAULTS[d.fault.type].msg(d), by: d.fault.by });
         else if (d.kind === 'server' && (d.state === 'new' || d.state === 'link')) out.push({ d, kind: 'setup', title: (DL.isWin && DL.isWin(d) ? 'Instalar Windows Server no ' : 'Instalar e configurar ') + d.name });
       }
-      out.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'fault' ? -1 : 1));
+      for (const p of probs) out.push({ d: p.x && p.x.kind !== 'rack' ? p.x : null, kind: 'problem', p, fault: p.def.complete === 'fixed' });
+      out.sort((a, b) => ORDER[a.kind] - ORDER[b.kind]);
       return out;
     }
 
@@ -529,16 +555,18 @@
     function render(force) {
       if (!el.list) return;
       const list = tasks();
-      const n = list.length, faults = list.filter((x) => x.kind === 'fault').length;
+      const n = list.length, faults = list.filter((x) => x.kind === 'fault' || x.fault).length;
       el.badge.textContent = n;
       el.badge.hidden = !n;
       el.btn.classList.toggle('is-alert', faults > 0);
-      const key = list.map((x) => x.d.key + x.kind + x.d.state + (x.d.path && x.d.path.reason)).join('|') + O.log.length + (O.log[0] ? O.log[0].text : '');
+      const key = list.filter((x) => x.kind !== 'problem').map((x) => x.d.key + x.kind + x.d.state + (x.d.path && x.d.path.reason)).join('|') +
+        (game.problems ? '#' + game.problems.key() : '') + O.log.length + (O.log[0] ? O.log[0].text : '');
       if (!force && key === O.key) return;
       O.key = key;
       let h = '';
       if (!list.length) h += '<li class="ops-empty"><p>Nenhuma tarefa aberta.</p><p class="eyebrow-sm">Instale um servidor num rack (B → Equipamentos → Servidor) para configurar.</p></li>';
       for (const x of list) {
+        if (x.kind === 'problem') { h += game.problems.itemHtml(x.p); continue; }
         const d = x.d;
         h += '<li class="ops-item' + (x.kind === 'fault' ? ' is-fault' : '') + '"><div class="ops-item__head"><span class="dot' + (x.kind === 'fault' ? ' dot--warn dot--live' : ' dot--info') + '"></span><b>' + esc(x.title) + '</b></div>' +
           '<p class="ops-item__where">' + esc(d.where) + (x.by ? ' · avisado por ' + esc(x.by) : '') + '</p>';
@@ -569,6 +597,7 @@
     el.panel.addEventListener('click', (ev) => {
       const b = ev.target.closest('[data-op]');
       if (b && b.dataset.op === 'close') { toggle(false); return; }
+      if (b && b.dataset.op === 'prob') { b.blur(); if (game.problems) game.problems.act(+b.dataset.prob, b.dataset.act, b.dataset.who); return; }
       const d = b && O.devs.get(b.dataset.dev);
       if (!d) return;
       if (b.dataset.op === 'cable') sys.cabling.open(d.rack, d);
@@ -622,7 +651,7 @@
 
     const api = {
       netOf, poeStatus, portsOf,
-      reset, sync, update, devices, get, reach, health, trace, classify, openTerminal, inspect, monitor, report, announce, injectFault, toggle, tasks, fix, render,
+      reset, sync, update, devices, get, reach, health, trace, classify, openTerminal, inspect, monitor, report, announce, injectFault, toggle, tasks, fix, configure, render,
       addLink, removeLink, moveEnd, linkAt, linkNear, tidy, prewire, roomOf, logEvent, recompute,
       get links() { return O.links; },
       switchesNear(d) {

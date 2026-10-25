@@ -23,8 +23,10 @@
   let gen = 0; // each start/stop bumps it, so an old loop never keeps going
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // what a step expects, in order: its own cmd replaces the example of its first help card (as in the help panel)
+  // what a step expects, in order: its own cmd replaces the example of its first help card (as in the help panel);
+  // a question is answered with what it accepts
   function commandsOf(s) {
+    if (s.answer) return s.answer.accept.length ? ['responder ' + s.answer.accept[0]] : [];
     const list = s.cmd ? [s.cmd] : [];
     for (const k of (s.help || []).slice(s.cmd ? 1 : 0)) {
       if (!HELP[k]) continue;
@@ -72,6 +74,15 @@
       if (A.state !== 'run') { await sleep(80); continue; }
       const i = term.step, s = A.lesson.steps[i];
       if (i !== A.step) { A.step = i; A.queue = null; render(); }
+      // a lesson on two devices: this step is on the other console — go there (the lesson stays the same)
+      if (s && s.on && s.on !== term.device) {
+        say('[auto] passo ' + (i + 1) + ' é no ' + s.on.name + ': trocando de console');
+        term.hop(s.on);
+        A.lesson = term.lesson;
+        A.queue = null;
+        await sleep(SPEEDS[A.speed].gap);
+        continue;
+      }
       if (!A.queue) {
         if (s.action) return halt('[auto] parou no passo ' + (i + 1) + ': requer ação fora do console (' + s.action + ')');
         A.queue = commandsOf(s);

@@ -117,6 +117,9 @@
   // the player's level: one mission per level; bots work alone only below it (career.js)
   const career = DL.createCareer(G, { ops, crew });
   G.career = career;
+  // career problems: sorted out over time for the player's rank, solved for XP (problems.js)
+  const problems = DL.createProblems(G, { ops, terminal, cabling, career, crew });
+  G.problems = problems;
   const talk = DL.createTalk(G, { crew, ops, economy, cabling });
   const roles = DL.createRoles(G, { crew });
   // H / L open the apps only when nothing else is on screen
@@ -1069,6 +1072,7 @@
     monitor.update(dt);
     tutorial.update(dt);
     if (S.phase !== 'intro') career.update(dt);
+    if (S.phase !== 'intro') problems.update(dt);
     if (S.panel && Math.hypot(S.panel.ix - player.x, S.panel.iy - player.y) > 44) closePanel();
     const c = clockAt(S.time);
     if (c !== lastClock) { lastClock = c; $('clock').textContent = c; }
@@ -1100,6 +1104,7 @@
     // from scratch: a small budget and the starter kit; ready-made environments are already operating
     economy.start(preset);
     career.start();
+    problems.reset();
     // presets come with a team already on its routine
     for (const role of DL.PRESETS[preset].crew || []) {
       const p = crew.api.randomProfile();
@@ -1145,7 +1150,7 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, problems, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
     // fast-forward the simulation (game minutes) without drawing — for automated checks
     step,
     advance(sec, dt) { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) { step(dt); scene.update(dt); } },

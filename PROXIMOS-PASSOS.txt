@@ -487,3 +487,117 @@ STATUS (09/10/2026, 19ª sessão) — SAVES NA VERCEL + ECONOMIA
   SLA, contrato, save antigo), save-flow.mjs 6/6 (SDK falso: CORS bloqueado → erro claro; liberado → cria
   espaço, salva, reaproveita, lista, carrega; erro de RLS aparece), smoke 18/18, win 38/38, store 47/47,
   auth 6/6, node --check 49/49.
+
+-------------------------------------------------------
+STATUS (25/10/2026, 20ª sessão) — PROBLEMAS DO ESTAGIÁRIO + XP DE CARREIRA (etapa 1 de 6)
+-------------------------------------------------------
+- problems-data.js (novo): lições do terminal (setup, cable, link, service, disk, port — migradas do
+  terminal.js) e problemas de carreira em formato de dados (o mesmo das tabelas futuras). Passos com check
+  JSON declarativo (ran / state + eq·ne·lt·gt·in / any·all·not), modelos {{dev.ip}} {{rack.id}} {{gw}} e
+  vars lidas ao abrir (porta em erro). Nada dos dados é executado.
+- problems.js (novo): compila lições (DL.compileLesson, DL.LESSONS) e roda os problemas: sorteio no tempo
+  (40 min no início, 80–140 entre problemas na patente do jogador, 260–420 acima; máx. 2 / 1 abertos),
+  problemas com falha disputam a vaga do director.js (~70% dos incidentes na patente do jogador), auto
+  (servidor próprio novo: #11 instalar/cabear → #5 configurar), alvo por seletor (SRV-01 preferido),
+  reserva (d.hold / rack.hold: a equipe deixa para o jogador; acima da patente por 240 min), conclusão
+  (lesson · fixed · online · steps), save (problems.open; problemas de falha não voltam).
+- 11 dos 20 problemas jogáveis: 1, 4, 5, 7, 8, 9, 10, 11, 12, 14, 16. Faltam: resposta (2, 3, 6, 13, 15),
+  comandos novos (17 ss, 18 auth.log/tail/grep, 19 copy run start), dois consoles (20).
+- career.js: Trainee fundida no Estagiário (10 níveis): missão 2 racks + 2 computadores + 1 contratação E
+  300 XP em 6 problemas diferentes → Júnior I. XP por problema (fácil 30, médio 50), repetição 100/50/25%,
+  só problemas dão XP; XP total por save. Snapshot v4 (xp, lvlXp, lvlSolved, solved); saves v3 descem 1
+  nível a partir do 2; mais antigos mantêm. TASK_TIER e build.js UNLOCK/faixas descem 1.
+- terminal.js: evento genérico cmd:<comando>, hostname-show:<nome>, ajuda de whoami/hostname/uname/uptime.
+- ops.js: problemas no painel Tarefas (selo +XP), openTerminal abre a lição do problema, eventos 'tidy' e
+  'cabled' com quem fez (jobs.js / staff.js passam o bot). jobs/crew/staff respeitam d.hold.
+- Decisões do usuário: missão de construção mantida, XP por save, sorteio no tempo, funcionário = 15% do XP
+  só quando atribuído (etapa 4), problemas no seed (etapa 3), lições do Windows ficam como estão.
+- Testes (scratchpad, CDP + Edge headless): problems-test.mjs 28/28 (6 lições migradas, 7 problemas de
+  ponta a ponta, repetição, reserva, equipe sem XP, #11→#5, promoção, save, migração, do zero, sorteio),
+  pace-test.mjs (60 min nos níveis 1 e 4, sem erros).
+- Próximas etapas: 2 passo "resposta" · 3 banco/seed + validação de XP na Edge Function · 4 "Atribuir a…"
+  (15%) · 5 comandos novos · 6 dois consoles.
+
+ETAPA 2 (mesma sessão) — PASSO "RESPOSTA"
+- problems-data.js: type 'answer' { accept (modelos), normalize ip|port|int|text, tol }; vars do problema lidas
+  quando ele começa (p.vars, salvas no save). Problemas novos: 2 inventário (núcleos), 3 qual é o IP,
+  6 em que porta está o servidor (switch, sw.direct = servidor ligado direto, sem patch panel), 13 uso de
+  disco (%, tolerância 1), 15 achar a porta em erro (falha 'port' sem alerta — setup.quiet — para não
+  entregar a resposta; depois de responder, a falha vira ocorrência normal: handoff).
+- problems.js: DL.checkAnswer (Gi0/3 · gi 0/3 · GigabitEthernet0/3 · 10.0.1.12/24 · "12 núcleos" · "84%"),
+  probes hw.cores, disk.pct, sw.direct; consoleFor dá prioridade ao problema que causou a falha do
+  equipamento; respostas erradas contadas (p.wrong, evento 'answer').
+- terminal.js: campo de resposta no passo atual (painel lateral) e "responder <valor>" no console; certo →
+  evento answer:<passo>; errado → conta como tentativa (ajuda pulsa). Experiente mostra a pergunta. Ajuda de
+  lscpu, free -h e responder. dev-autoplay responde com o valor aceito.
+- 16 dos 20 problemas jogáveis (faltam 17, 18, 19, 20).
+- Testes: problems-test.mjs 38/38 (+10: IP, núcleos pelo campo, % com tolerância, porta do servidor, porta
+  em erro sem vazar no alerta + handoff, "responder" fora de pergunta, Experiente, save com vars),
+  pace-test.mjs sem erros.
+
+ETAPA 3 (mesma sessão) — BANCO, SEED E XP NO SERVIDOR
+- migration 20261025000600_problems.sql: catálogo career_ranks, command_help, scenario_lessons, problems,
+  scenario_steps (check_rule / answer em JSON), scenario_step_help (leitura pública, RLS); problem_runs (só o
+  dono lê); game_saves.career_xp / career_level (saves antigos mantêm o nível). private.career_settle reprecia
+  cada problema pelo catálogo (repetido 50/25%, equipe 15%, 1 por 20 min de jogo +1, desconhecido/inativo = 0),
+  limita o XP ao que o servidor viu e bloqueia promoção sem a meta da patente; private.game_save_career =
+  game_save + career_settle numa transação (Edge Function game chama esta).
+- Seed: scripts/build-scenarios.mjs gera seed_scenarios.sql direto de problems-data.js + terminal.js (vm, sem
+  navegador); reescreve passos, desativa o que saiu do jogo. scripts/build-full.mjs regera datalab_full.sql
+  (agora com as migrations 009/010, que faltavam, + seed_scenarios).
+- Cliente: services/scenario-service.js lê as tabelas (sem login) e entrega a DL.applyScenarioData, que valida e
+  troca os dados (o que vier inválido fica de fora; offline = cópia embutida). economy.js manda
+  claim.problems (os que deram XP) no save; career.applyServer aplica o XP / nível do servidor.
+- Deploy: migration + seed_scenarios ANTES de "supabase functions deploy game".
+- Testes: db-test.mjs 18/18 (PGlite com stub de auth: datalab_full inteiro, seed idempotente, preço/repetição/
+  ritmo/equipe/inativo, teto de XP, promoção bloqueada e aceita, cliente antigo, RLS anon/authenticated,
+  private.* fechado, game_load), scenario-test.mjs 7/7 (linhas do banco → scenario-service com cliente falso
+  == cópia embutida; jogo com esses dados), problems-test 38/38, pace-test sem erros.
+
+ETAPA 4 (mesma sessão) — "ATRIBUIR A…"
+- problems.js: botão "Atribuir a…" no problema (Tarefas) abre a lista de quem pode resolver: cargos de
+  problem.roles, cargos criados cuja habilidade principal é a do problema, bots lendários; fora do turno não
+  aparece; mostra habilidade e se está ocupado(a). A escolha vira uma ordem (crew startJob, kind 'equip' no
+  rack, duração bot_minutes, conta como ordem dada). O bot faz o mesmo que o jogador faria: falha → ops.fix
+  (fixedBy = ele), servidor novo → ops.configure (novo em ops.js), cabos → tidy, hostname → nome padrão;
+  perguntas: diz a resposta no chat. Chance de falhar pela habilidade (igual a jobs.js fixTask): o problema
+  volta a ficar livre. Jogador resolve antes → a ordem do bot é cancelada; ordem interrompida → problema livre.
+- XP: só o funcionário atribuído (p.doneBy) rende 15% (CREW_SHARE = career_settle); qualquer outro, 0.
+  Claim "crew" no save. Problema 11 sem atribuição (roles: [] — começa com comprar o servidor).
+- Testes: assign-test.mjs 13/13 (quem pode, painel, pergunta +5, falha +8, hostname/cabos, #11 só você, #5
+  online +8, falha do bot, jogador antes, ordem interrompida, fora do turno), problems-test 38/38, db-test 18/18,
+  scenario-test 7/7, pace-test sem erros.
+
+ETAPA 5 (mesma sessão) — COMANDOS NOVOS (problemas 17, 18, 19)
+- terminal.js (Linux): /var/log/auth.log (dia calmo: cron, sudo, logins da equipe; DL.authAttack põe um IP
+  adivinhando senhas — 9 falhas — e dois "scanners" de uma falha) e /var/log/syslog; cat, tail [-n N | -N],
+  grep [-i] [-c] "texto com espaço" <arquivo>, "comando | grep" (só grep depois do |); ss / netstat -tlnp (sshd 22,
+  nginx 80 se ativo, resolved 53; -p só com sudo, senão a dica). Eventos: cat:/tail:<arquivo>, grep:, grep-hit:,
+  grep-failed:<arquivo>, ss, ss-procs, ss-conn.
+- terminal.js (switch): show running-config com description por porta cabeada; show startup-config (sem a
+  descrição mudada depois do último save: sw.unsaved / unsavedPort); copy running-config startup-config
+  (copy run start) e write memory (wr) — só no modo #, não em (config). Eventos show-run, show-start, config-saved.
+  Ajudas: tail, grep, ss, show-run, show-start, copy-run-start.
+- Problemas: 17 quem tentou entrar (tail → grep "Failed password" → responder o IP; handoff para a segurança),
+  18 em que porta o nginx/sshd escuta (sudo ss -tlnp → responder a porta), 19 salvar a configuração do switch
+  (sh run → sh start → copy run start). Atribuíveis (o bot diz o IP; salva o switch). Save: 17 volta com o mesmo
+  atacante, 19 continua sem salvar. 19 dos 20 problemas jogáveis (falta o 20, dois consoles).
+- Testes: commands-test.mjs 14/14 + todas as anteriores (db 18/18, scenario 7/7, problems 38/38, assign 13/13,
+  pace sem erros).
+
+ETAPA 6 (mesma sessão) — DOIS CONSOLES (problema 20) · OS 20 PROBLEMAS JOGÁVEIS
+- problems-data.js: devices: { sw: 'switch.of' } (o switch do outro lado do cabo do servidor), step.device ('sw';
+  padrão dev), setup { fault: 'port', on: 'sw', quiet } na porta do cabo do servidor, bot: 'fix'. Problema 20:
+  ping falha no SRV → ip link → SW: enable → sh int status → conf t → interface <porta> → shutdown/no shutdown →
+  SRV: ping ok (80 XP).
+- problems.js: RESOLVE (switch.of), extrasFor (o outro equipamento livre e sem falha própria), reserva/existência/
+  console em todos os equipamentos do problema (devicesOf); compileLesson(def, x, vars, devs): cada passo confere o
+  estado e o ran do SEU equipamento (step.on); openConsole abre o console do passo atual (ou o pedido).
+- terminal.js: etiqueta do equipamento em cada passo, "Este passo é no SW-01" + botão que troca de console na
+  mesma lição (hop), aviso no fim do passo; a abertura mostra o passo atual. dev-autoplay troca de console sozinho.
+- Banco: migration 20261025000700_problem_devices.sql (problems.devices, problems.bot_action,
+  scenario_steps.device_role); seed e scenario-service levam e trazem os campos.
+- Testes: twoconsole-test.mjs 11/11 (falha na porta certa sem alerta, reservas, item único, passos por equipamento,
+  botão, correção, volta, +80, console do passo atual, atribuição, switch ocupado, save, dev-autoplay nos dois
+  consoles) + db 18/18, scenario 7/7, problems 38/38, assign 13/13, commands 14/14, pace sem erros.
+- Deploy pendente (feito pelo usuário): migrations 0600 + 0700 + seed_scenarios.sql, depois deploy da função game.

@@ -1,5 +1,6 @@
 // DataLab · Edge Function "game": cloud saves. The server prices what changed, caps revenue and
-// credits, checks legendary bots and skins, and returns the authoritative balances.
+// credits, checks legendary bots and skins, prices the career problems solved (XP) and gates
+// promotions, and returns the authoritative balances and career.
 // POST { action: 'new', slot, name, preset } | { action: 'load', slot } | { action: 'delete', slot }
 //      { action: 'save', slot, data, claim, request_id }
 import { serve, json, readJson, int, str, obj, optUuid, HttpError } from '../_shared/http.ts';
@@ -32,7 +33,7 @@ serve(async (req) => {
       const claim = body.claim === undefined ? {} : obj(body.claim, 'claim');
       // sql.json: postgres.js serialises it as jsonb exactly once (a pre-stringified value would arrive double-encoded)
       // deno-lint-ignore no-explicit-any
-      const [r] = await sql`select private.game_save(${user.id}::uuid, ${slot}, ${sql.json(data as any)}, ${sql.json(claim as any)}, ${optUuid(body.request_id, 'request_id')}::uuid) as r`;
+      const [r] = await sql`select private.game_save_career(${user.id}::uuid, ${slot}, ${sql.json(data as any)}, ${sql.json(claim as any)}, ${optUuid(body.request_id, 'request_id')}::uuid) as r`;
       return json(req, 200, r.r);
     }
     case 'delete': {

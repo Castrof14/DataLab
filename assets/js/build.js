@@ -687,26 +687,26 @@
     // nível 1: o mínimo para montar a primeira sala
     rack: 1, desk1: 1, desk: 1, srv_basic: 1, server: 1, sw_8: 1, switch: 1, patch: 1, monitor: 1,
     table: 1, chair: 1, plant: 1, bin: 1,
-    // 2: contratar · 3: servidores com switch · 4: cabos · 5: terminal · 6: problemas
+    // 2: servidores com switch (Júnior I) · 3: cabos · 4: terminal · 5: problemas
     desksupport: 2, deskoffice: 2, sw_16: 2, laptop: 2,
-    desktech: 3, desk3: 3, nas_2: 3,
-    sw_24poe: 4, ap: 4, camera: 4, netcab: 4, kvm: 4, ventile: 4,
-    desk4: 5, deskadmin: 5, sw_48: 5, nas_4: 5, pdu: 5,
-    srv_adv: 6, crac: 6, desknoc: 6, deskwork: 6, serverlift: 6,
-    // 7: 8 servidores · 8: ordens · 9: sênior · 10: especialista · 11: tech lead
-    sw_10g: 7, nas_8: 7, ups: 7, sw_48poe: 7,
-    srv_hi: 8, storage: 8, fm200: 8, tapelib: 9,
-    sw_25g: 9, deskgamer: 9, deskgamerpc: 9, deskstream: 9,
-    srv_gpu: 10, st_flash: 11,
+    desktech: 2, desk3: 2, nas_2: 2,
+    sw_24poe: 3, ap: 3, camera: 3, netcab: 3, kvm: 3, ventile: 3,
+    desk4: 4, deskadmin: 4, sw_48: 4, nas_4: 4, pdu: 4,
+    srv_adv: 5, crac: 5, desknoc: 5, deskwork: 5, serverlift: 5,
+    // 6: 8 servidores · 7: ordens · 8: sênior · 9: especialista · 10: tech lead
+    sw_10g: 6, nas_8: 6, ups: 6, sw_48poe: 6,
+    srv_hi: 7, storage: 7, fm200: 7, tapelib: 8,
+    sw_25g: 8, deskgamer: 8, deskgamerpc: 8, deskstream: 8,
+    srv_gpu: 9, st_flash: 10,
   };
-  const BANDS_EQUIP = [[2000, 3], [5000, 5], [15000, 7], [40000, 9]];
-  const BANDS_OTHER = [[150, 2], [400, 3], [900, 5], [2000, 7]];
+  const BANDS_EQUIP = [[2000, 2], [5000, 4], [15000, 6], [40000, 8]];
+  const BANDS_OTHER = [[400, 2], [900, 4], [2000, 6]];
   DL.unlockLevel = function (def) {
     if (!def || def.cat === 'wall') return 1;
     if (UNLOCK[def.id]) return UNLOCK[def.id];
     const p = def.price || 0;
     for (const [max, lvl] of def.cat === 'equip' ? BANDS_EQUIP : BANDS_OTHER) if (p <= max) return lvl;
-    return def.cat === 'equip' ? 11 : 9;
+    return def.cat === 'equip' ? 10 : 8;
   };
 
   const NAMES = {
