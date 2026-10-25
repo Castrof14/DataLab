@@ -2387,6 +2387,16 @@
       get active() { return B.active; },
       get state() { return B; },
       enter, exit, pointerMove, pointerDown, pointerUp, key, underlay, overlay, updateUi,
+      // the tutorial opens the catalog straight on the item it asks for, scrolled into view
+      choose(id) {
+        const def = DEF[id];
+        if (!def || !B.active) return;
+        if (B.tab !== def.cat) setTab(def.cat);
+        if (B.group && def.group !== B.group) { B.group = null; renderCatalog(); }
+        if (B.def !== def) chooseDef(id);
+        const b = el.items.querySelector('[data-def="' + id + '"]');
+        if (b) el.items.scrollLeft += b.getBoundingClientRect().left - el.items.getBoundingClientRect().left - 4;
+      },
       // exposed for automated checks
       api: { roomIndex: () => B.roomIdx, setRoomIndex: (i) => { B.roomIdx = Math.max(0, Math.min(i, world.rooms.length - 1)); }, place: (id, tx, ty, rot) => {
         B.def = DEF[id]; B.rot = rot || 0;

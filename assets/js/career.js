@@ -25,80 +25,101 @@
 
 
   /* ------------------------------------------------------------------ */
-  /* Insignia: an SVG emblem per rank. The shape grows with the band:    */
-  /*   Estágio: hexagon + ring · Júnior: hexagon + chevrons ·            */
-  /*   Pleno: hexagon + laurel + chevrons · Sênior: shield + star +      */
-  /*   laurel · Especialista: winged shield + two stars ·                */
-  /*   Tech Lead: winged shield + crown + star (and a shine sweep).      */
+  /* Insignia: a pixel-art emblem per rank, drawn on a 32×25 grid of    */
+  /* square cells (crisp SVG rects). The shape grows with the band:     */
+  /*   Estágio: hexagon + ring · Júnior: hexagon + chevrons ·           */
+  /*   Pleno: hexagon + laurel + chevrons · Sênior: shield + star +     */
+  /*   laurel · Especialista: winged shield + two stars ·               */
+  /*   Tech Lead: winged shield + crown + star.                         */
   /* ------------------------------------------------------------------ */
-  let embSeq = 0;
-  const HEX = '32,2 58,17 58,47 32,62 6,47 6,17';
-  const SHIELD = 'M32 2 L57 10 V30 C57 46 46 56 32 62 C18 56 7 46 7 30 V10 Z';
-  function starPath(cx, cy, R, r) {
-    let d = '';
-    for (let i = 0; i < 10; i++) {
-      const a = -Math.PI / 2 + (i * Math.PI) / 5, k = i % 2 ? r : R;
-      d += (i ? 'L' : 'M') + (cx + Math.cos(a) * k).toFixed(2) + ' ' + (cy + Math.sin(a) * k).toFixed(2);
-    }
-    return d + 'Z';
+  const PW = 32, PH = 25, CX = 16, CY = 13.5, INK = '#0b0c10', DARK = '#14161c';
+  const SPR = {
+    ring: ['..###..', '.#...#.', '#.....#', '#..#..#', '#.....#', '.#...#.', '..###..'],
+    chev: ['..###..', '.##.##.', '##...##'],
+    star: ['....#....', '...###...', '#########', '.#######.', '..#####..', '..##.##..', '.##...##.'],
+    starS: ['..#..', '#####', '.###.', '.#.#.'],
+    wing: ['......#', '....###', '..#####', '#######', '....###', '..#####', '#######', '....###', '..#####', '....##.'],
+    crown: ['#...#...#', '##.###.##', '#########'],
+  };
+  // blend two #rrggbb colours (t = 0 → a, 1 → b)
+  function mix(a, b, t) {
+    const p = (h, i) => parseInt(h.slice(1 + i * 2, 3 + i * 2), 16);
+    return '#' + [0, 1, 2].map((i) => Math.round(p(a, i) + (p(b, i) - p(a, i)) * t).toString(16).padStart(2, '0')).join('');
   }
-  // a laurel: five leaves up each side of the emblem, following an arc from the bottom
-  function laurel(c) {
-    let h = '';
-    for (const side of [-1, 1]) {
-      for (let i = 0; i < 5; i++) {
-        const ang = Math.PI / 2 - side * (0.75 + i * 0.36);
-        const x = 32 + Math.cos(ang) * 33, y = 33 + Math.sin(ang) * 33;
-        const rot = (ang * 180) / Math.PI + side * 22;
-        h += '<ellipse cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" rx="2.6" ry="5.6" transform="rotate(' + rot.toFixed(0) + ' ' + x.toFixed(1) + ' ' + y.toFixed(1) + ')" fill="' + c + '" stroke="#0b0c10" stroke-width="0.8"/>';
-      }
-    }
-    return h;
-  }
-  const WING = 'M7 18 C-2 16 -10 21 -14 30 C-8 28 -3 28 1 29 C-6 32 -10 37 -12 44 C-6 40 -1 38 4 38 C-1 42 -3 46 -3 51 C1 47 5 45 9 44 Z';
-  function chevrons(n, c, cy) {
-    let h = '';
-    const top = cy - ((n - 1) * 8) / 2;
-    for (let i = 0; i < n; i++) {
-      const y = top + i * 8;
-      h += '<path d="M20 ' + (y + 5) + ' L32 ' + (y - 4) + ' L44 ' + (y + 5) + '" fill="none" stroke="#0b0c10" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round"/>' +
-        '<path d="M20 ' + (y + 5) + ' L32 ' + (y - 4) + ' L44 ' + (y + 5) + '" fill="none" stroke="' + c + '" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>';
-    }
-    return h;
-  }
+  const hexIn = (x, y) => { const dx = Math.abs(x - CX); return dx <= 8.6 && Math.abs(y - CY) <= 10 - dx * 0.577; };
+  const shieldIn = (x, y) => {
+    const dx = Math.abs(x - CX);
+    if (y < 3 + dx * 0.12) return false;
+    if (y <= 13) return dx <= 8.6;
+    return dx <= 8.6 * Math.sqrt(Math.max(0, 1 - ((y - 13) / 10.5) ** 2));
+  };
+
   DL.rankEmblem = function (rank, size) {
-    const id = 'emb' + (++embSeq), c = rank.color, band = rank.band;
+    const c = rank.color, band = rank.band;
     const shield = band === 'sr' || band === 'esp' || band === 'lead';
     const wings = band === 'esp' || band === 'lead';
-    const shape = shield ? '<path d="' + SHIELD + '"' : '<polygon points="' + HEX + '"';
-    let inner = '';
-    if (band === 'est') inner = '<circle cx="32" cy="32" r="11" fill="none" stroke="' + c + '" stroke-width="3.5"/><circle cx="32" cy="32" r="4" fill="' + c + '"/>';
-    else if (band === 'jr') inner = chevrons(rank.step, c, 33);
-    else if (band === 'pl') inner = chevrons(rank.step, c, 33);
-    else if (band === 'sr') inner = '<path d="' + starPath(32, 30, 14, 6) + '" fill="' + c + '" stroke="#0b0c10" stroke-width="1.5"/>';
-    else if (band === 'esp') inner = '<path d="' + starPath(23, 30, 9.5, 4) + '" fill="' + c + '" stroke="#0b0c10" stroke-width="1.2"/><path d="' + starPath(41, 30, 9.5, 4) + '" fill="' + c + '" stroke="#0b0c10" stroke-width="1.2"/><path d="M18 46 H46" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/>';
-    else inner = '<path d="' + starPath(32, 33, 15, 6.5) + '" fill="' + c + '" stroke="#0b0c10" stroke-width="1.5"/><path d="M18 50 H46" stroke="' + c + '" stroke-width="3" stroke-linecap="round"/>';
-    const wing = (flip) => '<g' + (flip ? ' transform="translate(64 0) scale(-1 1)"' : '') + '><path d="' + WING + '" fill="url(#' + id + 'w)" stroke="' + c + '" stroke-width="1.6" stroke-linejoin="round"/>' +
-      '<path d="M1 29 L7 27 M4 38 L8 36 M9 44 L9 44" stroke="#0b0c10" stroke-width="1.2" opacity="0.6"/></g>';
-    const crown = band === 'lead' ? '<path d="M19 9 L21 -3 L26.5 3 L32 -6 L37.5 3 L43 -3 L45 9 Z" fill="' + c + '" stroke="#0b0c10" stroke-width="1.4" stroke-linejoin="round"/><circle cx="32" cy="-6" r="2" fill="#fff"/>' : '';
-    return '<svg class="emb emb--' + band + '" viewBox="-16 -9 96 74" width="' + Math.round(size * 1.3) + '" height="' + size + '" role="img" aria-label="Patente ' + esc(rank.name) + '">' +
-      '<defs><linearGradient id="' + id + 'g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + c + '" stop-opacity="0.55"/><stop offset="0.55" stop-color="#14161c"/><stop offset="1" stop-color="#08090c"/></linearGradient>' +
-      '<linearGradient id="' + id + 'w" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="' + c + '" stop-opacity="0.9"/><stop offset="1" stop-color="' + c + '" stop-opacity="0.25"/></linearGradient>' +
-      '<linearGradient id="' + id + 's" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="0.5" stop-color="#fff" stop-opacity="0.45"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>' +
-      '<clipPath id="' + id + 'c">' + shape + '/></clipPath></defs>' +
-      (wings ? wing(false) + wing(true) : '') +
-      (band === 'pl' || band === 'sr' ? laurel(c) : '') +
-      shape + ' fill="url(#' + id + 'g)" stroke="' + c + '" stroke-width="3" stroke-linejoin="round"/>' +
-      shape + ' fill="none" stroke="#fff" stroke-opacity="0.18" stroke-width="1" transform="translate(32 32) scale(0.86) translate(-32 -32)"/>' +
-      inner +
-      (shield ? '<g clip-path="url(#' + id + 'c)"><rect class="emb__shine" x="-40" y="-10" width="22" height="90" fill="url(#' + id + 's)" transform="skewX(-20)"/></g>' : '') +
-      crown + '</svg>';
+    const inside = shield ? shieldIn : hexIn;
+    const px = new Map();
+    const at = (x, y) => (x < PW ? px.get(y * PW + x) : undefined);
+    const put = (x, y, col) => { if (x >= 0 && y >= 0 && x < PW && y < PH) px.set(y * PW + x, col); };
+    const isIn = (x, y) => inside(x + 0.5, y + 0.5);
+    // a sprite in one colour with a dark 1-pixel outline around it
+    function stamp(rows, x0, y0, col, flip) {
+      const on = [], has = new Set();
+      rows.forEach((r, y) => { for (let x = 0; x < r.length; x++) if (r[x] === '#') { const cx = x0 + (flip ? r.length - 1 - x : x); on.push([cx, y0 + y]); has.add(cx + ',' + (y0 + y)); } });
+      for (const [x, y] of on) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (!has.has((x + dx) + ',' + (y + dy))) put(x + dx, y + dy, INK);
+      for (const [x, y] of on) put(x, y, col);
+    }
+
+    if (wings) { stamp(SPR.wing, 0, 7, mix(c, DARK, 0.25)); stamp(SPR.wing, 25, 7, mix(c, DARK, 0.25), true); }
+    if (band === 'pl' || band === 'sr') {
+      for (const side of [-1, 1]) for (let i = 0; i < 5; i++) {
+        const ang = Math.PI / 2 - side * (0.75 + i * 0.36);
+        const x = Math.round(CX - 0.5 + Math.cos(ang) * 11), y = Math.round(CY - 0.5 + Math.sin(ang) * 11);
+        stamp(['#', '#'], x, y - 1, i % 2 ? mix(c, DARK, 0.3) : c);
+      }
+    }
+    if (band === 'lead') { stamp(SPR.crown, 12, 0, c); put(16, 0, '#ffffff'); }
+    // body: dark ring outside, band colour on the edge, a gradient from the colour to near-black inside
+    for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+      if (isIn(x, y)) continue;
+      let near = false;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (isIn(x + dx, y + dy)) near = true;
+      if (near && !at(x, y)) put(x, y, INK);
+    }
+    for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) {
+      if (!isIn(x, y)) continue;
+      const edge = !isIn(x + 1, y) || !isIn(x - 1, y) || !isIn(x, y + 1) || !isIn(x, y - 1);
+      const lit = !edge && !isIn(x, y - 2);
+      put(x, y, edge ? c : lit ? mix(c, '#ffffff', 0.35) : mix(c, DARK, Math.min(0.92, 0.45 + (y / PH) * 0.6)));
+    }
+
+    if (band === 'est') stamp(SPR.ring, 13, 10, c);
+    else if (band === 'jr' || band === 'pl') {
+      const n = rank.step, top = Math.round(CY - (3 + (n - 1) * 4) / 2);
+      for (let i = 0; i < n; i++) stamp(SPR.chev, 13, top + i * 4, c);
+    } else if (band === 'sr') stamp(SPR.star, 12, 9, c);
+    else if (band === 'esp') { stamp(SPR.starS, 9, 9, c); stamp(SPR.starS, 18, 9, c); stamp(['##########'], 11, 16, c); }
+    else { stamp(SPR.star, 12, 8, c); stamp(['##########'], 11, 18, c); }
+
+    // one rect per horizontal run of the same colour
+    let rects = '';
+    for (let y = 0; y < PH; y++) {
+      for (let x = 0; x < PW;) {
+        const col = at(x, y);
+        let w = 1;
+        while (col && at(x + w, y) === col) w++;
+        if (col) rects += '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="1" fill="' + col + '"/>';
+        x += w;
+      }
+    }
+    return '<svg class="emb emb--' + band + '" viewBox="0 0 ' + PW + ' ' + PH + '" width="' + Math.round(size * 1.28) + '" height="' + size + '" shape-rendering="crispEdges" role="img" aria-label="Patente ' + esc(rank.name) + '">' + rects + '</svg>';
   };
 
   DL.createCareer = function (game, sys) {
     const world = () => game.scene.world;
     const count = (kind) => world().items.filter((e) => e.kind === kind).length;
-    const servers = () => sys.ops.devices().filter((d) => d.kind === 'server');
+    const servers = () => (sys.ops ? sys.ops.devices().filter((d) => d.kind === 'server') : []);
     // the player's own servers (not the ones that came installed with the map / preset)
     const mine = () => servers().filter((d) => !d.pre);
     const online = (list) => list.filter((d) => d.state === 'online').length;
@@ -112,53 +133,56 @@
     };
     const R = (name, short, band, step) => ({ name, short, band, step, color: BANDS[band].color });
 
+    // everything a mission measures. Missions count only what happens AFTER they start (K.base is a
+    // snapshot of these counters), so a level never passes by itself and promotions don't chain.
+    const counters = () => ({
+      v: 2, rack: count('rack'), desk: count('desk'),
+      linked: mine().filter((d) => sys.ops.switchesNear(d).length).length,
+      cabled: mine().filter((d) => d.state !== 'new').length,
+      online: online(mine()), fixed: K.fixed, orders: K.orders, area: lotArea(), pays: K.pays,
+    });
+    const since = (k, goal) => Math.max(0, Math.min(goal, counters()[k] - (K.base[k] || 0)));
+
     // one rank and one mission per level: progress() → [done so far, goal]
     const LEVELS = [
-      { rank: R('Estagiário(a)', 'EST', 'est', 0), mission: 'Monte o primeiro posto: um rack e um computador',
+      { rank: R('Estagiário(a)', 'EST', 'est', 0), mission: 'Monte dois postos: dois racks e dois computadores novos',
         how: 'Construir (B) → Equipamentos → Rack e Computador.',
-        progress: () => [(count('rack') > K.base.rack ? 1 : 0) + (count('desk') > K.base.desk ? 1 : 0), 2] },
-      { rank: R('Júnior I', 'JR I', 'jr', 1), mission: 'Instale um servidor e um switch na mesma sala',
+        progress: () => [since('rack', 2) + since('desk', 2), 4] },
+      { rank: R('Júnior I', 'JR I', 'jr', 1), mission: 'Instale mais 2 servidores numa sala com switch',
         how: 'Construir (B) → Equipamentos → Servidor e Switch, clicando no rack.',
-        progress: () => [mine().some((d) => sys.ops.switchesNear(d).length) ? 1 : 0, 1] },
-      { rank: R('Júnior II', 'JR II', 'jr', 2), mission: 'Ligue o cabo de rede de um servidor',
+        progress: () => [since('linked', 2), 2] },
+      { rank: R('Júnior II', 'JR II', 'jr', 2), mission: 'Ligue o cabo de rede de mais 3 servidores',
         how: 'Tarefas (T) → Ligar cabos: eth0 do servidor até uma porta do switch.',
-        progress: () => [mine().some((d) => d.state !== 'new') ? 1 : 0, 1] },
-      { rank: R('Júnior III', 'JR III', 'jr', 3), mission: 'Coloque um servidor online pelo terminal',
+        progress: () => [since('cabled', 3), 3] },
+      { rank: R('Júnior III', 'JR III', 'jr', 3), mission: 'Coloque mais 3 servidores online pelo terminal',
         how: 'Tarefas (T) → Abrir terminal: interface, IP, rota e ping.',
-        progress: () => [Math.min(1, online(mine())), 1] },
-      { rank: R('Pleno I', 'PL I', 'pl', 1), mission: 'Resolva você mesmo(a) um problema no datacenter',
+        progress: () => [since('online', 3), 3] },
+      { rank: R('Pleno I', 'PL I', 'pl', 1), mission: 'Resolva você mesmo(a) 3 problemas no datacenter',
         how: 'Quando aparecer uma ocorrência em Tarefas (T), investigue e corrija pelo terminal ou cabeamento. A equipe ainda não resolve falhas sozinha.',
-        progress: () => [Math.min(1, K.fixed - K.base), 1] },
-      { rank: R('Pleno II', 'PL II', 'pl', 2), mission: 'Tenha 3 servidores seus online ao mesmo tempo',
+        progress: () => [since('fixed', 3), 3] },
+      { rank: R('Pleno II', 'PL II', 'pl', 2), mission: 'Tenha 8 servidores seus online ao mesmo tempo',
         how: 'Instale, cabeie e configure mais servidores.',
-        progress: () => [Math.min(3, online(mine())), 3] },
-      { rank: R('Pleno III', 'PL III', 'pl', 3), mission: 'Dê 5 ordens à equipe',
+        progress: () => [Math.min(8, online(mine())), 8] },
+      { rank: R('Pleno III', 'PL III', 'pl', 3), mission: 'Dê 15 ordens à equipe',
         how: 'Equipe (C) → clique numa pessoa → Atribuir tarefa.',
-        progress: () => [Math.min(5, K.orders - K.base), 5] },
-      { rank: R('Sênior', 'SR', 'sr', 1), mission: 'Expanda o terreno do datacenter',
-        how: 'Construir (B) → Espaços → + no Terreno.',
-        progress: () => [lotArea() > K.base ? 1 : 0, 1] },
-      { rank: R('Especialista', 'ESP', 'esp', 1), mission: 'Feche um mês com o caixa positivo',
-        how: 'Mantenha os servidores no ar até o fechamento do mês (00:00 no relógio).',
-        progress: () => [Math.min(1, K.pays - K.base), 1] },
-      { rank: R('Tech Lead', 'LEAD', 'lead', 1), mission: 'Tenha 6 servidores seus online ao mesmo tempo',
+        progress: () => [since('orders', 15), 15] },
+      { rank: R('Sênior', 'SR', 'sr', 1), mission: 'Expanda o terreno e resolva mais 5 problemas',
+        how: 'Construir (B) → Espaços → + no Terreno. As ocorrências aparecem em Tarefas (T).',
+        progress: () => [(lotArea() > (K.base.area || 0) ? 1 : 0) + since('fixed', 5), 6] },
+      { rank: R('Especialista', 'ESP', 'esp', 1), mission: 'Feche 3 meses com o caixa positivo',
+        how: 'Mantenha os servidores no ar até o fechamento de cada mês (00:00 no relógio).',
+        progress: () => [since('pays', 3), 3] },
+      { rank: R('Tech Lead', 'LEAD', 'lead', 1), mission: 'Tenha 15 servidores seus online ao mesmo tempo',
         how: 'Cresça a operação: mais racks, mais servidores, tudo no ar.',
-        progress: () => [Math.min(6, online(mine())), 6] },
+        progress: () => [Math.min(15, online(mine())), 15] },
     ];
     const MAX = LEVELS.length;
 
     // level · mission complete at max · counters that missions measure from a baseline
-    const K = { level: 1, done: false, fixed: 0, orders: 0, pays: 0, base: 0, seenOrders: 0, acc: 0, key: '' };
+    const K = { level: 1, done: false, fixed: 0, orders: 0, pays: 0, base: {}, seenOrders: 0, acc: 0, key: '' };
 
-    // what each counter-based mission measures from, taken when the mission starts
-    function baseFor(level) {
-      if (level === 1) return { rack: count('rack'), desk: count('desk') };
-      if (level === 5) return K.fixed;
-      if (level === 7) return K.orders;
-      if (level === 8) return lotArea();
-      if (level === 9) return K.pays;
-      return 0;
-    }
+    // what the missions measure from, taken when each mission starts
+    const baseFor = () => counters();
     const cur = () => LEVELS[K.level - 1];
     // the insignia: band colour, short name and one chevron per step inside the band
     const rankHtml = (L, cls) => '<span class="rank' + (cls ? ' ' + cls : '') + '" style="--c:' + L.rank.color + '" title="Patente: ' + esc(L.rank.name) + '">' +
@@ -269,7 +293,7 @@
     }
 
     function reset() {
-      Object.assign(K, { level: 1, done: false, fixed: 0, orders: 0, pays: 0, base: 0, seenOrders: sys.crew.assignedCount || 0, key: '' });
+      Object.assign(K, { level: 1, done: false, fixed: 0, orders: 0, pays: 0, base: {}, seenOrders: sys.crew.assignedCount || 0, key: '' });
       K.base = baseFor(1);
       render(true);
     }
@@ -290,7 +314,8 @@
           K.level = Math.max(1, Math.min(MAX, s.level | 0 || 1));
           K.done = !!s.done && K.level === MAX;
           K.fixed = s.fixed | 0; K.orders = s.orders | 0; K.pays = s.pays | 0;
-          K.base = s.base != null && typeof s.base === typeof baseFor(K.level) ? s.base : baseFor(K.level);
+          // older saves kept a single number here: the mission then starts counting from now
+          K.base = s.base && s.base.v === 2 ? s.base : baseFor(K.level);
         }
         settle(true);
       },

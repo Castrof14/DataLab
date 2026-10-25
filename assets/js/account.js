@@ -10,7 +10,7 @@
   const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
   const when = (t) => (t ? new Date(t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
   const el = { box: $('account'), body: $('accountBody'), btn: $('accountBtn'), dot: $('accountDot') };
-  const V = { tab: 'profile', msg: null, tone: 'info', busy: false, profile: null, progress: null, roles: [], saves: [], users: [], log: [], pick: null };
+  const V = { tab: 'profile', msg: null, tone: 'info', busy: false, profile: null, progress: null, roles: [], titles: [], saves: [], users: [], log: [], pick: null };
 
   const isOpen = () => el.box.classList.contains('is-open');
   function open(tab) {
@@ -32,9 +32,10 @@
   }
   async function refresh() {
     if (!DL.Cloud.signedIn) return;
-    const [p, roles, saves, prog] = await Promise.all([DL.Auth.profile(), DL.Auth.roles(), DL.SaveService.listCloud(), progress()]);
+    const [p, roles, saves, prog, titles] = await Promise.all([DL.Auth.profile(), DL.Auth.roles(), DL.SaveService.listCloud(), progress(), DL.Auth.titles()]);
     V.profile = p;
     V.roles = roles;
+    V.titles = titles;
     V.saves = saves;
     V.progress = prog;
     if (V.tab === 'admin' && !V.roles.length) V.tab = 'profile';
@@ -63,7 +64,7 @@
     const company = (V.saves.find((s) => s.slot === (g.last_slot || 1)) || V.saves[0] || {}).name;
     const hours = Math.floor((g.total_play_minutes || 0) / 60);
     return '<div class="acc-profile"><canvas class="acc-face" data-face aria-hidden="true"></canvas><div><b>@' + esc(p.username) + '</b><span class="acc-small">' + esc(p.email || '') + '</span>' +
-      '<span class="acc-small">Conta criada em ' + when(p.created_at) + '</span>' + (V.roles.length ? '<span class="acc-roles">' + V.roles.map((r) => '<i>' + esc(r) + '</i>').join('') + '</span>' : '') + '</div>' +
+      '<span class="acc-small">Conta criada em ' + when(p.created_at) + '</span>' + '<span class="acc-roles">' + (V.titles.length ? V.titles.map(DL.titleBadge).join('') : '<span class="acc-small">Sem título ainda</span>') + '</span>' + '</div>' +
       '<div class="acc-bal"><span class="cur cur--dc"></span><b class="is-gold">' + fmt(w.gold) + '</b><small>Gold</small><span class="cur cur--cr"></span><b>' + fmt(w.credits) + '</b><small>créditos</small></div></div>' +
       '<dl class="acc-stats"><div><dt class="eyebrow-sm">Empresa</dt><dd>' + esc(company || '—') + '</dd></div><div><dt class="eyebrow-sm">Nível</dt><dd>' + (g.level || 1) + '</dd></div>' +
       '<div><dt class="eyebrow-sm">Datacenters concluídos</dt><dd>' + (g.datacenters_completed || 0) + '</dd></div><div><dt class="eyebrow-sm">Tempo de jogo</dt><dd>' + hours + ' h ' + ((g.total_play_minutes || 0) % 60) + ' min</dd></div></dl>' +
@@ -90,10 +91,12 @@
   }
   function viewAdmin() {
     const isAdmin = V.roles.indexOf('admin') >= 0, canGrant = isAdmin || V.roles.indexOf('developer') >= 0;
+    const titleIds = Object.keys(DL.TITLES).filter((t) => DL.TITLES[t].grant);
     const items = DL.COSMETICS.slice().sort((a, b) => (a.grantOnly === b.grantOnly ? a.name.localeCompare(b.name) : a.grantOnly ? -1 : 1));
     let h = '<div class="acc-admin"><form class="acc-form acc-search" data-form="find">' + field('Buscar jogador (usuário ou id)', input('query', 'search', 'ex.: alex', '', 'minlength="2"')) + '<div class="acc-acts">' + btn('find', 'Buscar', true) + '</div></form>';
     if (V.users.length) h += '<ul class="acc-users">' + V.users.map((u) => '<li><label><input type="radio" name="target" value="' + esc(u.id) + '"' + (V.pick === u.id ? ' checked' : '') + '> <b>@' + esc(u.username) + '</b> <span class="acc-small">' + when(u.created_at) + (u.roles.length ? ' · ' + u.roles.join(', ') : '') + '</span></label>' +
-      (isAdmin ? '<span class="acc-acts">' + ['admin', 'developer', 'moderator'].map((r) => '<button type="button" class="chip chip--xs' + (u.roles.indexOf(r) >= 0 ? ' is-on' : '') + '" data-role="' + r + '" data-user="' + esc(u.id) + '">' + r + '</button>').join('') + '</span>' : '') + '</li>').join('') + '</ul>';
+      (isAdmin ? '<span class="acc-acts">' + ['admin', 'developer', 'moderator'].map((r) => '<button type="button" class="chip chip--xs' + (u.roles.indexOf(r) >= 0 ? ' is-on' : '') + '" data-role="' + r + '" data-user="' + esc(u.id) + '">' + r + '</button>').join('') + '</span>' : '') +
+      (canGrant ? '<span class="acc-acts"><span class="eyebrow-sm">Títulos</span>' + titleIds.map((t) => '<button type="button" class="chip chip--xs' + ((u.titles || []).indexOf(t) >= 0 ? ' is-on' : '') + '" data-title="' + t + '" data-user="' + esc(u.id) + '">' + esc(DL.TITLES[t].name) + '</button>').join('') + '</span>' : '') + '</li>').join('') + '</ul>';
     if (canGrant) {
       h += '<form class="acc-form acc-grant" data-form="grant"><span class="eyebrow-sm">Conceder ao jogador marcado</span>' +
         field('Item ou moeda', '<select class="input" name="what">' + (isAdmin ? '<option value="cur:gold">Gold (moeda dourada)</option><option value="cur:credits">Créditos</option>' : '') +
@@ -171,6 +174,19 @@
         const u = V.users.find((u2) => u2.id === r.dataset.user);
         if (u) u.roles = x.data.roles;
         say('ok', 'Papéis atualizados.');
+      });
+      return;
+    }
+    const ti = ev.target.closest('[data-title]');
+    if (ti) {
+      const on = !ti.classList.contains('is-on');
+      run(async () => {
+        const x = await DL.AdminService.setTitle(ti.dataset.user, ti.dataset.title, on);
+        if (!x.ok) return say('warn', x.message);
+        const u = V.users.find((u2) => u2.id === ti.dataset.user);
+        if (u) u.titles = x.data.titles;
+        if (ti.dataset.user === (DL.Cloud.user || {}).id) { V.titles = await DL.Auth.titles(); if (D.menu && D.menu.setAccount) D.menu.setAccount(V.profile); }
+        say('ok', 'Títulos atualizados.');
       });
       return;
     }

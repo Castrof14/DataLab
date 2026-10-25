@@ -12,5 +12,6 @@
     grant: (g) => call(Object.assign({ action: 'grant', request_id: DL.Cloud.requestId() }, g)),
     log: (limit) => call({ action: 'log', limit: limit || 50 }),
     setRole: (userId, role, enabled) => call({ action: 'set_role', user_id: userId, role, enabled: !!enabled }),
+    setTitle: (userId, title, enabled) => call({ action: 'set_title', user_id: userId, title, enabled: !!enabled }),
   };
 })();

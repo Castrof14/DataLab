@@ -199,6 +199,24 @@
     .fade { position: fixed; inset: 0; z-index: 30; background: var(--ink); opacity: 0; pointer-events: none; }
     .leaving .fade { animation: fadeout .4s steps(4, end) forwards; }
     @keyframes fadeout { to { opacity: 1; } }
+    /* …then a loading bar that fills while the game's files download */
+    .boot {
+      position: fixed; inset: 0; z-index: 31;
+      display: none; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+      padding: 16px;
+    }
+    .leaving .boot { display: flex; animation: bootin .4s steps(1, end); }
+    @keyframes bootin { from { opacity: 0; } }
+    .boot__label { margin: 0; font: 16px/1 'Press Start 2P', monospace; color: var(--green); text-shadow: 0 2px var(--green-3); }
+    .boot__bar {
+      display: grid; grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 4px;
+      width: min(424px, 100%); height: 36px; padding: 8px;
+      background: var(--ink);
+      box-shadow: 0 -4px var(--steel-2), 0 4px var(--steel-2), -4px 0 var(--steel-2), 4px 0 var(--steel-2);
+    }
+    .boot__bar i { background: var(--steel-1); }
+    .boot__bar i.on { background: var(--green); box-shadow: inset 0 -4px var(--green-2); }
+    .boot__pct { margin: 0; font: 8px/1 'Press Start 2P', monospace; color: var(--steel-4); }
 
     /* ================= the presentation below the title ================= */
     /* the datacenter stays behind the whole page; scrolling dims it in four steps */
@@ -664,6 +682,11 @@
   </dialog>
 
   <div class="fade" aria-hidden="true"></div>
+  <div class="boot" role="progressbar" aria-label="Carregando o jogo" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <p class="boot__label">CARREGANDO</p>
+    <div class="boot__bar"></div>
+    <p class="boot__pct">0%</p>
+  </div>
   <div class="crt" aria-hidden="true"></div>
 
   <!-- the game's character sprites: the title's technician and the crew are drawn with them -->
@@ -1229,14 +1252,49 @@
       if (focus) items[sel].focus({ preventScroll: true });
     }
 
-    // into the game: four frames of fade to black first
+    // into the game: four frames of fade to black, then a loading bar that fills while every file
+    // jogo.html asks for (scripts, stylesheets, images) downloads, so the game then opens from the cache
+    const boot = document.querySelector('.boot'), bootPct = boot.querySelector('.boot__pct');
+    const blocks = Array.from({ length: 20 }, () => boot.querySelector('.boot__bar').appendChild(document.createElement('i')));
+    let barShown = 0, barGoal = 0, barRaf = 0, barLive = false;   // live: the screen is black, the bar shows
+    function paintBar() {
+      if (barLive) barShown = still ? barGoal : Math.min(barGoal, barShown + 0.025);
+      const n = Math.round(barShown * blocks.length), pct = Math.round(barShown * 100);
+      blocks.forEach((b, i) => b.classList.toggle('on', i < n));
+      bootPct.textContent = pct + '%';
+      boot.setAttribute('aria-valuenow', pct);
+      if (barLive && barShown < barGoal) barRaf = requestAnimationFrame(paintBar);
+    }
+    const setBar = (p) => { barGoal = Math.max(barGoal, p); cancelAnimationFrame(barRaf); paintBar(); };
+    const barFull = () => new Promise((r) => { const f = () => (barShown >= 1 ? r() : requestAnimationFrame(f)); f(); });
+
+    async function preload(href) {
+      const page = new URL(href, location.href);
+      let done = 0, total = 1;
+      const tick = () => setBar(++done / total);
+      try {
+        const html = await (await fetch(page)).text();
+        const files = [...new Set([...html.matchAll(/(?:src|href)="([^"#?]+\.(?:js|css|png|svg))"/g)].map((m) => new URL(m[1], page).href))]
+          .filter((u) => new URL(u).origin === location.origin);
+        total = files.length + 1;
+        tick();
+        await Promise.all(files.map((u) => fetch(u).then((r) => r.blob()).catch(() => {}).finally(tick)));
+      } catch (err) { /* offline or blocked: the game page still loads its own files */ }
+      setBar(1);
+    }
+
     function leave(href, el) {
       if (leaving) return;
       leaving = true;
-      if (still) { location.assign(href); return; }
       if (el) el.classList.add('is-go');
       root.classList.add('leaving');
-      setTimeout(() => location.assign(href), 520);
+      barShown = barGoal = 0;
+      barLive = false;
+      paintBar();
+      setTimeout(() => { barLive = true; paintBar(); }, still ? 0 : 400);   // after the fade
+      preload(href)
+        .then(barFull)
+        .then(() => setTimeout(() => location.assign(href), 200));
     }
 
     function activate(i) {
@@ -1317,6 +1375,9 @@
       leaving = false;
       root.classList.remove('leaving');
       items.forEach((el) => el.classList.remove('is-go'));
+      barShown = barGoal = 0;
+      barLive = false;
+      paintBar();
     });
 
     /* ================= the presentation below the title ================= */

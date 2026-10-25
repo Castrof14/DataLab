@@ -41,6 +41,7 @@ services/admin-service ┘                       ▼
 | `seed.sql` | raridades, moedas, categorias, eventos, itens/skins (inclusive Founder/Developer/Beta/Special), bots lendários, tipos de servidor, preços do catálogo, conquistas, configuração da economia |
 | `datalab_full.sql` | tudo acima concatenado, para colar no SQL Editor |
 | `migrations/20261005000800_payments.sql` | `gold_packs`, `payment_orders`, crédito de Gold por pagamento confirmado |
+| `migrations/20261025000200_titles.sql` | `user_titles` (títulos do jogador: Fundador, Beta Tester, VIP…), concedidos por admin/dev |
 | `functions/{shop,inventory,economy,game,admin,payments,payments-webhook}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |
 | `config.toml` | configuração da CLI (`verify_jwt = true` em todas as funções) |

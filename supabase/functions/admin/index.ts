@@ -4,6 +4,7 @@
 //      { action: 'grant', user_id, item_id | currency, quantity, grant_type, reason, request_id }   admin | developer
 //      { action: 'log', limit }                                          admin | developer | moderator
 //      { action: 'set_role', user_id, role, enabled }                    admin
+//      { action: 'set_title', user_id, title, enabled }                  admin | developer
 // The role is checked here AND again inside every database function.
 import { serve, json, readJson, str, optStr, int, uuid, optUuid, ITEM_ID, HttpError } from '../_shared/http.ts';
 import { requireUser, requireRole } from '../_shared/auth.ts';
@@ -11,6 +12,7 @@ import { sql, rateLimit } from '../_shared/db.ts';
 
 const GRANT_TYPE = /^(developer|founder|beta|event|compensation|special)$/;
 const ROLE = /^(admin|developer|moderator)$/;
+const TITLE = /^(founder|beta|creator|supporter|vip)$/;
 
 serve(async (req) => {
   const user = await requireUser(req);
@@ -52,6 +54,12 @@ serve(async (req) => {
       const enabled = body.enabled === true;
       const [r] = await sql`select private.admin_set_role(${user.id}::uuid, ${uuid(body.user_id, 'user_id')}::uuid, ${str(body.role, 'role', ROLE, 16)}::public.app_role, ${enabled}) as r`;
       return json(req, 200, { roles: r.r });
+    }
+    case 'set_title': {
+      await requireRole(user, ['admin', 'developer']);
+      const enabled = body.enabled === true;
+      const [r] = await sql`select private.admin_set_title(${user.id}::uuid, ${uuid(body.user_id, 'user_id')}::uuid, ${str(body.title, 'title', TITLE, 16)}, ${enabled}) as r`;
+      return json(req, 200, { titles: r.r });
     }
     default:
       throw new HttpError(400, 'bad_action', 'Ação desconhecida.');
