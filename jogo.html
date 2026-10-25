@@ -85,7 +85,7 @@
           <button class="btn btn--sm ops-btn ops-btn--inv" id="invBtn" type="button" title="Inventário: equipar, desequipar, vender (U)" aria-label="Inventário"><span class="inv-ico" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="hud-lbl">Inventário</span> <kbd>U</kbd></button>
         </span>
         <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
-        <button class="btn btn--sm" id="helpBtn" type="button">Controles</button>
+        <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
         <button class="btn btn--sm" id="saveBtn" type="button" title="Salvar o jogo na sua conta (Ctrl+S)">Salvar</button>
         <button class="btn btn--sm" id="menuBtn" type="button" title="Salvar e voltar ao Menu Principal">Menu</button>
       </div>
@@ -236,8 +236,15 @@
 
     <div class="overlay" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
       <div class="card card--modal card--narrow">
-        <p class="eyebrow-sm">Controles</p>
-        <h2 class="card__title card__title--sm" id="helpTitle">Como jogar</h2>
+        <p class="eyebrow-sm">Configurações</p>
+        <h2 class="card__title card__title--sm" id="helpTitle">Configurações e controles</h2>
+        <div class="settings">
+          <label class="setting" for="zoomSens">
+            <span class="setting__txt"><b>Sensibilidade do zoom</b><small>Roda do mouse, trackpad e pinça</small></span>
+            <span class="setting__ctl"><small>Devagar</small><input type="range" id="zoomSens" min="1" max="10" step="1" value="5"><small>Rápido</small><b id="zoomSensVal">5</b></span>
+          </label>
+        </div>
+        <p class="eyebrow-sm settings__sub">Controles</p>
         <ul class="controls">
           <li><span class="keys"><kbd>B</kbd></span><span>construção: salas, paredes, portas, equipamentos e móveis · <b>Temas</b> e <b>Estilo da sala</b> (piso, paredes, luz, RGB)</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span>equipe: selecione alguém e clique num computador</span></li>

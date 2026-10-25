@@ -730,13 +730,40 @@
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  // Smooth zoom: the wheel / trackpad moves a target and the scale glides to it every frame (zoomStep).
+  // At the default (5) it is deliberately slow: a full trackpad swipe (~300px) is about one zoom level.
+  // The player picks 1 (≈ ⅓ as fast) … 10 (≈ 4× as fast) in Configurações; it stays in this browser.
+  const SETTINGS_KEY = 'datalab.settings.v1';
+  const settings = { zoomSens: 5 };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) { /* defaults */ }
+  settings.zoomSens = Math.max(1, Math.min(10, Math.round(Number(settings.zoomSens) || 5)));
+  const zoomSens = () => (1 / 320) * Math.pow(2, (settings.zoomSens - 5) / 2.5);
+  const sensIn = $('zoomSens'), sensVal = $('zoomSensVal');
+  sensIn.value = sensVal.textContent = settings.zoomSens;
+  sensIn.addEventListener('input', () => {
+    settings.zoomSens = Number(sensIn.value);
+    sensVal.textContent = settings.zoomSens;
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ }
+  });
+  const zoomRange = () => [2 - scene.autoS, 3];
+  const wheelZ = { target: 0 };
   canvas.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (S.phase === 'intro') return;
-    const z = (scene.o.zoom || 0) + (ev.deltaY < 0 ? 1 : -1);
-    scene.o.zoom = Math.max(2 - scene.autoS, Math.min(3, z));
-    scene.resize();
+    // lines / pages → pixels; pinch-to-zoom (ctrlKey) sends small deltas, so it counts more
+    const unit = ev.deltaMode === 1 ? 33 : ev.deltaMode === 2 ? 400 : 1;
+    const d = Math.max(-120, Math.min(120, ev.deltaY * unit * (ev.ctrlKey ? 4 : 1)));
+    const [lo, hi] = zoomRange();
+    wheelZ.target = Math.max(lo, Math.min(hi, wheelZ.target - d * zoomSens()));
   }, { passive: false });
+  function zoomStep(dt) {
+    const z = scene.o.zoom || 0, [lo, hi] = zoomRange();
+    wheelZ.target = Math.max(lo, Math.min(hi, wheelZ.target));
+    if (Math.abs(wheelZ.target - z) < 0.002) return;
+    const k = reduced ? 1 : 1 - Math.exp(-dt * 14);
+    scene.o.zoom = Math.abs(wheelZ.target - z) < 0.01 ? wheelZ.target : z + (wheelZ.target - z) * k;
+    scene.S = Math.max(2, scene.autoS + scene.o.zoom);
+  }
 
   // touch joystick (explore mode)
   if (matchMedia('(hover: none) and (pointer: coarse)').matches) {
@@ -1040,6 +1067,7 @@
     if (S.phase !== 'intro') S.time += dt;
     updatePlayer(dt);
     camGlide(dt);
+    zoomStep(dt);
     S.target = canMove() ? findTarget() : null;
     crew.update(dt);
     if (S.phase !== 'intro') director.update(dt);

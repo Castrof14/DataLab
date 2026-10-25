@@ -374,6 +374,17 @@ html, body.demo { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .card__text { margin-top: var(--s-lg); font-size: 16px; line-height: 24px; color: var(--body); }
 .card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-md); margin-top: var(--s-2xl); }
 
+/* Configurações (top of the help card) */
+.settings { margin-top: var(--s-xl); border-top: 1px solid var(--hairline); }
+.setting { display: flex; align-items: center; justify-content: space-between; gap: var(--s-lg); flex-wrap: wrap; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+.setting__txt { display: flex; flex-direction: column; gap: 2px; }
+.setting__txt b { font-weight: 400; font-size: 14px; line-height: 20px; color: var(--ink); }
+.setting__txt small, .setting__ctl small { font-size: 12px; line-height: 16px; color: var(--mute); }
+.setting__ctl { display: inline-flex; align-items: center; gap: 8px; }
+.setting__ctl input { width: 140px; accent-color: var(--twilight); }
+.setting__ctl b { font: 400 12px/1 var(--font-mono); font-variant-numeric: tabular-nums; min-width: 18px; text-align: right; color: var(--ink); }
+.settings__sub { margin-top: var(--s-xl); }
+.settings__sub + .controls { margin-top: var(--s-sm); }
 .controls { list-style: none; margin: var(--s-xl) 0 0; padding: 0; border-top: 1px solid var(--hairline); }
 .controls li { display: flex; align-items: center; gap: var(--s-lg); padding: 10px 0; border-bottom: 1px solid var(--hairline); font-size: 14px; color: var(--body); }
 .controls .keys { display: inline-flex; gap: 4px; min-width: 112px; }
