@@ -839,6 +839,37 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
   60% { box-shadow: 0 0 0 6px rgba(126, 224, 161, 0); }
 }
 
+/* tutorial spotlight: green translucent screen with a hole over the control to click (clicks pass through) */
+.tut-spot {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  pointer-events: none;
+  background: rgba(18, 74, 44, 0.62);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s var(--ease-out), visibility 0.3s;
+}
+.tut-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 9001;
+  pointer-events: none;
+  border: 2px solid var(--signal);
+  border-radius: 8px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s var(--ease-out), visibility 0.3s;
+  animation: tut-ring 1.4s var(--ease) infinite;
+}
+.tut-spot.is-on, .tut-ring.is-on { opacity: 1; visibility: visible; }
+@keyframes tut-ring {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(126, 224, 161, 0.7), 0 0 18px rgba(126, 224, 161, 0.45); }
+  60% { box-shadow: 0 0 0 10px rgba(126, 224, 161, 0), 0 0 18px rgba(126, 224, 161, 0.45); }
+}
+@media (prefers-reduced-motion: reduce) { .tut-ring { animation: none; box-shadow: 0 0 18px rgba(126, 224, 161, 0.45); } }
+
 .room-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s-md); flex-wrap: wrap; }
 .room-tools { display: flex; gap: 4px; flex-wrap: wrap; }
 .room-lot { display: flex; align-items: center; gap: var(--s-sm); flex-wrap: wrap; }

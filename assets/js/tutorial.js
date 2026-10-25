@@ -49,6 +49,9 @@
 
     function pickItem(kind, label, where) {
       if (!inBuild()) return toBuild();
+      // once per item: open the catalog already on it (if the player lets go of it, point at it instead)
+      const auto = U.i + '|' + kind;
+      if (U.auto !== auto && sys.builder.choose) { U.auto = auto; sys.builder.choose(kind); }
       if (B().tab !== 'equip') return { act: 'Abra a aba <b>Equipamentos</b>', guide: '[data-tab="equip"]' };
       if (!B().def || B().def.id !== kind) return { act: 'Escolha <b>' + label + '</b> no catálogo', guide: '[data-def="' + kind + '"]' };
       return { act: where, guide: null };
@@ -219,6 +222,55 @@
       U.guide = node;
       if (node) node.classList.add('is-guide');
     }
+
+    // Spotlight: the screen goes green and translucent (the game still shows through) with a hole over the
+    // control to click and another over the tutorial card. It never takes clicks, so it can't block play.
+    const spot = document.createElement('div');
+    spot.className = 'tut-spot';
+    spot.setAttribute('aria-hidden', 'true');
+    const ring = document.createElement('div');
+    ring.className = 'tut-ring';
+    ring.setAttribute('aria-hidden', 'true');
+    document.body.append(spot, ring);
+
+    const hole = (r, pad, rad) => {
+      const x = r.left - pad, y = r.top - pad, w = r.width + pad * 2, h = r.height + pad * 2;
+      const k = Math.min(rad, w / 2, h / 2);
+      return 'M' + (x + k) + ' ' + y + 'H' + (x + w - k) + 'A' + k + ' ' + k + ' 0 0 1 ' + (x + w) + ' ' + (y + k) +
+        'V' + (y + h - k) + 'A' + k + ' ' + k + ' 0 0 1 ' + (x + w - k) + ' ' + (y + h) +
+        'H' + (x + k) + 'A' + k + ' ' + k + ' 0 0 1 ' + x + ' ' + (y + h - k) +
+        'V' + (y + k) + 'A' + k + ' ' + k + ' 0 0 1 ' + (x + k) + ' ' + y + 'Z';
+    };
+    const shown = (r) => r.width > 0 && r.height > 0 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+
+    // the part of the control actually on screen: scrolling panels clip it (else the hole shows empty panel)
+    function visibleRect(node) {
+      const b = node.getBoundingClientRect();
+      let l = b.left, t = b.top, rr = b.right, bb = b.bottom;
+      for (let p = node.parentElement; p && p !== document.body; p = p.parentElement) {
+        const cs = getComputedStyle(p);
+        if (cs.overflowX === 'visible' && cs.overflowY === 'visible') continue;
+        const c = p.getBoundingClientRect();
+        l = Math.max(l, c.left); t = Math.max(t, c.top); rr = Math.min(rr, c.right); bb = Math.min(bb, c.bottom);
+      }
+      return { left: l, top: t, right: rr, bottom: bb, width: Math.max(0, rr - l), height: Math.max(0, bb - t) };
+    }
+
+    function drawSpot() {
+      const node = U.on && !U.done && U.guide && U.guide.isConnected ? U.guide : null;
+      const r = node && visibleRect(node);
+      if (!r || !shown(r)) { spot.classList.remove('is-on'); ring.classList.remove('is-on'); return; }
+      let d = 'M0 0H' + innerWidth + 'V' + innerHeight + 'H0Z' + hole(r, 6, 8);
+      const c = el.card.hidden ? null : el.card.getBoundingClientRect();
+      if (c && shown(c)) d += hole(c, 0, 4);
+      spot.style.clipPath = "path(evenodd, '" + d + "')";
+      ring.style.transform = 'translate(' + (r.left - 6) + 'px,' + (r.top - 6) + 'px)';
+      ring.style.width = r.width + 12 + 'px';
+      ring.style.height = r.height + 12 + 'px';
+      spot.classList.add('is-on');
+      ring.classList.add('is-on');
+    }
+    (function loop() { drawSpot(); requestAnimationFrame(loop); })();
 
     function render(force) {
       const s = STEPS[U.i], h = s.how();
