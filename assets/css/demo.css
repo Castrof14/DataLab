@@ -934,6 +934,19 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
 .ops-empty { padding: var(--s-md) 0; font-size: 14px; line-height: 20px; color: var(--body); }
 .ops-empty .eyebrow-sm { margin-top: 6px; }
 .ops-panel__sub { margin-top: var(--s-lg); }
+
+/* player career (career.js): level badge on the Tarefas button + mission card on top of the panel */
+.ops-lvl { margin-left: 6px; padding: 1px 6px; border: 1px solid var(--pill-border); border-radius: var(--r-pill); font: 400 10px/14px var(--font-mono); letter-spacing: 0.6px; color: var(--breeze); }
+.career { margin-top: var(--s-md); padding: 12px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: var(--r-sm); background: #0e0e0f; }
+.career__head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.career__head b { font-weight: 400; font-size: 14px; line-height: 20px; color: var(--ink); }
+.career__mission { margin-top: 8px; font-size: 14px; line-height: 20px; color: var(--ink); }
+.career__mission .eyebrow-sm { display: block; margin-bottom: 2px; color: var(--breeze); }
+.career__bar { position: relative; height: 16px; margin-top: 8px; border-radius: var(--r-pill); background: var(--hairline); overflow: hidden; }
+.career__bar i { position: absolute; inset: 0; background: var(--signal); transform-origin: left; opacity: 0.55; transition: transform 0.4s var(--ease-out); }
+.career__bar .mono { position: relative; display: block; text-align: center; font: 400 10px/16px var(--font-mono); color: var(--ink); }
+.career__how { margin-top: 8px; font-size: 12px; line-height: 16px; color: var(--mute); }
+.career__crew { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hairline); font-size: 12px; line-height: 16px; color: var(--body); }
 .ops-log { margin-top: 8px; max-height: 140px; overflow-y: auto; border-top: 1px solid var(--hairline); }
 .ops-log li { display: flex; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--hairline); font-size: 12px; line-height: 16px; color: var(--body); }
 .ops-log li .mono { font: 400 11px/16px var(--font-mono); color: var(--mute); flex: none; }

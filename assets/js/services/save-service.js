@@ -63,7 +63,7 @@
       lot: Object.assign({}, W.lot), areas: W.areas.map((a) => ({ id: a.id, name: a.name, x: a.x, y: a.y, w: a.w, h: a.h, floor: a.floor, theme: a.theme || null })),
       walls: Array.from(W.wallSet || []), gaps: Array.from(W.gapsSeen || []), perf: Array.from(W.perf || []),
       rooms: W.rooms.map((r) => ({ id: r.id, name: r.name, type: r.type || null, theme: r.theme || null, style: r.style || null, floor: r.floor, x: r.x, y: r.y, w: r.w, h: r.h, n: r.n })),
-      items, crew, devices, links, vms, econ: D.economy.snapshot(),
+      items, crew, devices, links, vms, econ: D.economy.snapshot(), career: D.career ? D.career.snapshot() : null,
     };
   }
 
@@ -155,6 +155,7 @@
     }
     D.economy.restore(data.econ);
     if (opts.company) D.economy.applyServer(opts.company);
+    if (D.career) D.career.restore(data.career);
     const pl = D.player;
     pl.x = W.spawn.x; pl.y = W.spawn.y; pl.vx = pl.vy = 0;
     scene.cam.x = pl.x; scene.cam.y = pl.y;
