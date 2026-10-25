@@ -97,7 +97,9 @@
   const decor = DL.createDecor(G, builder);
   crew = DL.createCrew(G);
   const terminal = DL.createTerminal(G);
-  DL.devHooks = { terminal }; // DEV-AUTOPLAY: o botão Auto (assets/js/dev/dev-autoplay.js, só com ?dev=1) usa este console
+  DL.devHooks = { terminal }; // DEV-AUTOPLAY: o botão Auto (assets/js/dev/dev-autoplay.js) usa este console
+  // DEV-AUTOPLAY: carrega o botão Auto em desenvolvimento (localhost / file:// ou ?dev=1, lembrado; ?dev=0 desliga). Fica aqui e não inline no jogo.html por causa da CSP (script-src 'self'); o arquivo não vai para o deploy (.vercelignore)
+  (function () { const q = /[?&]dev=([01])(&|$)/.exec(location.search); let on = q ? q[1] === '1' : location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname); try { if (q) localStorage.setItem('datalab.dev', q[1]); const f = localStorage.getItem('datalab.dev'); if (!q && f) on = f === '1'; } catch (e) { /* storage blocked: the URL / host decide */ } if (on && !/[?&]hero/.test(location.search)) document.body.appendChild(Object.assign(document.createElement('script'), { src: 'assets/js/dev/dev-autoplay.js' })); })(); // DEV-AUTOPLAY
   const opsSys = { terminal, crew };
   const ops = DL.createOps(G, opsSys);
   G.ops = ops;

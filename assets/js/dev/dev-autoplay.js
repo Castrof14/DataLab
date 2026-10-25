@@ -4,7 +4,8 @@
    dicas e conclusão de passo são os de sempre — nada é marcado como feito por aqui).
    Os comandos vêm da mesma definição usada nas dicas e na ajuda: step.cmd (com a porta / IP / nome reais
    da instância) ou, sem ele, os exemplos das chaves de help do passo, em ordem.
-   Carregado só com ?dev=1 (jogo.html) e fora do deploy (.vercelignore).
+   Carregado pelo jogo.html só em desenvolvimento (localhost / file:// ou ?dev=1, lembrado; ?dev=0 desliga)
+   e fora do deploy (.vercelignore). Aparece ao lado de "Precisa de ajuda?" quando há um cenário aberto.
    Para remover: apague assets/js/dev/ e as linhas marcadas DEV-AUTOPLAY. */
 (function () {
   'use strict';
@@ -110,8 +111,9 @@
 
   /* ---------- controls (side panel, next to "Precisa de ajuda?") ---------- */
   const css = document.createElement('style');
-  css.textContent = '.dev-auto-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}' +
-    '.dev-auto{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px;padding:3px 6px;border:1px dashed #f2c14e;border-radius:6px}' +
+  // the side panel is narrow: the group takes what is left next to the help button and wraps inside itself
+  css.textContent = '.dev-auto-row{display:flex;align-items:flex-start;gap:8px}.dev-auto-row>.term__helpbtn{flex:none}' +
+    '.dev-auto{flex:1 1 0;min-width:0;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:4px 6px;border:1px dashed #f2c14e;border-radius:6px}' +
     '.dev-auto__tag{font:400 10px/1 var(--font-mono,monospace);letter-spacing:.8px;color:#f2c14e}' +
     '.dev-auto .btn{height:24px;padding:0 8px;font-size:12px}.dev-auto select{height:24px;padding:0 4px;border:1px solid rgba(255,255,255,.12);border-radius:4px;background:#0e0f11;color:#d6d8dc;font-size:12px}' +
     '.dev-auto__st{min-width:64px;font:400 11px/1 var(--font-mono,monospace);color:#8e9097}';
@@ -147,6 +149,8 @@
 
   function render() {
     const has = term.isOpen && !!term.lesson;
+    // only while a scenario (configuring / fixing equipment) is open in the console
+    ui.style.display = A.state === 'idle' && !has ? 'none' : '';
     play.textContent = A.state === 'run' ? '❚❚ Pausar' : A.state === 'pause' ? '▶ Continuar' : '▶ Auto';
     // play / next stay clickable (the console opens between two refreshes); without a scenario start() says so
     stop.disabled = A.state === 'idle';
