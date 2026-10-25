@@ -38,6 +38,7 @@
           if (!inBuild()) return toBuild();
           if (B().tab !== 'room') return { act: 'Abra a aba <b>Espaços</b>', guide: '[data-tab="room"]' };
           if (B().lotAsk) return { act: 'Confira o preço e clique em <b>Confirmar</b>', guide: '[data-room="lot-ok"]' };
+          if (B().roomTool !== 'select') return { act: 'Escolha a ferramenta <b>Selecionar</b>', guide: '[data-room-tool="select"]' };
           return { act: 'Clique em <b>+</b> na largura do <b>Terreno</b>', guide: '[data-room="lw+"]' };
         },
       },
@@ -87,7 +88,7 @@
       },
       {
         group: 'Técnico', title: 'Instale um servidor',
-        text: 'Servidor vai dentro do rack e precisa de um switch por perto. Com o primeiro servidor a empresa começa a operar: depois do tutorial, salários e infraestrutura passam a custar e servidores no ar geram receita.',
+        text: 'Servidor vai dentro do rack e precisa de um switch por perto. Com o primeiro servidor a empresa começa a operar: cada servidor no ar gera receita. Dinheiro só sai quando você compra algo ou contrata.',
         done: () => mine().some((d) => sys.ops.switchesNear(d).length),
         how() {
           const has = mine().length;
@@ -180,7 +181,7 @@
       el.group.textContent = 'Tutorial';
       el.step.textContent = 'Concluído';
       el.title.textContent = 'Esse é o seu datacenter.';
-      el.text.textContent = 'Agora a empresa está operando: servidores no ar geram receita, salários e infraestrutura custam (entrando aos poucos). Acompanhe lucro e despesas no card de finanças e resolva os problemas rápido — equipamento com problema não gera receita.';
+      el.text.textContent = 'Agora a empresa está operando: servidores no ar geram receita, e o caixa só diminui quando você compra algo ou contrata. Acompanhe o card de finanças e resolva os problemas rápido — equipamento com problema não gera receita.';
       el.act.innerHTML = '<kbd>B</kbd> construir · <kbd>C</kbd> equipe · <kbd>M</kbd> monitor · <kbd>T</kbd> tarefas';
       bars.forEach((b) => { b.classList.add('is-done'); b.classList.remove('is-current'); });
       el.skip.hidden = true;

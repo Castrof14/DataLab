@@ -62,7 +62,6 @@
       <a class="brand" href="index.html" aria-label="Voltar para a página inicial do DataLab">
         <span class="brand__mark" aria-hidden="true"></span>DataLab
       </a>
-      <span class="hud-chip eyebrow-sm hud-mode" id="hudMode" title="Modo de aprendizado (escolhido ao começar)"></span>
       <button class="me-btn" id="meBtn" type="button" title="Editar meu personagem (P)">
         <canvas id="meFace" aria-hidden="true"></canvas>
         <span class="me-btn__txt"><b id="meName">Você</b><span class="eyebrow-sm" id="meRole"></span></span>
@@ -88,7 +87,7 @@
           <button class="btn btn--sm ops-btn ops-btn--inv" id="invBtn" type="button" title="Inventário: equipar, desequipar, vender (U)" aria-label="Inventário"><span class="inv-ico" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="hud-lbl">Inventário</span> <kbd>U</kbd></button>
         </span>
         <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
-        <button class="btn btn--sm" id="helpBtn" type="button">Controles</button>
+        <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
         <button class="btn btn--sm" id="saveBtn" type="button" title="Salvar o jogo na sua conta (Ctrl+S)">Salvar</button>
         <button class="btn btn--sm" id="menuBtn" type="button" title="Salvar e voltar ao Menu Principal">Menu</button>
       </div>
@@ -132,14 +131,17 @@
           <button class="tab" type="button" role="tab" data-tab="room">Espaços</button>
           <button class="tab" type="button" role="tab" data-tab="equip">Equipamentos</button>
           <button class="tab" type="button" role="tab" data-tab="furn">Móveis</button>
-          <button class="tab" type="button" role="tab" data-tab="deco">Decoração</button>
-          <button class="tab" type="button" role="tab" data-tab="theme">Temas</button>
-          <button class="tab" type="button" role="tab" data-tab="style">Estilo da sala</button>
+          <button class="tab" type="button" role="tab" data-tab="deco" data-family="deco">Decoração</button>
         </div>
         <div class="tools" aria-label="Ferramentas">
-          <button class="tool" type="button" data-tool="select">Selecionar <kbd>V</kbd></button>
-          <button class="tool" type="button" data-tool="remove">Remover <kbd>X</kbd></button>
+          <button class="tool tool--icon" type="button" data-tool="select" title="Selecionar e mover (V)" aria-label="Selecionar (V)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2 L13 8.5 L8.6 9.4 L11 14 L9.2 14.8 L6.9 10.3 L3 13 Z" fill="currentColor"/></svg></button>
+          <button class="tool tool--icon" type="button" data-tool="remove" title="Remover (X)" aria-label="Remover (X)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5 H13 M6.5 4.5 V3 H9.5 V4.5 M4.5 4.5 L5.2 13.5 H10.8 L11.5 4.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
         </div>
+      </div>
+      <div class="subtabs" id="buildSub" hidden role="tablist" aria-label="Decoração">
+        <button class="subtab" type="button" role="tab" data-tab="deco">Itens</button>
+        <button class="subtab" type="button" role="tab" data-tab="theme">Temas</button>
+        <button class="subtab" type="button" role="tab" data-tab="style">Estilo da sala</button>
       </div>
       <div class="build__items" id="buildItems"></div>
       <div class="build__room" id="buildRoom" hidden></div>
@@ -221,8 +223,6 @@
         <p class="eyebrow-sm"><span class="dot dot--live"></span>&nbsp; Construção · Simulação · Aprendizado</p>
         <h1 class="card__title" id="introTitle">Esse é o seu datacenter.</h1>
         <p class="card__text">Construa do zero, contrate a equipe, instale servidores e configure tudo num terminal de verdade — com ajuda sempre que travar.</p>
-        <p class="eyebrow-sm intro-label">Modo de aprendizado</p>
-        <div class="start-opts start-opts--mode" id="modeChoices" role="radiogroup" aria-label="Modo de aprendizado"></div>
         <ol class="intro-steps" aria-label="O que o tutorial ensina">
           <li><b>Construção</b>Expandir, sala, rack, computador</li>
           <li><b>Equipe</b>Contratar e atribuir tarefa</li>
@@ -239,13 +239,20 @@
 
     <div class="overlay" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
       <div class="card card--modal card--narrow">
-        <p class="eyebrow-sm">Controles</p>
-        <h2 class="card__title card__title--sm" id="helpTitle">Como jogar</h2>
+        <p class="eyebrow-sm">Configurações</p>
+        <h2 class="card__title card__title--sm" id="helpTitle">Configurações e controles</h2>
+        <div class="settings">
+          <label class="setting" for="zoomSens">
+            <span class="setting__txt"><b>Sensibilidade do zoom</b><small>Roda do mouse, trackpad e pinça</small></span>
+            <span class="setting__ctl"><small>Devagar</small><input type="range" id="zoomSens" min="1" max="10" step="1" value="5"><small>Rápido</small><b id="zoomSensVal">5</b></span>
+          </label>
+        </div>
+        <p class="eyebrow-sm settings__sub">Controles</p>
         <ul class="controls">
           <li><span class="keys"><kbd>B</kbd></span><span>construção: salas, paredes, portas, equipamentos e móveis · <b>Temas</b> e <b>Estilo da sala</b> (piso, paredes, luz, RGB)</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span>equipe: selecione alguém e clique num computador</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span><b>Escalas</b> (painel da equipe): turno de cada pessoa, horários personalizados e plantonistas · 1 técnico + 1 atendente de plantão por turno</span></li>
-          <li><span class="keys"><kbd>$</kbd></span><span>cada pessoa tem salário próprio, pago todo mês (00:00 no relógio = virada do mês) · contratar custa metade de um salário</span></li>
+          <li><span class="keys"><kbd>$</kbd></span><span>sem custos fixos: não há salários, energia nem aluguel · o caixa só diminui quando você compra algo ou contrata (pagamento único)</span></li>
           <li><span class="keys"><kbd>N</kbd></span><span>contratar alguém para a equipe · <b>Cargos</b> (no painel da equipe): crie cargos novos, inclusive com IA</span></li>
           <li><span class="keys"><kbd>P</kbd></span><span>editar o meu personagem: aparência, cabelo, roupa, acessórios, nome e função</span></li>
           <li><span class="keys"><kbd>K</kbd></span><span>abrir / recolher o chat da equipe</span></li>
@@ -254,7 +261,7 @@
           <li><span class="keys"><kbd>I</kbd></span><span>Infra: especialização de cada servidor (Web, BD, Jogos, IA, DNS, E-mail…) e máquinas virtuais (criar, ligar, desligar, reiniciar, remover)</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span>no cartão de cada pessoa: <b>Estação</b> própria e <b>Setor</b> (sala onde fica) · o <b>Gerente</b> abre ordens de serviço e manda os técnicos instalarem e consertarem (Tarefas → Ordens)</span></li>
           <li><span class="keys"><kbd>Mouse</kbd></span><span>clique num funcionário → <b>Conversar</b>: pergunte sobre servidores, rede, problemas e finanças</span></li>
-          <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa (infraestrutura, terreno, salários) e, separados, créditos e Gold (moeda dourada) · câmbio de créditos em Gold</span></li>
+          <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa (compras, terreno, contratações) e, separados, créditos e Gold (moeda dourada) · câmbio de créditos em Gold</span></li>
           <li><span class="keys"><kbd>O</kbd></span><span>Loja: skins de racks, servidores, switches e storage, LEDs, roupas, cabelos, acessórios, itens especiais, itens de evento e bots lendários — tudo em Gold</span></li>
           <li><span class="keys"><kbd>U</kbd></span><span>Inventário: filtros por categoria e raridade, equipar / desequipar, usar, vender, ativar bots lendários · itens de evento ficam guardados</span></li>
           <li><span class="keys"><kbd>B</kbd></span><span>Espaços → <b>Terreno</b>: cada expansão mostra o preço antes de confirmar e fica mais cara conforme o terreno e a área construída crescem</span></li>
@@ -358,7 +365,7 @@
             <span class="term__lights" aria-hidden="true"><i></i><i></i><i></i></span>
             <span class="eyebrow-sm" id="termTitle">Console</span>
             <span class="eyebrow-sm term__where" id="termWhere"></span>
-            <span class="term__mode" id="termMode" aria-label="Modo de aprendizado"></span>
+            <span class="term__mode" id="termMode" aria-label="Modo de aprendizado" hidden></span>
             <button class="cc__x" id="termClose" type="button" aria-label="Fechar terminal">×</button>
           </div>
           <div class="term__out" id="termOut" aria-live="polite"></div>
@@ -539,6 +546,7 @@
   <script src="assets/js/tutorial.js"></script>
   <script src="assets/js/economy.js"></script>
   <script src="assets/js/director.js"></script>
+  <script src="assets/js/career.js"></script>
   <script src="assets/js/talk.js"></script>
   <script src="assets/js/helpdesk.js"></script>
   <script src="assets/js/netlab.js"></script>

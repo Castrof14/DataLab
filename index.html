@@ -1,241 +1,1633 @@
 <!doctype html>
-<html lang="pt-BR" class="no-js">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>DataLab — Opere um datacenter</title>
-  <meta name="description" content="DataLab é um jogo isométrico em que você caminha por um datacenter vivo, inspeciona equipamentos e resolve incidentes de rede — aprendendo infraestrutura no caminho.">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%221%22 width=%2214%22 height=%2214%22 rx=%223%22 fill=%22%230a0a0a%22 stroke=%22%23fff%22/%3E%3Crect x=%224%22 y=%227%22 width=%228%22 height=%222%22 fill=%22%23ff7a17%22/%3E%3C/svg%3E">
-  <meta name="theme-color" content="#0a0a0a">
+  <title>DataLab</title>
+  <meta name="description" content="DataLab é um jogo de simulação em pixel art: construa e opere um datacenter, contrate a equipe e resolva incidentes reais de redes e servidores, aprendendo TI no caminho.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%2305070d' d='M0 0h16v16H0z'/%3E%3Cpath fill='%2346506b' d='M3 1h10v14H3z'/%3E%3Cpath fill='%23141b2d' d='M4 2h8v2H4zM4 5h8v2H4zM4 8h8v2H4zM4 11h8v2H4z'/%3E%3Cpath fill='%233dffa2' d='M5 3h1v1H5zM5 6h1v1H5zM5 12h1v1H5zM7 6h1v1H7z'/%3E%3Cpath fill='%23ffb547' d='M5 9h1v1H5z'/%3E%3C/svg%3E">
+  <meta name="theme-color" content="#05070d">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono&family=Inter:wght@400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/base.css">
-  <link rel="stylesheet" href="assets/css/landing.css">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #05070d;
+      --navy: #0d1424;
+      --steel-1: #262f46;
+      --steel-2: #46506b;
+      --steel-3: #808ba6;
+      --steel-4: #c3ccd9;
+      --paper: #e6ecf5;
+      --green: #3dffa2;
+      --green-2: #1f9e66;
+      --green-3: #0f4a33;
+      --amber: #ffb547;
+      --u: 8px;      /* one pixel of the logo: Press Start 2P is drawn on an 8×8 grid */
+      color-scheme: dark;
+    }
+    @media (max-width: 899px) { :root { --u: 6px; } }
+    @media (max-width: 599px) { :root { --u: 5px; } }
+    @media (max-width: 359px) { :root { --u: 4px; } }
+    @media (min-width: 1400px) and (min-height: 820px) { :root { --u: 10px; } }
+    @media (max-height: 520px) { :root { --u: 5px; } }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+    body {
+      background: var(--ink);
+      color: var(--paper);
+      font: 16px/1.5 'Silkscreen', 'Press Start 2P', monospace;
+      overflow-x: hidden;
+      -webkit-font-smoothing: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    canvas, svg, img { image-rendering: crisp-edges; image-rendering: pixelated; }
+
+    /* ---------- the datacenter behind everything ---------- */
+    #dc { position: fixed; left: 0; top: 0; display: block; z-index: 0; }
+
+    /* ---------- CRT scanlines over the whole screen ---------- */
+    .crt {
+      position: fixed; inset: 0; z-index: 20; pointer-events: none;
+      background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, .22) 2px 3px);
+    }
+
+    /* ---------- title ---------- */
+    .title {
+      position: relative; z-index: 2;
+      height: 100vh; height: 100svh;   /* svh: keeps its height while a phone's toolbar slides away */
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 16px 16px max(9vh, 80px);
+      text-align: center;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .logo {
+      margin: 0 0 calc(var(--u) * 4);
+      padding-left: var(--u);   /* balances the trailing letter-spacing */
+      font: 400 calc(var(--u) * 8)/1 'Press Start 2P', monospace;
+      letter-spacing: var(--u);
+      color: var(--green);
+      text-shadow:
+        calc(var(--u) * -1) 0 var(--ink), var(--u) 0 var(--ink), 0 calc(var(--u) * -1) var(--ink),
+        0 var(--u) var(--green-2), calc(var(--u) * -1) var(--u) var(--ink), var(--u) var(--u) var(--ink),
+        0 calc(var(--u) * 2) var(--green-3), calc(var(--u) * -1) calc(var(--u) * 2) var(--ink), var(--u) calc(var(--u) * 2) var(--ink),
+        0 calc(var(--u) * 3) var(--ink),
+        var(--u) calc(var(--u) * 4) rgba(5, 7, 13, .7);
+    }
+    .tagline {
+      margin: 0;
+      color: var(--steel-4);
+      text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink), 2px 2px var(--ink);
+    }
+    .tagline span { display: inline-block; }
+
+    .menu { margin-top: clamp(28px, 8vh, 80px); }
+    .menu ul { list-style: none; margin: 0; padding: 0; display: inline-grid; gap: 6px; justify-items: start; }
+    .item {
+      display: inline-flex; align-items: center; gap: 16px;
+      padding: 8px 12px 8px 0;
+      font: 16px/1 'Press Start 2P', monospace;
+      color: var(--steel-3);
+      background: none; border: 0; border-radius: 0;
+      text-decoration: none; text-transform: uppercase;
+      cursor: pointer;
+      text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 -2px var(--ink), 0 2px var(--ink), 2px 2px var(--ink);
+    }
+    .item:focus { outline: none; }
+    .arrow { color: var(--green); visibility: hidden; }
+    .item.is-sel { color: var(--green); text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 -2px var(--ink), 0 2px var(--green-3), 2px 2px var(--ink), -2px 2px var(--ink), 0 4px var(--ink); }
+    .item.is-sel .arrow { visibility: visible; animation: blink 1s steps(1, end) infinite; }
+    .item.is-go { animation: blink .14s steps(1, end) 4; }
+
+    .press {
+      margin-top: clamp(20px, 6vh, 56px);
+      padding: 8px 12px;
+      font: 16px/1 'Press Start 2P', monospace;
+      color: var(--paper);
+      background: none; border: 0; border-radius: 0;
+      cursor: pointer;
+      text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 -2px var(--ink), 0 2px var(--ink), 2px 2px var(--ink);
+      animation: blink 1.4s steps(1, end) infinite;
+    }
+    .press:focus { outline: none; }
+    .t { display: none; }
+    .touch .k { display: none; }
+    .touch .t { display: inline; }
+
+    .foot {
+      position: absolute; left: 0; right: 0; bottom: 12px;
+      margin: 0; text-align: center;
+      font: 8px/1 'Silkscreen', monospace;
+      color: var(--steel-3);
+      text-shadow: 1px 0 var(--ink), -1px 0 var(--ink), 0 1px var(--ink), 0 -1px var(--ink);
+      pointer-events: none;
+    }
+
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* ---------- RPG dialog box ---------- */
+    /* the RPG window frame: a 4px edge, an ink outline with notched corners and a hard drop shadow */
+    .box, .panel {
+      background: var(--navy);
+      box-shadow:
+        0 -4px var(--edge), 0 4px var(--edge), -4px 0 var(--edge), 4px 0 var(--edge),
+        0 -8px var(--ink), 0 8px var(--ink), -8px 0 var(--ink), 8px 0 var(--ink),
+        -4px -4px var(--ink), 4px -4px var(--ink), -4px 4px var(--ink), 4px 4px var(--ink),
+        8px 12px rgba(5, 7, 13, .8), 12px 8px rgba(5, 7, 13, .8);
+    }
+    .box {
+      --edge: var(--paper);
+      width: min(520px, calc(100vw - 48px));
+      max-height: calc(100dvh - 48px);
+      margin: auto; padding: 24px 28px 20px;
+      border: 0; border-radius: 0;
+      color: var(--paper);
+      text-align: left;
+      overflow: visible;
+    }
+    .box[open] { animation: unfold .2s steps(4, end); }
+    .box::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(to bottom, transparent 0 2px, rgba(0, 0, 0, .18) 2px 3px);
+    }
+    .box::backdrop {
+      background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath fill='%2305070d' d='M0 0h2v2H0zM2 2h2v2H2z'/%3E%3C/svg%3E"),
+        rgba(5, 7, 13, .45);
+    }
+    @keyframes unfold { from { clip-path: inset(50% 0); } to { clip-path: inset(-16px); } }
+    .box h2 {
+      margin: 0 0 20px;
+      font: 16px/1 'Press Start 2P', monospace;
+      color: var(--green);
+      text-shadow: 0 2px var(--green-3);
+    }
+    .box p { margin: 0 0 12px; }
+    .box .dim { color: var(--steel-3); }
+    .keys { display: grid; grid-template-columns: max-content 1fr; gap: 14px 20px; align-items: center; margin: 0 0 8px; }
+    .keys div { display: contents; }
+    .keys dt { display: flex; gap: 8px; }
+    .keys dd { margin: 0; }
+    kbd {
+      display: inline-block; min-width: 24px; padding: 4px 6px 2px; margin: 2px 2px 6px;
+      font: 16px/1 'Silkscreen', monospace; text-align: center;
+      color: var(--paper);
+      background: var(--steel-1);
+      box-shadow:
+        inset 0 2px var(--steel-2),
+        0 -2px var(--ink), 0 2px var(--ink), -2px 0 var(--ink), 2px 0 var(--ink),
+        0 4px var(--ink);
+    }
+    .ok {
+      display: flex; align-items: center; gap: 10px;
+      margin: 16px 0 0 auto; padding: 6px 0 6px 12px;
+      font: 8px/1 'Press Start 2P', monospace;
+      color: var(--steel-4);
+      background: none; border: 0; border-radius: 0;
+      cursor: pointer;
+    }
+    .ok:focus { outline: none; }
+    .ok svg { width: 10px; height: 6px; color: var(--green); animation: blink 1s steps(1, end) infinite; }
+
+    /* ---------- leaving for the game: a 4-step fade to black ---------- */
+    .fade { position: fixed; inset: 0; z-index: 30; background: var(--ink); opacity: 0; pointer-events: none; }
+    .leaving .fade { animation: fadeout .4s steps(4, end) forwards; }
+    @keyframes fadeout { to { opacity: 1; } }
+
+    /* ================= the presentation below the title ================= */
+    /* the datacenter stays behind the whole page; scrolling dims it in four steps */
+    .shade {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
+      background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath fill='%2305070d' d='M0 0h2v2H0zM2 2h2v2H2z'/%3E%3C/svg%3E"),
+        rgba(5, 7, 13, .62);
+    }
+    .more {
+      position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 8px;
+      font: 8px/1 'Press Start 2P', monospace;
+      color: var(--steel-4); text-decoration: none; white-space: nowrap;
+      text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink);
+    }
+    .more svg { width: 15px; height: 9px; color: var(--green); animation: nudge 1.2s steps(1, end) infinite; }
+    .more:hover { color: var(--paper); }
+    .more:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+    @keyframes nudge { 50% { transform: translateY(4px); } }
+
+    /* ---------- top bar, once the title has scrolled away ---------- */
+    .top {
+      position: fixed; left: 0; right: 0; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 24px;
+      padding: 12px max(16px, calc((100% - 1080px) / 2));
+      background: var(--ink);
+      box-shadow: 0 4px var(--steel-1), 0 8px rgba(5, 7, 13, .6);
+      transform: translateY(calc(-100% - 8px)); visibility: hidden;
+      transition: transform .24s steps(3, end), visibility 0s linear .24s;
+    }
+    .is-past .top { transform: none; visibility: visible; transition: transform .24s steps(3, end); }
+    .top__logo {
+      margin-right: auto;
+      font: 16px/1 'Press Start 2P', monospace; color: var(--green); text-decoration: none;
+      text-shadow: 0 2px var(--green-3);
+    }
+    .top__nav { display: flex; gap: 20px; }
+    .top__nav a { font: 16px/1 'Silkscreen', monospace; color: var(--steel-3); text-decoration: none; }
+    .top__nav a:hover, .top__nav a:focus-visible { color: var(--paper); outline: none; }
+
+    /* ---------- pixel button ---------- */
+    .pxbtn {
+      display: inline-flex; align-items: center; gap: 14px;
+      padding: 16px 20px 18px;
+      font: 16px/1 'Press Start 2P', monospace; text-transform: uppercase; text-decoration: none;
+      color: var(--ink); background: var(--green);
+      box-shadow:
+        inset 0 -4px var(--green-2), inset 0 4px #8cffc8,
+        0 -4px var(--ink), 0 4px var(--ink), -4px 0 var(--ink), 4px 0 var(--ink), 4px 8px rgba(5, 7, 13, .8);
+    }
+    .pxbtn svg { width: 9px; height: 15px; }
+    .pxbtn:hover { background: #6effba; }
+    .pxbtn:active { transform: translateY(4px); box-shadow: inset 0 4px var(--green-2), 0 -4px var(--ink), 0 4px var(--ink), -4px 0 var(--ink), 4px 0 var(--ink); }
+    .pxbtn:focus-visible { outline: 4px solid var(--paper); outline-offset: 8px; }
+    .pxbtn--sm { padding: 10px 12px 12px; font-size: 8px; gap: 8px; box-shadow: inset 0 -2px var(--green-2), 0 -2px var(--ink), 0 2px var(--ink), -2px 0 var(--ink), 2px 0 var(--ink); }
+    .pxbtn--sm:active { transform: translateY(2px); box-shadow: 0 -2px var(--ink), 0 2px var(--ink), -2px 0 var(--ink), 2px 0 var(--ink); }
+
+    /* ---------- sections ---------- */
+    .sec {
+      position: relative; z-index: 2;
+      width: min(1080px, 100% - 32px); margin: 0 auto;
+      padding-top: 128px;
+      scroll-margin-top: 24px;
+    }
+    .sec:focus { outline: none; }
+    .eyebrow {
+      margin: 0 0 16px;
+      font: 16px/1 'Silkscreen', monospace; text-transform: uppercase;
+      color: var(--amber);
+      text-shadow: 2px 2px var(--ink);
+    }
+    .h2 {
+      --hp: 3px;   /* one pixel of the heading font */
+      margin: 0 0 32px; max-width: 24em;
+      font: 400 calc(var(--hp) * 8)/1.5 'Press Start 2P', monospace; text-transform: uppercase;
+      color: var(--green);
+      text-shadow: 0 var(--hp) var(--green-3), 0 calc(var(--hp) * 2) var(--ink), var(--hp) calc(var(--hp) * 2) var(--ink);
+    }
+    .copy { font: 24px/1.2 'VT323', monospace; color: var(--steel-4); text-shadow: 2px 2px var(--ink); }
+    .copy p { margin: 0 0 16px; max-width: 52ch; }
+    .copy strong { font-weight: 400; color: var(--paper); }
+    .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+
+    .panel { --edge: var(--steel-2); position: relative; margin: 8px; }
+    .bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 14px;
+      font: 8px/1 'Press Start 2P', monospace; text-transform: uppercase;
+      color: var(--steel-4); background: var(--steel-1);
+      box-shadow: inset 0 -2px var(--ink);
+    }
+    .live { display: inline-flex; align-items: center; gap: 8px; color: var(--green); white-space: nowrap; }
+    .live--warn { color: var(--amber); }
+    .led { width: 6px; height: 6px; background: currentColor; box-shadow: 0 0 0 2px var(--ink); animation: blink 1s steps(1, end) infinite; }
+
+    /* 01 · the game */
+    .spec { margin-top: 8px; padding: 8px 20px; }
+    .spec div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; padding: 12px 0; box-shadow: 0 2px var(--steel-1); }
+    .spec div:last-child { box-shadow: none; }
+    .spec dt { font: 8px/24px 'Press Start 2P', monospace; color: var(--steel-3); text-transform: uppercase; }
+    .spec dd { margin: 0; font: 24px/1 'VT323', monospace; color: var(--paper); }
+    .screen { margin-top: 64px; }
+    .screen__view { position: relative; aspect-ratio: 16 / 9; background: #060709; overflow: hidden; }
+    .screen__view iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; opacity: 0; }
+    .screen.is-on iframe { opacity: 1; }
+    .screen__wait {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      font: 8px/1 'Press Start 2P', monospace; color: var(--steel-3);
+      animation: blink 1s steps(1, end) infinite;
+    }
+    .screen.is-on .screen__wait { display: none; }
+    .cap { margin: 20px 8px 0; font: 20px/1.2 'VT323', monospace; color: var(--steel-3); text-shadow: 2px 2px var(--ink); }
+
+    /* 02 · how it plays */
+    .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+    .step { padding: 20px 20px 24px; }
+    .step__icon { display: block; width: 48px; height: 48px; margin-bottom: 20px; }
+    .step__icon svg { display: block; width: 100%; height: 100%; }
+    .step h3 { margin: 0 0 14px; font: 400 16px/1.25 'Press Start 2P', monospace; text-transform: uppercase; color: var(--paper); }
+    .step h3 b { font-weight: 400; color: var(--amber); }
+    .step p { margin: 0; font: 22px/1.15 'VT323', monospace; color: var(--steel-4); }
+
+    /* 03 · learning */
+    .learn { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 40px; align-items: start; margin-top: 16px; }
+    .term__out {
+      padding: 16px 20px 20px;
+      font: 20px/1.2 'VT323', monospace; color: var(--steel-4);
+      background: var(--ink);
+    }
+    .ln { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ln--cmd::before { content: 'admin@srv-03:~$ '; color: var(--green); }
+    .ln--cmd { color: var(--paper); }
+    .ln--alert, .ln--warn { color: var(--amber); }
+    .ln--ok, .ln--done { color: var(--green); }
+    .ln.wait { visibility: hidden; }
+    .ln.typing .rest { visibility: hidden; }
+    .cur { display: inline-block; width: 10px; height: 18px; margin-right: -10px; vertical-align: -3px; background: var(--green); animation: blink 1s steps(1, end) infinite; }
+    .modes { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 28px 8px 0; }
+    .chip {
+      padding: 8px 10px 6px;
+      font: 8px/1 'Press Start 2P', monospace; text-transform: uppercase; color: var(--paper);
+      background: var(--steel-1);
+      box-shadow: inset 0 2px var(--steel-2), 0 -2px var(--ink), 0 2px var(--ink), -2px 0 var(--ink), 2px 0 var(--ink);
+    }
+    .modes p { flex-basis: 100%; margin: 6px 0 0; font: 20px/1.2 'VT323', monospace; color: var(--steel-3); text-shadow: 2px 2px var(--ink); }
+    .tools { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 22px; }
+    .tools li { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 4px 16px; }
+    .tools i { grid-row: span 2; width: 8px; height: 8px; margin-top: 4px; background: var(--c); box-shadow: 0 0 0 2px var(--ink); }
+    .tools strong { font: 400 16px/1 'Silkscreen', monospace; text-transform: uppercase; color: var(--paper); text-shadow: 2px 2px var(--ink); }
+    .tools span { font: 20px/1.15 'VT323', monospace; color: var(--steel-4); text-shadow: 2px 2px var(--ink); }
+
+    /* 04 · the crew */
+    .crew { list-style: none; margin: 32px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+    .mate { padding: 20px 16px 18px; text-align: center; }
+    .mate canvas { display: block; width: 56px; height: 120px; margin: 0 auto; }
+    .mate__floor {
+      height: 8px; margin: 0 -16px 16px;
+      background: repeating-conic-gradient(var(--steel-1) 0 25%, #1c2438 0 50%) 0 0 / 8px 8px;
+      box-shadow: inset 0 2px var(--steel-2);
+    }
+    .mate h3 { margin: 0 0 8px; font: 400 8px/1.5 'Press Start 2P', monospace; text-transform: uppercase; color: var(--role); }
+    .mate p { margin: 0; font: 20px/1.1 'VT323', monospace; color: var(--steel-4); }
+
+    /* 05 · career */
+    .xp { display: flex; align-items: center; gap: 12px; padding: 18px 20px 6px; font: 8px/1 'Press Start 2P', monospace; color: var(--steel-3); }
+    .xp__bar { flex: 1; height: 12px; background: var(--ink); box-shadow: 0 0 0 2px var(--steel-2); }
+    .xp__bar i { display: block; width: 35%; height: 100%; background: repeating-linear-gradient(90deg, var(--green) 0 8px, var(--green-2) 8px 10px); }
+    .quest ol { list-style: none; margin: 0; padding: 4px 20px 12px; }
+    .quest li { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 4px 8px; padding: 12px 0; box-shadow: 0 2px var(--steel-1); }
+    .quest li:last-child { box-shadow: none; }
+    .quest b { grid-row: span 2; font: 400 8px/16px 'Press Start 2P', monospace; color: var(--steel-3); }
+    .quest strong { font: 400 16px/1 'Silkscreen', monospace; color: var(--paper); }
+    .quest span { font: 20px/1.1 'VT323', monospace; color: var(--steel-4); }
+    .quest .now b { color: var(--green); }
+    .quest .now b::before { content: '>'; margin-right: 6px; animation: blink 1s steps(1, end) infinite; }
+
+    /* 06 · call to play */
+    .cta { padding-top: 160px; text-align: center; }
+    .cta .h2 { margin-left: auto; margin-right: auto; }
+    .cta .copy p { margin: 0 auto 40px; max-width: 40ch; }
+    .keysline { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; margin: 48px 0 0; font: 16px/1 'Silkscreen', monospace; color: var(--steel-3); text-shadow: 2px 2px var(--ink); }
+    .keysline span { display: inline-flex; align-items: center; gap: 6px; }
+    .page-foot {
+      position: relative; z-index: 2;
+      margin: 0; padding: 96px 16px 32px; text-align: center;
+      font: 8px/1 'Silkscreen', monospace; color: var(--steel-3);
+    }
+
+    /* panels step in as they reach the screen (only with motion, and only once the script runs) */
+    .rv-on .rv { opacity: 0; }
+    .rv-on .rv.in { opacity: 1; animation: stepin .32s steps(4, end); }
+    @keyframes stepin { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+    @media (max-width: 1023px) {
+      .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 959px) {
+      .top__nav { display: none; }
+    }
+    @media (max-width: 899px) {
+      .split, .learn { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+      .crew { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 599px) {
+      .menu ul { gap: 4px; }
+      .box { padding: 20px 20px 16px; }
+      .keys { gap: 12px 14px; }
+      .sec { padding-top: 96px; }
+      .h2 { --hp: 2px; margin-bottom: 24px; }
+      .copy { font-size: 21px; }
+      .steps { grid-template-columns: minmax(0, 1fr); }
+      .screen { margin-top: 40px; }
+      .screen__view { aspect-ratio: 4 / 3; }
+      .spec div { grid-template-columns: 96px minmax(0, 1fr); }
+      .term__out { padding: 12px 14px 16px; font-size: 18px; }
+      .crew { gap: 16px; }
+      .mate { padding: 16px 10px 14px; }
+      .mate__floor { margin: 0 -10px 14px; }
+      .cta { padding-top: 128px; }
+    }
+    @media (max-height: 520px) {
+      .more { display: none; }
+      .title { padding-bottom: 32px; }
+      .logo { margin-bottom: calc(var(--u) * 3); }
+      .menu { margin-top: 16px; }
+      .menu ul { gap: 0; }
+      .press { margin-top: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation: none !important; transition: none !important; }
+    }
+  </style>
 </head>
 <body>
-  <header class="nav" id="nav">
-    <div class="container nav__inner">
-      <a class="brand" href="#top" aria-label="DataLab — início"><span class="brand__mark" aria-hidden="true"></span>DataLab</a>
-      <nav class="nav__links" aria-label="Seções">
-        <a href="#conceito">Conceito</a>
-        <a href="#datacenter">Datacenter</a>
-        <a href="#aprender">Aprender</a>
-        <a href="#construir">Construir</a>
-      </nav>
-      <a class="btn btn--primary btn--sm" href="jogo.html">Entrar</a>
-    </div>
+  <canvas id="dc" aria-hidden="true"></canvas>
+  <div class="shade" aria-hidden="true"></div>
+
+  <header class="top">
+    <a class="top__logo" href="#title">DATALAB</a>
+    <nav class="top__nav" aria-label="Seções">
+      <a href="#sobre">O jogo</a>
+      <a href="#como">Como se joga</a>
+      <a href="#aprenda">Aprenda</a>
+      <a href="#equipe">Equipe</a>
+      <a href="#carreira">Carreira</a>
+    </nav>
+    <a class="pxbtn pxbtn--sm" href="jogo.html" data-play>Jogar</a>
   </header>
 
-  <main id="top">
-    <!-- HERO -->
-    <section class="hero">
-      <div class="container">
-        <p class="eyebrow hero__eyebrow reveal"><span class="dot dot--live"></span>Pré-alpha · v0.9</p>
-        <h1 class="display-xl hero__title reveal">Opere um datacenter.<br><span class="mute">Um rack de cada vez.</span></h1>
-        <div class="hero__row reveal">
-          <p class="lead">DataLab é um jogo isométrico em que você caminha por um datacenter vivo, inspeciona equipamentos de verdade e resolve incidentes de rede — aprendendo infraestrutura no caminho.</p>
-          <div class="hero__ctas">
-            <a class="btn btn--primary btn--lg" href="jogo.html">Entrar e jogar <span class="arrow">→</span></a>
-            <a class="btn btn--lg" href="#conceito">Ver o conceito</a>
+  <main>
+    <section class="title" id="title">
+      <h1 class="logo">DATALAB</h1>
+      <p class="tagline"><span>Opere um datacenter.</span> <span>Um rack de cada vez.</span></p>
+
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a class="item is-sel" href="jogo.html"><span class="arrow" aria-hidden="true">&gt;</span>Jogar</a></li>
+          <li><a class="item" href="#sobre"><span class="arrow" aria-hidden="true">&gt;</span>Sobre o jogo</a></li>
+          <li><button class="item" type="button" data-box="howto" aria-haspopup="dialog"><span class="arrow" aria-hidden="true">&gt;</span>Como jogar</button></li>
+          <li><button class="item" type="button" data-box="credits" aria-haspopup="dialog"><span class="arrow" aria-hidden="true">&gt;</span>Créditos</button></li>
+        </ul>
+      </nav>
+
+      <button class="press" id="press" type="button"><span class="k">PRESSIONE ENTER</span><span class="t">TOQUE PARA COMEÇAR</span></button>
+
+      <a class="more" href="#sobre">CONHEÇA O JOGO<svg viewBox="0 0 5 3" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h5v1H0zM1 1h3v1H1zM2 2h1v1H2z"/></svg></a>
+      <p class="foot">v0.9 · acesso antecipado</p>
+    </section>
+
+    <!-- 01 · what the game is, and the real game running -->
+    <section class="sec" id="sobre" aria-labelledby="sobre-t" tabindex="-1">
+      <div class="split">
+        <div class="rv">
+          <p class="eyebrow">01 · O jogo</p>
+          <h2 class="h2" id="sobre-t">Um datacenter inteiro nas suas mãos</h2>
+          <div class="copy">
+            <p>O <strong>DataLab</strong> é um jogo de simulação em pixel art. Você constrói um datacenter do zero, contrata uma equipe e mantém tudo funcionando: servidores no ar, clientes atendidos e a empresa crescendo.</p>
+            <p>Quando algo quebra, é você quem investiga, no monitoramento, no terminal e nos cabos. E, sem perceber, aprende infraestrutura de TI de verdade.</p>
           </div>
         </div>
+        <dl class="spec panel rv">
+          <div><dt>Gênero</dt><dd>Simulação e gestão</dd></div>
+          <div><dt>Visual</dt><dd>Isométrico, em pixel art</dd></div>
+          <div><dt>Onde</dt><dd>No navegador, sem instalar nada</dd></div>
+          <div><dt>Progresso</dt><dd>Salvo na sua conta</dd></div>
+          <div><dt>Versão</dt><dd>0.9 · acesso antecipado</dd></div>
+        </dl>
       </div>
-      <div class="container">
-        <figure class="stage reveal" aria-label="Prévia ao vivo do datacenter DC-01">
-          <!-- the real game in showcase mode (jogo.html?hero, assets/js/hero.js): always matches the current look -->
-          <iframe id="heroFrame" src="jogo.html?hero" title="Prévia ao vivo do DataLab" tabindex="-1" aria-hidden="true"></iframe>
-          <div class="stage__shade" aria-hidden="true"></div>
-          <figcaption class="stage__hud" aria-hidden="true">
-            <span class="eyebrow-sm stage__tl">DC-01 · Salão de servidores</span>
-            <span class="eyebrow-sm stage__tr"><span class="dot dot--live"></span>Ao vivo · <span id="heroClock">02:14</span></span>
-            <span class="eyebrow-sm stage__bl">4 salas · 30 racks · 8 técnicos</span>
-            <a class="btn btn--sm stage__br" href="jogo.html" tabindex="-1">Entrar na sala <span class="arrow">→</span></a>
-          </figcaption>
-        </figure>
-      </div>
+
+      <figure class="screen panel rv" id="live">
+        <div class="bar"><span>DC-01 · Datacenter médio</span><span class="live"><i class="led"></i>Ao vivo</span></div>
+        <div class="screen__view">
+          <span class="screen__wait">Carregando...</span>
+          <!-- jogo.html?hero (assets/js/hero.js): the real game as a silent showcase, loaded when it comes near -->
+          <iframe data-src="jogo.html?hero" title="O DataLab rodando ao vivo" tabindex="-1" aria-hidden="true"></iframe>
+        </div>
+      </figure>
+      <p class="cap rv">Este é o próprio jogo rodando: um datacenter médio com a equipe em pleno turno.</p>
     </section>
 
-    <!-- CONCEITO -->
-    <section class="band" id="conceito">
-      <div class="container">
-        <div class="band__head reveal">
-          <p class="eyebrow">01 — Conceito</p>
-          <h2 class="display-md">Infraestrutura que você atravessa andando.</h2>
-          <p class="lead">Diagramas e slides explicam redes. O DataLab coloca você dentro delas: cada rack tem calor, consumo e cabos — e cada problema tem um lugar físico onde ser resolvido.</p>
-        </div>
-        <div class="grid-3">
-          <article class="card reveal">
-            <span class="eyebrow-sm">01</span>
-            <h3 class="display-xs">Explore</h3>
-            <p>Caminhe pelo salão, pelo corredor frio e pelo NOC. O datacenter é um lugar, não um menu.</p>
-            <div class="card__glyph" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          </article>
-          <article class="card reveal">
-            <span class="eyebrow-sm">02</span>
-            <h3 class="display-xs">Diagnostique</h3>
-            <p>Leia temperatura, energia, portas e logs. Descubra se o problema é software, hardware ou um cabo solto.</p>
-            <div class="card__glyph card__glyph--wave" aria-hidden="true"><svg viewBox="0 0 120 28" preserveAspectRatio="none"><path d="M0 18 L18 18 L26 6 L34 22 L42 14 L60 14 L68 18 L80 18 L88 4 L96 24 L104 16 L120 16"/></svg></div>
-          </article>
-          <article class="card reveal">
-            <span class="eyebrow-sm">03</span>
-            <h3 class="display-xs">Construa</h3>
-            <p>Monte sua sala, escolha equipamentos e personalize seu técnico. O datacenter cresce com você.</p>
-            <div class="card__glyph card__glyph--grid" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          </article>
-        </div>
-      </div>
+    <!-- 02 · the loop -->
+    <section class="sec" id="como" aria-labelledby="como-t" tabindex="-1">
+      <p class="eyebrow rv">02 · Como se joga</p>
+      <h2 class="h2 rv" id="como-t">Construa. Contrate. Opere. Resolva.</h2>
+      <ol class="steps">
+        <li class="step panel rv">
+          <span class="step__icon" data-icon="rack"></span>
+          <h3><b>1</b> Construa</h3>
+          <p>Comece do zero ou de um modelo pronto: escritório, NOC ou datacenter. Desenhe salas, paredes e portas e instale racks, servidores, switches, mesas e ar-condicionado.</p>
+        </li>
+        <li class="step panel rv">
+          <span class="step__icon" data-icon="hire"></span>
+          <h3><b>2</b> Contrate</h3>
+          <p>Monte a equipe e personalize cada pessoa. Todo mundo tem cargo, turno e habilidades, trabalha sozinho e sobe de nível com a experiência.</p>
+        </li>
+        <li class="step panel rv">
+          <span class="step__icon" data-icon="chart"></span>
+          <h3><b>3</b> Opere</h3>
+          <p>Servidor online gera receita, e o dinheiro só sai quando você compra: equipamentos, móveis, terreno e contratações. Cumpra contratos de clientes e faça a empresa crescer.</p>
+        </li>
+        <li class="step panel rv">
+          <span class="step__icon" data-icon="alert"></span>
+          <h3><b>4</b> Resolva</h3>
+          <p>Cabos se soltam, portas caem, serviços param e discos enchem. O monitoramento acusa, a equipe avisa e você decide quem resolve.</p>
+        </li>
+      </ol>
     </section>
 
-    <!-- DATACENTER -->
-    <section class="band" id="datacenter">
-      <div class="container split">
-        <div class="split__text reveal">
-          <p class="eyebrow">02 — O datacenter</p>
-          <h2 class="display-md">Cada equipamento tem estado, calor e consumo.</h2>
-          <p class="lead">A sala DC-01 é pequena de propósito: tudo que existe nela pode ser inspecionado, e tudo que você vê está conectado a alguma coisa.</p>
-          <dl class="spec">
-            <div><dt class="eyebrow-sm">Racks</dt><dd>Servidores 1U com telemetria ao vivo</dd></div>
-            <div><dt class="eyebrow-sm">Switches</dt><dd>Acesso top-of-rack e core de agregação</dd></div>
-            <div><dt class="eyebrow-sm">Roteador</dt><dd>Borda com a internet, duas operadoras</dd></div>
-            <div><dt class="eyebrow-sm">Clima e energia</dt><dd>Ar de precisão, corredor frio, nobreak</dd></div>
-            <div><dt class="eyebrow-sm">NOC</dt><dd>Painel e estações que acusam os incidentes</dd></div>
-          </dl>
-        </div>
-        <div class="split__media reveal">
-          <div class="card card--flush showcase">
-            <div class="showcase__stage">
-              <canvas id="lineupCanvas" aria-label="Equipamentos do DataLab em pixel art"></canvas>
-            </div>
-            <div class="showcase__labels eyebrow-sm" aria-hidden="true">
-              <span>Rack</span><span>Switch</span><span>Roteador</span><span>Storage</span><span>Clima</span>
-            </div>
-            <div class="telemetry">
-              <div class="telemetry__head">
-                <div>
-                  <span class="eyebrow-sm">Rack de servidores</span>
-                  <p class="telemetry__title">RACK-A03</p>
-                </div>
-                <span class="pill-status"><span class="dot"></span>Operacional</span>
-              </div>
-              <div class="telemetry__grid">
-                <div><span class="eyebrow-sm">Temperatura</span><p><span id="telTemp">28.4</span><small>°C</small></p><canvas id="telSpark"></canvas></div>
-                <div><span class="eyebrow-sm">Energia</span><p><span id="telPower">4.12</span><small>kW</small></p><canvas id="telSpark2"></canvas></div>
-                <div><span class="eyebrow-sm">Conexão</span><p class="sm">2×10 Gb/s via SW-ACC-A</p></div>
-              </div>
+    <!-- 03 · what the player learns -->
+    <section class="sec" id="aprenda" aria-labelledby="aprenda-t" tabindex="-1">
+      <p class="eyebrow rv">03 · Aprenda fazendo</p>
+      <h2 class="h2 rv" id="aprenda-t">Cada incidente é uma aula disfarçada</h2>
+      <div class="copy rv"><p>As ferramentas imitam as de verdade: os comandos que você digita no jogo são os mesmos de um servidor real. O monitoramento acusa, você investiga e corrige.</p></div>
+      <div class="learn">
+        <div class="rv">
+          <div class="term panel">
+            <div class="bar"><span>Console · SRV-03 · RACK-N01</span><span class="live live--warn"><i class="led"></i>Incidente</span></div>
+            <div class="term__out" id="term">
+              <span class="ln ln--alert">[!] Monitor: SRV-03 parou de responder</span>
+              <span class="ln ln--cmd">ip link</span>
+              <span class="ln">1: lo: mtu 65536 state UNKNOWN</span>
+              <span class="ln ln--warn">2: eth0: mtu 1500 state DOWN</span>
+              <span class="ln ln--cmd">sudo ip link set eth0 up</span>
+              <span class="ln ln--cmd">ping -c 3 10.0.1.1</span>
+              <span class="ln">PING 10.0.1.1 56(84) bytes of data.</span>
+              <span class="ln">64 bytes from 10.0.1.1: icmp_seq=1 ttl=64 time=0.41 ms</span>
+              <span class="ln">64 bytes from 10.0.1.1: icmp_seq=2 ttl=64 time=0.38 ms</span>
+              <span class="ln">64 bytes from 10.0.1.1: icmp_seq=3 ttl=64 time=0.52 ms</span>
+              <span class="ln ln--ok">3 packets transmitted, 3 received, 0% packet loss</span>
+              <span class="ln ln--done">[OK] Incidente resolvido. SRV-03 online.</span>
             </div>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- APRENDER -->
-    <section class="band" id="aprender">
-      <div class="container">
-        <div class="band__head reveal">
-          <p class="eyebrow">03 — Aprenda fazendo</p>
-          <h2 class="display-md">Redes deixam de ser abstratas quando você vê o cabo solto.</h2>
-          <p class="lead">Cada incidente é uma aula disfarçada. Você lê a topologia, segue o caminho do tráfego e encontra o ponto exato onde ele para.</p>
-        </div>
-        <div class="split split--wide">
-          <div class="card card--flush topology reveal">
-            <div class="topology__head">
-              <span class="eyebrow-sm">Topologia · DC-01</span>
-              <span class="eyebrow-sm warn"><span class="dot dot--warn dot--live"></span> Uplink down</span>
-            </div>
-            <svg class="topology__svg" viewBox="0 0 560 300" role="img" aria-label="Topologia: internet, roteador de borda, switch core e dois switches de acesso; o link do switch da fileira B está caído.">
-              <g class="links">
-                <path d="M280 46 V96" />
-                <path d="M280 128 V168" />
-                <path d="M280 168 H150 V204" />
-                <path class="link--down" d="M280 168 H410 V204" />
-                <path d="M150 236 V262 M110 262 H190" />
-                <path class="link--iso" d="M410 236 V262 M370 262 H450" />
-              </g>
-              <g class="packets">
-                <circle r="2.5"><animateMotion dur="2.4s" repeatCount="indefinite" path="M280 46 V96" /></circle>
-                <circle r="2.5"><animateMotion dur="2.4s" begin="0.8s" repeatCount="indefinite" path="M280 128 V168 H150 V204" /></circle>
-                <circle r="2.5"><animateMotion dur="2.4s" begin="1.6s" repeatCount="indefinite" path="M150 236 V262 H110" /></circle>
-              </g>
-              <g class="nodes">
-                <g transform="translate(280 30)"><rect x="-56" y="-16" width="112" height="32" rx="16"/><text y="4">Internet</text></g>
-                <g transform="translate(280 112)"><rect x="-64" y="-16" width="128" height="32" rx="16"/><text y="4">RT-EDGE-01</text></g>
-                <g transform="translate(280 168)"><circle r="5" class="hub"/><text x="14" y="-8" class="tiny">SW-CORE-01</text></g>
-                <g transform="translate(150 220)"><rect x="-56" y="-16" width="112" height="32" rx="16"/><text y="4">SW-ACC-A</text></g>
-                <g transform="translate(410 220)" class="node--down"><rect x="-56" y="-16" width="112" height="32" rx="16"/><text y="4">SW-ACC-B</text></g>
-                <text x="150" y="286" class="tiny">Fileira A · 6 racks</text>
-                <text x="410" y="286" class="tiny tiny--warn">Fileira B · isolada</text>
-              </g>
-            </svg>
+          <div class="modes">
+            <span class="chip">Iniciante</span><span class="chip">Intermediário</span><span class="chip">Experiente</span>
+            <p>Três modos de aprendizado. No Iniciante, cada passo mostra o comando, um exemplo e para que ele serve.</p>
           </div>
-          <ul class="topics reveal">
-            <li><span>Topologia, uplinks e agregação</span><span class="tag tag--on">No jogo</span></li>
-            <li><span>Telemetria: temperatura e energia</span><span class="tag tag--on">No jogo</span></li>
-            <li><span>Diagnóstico por logs e estado de link</span><span class="tag tag--on">No jogo</span></li>
-            <li><span>Corredor frio, corredor quente</span><span class="tag tag--on">No jogo</span></li>
-            <li><span>VLANs e roteamento</span><span class="tag">Em breve</span></li>
-            <li><span>Redundância e failover</span><span class="tag">Em breve</span></li>
-          </ul>
+        </div>
+        <ul class="tools rv">
+          <li style="--c: var(--green)"><i></i><strong>Terminal Linux</strong><span>ip, ping, systemctl, journalctl, df e curl num Ubuntu simulado.</span></li>
+          <li style="--c: #a0c3ec"><i></i><strong>Switches</strong><span>enable, show interfaces e shutdown / no shutdown para reativar portas.</span></li>
+          <li style="--c: #c4b5fd"><i></i><strong>Windows Server</strong><span>PowerShell, Active Directory, DNS, DHCP e permissões de pasta.</span></li>
+          <li style="--c: var(--amber)"><i></i><strong>Cabeamento</strong><span>Servidor, patch panel e switch, ligados porta por porta.</span></li>
+          <li style="--c: #ff7a17"><i></i><strong>Monitoramento</strong><span>CPU, rede, temperatura e alertas, no estilo Zabbix e Grafana.</span></li>
+          <li style="--c: #5eead4"><i></i><strong>Lab de redes</strong><span>VLANs, roteadores e rotas, com desafios para treinar.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 04 · the crew (role names and colours from assets/js/crew.js) -->
+    <section class="sec" id="equipe" aria-labelledby="equipe-t" tabindex="-1">
+      <div class="split">
+        <div class="rv">
+          <p class="eyebrow">04 · Sua equipe</p>
+          <h2 class="h2" id="equipe-t">Ninguém opera um datacenter sozinho</h2>
+        </div>
+        <div class="copy rv">
+          <p>Contrate, escolha a aparência e o turno de cada pessoa. A equipe trabalha por conta própria: faz rondas, atende chamados, faz pausa para o café, conversa no chat e avisa você quando encontra um problema.</p>
+          <p>Precisa de alguém diferente? Descreva o cargo em texto e o jogo monta as tarefas.</p>
+        </div>
+      </div>
+      <ul class="crew">
+        <li class="mate panel rv" style="--role: #a0c3ec" data-hair="#14100e" data-skin="#c68a5e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Redes</h3><p>Switches, cabos e conectividade.</p></li>
+        <li class="mate panel rv" style="--role: #ffc285" data-hair="#c9852e" data-skin="#f1c3a0"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Servidores</h3><p>Instala e mantém o hardware.</p></li>
+        <li class="mate panel rv" style="--role: #c4b5fd" data-hair="#3b2416" data-skin="#e7ad84"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Sysadmin</h3><p>Sistemas, alertas e incidentes.</p></li>
+        <li class="mate panel rv" style="--role: #5eead4" data-hair="#14100e" data-skin="#8d5a3b"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Técnico de TI</h3><p>Conserta PCs e switches na bancada.</p></li>
+        <li class="mate panel rv" style="--role: #ff7a17" data-hair="#241710" data-skin="#7a4a2e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Segurança</h3><p>Rondas, acessos e câmeras.</p></li>
+        <li class="mate panel rv" style="--role: #dadbdf" data-hair="#e3c27a" data-skin="#f1c3a0"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Assistente</h3><p>Chamados, inventário e documentação.</p></li>
+        <li class="mate panel rv" style="--role: #7ee0a1" data-hair="#6b6f7a" data-skin="#e7ad84"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Gerente</h3><p>Indicadores, capacidade e equipe.</p></li>
+        <li class="mate panel rv" style="--role: #f9a8d4" data-hair="#5e2a1a" data-skin="#c68a5e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Atendente</h3><p>Recebe clientes e atende chamados.</p></li>
+      </ul>
+    </section>
+
+    <!-- 05 · the player's career (levels and missions from assets/js/career.js) -->
+    <section class="sec" id="carreira" aria-labelledby="carreira-t" tabindex="-1">
+      <div class="split">
+        <div class="rv">
+          <p class="eyebrow">05 · Sua carreira</p>
+          <h2 class="h2" id="carreira-t">De estagiário(a) a diretor(a)</h2>
+          <div class="copy">
+            <p>Você também sobe de cargo. Cada nível traz uma missão de verdade no datacenter: cumpriu, foi promovido(a).</p>
+            <p>E a equipe aprende com você. Sozinhos, os bots só fazem o que você já domina.</p>
+          </div>
+        </div>
+        <div class="quest panel rv">
+          <div class="bar"><span>Carreira</span><span>10 níveis</span></div>
+          <div class="xp" aria-hidden="true"><span>NV 1</span><span class="xp__bar"><i></i></span><span>XP</span></div>
+          <ol>
+            <li class="now"><b>01</b><strong>Estagiário(a)</strong><span>Monte o primeiro posto: um rack e um computador</span></li>
+            <li><b>02</b><strong>Técnico(a) Jr</strong><span>Instale um servidor e um switch na mesma sala</span></li>
+            <li><b>03</b><strong>Técnico(a)</strong><span>Ligue o cabo de rede de um servidor</span></li>
+            <li><b>04</b><strong>Analista Jr</strong><span>Coloque um servidor online pelo terminal</span></li>
+            <li><b>05</b><strong>Analista</strong><span>Resolva você mesmo(a) um problema no datacenter</span></li>
+            <li><b>06</b><strong>Analista Sr</strong><span>Tenha 3 servidores seus online ao mesmo tempo</span></li>
+            <li><b>07</b><strong>Especialista</strong><span>Dê 5 ordens à equipe</span></li>
+            <li><b>08</b><strong>Coordenador(a)</strong><span>Expanda o terreno do datacenter</span></li>
+            <li><b>09</b><strong>Gerente</strong><span>Feche um mês com o caixa positivo</span></li>
+            <li><b>10</b><strong>Diretor(a)</strong><span>Tenha 6 servidores seus online ao mesmo tempo</span></li>
+          </ol>
         </div>
       </div>
     </section>
 
-    <!-- CONSTRUIR -->
-    <section class="band" id="construir">
-      <div class="container">
-        <div class="band__head reveal">
-          <p class="eyebrow">04 — Construa e personalize</p>
-          <h2 class="display-md">Seu datacenter, do piso elevado ao último patch cord.</h2>
-          <p class="lead">Você pode começar de uma sala pronta ou da planta vazia — e as decisões de onde cada rack, cabo e técnico vai ficar.</p>
-        </div>
-        <div class="grid-2">
-          <article class="card card--flush build reveal">
-            <div class="build__media build__media--avatars"><canvas id="avatarCanvas" aria-label="Técnicos personalizáveis em pixel art"></canvas></div>
-            <div class="build__body">
-              <span class="eyebrow-sm">Seu técnico</span>
-              <h3 class="display-xs">Um personagem que é seu.</h3>
-              <p>Cabelo, uniforme, crachá e acessórios. Cada técnico caminha, pisca e trabalha no seu ritmo.</p>
-            </div>
-          </article>
-          <article class="card card--flush build reveal">
-            <div class="build__media">
-              <div class="floorplan" id="floorplan" aria-hidden="true"></div>
-            </div>
-            <div class="build__body">
-              <span class="eyebrow-sm">Layout da sala</span>
-              <h3 class="display-xs">Planeje fileiras, corredores e cabos.</h3>
-              <p>Posicione racks em grade, alinhe corredores frios e decida por onde passa cada uplink. <span class="soon">Em desenvolvimento.</span></p>
-            </div>
-          </article>
-        </div>
-      </div>
+    <!-- 06 · call to play -->
+    <section class="sec cta" id="jogar" aria-labelledby="jogar-t" tabindex="-1">
+      <h2 class="h2 rv" id="jogar-t">Seu turno começa agora.</h2>
+      <div class="copy rv"><p>Crie sua conta e jogue no navegador. Seu datacenter, sua equipe e seu progresso ficam salvos na nuvem.</p></div>
+      <a class="pxbtn rv" href="jogo.html" data-play>Jogar<svg viewBox="0 0 3 5" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h1v5H0zM1 1h1v3H1zM2 2h1v1H2z"/></svg></a>
+      <p class="keysline rv"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>E</kbd> inspecionar</span><span><kbd>B</kbd> construir</span><span><kbd>C</kbd> equipe</span></p>
     </section>
 
-    <!-- CTA FINAL -->
-    <section class="cta" id="jogar">
-      <div class="container cta__inner reveal">
-        <p class="eyebrow"><span class="dot dot--warn dot--live"></span>&nbsp; INC-0412 · aguardando técnico</p>
-        <h2 class="display-lg">Seu turno começa agora.</h2>
-        <p class="lead">Crie sua conta, monte seu datacenter e continue de onde parou em qualquer dispositivo.</p>
-        <div class="cta__actions">
-          <a class="btn btn--primary btn--lg" href="jogo.html">Entrar e jogar <span class="arrow">→</span></a>
-          <span class="eyebrow-sm"><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> &nbsp;melhor com teclado</span>
-        </div>
-      </div>
-    </section>
+    <p class="page-foot">DataLab · v0.9 · acesso antecipado</p>
   </main>
 
-  <footer class="footer">
-    <div class="container footer__inner">
-      <span class="brand"><span class="brand__mark" aria-hidden="true"></span>DataLab</span>
-      <span>DataLab · © 2026</span>
-      <a href="jogo.html">Jogar</a>
-    </div>
-  </footer>
+  <dialog class="box" id="howto" aria-labelledby="howto-t">
+    <h2 id="howto-t">COMO JOGAR</h2>
+    <dl class="keys">
+      <div><dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>andar</dd></div>
+      <div><dt><kbd>E</kbd></dt><dd>inspecionar</dd></div>
+      <div><dt><kbd>B</kbd></dt><dd>construir</dd></div>
+      <div><dt><kbd>C</kbd></dt><dd>equipe</dd></div>
+      <div><dt><kbd>ESC</kbd></dt><dd>fechar</dd></div>
+    </dl>
+    <button class="ok" type="button"><span class="k">ENTER · FECHAR</span><span class="t">TOQUE PARA FECHAR</span><svg viewBox="0 0 5 3" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h5v1H0zM1 1h3v1H1zM2 2h1v1H2z"/></svg></button>
+  </dialog>
 
-  <script src="assets/js/sprites.js"></script>
-  <script src="assets/js/world.js"></script>
-  <script src="assets/js/scene.js"></script>
-  <script src="assets/js/landing.js"></script>
+  <dialog class="box" id="credits" aria-labelledby="credits-t">
+    <h2 id="credits-t">CRÉDITOS</h2>
+    <p>DataLab · v0.9 · acesso antecipado.</p>
+    <p>Jogo, código e pixel art: equipe DataLab.</p>
+    <p>Fontes: Press Start 2P (CodeMan38), Silkscreen (Jason Kottke) e VT323 (Peter Hull).</p>
+    <p class="dim">Obrigado por testar!</p>
+    <button class="ok" type="button"><span class="k">ENTER · FECHAR</span><span class="t">TOQUE PARA FECHAR</span><svg viewBox="0 0 5 3" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h5v1H0zM1 1h3v1H1zM2 2h1v1H2z"/></svg></button>
+  </dialog>
+
+  <div class="fade" aria-hidden="true"></div>
+  <div class="crt" aria-hidden="true"></div>
+
+  <script>
+  /* DataLab — title screen.
+     The datacenter is painted into a tiny canvas (~200 art pixels tall) that the browser scales up by a whole
+     number of device pixels with image-rendering: pixelated, so every art pixel stays a hard square.
+     Floor, ceiling and the far wall are cast per pixel in one-point perspective; each row of racks is a
+     pre-rendered strip that slides by camera sway ÷ depth (parallax). LEDs, packets and the technician are
+     redrawn on top every tick. */
+  (() => {
+    'use strict';
+
+    const calm = matchMedia('(prefers-reduced-motion: reduce)');
+    let still = calm.matches;
+
+    /* ================= background ================= */
+    const cvs = document.getElementById('dc');
+    const ctx = cvs.getContext('2d', { alpha: false });
+
+    const INK = '#05070d', FOG = '#070a13', PLENUM = '#04050a';
+    const STEEL = ['#05070d', '#090d17', '#0e1422', '#141b2d', '#1c2438', '#262f46', '#333d57', '#46506b', '#5f6a86', '#808ba6', '#aab4cc', '#d5ddeb'];
+    const GREEN = '#3dffa2', GREEN_OFF = '#0e3527', AMBER = '#ffb547', AMBER_OFF = '#47300f';
+    const CABLE = ['#12404a', '#1d2b4f'];
+
+    const rgb = (h) => { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
+    const mix = (a, b, t) => { const A = rgb(a), B = rgb(b); return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * t).toString(16).padStart(2, '0')).join(''); };
+    const u32 = (h) => { const [r, g, b] = rgb(h); return (0xff000000 | (b << 16) | (g << 8) | r) >>> 0; };
+    const hash = (a, b) => {
+      let h = Math.imul(a | 0, 0x9e3779b1) ^ Math.imul(b | 0, 0x85ebca77);
+      h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d); h = Math.imul(h ^ (h >>> 12), 0x297a2d39);
+      return ((h ^ (h >>> 15)) >>> 0) / 4294967296;
+    };
+    const rng = (seed) => {
+      let s = seed >>> 0;
+      return () => {
+        s = (s + 0x6d2b79f5) | 0;
+        let t = Math.imul(s ^ (s >>> 15), 1 | s);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    };
+
+    const TARGET_H = 200;          // art pixels from top to bottom of the screen
+    const R = 36;                  // rack height in the front row
+    const RW = 16;                 // rack width (world px = front-row px)
+    const POD = 8, POD_GAP = 24;   // racks per pod, cross-aisle between pods
+    const TX = 16, TXC = 32;       // floor / ceiling tile width
+    const CAM_AMP = 14, CAM_T = 38, PTR_AMP = 7;
+    const MAX_ROWS = 9;
+
+    let W = 0, H = 0, cx = 0, yh = 0, E = 0, CE = 0, D = 0.4, zWall = 4, zCut = 1, base0 = 0, plenumY = 0, aisle = 40;
+    let rows = [], lines = [], pal = null, bg = null, bg32 = null, ledId = 0;
+    let alertSlot = null, alertX = 0, plenumPackets = [], plenumHalf = 0;
+
+    // the canvas covers the *large* viewport, so a phone's toolbar sliding in and out while the page
+    // scrolls changes nothing; the scene is only rebuilt for a real new size
+    const tall = document.createElement('div');
+    tall.style.cssText = 'position:fixed;top:0;width:0;height:100vh;height:100lvh;visibility:hidden;pointer-events:none';
+    document.body.appendChild(tall);
+    let builtW = 0, builtH = 0;
+
+    function resize() {
+      const dpr = window.devicePixelRatio || 1;
+      const dw = Math.max(1, Math.round(innerWidth * dpr)), dh = Math.max(1, Math.round(Math.max(innerHeight, tall.offsetHeight) * dpr));
+      if (dw === builtW && dh === builtH) return;
+      builtW = dw; builtH = dh;
+      const s = Math.max(1, Math.round(dh / TARGET_H));
+      W = Math.ceil(dw / s); H = Math.ceil(dh / s);
+      cvs.width = W; cvs.height = H;
+      cvs.style.width = (W * s / dpr) + 'px';
+      cvs.style.height = (H * s / dpr) + 'px';
+      build();
+      draw(clock);
+    }
+
+    function build() {
+      cx = W / 2;
+      plenumY = H - 12;
+      base0 = H - 30;
+      yh = Math.round(H * 0.4);
+      E = Math.max(R + 12, base0 - yh);
+      CE = yh / 1.22;
+      D = Math.min(0.9, Math.max(0.3, 0.62 * R / (E - R)));
+      zCut = E / (plenumY - yh);
+      aisle = W < 200 ? 28 : 44;
+      ledId = 0;
+
+      let n = 0;
+      while (n < MAX_ROWS && R / (1 + n * D) >= 6) n++;
+      zWall = 1 + (n - 1 + 0.65) * D;
+
+      pickAlert();
+      rows = [];
+      for (let k = 0; k < n; k++) rows.push(makeRow(k));
+      buildBg();
+      buildPlenum();
+      placeTech();
+    }
+
+    /* the faulty rack: front row, right of centre, always on screen */
+    function pickAlert() {
+      const target = Math.min(W * 0.27, W / 2 - 24);
+      let best = null;
+      for (let i = 0; i < 40; i++) {
+        const p = Math.floor(i / POD), j = i % POD;
+        const a0 = aisle / 2 + p * (POD * RW + POD_GAP) + j * RW;
+        const d = Math.abs(a0 + RW / 2 - target);
+        if (!best || d < best.d) best = { d, i, X: a0 + RW / 2 };
+      }
+      alertSlot = { side: 1, i: best.i };
+      alertX = best.X;
+    }
+
+    /* ---------- one row of racks at depth z = 1 + k·D ---------- */
+    function makeRow(k) {
+      const z = 1 + k * D, s = 1 / z;
+      const fog = Math.min(0.86, (z - 1) / (zWall - 1) * 0.95);
+      const f = (c, t = fog) => mix(c, FOG, t);
+      const top = Math.round(yh + (E - R) * s), base = Math.round(yh + E * s);
+      const h = base - top, ts = k === 0 ? 2 : 1;
+      const pad = Math.ceil((CAM_AMP + PTR_AMP) * s) + 2;
+      const can = document.createElement('canvas');
+      can.width = W + 2 * pad; can.height = h + ts;
+      const c = can.getContext('2d');
+      const tone = {
+        seam: f(INK, fog * 0.5), frame: f(STEEL[6]), frameHi: f(STEEL[7]), frameLo: f(STEEL[5]),
+        top: f(STEEL[8]), topHi: f(STEEL[9]), inner: f(STEEL[1], fog * 0.5), rail: f(STEEL[4]),
+        bezel: f(STEEL[5]), bezelHi: f(STEEL[7]), bezelLo: f(STEEL[3]), blank: f(STEEL[3]), port: f(STEEL[0], fog * 0.5),
+        plinth: f(STEEL[3]), label: f(STEEL[10]), mesh: f(STEEL[4]),
+        gOff: f(GREEN_OFF), aOff: f(AMBER_OFF), screen: f('#0f3d2b'),
+        rail0: f(STEEL[7]), rail1: f(STEEL[5]), cable0: f(CABLE[0]), cable1: f(CABLE[1]), rod: f(STEEL[4]),
+        pkt: f(GREEN, fog * 0.7), pktTrail: f(mix(GREEN, CABLE[0], 0.6), fog * 0.7),
+      };
+      const row = {
+        k, z, s, top, base, h, ts, pad, can, tone,
+        leds: [[], [], []], cols: [f(GREEN, fog * 0.8), f(AMBER, fog * 0.8), AMBER],
+        ceilY: Math.round(yh - CE * s), trayY: Math.round(yh - (CE - 9) * s), trayH: Math.max(1, Math.round(4 * s)),
+        rods: [], packets: [], drops: [], half: 0,
+      };
+
+      const half = (W / 2 + pad) / s + RW;
+      row.half = half;
+      const ox = pad + W / 2;
+      for (const side of [1, -1]) {
+        for (let i = 0; ; i++) {
+          const p = Math.floor(i / POD), j = i % POD;
+          const a0 = aisle / 2 + p * (POD * RW + POD_GAP) + j * RW;
+          if (a0 > half) break;
+          const A = side > 0 ? a0 : -(a0 + RW);
+          const x0 = Math.round(ox + A * s), x1 = Math.round(ox + (A + RW) * s);
+          const closeRight = side > 0 ? j === POD - 1 : j === 0;
+          const isAlert = k === 0 && side === alertSlot.side && i === alertSlot.i;
+          const r = rng((k * 7919 + side * 104729 + i * 31337) ^ 0x5eed);
+          drawRack(row, c, x0, x1 - x0, closeRight, r, isAlert);
+          if (k >= 3 && r() < 0.22) row.drops.push(A + RW / 2);
+        }
+      }
+
+      const r = rng(k * 977 + 13);
+      for (let X = -half + ((half % 64) - 64); X < half; X += 64) row.rods.push(X);
+      const count = Math.round((2 * half * s) / (k === 0 ? 30 : 44));
+      for (let i = 0; i < count; i++) {
+        const dir = r() < 0.5 ? 1 : -1;
+        row.packets.push({ u: r() * 2 * half, v: dir * (14 + r() * 26), lane: dir > 0 ? 0 : 1 });
+      }
+      return row;
+    }
+
+    function drawRack(row, c, x, w, closeRight, r, isAlert) {
+      const { h, ts, tone: T, leds: L } = row;
+      const px = (col, X, Y, ww = 1, hh = 1) => { c.fillStyle = col; c.fillRect(X, Y, ww, hh); };
+      const led = (X, Y, kind, ww = 1) => {
+        // kind: 'act' (network activity) | 'pwr' | 'any' | 'alert'
+        let cls = 0, m, p = 1, ph = r() * 4, th = 0.5;
+        if (kind === 'alert') { cls = 2; m = 4; p = 0.26; ph = 0; }
+        else if (kind === 'pwr') { m = r() < 0.75 ? 0 : 3; p = 1.6 + r() * 1.4; }
+        else if (kind === 'act' || r() < 0.4) { m = 2; p = 5 + r() * 10; th = 0.35 + r() * 0.35; }
+        else { const q = r(); m = q < 0.35 ? 0 : q < 0.8 ? 1 : 3; p = 0.8 + r() * 2.2; }
+        if (cls === 0 && kind !== 'pwr' && r() < 0.04) { cls = 1; m = 1; p = 1.6 + r() * 1.8; }
+        px(cls ? T.aOff : T.gOff, X, Y, ww, 1);
+        L[cls].push({ x: X, y: Y, w: ww, m, p, ph, th, id: ledId++ });
+      };
+
+      const y0 = ts;
+      px(T.top, x, 0, w, ts);
+      if (ts > 1) px(T.topHi, x, 0, w, 1);
+      px(T.frame, x, y0, w, h);
+
+      if (h >= 28) {
+        /* front row: rails, real equipment, plinth */
+        const ix = x + 3, iw = w - 6, iy = y0 + 2, ih = h - 5, end = iy + ih;
+        px(T.frameHi, x + 1, y0, 1, h - 3);
+        px(T.frameLo, x + w - 2, y0, 1, h - 3);
+        px(T.inner, ix - 1, iy, iw + 2, ih);
+        px(T.rail, ix - 1, iy, 1, ih); px(T.rail, ix + iw, iy, 1, ih);
+        for (let yy = iy + 1; yy < end; yy += 3) { px(T.inner, ix - 1, yy); px(T.inner, ix + iw, yy); }
+        if (r() < 0.7) px(T.label, x + 5, y0, 4, 1);
+        px(T.plinth, x + 1, y0 + h - 3, w - 2, 3);
+        px(T.frameLo, x + 1, y0 + h - 3, w - 2, 1);
+        for (let vx = x + 3; vx < x + w - 3; vx += 2) px(T.inner, vx, y0 + h - 2);
+
+        const q = r();
+        const kind = isAlert ? 'compute' : q < 0.46 ? 'compute' : q < 0.62 ? 'network' : q < 0.76 ? 'storage' : q < 0.9 ? 'mesh' : 'sparse';
+        const first = L[0].length;
+        let yy = iy, n = 0;
+        while (yy < end) {
+          const left = end - yy;
+          let u;
+          if (kind === 'network') u = n % 3 === 2 ? 'blank' : n % 2 ? 'patch' : 'sw';
+          else if (kind === 'storage') u = n === 0 ? 'srv2' : r() < 0.8 ? 'stor' : 'blank';
+          else if (kind === 'sparse') u = r() < 0.75 ? 'blank' : 'srv1';
+          else u = n === 0 ? 'sw' : left <= 6 && r() < 0.5 ? 'ups' : (() => { const v = r(); return v < 0.42 ? 'srv1' : v < 0.78 ? 'srv2' : 'blank'; })();
+          const uh = { srv1: 2, srv2: 3, sw: 2, patch: 2, stor: 5, ups: 4, blank: 1 + ((r() * 3) | 0) }[u];
+          if (uh > left) u = 'blank';
+          const hh = Math.min(uh, left);
+          const ledKind = isAlert ? 'alert' : 'any';
+          switch (u) {
+            case 'srv1':
+              px(T.bezel, ix, yy, iw, 1); px(T.bezelLo, ix, yy, 1, 1);
+              for (let d = 0; d < 3; d++) px(T.bezelHi, ix + 5 + d * 2, yy);
+              led(ix + 1, yy, isAlert ? 'alert' : 'pwr');
+              if (r() < 0.7) led(ix + 2, yy, 'act');
+              break;
+            case 'srv2':
+              px(T.bezel, ix, yy, iw, 2); px(T.bezelLo, ix, yy, 1, 2);
+              for (let d = ix + 4; d < ix + iw; d++) px((d - ix) % 2 ? T.bezelLo : T.bezelHi, d, yy, 1, 2);
+              led(ix + 1, yy, isAlert ? 'alert' : 'pwr');
+              led(ix + 1, yy + 1, ledKind === 'alert' && r() < 0.5 ? 'alert' : 'act');
+              break;
+            case 'sw':
+              px(T.bezelLo, ix, yy, iw, 1);
+              for (let d = 0; d < iw; d++) d % 2 ? led(ix + d, yy, 'act') : px(T.port, ix + d, yy);
+              break;
+            case 'patch':
+              px(T.bezelHi, ix, yy, iw, 1);
+              for (let d = 1; d < iw; d += 2) px(T.port, ix + d, yy);
+              break;
+            case 'stor':
+              for (let d = 0; d < iw; d++) px(d % 2 ? T.bezelLo : T.bezelHi, ix + d, yy, 1, 4);
+              for (let d = 0; d < iw; d += 2) led(ix + d, yy + 3, 'act');
+              break;
+            case 'ups':
+              px(T.bezel, ix, yy, iw, 3);
+              px(T.screen, ix + 2, yy + 1, 4, 1);
+              led(ix + 3, yy + 1, 'pwr');
+              break;
+            default:
+              px(T.blank, ix, yy, iw, hh);
+          }
+          yy += hh; n++;
+        }
+        if (kind === 'mesh') {
+          for (let my = iy; my < end; my++) for (let mx = ix; mx < ix + iw; mx++) if (((mx + my) & 1) === 0) px(T.mesh, mx, my);
+          L[0].splice(first, L[0].length - first, ...L[0].slice(first).filter((l) => ((l.x + l.y) & 1) === 1));
+        }
+        if (isAlert) {
+          // stack light on the roof of the rack
+          px(T.aOff, x + 6, 0, 4, 2);
+          L[2].push({ x: x + 6, y: 0, w: 4, m: 4, p: 0.26, ph: 0, th: 0, id: ledId++ });
+          L[2].push({ x: x + 6, y: 1, w: 4, m: 4, p: 0.26, ph: 0, th: 0, id: ledId++ });
+        }
+      } else if (h >= 15) {
+        /* middle rows: 1U lines with a LED or two */
+        const ix = x + 2, iw = Math.max(2, w - 4), iy = y0 + 1, end = y0 + h - 2;
+        px(T.frameHi, x + 1, y0, 1, h - 2);
+        px(T.inner, ix, iy, iw, end - iy);
+        px(T.plinth, x + 1, end, w - 2, 2);
+        for (let yy = iy; yy < end; yy += 2) {
+          const v = r();
+          if (v < 0.62) { px(T.bezel, ix, yy, iw, 1); led(ix, yy, 'any'); if (iw >= 5 && r() < 0.5) led(ix + iw - 2, yy, 'act'); }
+          else if (v < 0.8) { px(T.bezelLo, ix, yy, iw, 1); for (let d = 1; d < iw; d += 2) led(ix + d, yy, 'act'); }
+          else px(T.blank, ix, yy, iw, 1);
+        }
+        if (r() < 0.15) for (let my = iy; my < end; my++) for (let mx = ix; mx < ix + iw; mx++) if (((mx + my) & 1) === 0) px(T.mesh, mx, my);
+      } else if (h >= 8) {
+        /* far rows: dots */
+        const ix = x + 1, iw = Math.max(1, w - 2), iy = y0 + 1, end = y0 + h - 1;
+        px(T.inner, ix, iy, iw, end - iy);
+        for (let yy = iy; yy < end; yy += 2) if (r() < 0.75) { px(T.bezel, ix, yy, iw, 1); if (r() < 0.6) led(ix + ((r() * iw) | 0), yy, 'any'); }
+      } else {
+        px(T.inner, x + 1, y0 + 1, Math.max(1, w - 2), Math.max(1, h - 2));
+        if (r() < 0.6) led(x + 1, y0 + 1 + ((r() * Math.max(1, h - 2)) | 0), 'any');
+      }
+
+      px(T.seam, x, 0, 1, ts + h);
+      if (closeRight) px(T.seam, x + w - 1, 0, 1, ts + h);
+    }
+
+    /* ---------- floor, ceiling and far wall, cast per pixel ---------- */
+    function buildBg() {
+      bg = ctx.createImageData(W, H);
+      bg32 = new Uint32Array(bg.data.buffer);
+      const FL = 8;
+      const ramp = (hex, max) => Uint32Array.from({ length: FL }, (_, i) => u32(mix(hex, FOG, (i / (FL - 1)) * max)));
+      pal = {
+        flA: ramp(STEEL[5], 0.88), flB: ramp(STEEL[4], 0.88), flSeam: ramp(STEEL[2], 0.7), flHole: ramp(STEEL[2], 0.7),
+        ceA: ramp(STEEL[3], 0.75), ceSeam: ramp(STEEL[1], 0.6), lamp: ramp(STEEL[10], 0.9),
+        wall: u32(mix(STEEL[3], FOG, 0.5)), wallSeam: u32(mix(STEEL[2], FOG, 0.4)), wallBase: u32(mix(STEEL[1], FOG, 0.2)),
+        door: u32(mix(STEEL[2], FOG, 0.3)), doorRim: u32(mix(STEEL[5], FOG, 0.45)), exit: u32(mix(GREEN, FOG, 0.3)),
+        plenum: u32(PLENUM),
+      };
+      const fogAt = (z) => Math.min(FL - 1, Math.max(0, Math.floor((z - 0.9) / (zWall - 0.9) * FL)));
+      const crosses = (a, b, step, lo = 0, hi = 0) => {
+        // does [a, b) (in units of `step`) contain a tile edge, or overlap the band [n+lo, n+hi)?
+        const ua = a / step, ub = b / step;
+        if (hi === 0) return Math.floor(ua) !== Math.floor(ub);
+        for (let n = Math.floor(ua) - 1; n <= Math.floor(ub); n++) if (Math.max(ua, n + lo) < Math.min(ub, n + hi)) return true;
+        return false;
+      };
+      lines = [];
+      for (let y = 0; y < H; y++) {
+        if (y >= plenumY) { lines.push({ k: 3 }); continue; }
+        const ceil = y < yh;
+        const za = ceil ? CE / Math.max(0.01, yh - y) : E / Math.max(0.01, y - yh);          // far edge of the pixel row
+        const zb = ceil ? CE / Math.max(0.01, yh - y - 1) : E / Math.max(0.01, y + 1 - yh);  // near edge
+        const z = ceil ? CE / (yh - y - 0.5) : E / (y - yh + 0.5);
+        if (z >= zWall || (ceil && yh - y - 0.5 <= 0)) { lines.push({ k: 2, Y: E - (y + 0.5 - yh) * zWall }); continue; }
+        const lo = Math.min(za, zb) - 1, hi = Math.max(za, zb) - 1;
+        if (ceil) {
+          lines.push({ k: 0, z, fl: fogAt(z), seam: crosses(lo, hi, D / 2), lamp: crosses(lo, hi, D, 0.62, 0.76) });
+        } else {
+          const tz = D / 3, uz = (z - 1) / tz, iz = Math.floor(uz), fz = uz - iz;
+          lines.push({ k: 1, z, fl: fogAt(z), seam: crosses(lo, hi, tz), iz, perf: z < 1.05 && fz > 0.15 && fz < 0.85 });
+        }
+      }
+    }
+
+    function paintBg(cam) {
+      const b = bg32;
+      for (let y = 0; y < H; y++) {
+        const L = lines[y], o = y * W;
+        if (L.k === 3) { b.fill(pal.plenum, o, o + W); continue; }
+        if (L.k === 2) {
+          const Y = L.Y;
+          let X = cam + (0.5 - cx) * zWall;
+          for (let x = 0; x < W; x++, X += zWall) {
+            const ax = Math.abs(X), m = ((X % 48) + 48) % 48;
+            let col = Y < 3 ? pal.wallBase : m < zWall ? pal.wallSeam : pal.wall;
+            if (ax < 14 && Y < 40) col = ax > 11 || Y > 37 ? pal.doorRim : pal.door;
+            else if (ax < 7 && Y > 46 && Y < 53) col = pal.exit;
+            b[o + x] = col;
+          }
+          continue;
+        }
+        const z = L.z, fl = L.fl;
+        if (L.k === 1) {
+          const A = pal.flA[fl], B = pal.flB[fl], SEAM = pal.flSeam[fl], HOLE = pal.flHole[fl];
+          if (L.seam) { b.fill(SEAM, o, o + W); continue; }
+          let X = cam + (0.5 - cx) * z;
+          for (let x = 0; x < W; x++, X += z) {
+            const u = X / TX, ix = Math.floor(u), fx = u - ix, odd = (ix + L.iz) & 1;
+            let col = fx * TX < z ? SEAM : odd ? A : B;
+            if (L.perf && !odd && fx > 0.15 && fx < 0.85 && ((x + y) & 1) === 0) col = HOLE;
+            b[o + x] = col;
+          }
+        } else {
+          const A = pal.ceA[fl], SEAM = pal.ceSeam[fl], LAMP = pal.lamp[fl];
+          if (L.seam) { b.fill(SEAM, o, o + W); continue; }
+          let X = cam + (0.5 - cx) * z;
+          for (let x = 0; x < W; x++, X += z) {
+            const u = X / TXC, ix = Math.floor(u), fx = u - ix;
+            b[o + x] = fx * TXC < z ? SEAM : L.lamp && !(ix & 1) && fx > 0.14 && fx < 0.86 ? LAMP : A;
+          }
+        }
+      }
+      ctx.putImageData(bg, 0, 0);
+    }
+
+    function paintPackets(list, half, s, cam, t, y, head, trail, len, size) {
+      const span = 2 * half;
+      for (const p of list) {
+        let X = (p.u + p.v * t) % span; if (X < 0) X += span;
+        const sx = Math.round(cx + (X - half - cam) * s);
+        if (sx < -6 || sx > W + 6) continue;
+        const yy = typeof y === 'function' ? y(p) : y;
+        ctx.fillStyle = trail; ctx.fillRect(p.v > 0 ? sx - len : sx + size, yy, len, size);
+        ctx.fillStyle = head; ctx.fillRect(sx, yy, size, size);
+      }
+    }
+
+    function lit(L, t) {
+      switch (L.m) {
+        case 0: return true;
+        case 1: return (t + L.ph) % L.p < L.p * 0.5;
+        case 2: return hash(L.id, (t * L.p) | 0) < L.th;
+        case 3: { const f = ((t + L.ph) % L.p) / L.p; return f < 0.07 || (f > 0.15 && f < 0.22); }
+        default: return (t + L.ph) % L.p < L.p * 0.5;
+      }
+    }
+
+    function paintRow(row, cam, t) {
+      const { s, tone: T } = row;
+      // overhead tray for this row, with its hangers and packets
+      ctx.fillStyle = T.rod;
+      for (const X of row.rods) {
+        const sx = Math.round(cx + (X - cam) * s);
+        if (sx >= 0 && sx < W) ctx.fillRect(sx, row.ceilY, 1, row.trayY - row.ceilY);
+      }
+      ctx.fillStyle = T.rail0; ctx.fillRect(0, row.trayY, W, 1);
+      if (row.trayH > 1) { ctx.fillStyle = T.cable0; ctx.fillRect(0, row.trayY + 1, W, row.trayH - 1); }
+      if (row.trayH > 2) { ctx.fillStyle = T.cable1; ctx.fillRect(0, row.trayY + 2, W, 1); }
+      if (row.trayH > 3) { ctx.fillStyle = T.rail1; ctx.fillRect(0, row.trayY + row.trayH - 1, W, 1); }
+      const lane = row.trayH > 2 ? (p) => row.trayY + 1 + p.lane : row.trayY + (row.trayH > 1 ? 1 : 0);
+      paintPackets(row.packets, row.half, s, cam, still ? 0 : t, lane, T.pkt, T.pktTrail, row.k === 0 ? 3 : 1, 1);
+      // cable drops from the tray to the roof of a far rack
+      if (row.drops.length) {
+        ctx.fillStyle = T.cable0;
+        for (const X of row.drops) {
+          const sx = Math.round(cx + (X - cam) * s);
+          if (sx >= 0 && sx < W) ctx.fillRect(sx, row.trayY + row.trayH, 1, row.top - row.trayY - row.trayH);
+        }
+      }
+      // the racks
+      const ox = -row.pad - Math.round(cam * s), oy = row.top - row.ts;
+      ctx.drawImage(row.can, ox, oy);
+      for (let c = 0; c < 3; c++) {
+        const list = row.leds[c];
+        if (!list.length) continue;
+        ctx.fillStyle = row.cols[c];
+        for (const L of list) {
+          const x = ox + L.x;
+          if (x < -4 || x > W) continue;
+          if (lit(L, t)) ctx.fillRect(x, oy + L.y, L.w, 1);
+        }
+      }
+    }
+
+    function buildPlenum() {
+      const s = 1 / zCut, r = rng(4242);
+      plenumHalf = (W / 2) / s + CAM_AMP + PTR_AMP + 12;
+      plenumPackets = [];
+      const count = Math.round(W / 22);
+      for (let i = 0; i < count; i++) {
+        const dir = r() < 0.5 ? 1 : -1;
+        plenumPackets.push({ u: r() * 2 * plenumHalf, v: dir * (18 + r() * 30), lane: r() < 0.6 ? 0 : 1 });
+      }
+    }
+
+    function paintPlenum(cam, t) {
+      const y0 = plenumY, s = 1 / zCut;
+      ctx.fillStyle = STEEL[7]; ctx.fillRect(0, y0, W, 1);
+      ctx.fillStyle = STEEL[4]; ctx.fillRect(0, y0 + 1, W, 1);
+      ctx.fillStyle = PLENUM; ctx.fillRect(0, y0 + 2, W, H - y0 - 2);
+      ctx.fillStyle = STEEL[3];
+      for (let n = Math.floor((cam - cx / s) / TX) - 1; ; n++) {
+        const sx = Math.round(cx + (n * TX - cam) * s);
+        if (sx > W + 2) break;
+        ctx.fillRect(sx, y0 + 2, 1, H - y0 - 2);
+        ctx.fillRect(sx - 1, y0 + 2, 3, 1);
+        ctx.fillRect(sx - 1, H - 2, 3, 2);
+      }
+      ctx.fillStyle = CABLE[0]; ctx.fillRect(0, H - 8, W, 2);
+      ctx.fillStyle = CABLE[1]; ctx.fillRect(0, H - 4, W, 1);
+      paintPackets(plenumPackets, plenumHalf, s, cam, still ? 0 : t, (p) => (p.lane ? H - 4 : H - 8), GREEN, mix(GREEN, CABLE[0], 0.55), 3, 1);
+    }
+
+    /* ================= the technician ================= */
+    const SKIN = { k: INK, h: '#3b2416', j: '#5e3b23', s: '#e7ad84', d: '#b9744d', c: '#2f5f8f', C: '#1f3f63', l: '#4f86bf', g: GREEN, w: '#d5ddeb', p: '#273046', P: '#171c2b', b: '#0f121b', n: '#3a4256' };
+    const HEAD = [
+      '.....kkkkk....',
+      '....kjjhhhk...',
+      '...kjhhhhhhk..',
+      '...khhhhhhhhk.',
+      '...khhhhhsssk.',
+      '...khhhdhsksk.',
+      '...khhhddsssk.',
+      '....khhhssdk..',
+      '.....kkssdk...',
+      '......kddk....',
+    ];
+    const TORSO = [
+      '....kCccccgk..',
+      '....kCCclcgk..',
+      '....kCCclcgk..',
+      '....kCCclcwk..',
+      '....kCCclcck..',
+      '....kCCclcck..',
+      '....kCCsscck..',
+    ];
+    const LEGS_STAND = [
+      '....kppssppk..',
+      '....kppppppk..',
+      '.....kPpppk...',
+      '.....kPpppk...',
+      '.....kPpppk...',
+      '.....kPpppk...',
+      '.....kPpppk...',
+      '.....kPpppk...',
+      '.....kbnbbk...',
+      '.....kbbbbbk..',
+      '.....kkkkkkk..',
+    ];
+    const LEGS_STRIDE = [
+      '....kppssppk..',
+      '....kppppppk..',
+      '....kPpkkppk..',
+      '...kPpk.kppk..',
+      '...kPpk..kppk.',
+      '..kPpk...kppk.',
+      '..kPpk...kppk.',
+      '.kPpk.....kpk.',
+      '.kbnk.....kbnk',
+      'kbbbk.....kbbb',
+      'kkkkk.....kkkk',
+    ];
+    const LEGS_PASS = [
+      '....kppssppk..',
+      '....kppppppk..',
+      '.....kPpppk...',
+      '.....kPpppk...',
+      '.....kPppkk...',
+      '.....kPpkpk...',
+      '.....kPpkPk...',
+      '.....kPpkPk...',
+      '.....kbnkbk...',
+      '.....kbbbbbk..',
+      '.....kkkkkkk..',
+    ];
+    const BACK_HEAD = [
+      '.....kkkkk....',
+      '....kjjhhhk...',
+      '...kjhhhhhhk..',
+      '...khhhhhhhk..',
+      '...khhhhhhhk..',
+      '...kdhhhhhdk..',
+      '...kdhhhhhdk..',
+      '....khhhhhk...',
+      '.....kdddk....',
+      '......kdk.....',
+    ];
+    const BACK_TORSO_A = [
+      '...kCcccccCk..',
+      '..ksCcccccCk..',
+      '..ksCcccccCk..',
+      '..kkCcccccCk..',
+      '...kCcccccCk..',
+      '...kCcccccCk..',
+      '...kCCcccCCk..',
+    ];
+    const BACK_TORSO_B = [
+      '...kCcccccCk..',
+      '...kCcccccCsk.',
+      '...kCcccccCsk.',
+      '...kCcccccCkk.',
+      '...kCcccccCk..',
+      '...kCcccccCk..',
+      '...kCCcccCCk..',
+    ];
+    const BACK_LEGS = [
+      '....kppppppk..',
+      '....kppppppk..',
+      '....kPpkkpPk..',
+      '....kPpk.pPk..',
+      '....kPpk.pPk..',
+      '....kPpk.pPk..',
+      '....kPpk.pPk..',
+      '....kPpk.pPk..',
+      '....kbbk.bbk..',
+      '....kbbk.bbk..',
+      '....kkkk.kkk..',
+    ];
+
+    function sprite(rowsArr, pal = SKIN) {
+      const make = (flip) => {
+        const c = document.createElement('canvas');
+        c.width = 14; c.height = rowsArr.length;
+        const g = c.getContext('2d');
+        rowsArr.forEach((line, y) => {
+          for (let x = 0; x < line.length; x++) {
+            const col = pal[line[x]];
+            if (!col) continue;
+            g.fillStyle = col;
+            g.fillRect(flip ? 13 - x : x, y, 1, 1);
+          }
+        });
+        return c;
+      };
+      return { r: make(false), l: make(true) };
+    }
+    const SPR = {
+      stand: sprite([...HEAD, ...TORSO, ...LEGS_STAND]),
+      stride: sprite([...HEAD, ...TORSO, ...LEGS_STRIDE]),
+      pass: sprite([...HEAD, ...TORSO, ...LEGS_PASS]),
+      backA: sprite([...BACK_HEAD, ...BACK_TORSO_A, ...BACK_LEGS]),
+      backB: sprite([...BACK_HEAD, ...BACK_TORSO_B, ...BACK_LEGS]),
+    };
+    const WALK = [SPR.stride, SPR.pass, SPR.stride, SPR.pass];
+
+    const tech = { X: 0, z: 1, feet: 0, dir: 1, act: 'walk', wait: 0, anim: 0, wp: 0, path: [], placed: false };
+
+    function placeTech() {
+      tech.feet = Math.min(plenumY - 3, base0 + 10);
+      tech.z = E / (tech.feet + 0.5 - yh);
+      const toX = (sx) => (sx - cx) * tech.z;
+      const xl = toX(Math.max(10, W * 0.12)), xr = toX(Math.min(W - 10, W * 0.88));
+      const xa = Math.min(xr - 6, Math.max(xl + 6, alertX * tech.z));
+      tech.path = [{ X: xa, act: 'fix', t: 3.6 }, { X: xr, act: 'stand', t: 1.4 }, { X: xl, act: 'stand', t: 1.8 }];
+      if (still) { tech.X = (xl + xa) / 2; tech.dir = 1; tech.act = 'stand'; tech.wait = 0; return; }
+      if (!tech.placed || tech.X < xl || tech.X > xr) { tech.X = xl; tech.wp = 0; tech.act = 'walk'; tech.wait = 0; tech.placed = true; }
+    }
+
+    function updateTech(dt) {
+      tech.anim += dt;
+      if (tech.wait > 0) {
+        tech.wait -= dt;
+        if (tech.wait <= 0) { tech.act = 'walk'; tech.anim = 0; }
+        return;
+      }
+      const goal = tech.path[tech.wp], d = goal.X - tech.X, step = 13 * dt;
+      if (Math.abs(d) <= step) {
+        tech.X = goal.X; tech.act = goal.act; tech.wait = goal.t; tech.anim = 0;
+        tech.wp = (tech.wp + 1) % tech.path.length;
+      } else {
+        tech.dir = d > 0 ? 1 : -1;
+        tech.X += tech.dir * step;
+        tech.act = 'walk';
+      }
+    }
+
+    function paintTech(cam) {
+      const sx = Math.round(cx + (tech.X - cam) / tech.z);
+      let spr = SPR.stand, bob = 0;
+      if (tech.act === 'walk') { const f = Math.floor(tech.anim * 7) % 4; spr = WALK[f]; bob = f % 2 ? -1 : 0; }
+      else if (tech.act === 'fix') spr = Math.floor(tech.anim * 3) % 2 ? SPR.backB : SPR.backA;
+      ctx.fillStyle = 'rgba(5, 7, 13, .55)';
+      ctx.fillRect(sx - 5, tech.feet, 11, 1);
+      ctx.fillRect(sx - 3, tech.feet + 1, 7, 1);
+      ctx.drawImage(tech.dir < 0 ? spr.l : spr.r, sx - 7, tech.feet - 27 + bob);
+    }
+
+    /* ================= loop ================= */
+    let clock = 0, last = 0, acc = 0, raf = 0, ptr = 0, ptrGoal = 0;
+
+    function draw(t) {
+      if (!W) return;
+      const cam = still ? 0 : CAM_AMP * Math.sin(t * 2 * Math.PI / CAM_T) + ptr * PTR_AMP;
+      paintBg(cam);
+      for (let k = rows.length - 1; k >= 0; k--) paintRow(rows[k], cam, still ? 0 : t);
+      paintTech(cam);
+      paintPlenum(cam, t);
+    }
+
+    function tick(now) {
+      raf = requestAnimationFrame(tick);
+      const dt = Math.min(0.1, last ? (now - last) / 1000 : 0);
+      last = now;
+      acc += dt;
+      if (acc < 1 / 30) return;   // a steady 30 fps is plenty for pixel art
+      clock += acc;
+      ptr += (ptrGoal - ptr) * Math.min(1, acc * 2.5);
+      updateTech(acc);
+      acc = 0;
+      draw(clock);
+    }
+
+    function setMotion() {
+      still = calm.matches;
+      cancelAnimationFrame(raf);
+      last = 0;
+      placeTech();
+      if (still) draw(0);
+      else raf = requestAnimationFrame(tick);
+    }
+
+    addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') ptrGoal = (e.clientX / innerWidth) * 2 - 1; }, { passive: true });
+    let rz = 0;
+    addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(resize); });
+    if (calm.addEventListener) calm.addEventListener('change', setMotion);
+    resize();
+    setMotion();
+
+    /* ================= menu ================= */
+    const root = document.documentElement;
+    const items = [...document.querySelectorAll('.item')];
+    const press = document.getElementById('press');
+    let sel = 0, leaving = false, openedAt = 0;
+
+    function select(i, focus) {
+      sel = (i + items.length) % items.length;
+      items.forEach((el, j) => el.classList.toggle('is-sel', j === sel));
+      if (focus) items[sel].focus({ preventScroll: true });
+    }
+
+    // into the game: four frames of fade to black first
+    function leave(href, el) {
+      if (leaving) return;
+      leaving = true;
+      if (still) { location.assign(href); return; }
+      if (el) el.classList.add('is-go');
+      root.classList.add('leaving');
+      setTimeout(() => location.assign(href), 520);
+    }
+
+    function activate(i) {
+      if (leaving) return;
+      select(i);
+      const el = items[sel];
+      if (el.dataset.box) return openBox(el.dataset.box);
+      const hash = el.getAttribute('href');
+      if (hash.charAt(0) === '#') {   // "Sobre o jogo": down to the presentation
+        const to = document.querySelector(hash);
+        to.scrollIntoView();
+        to.focus({ preventScroll: true });
+        return;
+      }
+      leave(el.href, el);
+    }
+
+    function openBox(id) {
+      const box = document.getElementById(id);
+      if (box.open) return;
+      openedAt = performance.now();
+      box.showModal();
+      box.querySelector('.ok').focus({ preventScroll: true });
+    }
+    function closeBox(box) {
+      if (performance.now() - openedAt < 250) return;   // the key that opened it must not close it
+      box.close();
+    }
+
+    document.querySelectorAll('.box').forEach((box) => {
+      box.querySelector('.ok').addEventListener('click', () => closeBox(box));
+      box.addEventListener('click', (e) => {          // a click on the backdrop closes it too
+        if (e.target !== box) return;
+        const r = box.getBoundingClientRect();
+        if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeBox(box);
+      });
+      box.addEventListener('close', () => items[sel].focus({ preventScroll: true }));
+    });
+
+    items.forEach((el, i) => {
+      el.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') select(i); });
+      el.addEventListener('focus', () => select(i));
+      el.addEventListener('click', (e) => {
+        if (el.tagName === 'A' && (e.metaKey || e.ctrlKey || e.shiftKey || e.button)) return;   // new tab / window
+        e.preventDefault();
+        activate(i);
+      });
+    });
+    press.addEventListener('click', () => activate(sel));
+    document.querySelectorAll('[data-play]').forEach((a) => a.addEventListener('click', (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;   // new tab / window
+      e.preventDefault();
+      leave(a.href);
+    }));
+
+    // the title screen is played with the keyboard; further down, keys scroll and click as on any page
+    addEventListener('keydown', (e) => {
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      root.classList.remove('touch');
+      const k = e.key, open = document.querySelector('.box[open]');
+      if (open) {
+        if (k === 'Enter' || k === ' ') { e.preventDefault(); if (!e.repeat) closeBox(open); }
+        return;   // Esc closes natively
+      }
+      if (scrollY > innerHeight * 0.5 || e.target.closest?.('.top, .sec, .more')) return;
+      if (k === 'ArrowUp' || k === 'w' || k === 'W') { e.preventDefault(); select(sel - 1, true); }
+      else if (k === 'ArrowDown' || k === 's' || k === 'S') { e.preventDefault(); select(sel + 1, true); }
+      else if (k === 'Enter') { e.preventDefault(); if (!e.repeat) activate(sel); }
+    });
+
+    const coarse = matchMedia('(hover: none) and (pointer: coarse)');
+    root.classList.toggle('touch', coarse.matches);
+    addEventListener('pointerdown', (e) => root.classList.toggle('touch', e.pointerType === 'touch'), { passive: true });
+
+    // coming back with the browser's back button restores this page from cache: undo the fade
+    addEventListener('pageshow', (e) => {
+      if (!e.persisted) return;
+      leaving = false;
+      root.classList.remove('leaving');
+      items.forEach((el) => el.classList.remove('is-go'));
+    });
+
+    /* ================= the presentation below the title ================= */
+    // scrolling down dims the datacenter in four steps and drops the top bar in
+    const shade = document.querySelector('.shade');
+    let shadeStep = -1, scrollQueued = false;
+    function onScroll() {
+      scrollQueued = false;
+      const step = Math.min(4, Math.floor(scrollY / (innerHeight * 0.15)));
+      if (step !== shadeStep) { shadeStep = step; shade.style.opacity = step / 4; }
+      root.classList.toggle('is-past', scrollY > innerHeight * 0.8);
+    }
+    addEventListener('scroll', () => { if (!scrollQueued) { scrollQueued = true; requestAnimationFrame(onScroll); } }, { passive: true });
+    onScroll();
+
+    const watch = (el, cb, margin = '0px') => {
+      if (!('IntersectionObserver' in window)) { cb(true); return; }
+      new IntersectionObserver((list) => cb(list[list.length - 1].isIntersecting), { rootMargin: margin }).observe(el);
+    };
+
+    // pixel icons: one character per pixel, drawn as crisp SVG rectangles
+    const ICON_PAL = { K: INK, S: STEEL[7], D: STEEL[3], g: GREEN, a: AMBER, h: '#3b2416', k: '#e7ad84', c: '#2f5f8f', w: STEEL[11] };
+    const ICONS = {
+      rack: [
+        'KKKKKKKKKKKK',
+        'KSSSSSSSSSSK',
+        'KSgDDDDDDDSK',
+        'KSSSSSSSSSSK',
+        'KSgDDDDDDDSK',
+        'KSSSSSSSSSSK',
+        'KSaDDDDDDDSK',
+        'KSSSSSSSSSSK',
+        'KSgDDDDDDDSK',
+        'KSSSSSSSSSSK',
+        'KKKKKKKKKKKK',
+        '.KK......KK.',
+      ],
+      hire: [
+        '....KKKK....',
+        '...KhhhhK...',
+        '..KhhhhhhK..',
+        '..KhkkkkhK..',
+        '..KkKkkKkK..',
+        '..KkkkkkkK..',
+        '...KkkkkK...',
+        '..KKccccKK..',
+        '.KccccwcccK.',
+        '.KccccwcccK.',
+        '.KccccccccK.',
+        '.KKKKKKKKKK.',
+      ],
+      chart: [
+        '........KKKK',
+        '........KggK',
+        '........KggK',
+        '....KKKKKggK',
+        '....KggKKggK',
+        '....KggKKggK',
+        'KKKKKggKKggK',
+        'KggKKggKKggK',
+        'KggKKggKKggK',
+        'KggKKggKKggK',
+        'KggKKggKKggK',
+        'KKKKKKKKKKKK',
+      ],
+      alert: [
+        '.....KK.....',
+        '....KaaK....',
+        '....KaaK....',
+        '...KaKKaK...',
+        '...KaKKaK...',
+        '..KaaKKaaK..',
+        '..KaaKKaaK..',
+        '.KaaaaaaaaK.',
+        '.KaaaKKaaaK.',
+        'KaaaaKKaaaaK',
+        'KaaaaaaaaaaK',
+        'KKKKKKKKKKKK',
+      ],
+    };
+    function pixelSvg(rowsArr, pal) {
+      const paths = {};
+      rowsArr.forEach((line, y) => {
+        for (let x = 0; x < line.length;) {
+          let n = 1;
+          while (line[x + n] === line[x]) n++;
+          if (pal[line[x]]) (paths[line[x]] = paths[line[x]] || []).push('M' + x + ' ' + y + 'h' + n + 'v1H' + x + 'z');
+          x += n;
+        }
+      });
+      return '<svg viewBox="0 0 ' + rowsArr[0].length + ' ' + rowsArr.length + '" shape-rendering="crispEdges" aria-hidden="true">' +
+        Object.keys(paths).map((ch) => '<path fill="' + pal[ch] + '" d="' + paths[ch].join('') + '"/>').join('') + '</svg>';
+    }
+    document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = pixelSvg(ICONS[el.dataset.icon], ICON_PAL); });
+
+    // the live game (jogo.html?hero): loaded when it comes near, paused while it is off screen
+    const live = document.getElementById('live');
+    const frame = live.querySelector('iframe');
+    let liveNear = false, livePaused = false;
+    const tell = (msg) => { try { frame.contentWindow.postMessage(msg, location.origin); } catch (err) { /* not loaded yet */ } };
+    const syncLive = () => {
+      if (!frame.src) return;
+      const stop = !liveNear || still;
+      if (stop !== livePaused) { livePaused = stop; tell(stop ? 'datalab:pause' : 'datalab:play'); }
+    };
+    frame.addEventListener('load', () => { live.classList.add('is-on'); livePaused = false; syncLive(); });
+    watch(live, (near) => {
+      liveNear = near;
+      if (near && !frame.src) frame.src = frame.dataset.src;
+      syncLive();
+    }, '300px 0px');
+
+    // an incident typed out in the console, on a loop while it is on screen. Every line keeps its place
+    // (hidden until its turn), so the panel never changes height.
+    const term = document.getElementById('term');
+    if (!still) {
+      const lines = [...term.querySelectorAll('.ln')].map((el) => {
+        const text = el.textContent, typed = document.createElement('span'), rest = document.createElement('span');
+        rest.className = 'rest';
+        el.textContent = '';
+        el.append(typed, rest);
+        return { el, text, typed, rest, cmd: el.classList.contains('ln--cmd') };
+      });
+      const cursor = document.createElement('i');
+      cursor.className = 'cur';
+      let seen = false;
+      const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+      const onScreen = async () => { while (!seen) await pause(300); };
+      const reset = () => lines.forEach((l) => {
+        l.typed.textContent = ''; l.rest.textContent = l.text;
+        l.el.classList.add('wait'); l.el.classList.remove('typing');
+      });
+      reset();
+      (async () => {
+        for (;;) {
+          for (const l of lines) {
+            await onScreen();
+            if (!l.cmd) { await pause(l === lines[0] ? 700 : 110); l.el.classList.remove('wait'); continue; }
+            l.el.classList.replace('wait', 'typing');
+            l.el.insertBefore(cursor, l.rest);
+            await pause(600);
+            for (let i = 1; i <= l.text.length; i++) {
+              l.typed.textContent = l.text.slice(0, i);
+              l.rest.textContent = l.text.slice(i);
+              await pause(40 + Math.random() * 70);
+            }
+            await pause(400);
+            cursor.remove();
+            l.el.classList.remove('typing');
+          }
+          await pause(4500);
+          await onScreen();
+          reset();
+        }
+      })();
+      watch(term, (v) => { seen = v; });
+    }
+
+    // the crew: the title's technician, recoloured per role. They idle and turn around now and then;
+    // hovering a card makes its owner walk.
+    const mates = [...document.querySelectorAll('.mate')].map((el) => {
+      const role = el.style.getPropertyValue('--role').trim(), hair = el.dataset.hair, skin = el.dataset.skin;
+      const pal = Object.assign({}, SKIN, {
+        c: role, C: mix(role, INK, 0.4), l: mix(role, '#ffffff', 0.4), g: mix(role, INK, 0.6),
+        h: hair, j: mix(hair, '#ffffff', 0.18), s: skin, d: mix(skin, INK, 0.25),
+      });
+      const m = {
+        g: el.querySelector('canvas').getContext('2d'), dir: Math.random() < 0.5 ? 1 : -1, next: 1 + Math.random() * 4, walk: false,
+        stand: sprite([...HEAD, ...TORSO, ...LEGS_STAND], pal), stride: sprite([...HEAD, ...TORSO, ...LEGS_STRIDE], pal), pass: sprite([...HEAD, ...TORSO, ...LEGS_PASS], pal),
+      };
+      el.addEventListener('pointerenter', () => { m.walk = true; });
+      el.addEventListener('pointerleave', () => { m.walk = false; });
+      return m;
+    });
+    function paintMate(m, t) {
+      let spr = m.stand, y = 1;
+      if (m.walk && !still) { const f = Math.floor(t * 7) % 4; spr = f % 2 ? m.pass : m.stride; y = f % 2 ? 0 : 1; }
+      else if (!still && t > m.next) { m.dir = -m.dir; m.next = t + 2 + Math.random() * 4; }
+      m.g.clearRect(0, 0, 14, 30);
+      m.g.fillStyle = 'rgba(5, 7, 13, .55)';
+      m.g.fillRect(2, 29, 11, 1);
+      m.g.drawImage(m.dir < 0 ? spr.l : spr.r, 0, y);
+    }
+    mates.forEach((m) => paintMate(m, 0));
+    if (!still) {
+      let crewTimer = 0, crewT = 0;
+      watch(document.querySelector('.crew'), (v) => {
+        clearInterval(crewTimer);
+        if (v) crewTimer = setInterval(() => { crewT += 1 / 14; mates.forEach((m) => paintMate(m, crewT)); }, 1000 / 14);
+      });
+    }
+
+    // panels step in as they reach the screen
+    if (!still && 'IntersectionObserver' in window) {
+      root.classList.add('rv-on');
+      const reveal = new IntersectionObserver((list) => list.forEach((e) => {
+        if (!e.isIntersecting) return;
+        e.target.classList.add('in');
+        reveal.unobserve(e.target);
+      }), { rootMargin: '0px 0px -8% 0px' });
+      document.querySelectorAll('.rv').forEach((el) => reveal.observe(el));
+    }
+  })();
+  </script>
 </body>
 </html>

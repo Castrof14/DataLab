@@ -75,7 +75,7 @@ for (const [id, pr] of Object.entries(X.presets)) presets[id] = { name: pr.name,
 const reward = 1.35; // the best learning-mode multiplier
 const economy = {
   start_cash: E.startCash, presets, starter_kit: E.kit, lot: E.lot,
-  salary: E.salary, salary_custom: E.salaryCustom, salary_per_level: E.salaryPerLevel, hire_fee: E.hireFee, month_minutes: E.monthMinutes, opex_floor: E.opexFloor,
+  salary: E.salary, salary_custom: E.salaryCustom, salary_per_level: E.salaryPerLevel, hire_fee: E.hireFee, month_minutes: E.monthMinutes, opex_floor: E.runningCosts ? E.opexFloor : 0, // the server charges a payroll floor only with running costs on
   // per game minute, generous on purpose (best hardware, best specialisation, VMs, best mode) — honest play never hits them
   max_rev_per_server: Math.ceil(E.revenuePerServer * maxPerf * 1.6 * reward * 4),
   max_rev_per_storage: Math.ceil(maxUsable * E.storagePerTB * reward * 2),

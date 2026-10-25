@@ -15,42 +15,48 @@
     // ramping up over `opexRamp` minutes; servers earn by type. Problems NEVER take money away: they
     // raise alerts and a broken server simply stops earning until it is fixed (and a quick fix pays
     // the client's SLA bonus).
-    // Balance target: one basic server already pays the first team, so a fresh company grows
-    // instead of sinking; every extra server pays for itself in a couple of game hours.
+    // Balance target (Iniciante pays 70%): an intermediate server nets ~10 $/min (~15 000 a month), about
+    // two salaries, and takes ~10 game hours to pay for itself. Growth comes slowly and needs
+    // planning: hiring and buying ahead of revenue sinks the cash.
+    // No running costs: the company only spends money when the player buys something (equipment,
+    // furniture, land, a hire). Salaries, energy, rent, link, maintenance, traffic, licences and on-call
+    // fees are not charged, so there is no loss — only slower or faster gains. (The cost rates below stay
+    // as reference; set true to bring them back.)
+    runningCosts: false,
     startCash: 15000,           // company balance at the start of a fresh game ($)
     presetCash: { office: 45000, noc: 70000, dcs: 110000, dcm: 180000 }, // ready-made environments start live
     starterKit: { rack: 1, desk: 1, server: 1, switch: 1, patch: 1, hire: 1, config: 1, lot: 1 },
     // Land: the starting lot is free; each expansion is paid per new m², dearer the bigger the lot
     // already is and the more floor is built on it (see DL.lotPrice). Shrinking gives nothing back.
     lot: { base: 18, freeArea: 90, growth: 1.05, builtK: 600 },
-    opexRamp: 240,              // minutes for operating costs to reach their full rate (30% → 100%)
+    opexRamp: 120,              // minutes for operating costs to reach their full rate (30% → 100%)
     opexFloor: 0.3,
     rentPerTile: 0.02,          // $/min per tile of built floor
     linkCost: 3,                // $/min: the internet link, once a switch is installed
-    maintPerDevice: 0.8,        // $/min per installed server / switch / storage (support contracts)
+    maintPerDevice: 1.2,        // $/min per installed server / switch / storage (support contracts)
     trafficPerServer: 4,        // $/min per online server: bandwidth + software licences
-    marketScale: 150,           // demand saturates gently: revenue × 1 / (1 + servers / marketScale)
-    serverSetupFee: 250,        // licences + configuration, paid when a server goes online
-    firstContract: 3000,        // the first client signs when the first server goes online
+    marketScale: 60,            // demand saturates: revenue × 1 / (1 + servers / marketScale)
+    serverSetupFee: 400,        // licences + configuration, paid when a server goes online
+    firstContract: 2000,        // the first client signs when the first server goes online
     loanAmount: 20000,          // emergency loan when the cash runs dry (live phase)
     loanFee: 0.1,               // repaid with 10% on top…
     loanRepay: 0.2,             // …taking 20% of each minute's profit (at least loanMinRepay $/min)
     loanMinRepay: 2,
-    revenuePerServer: 48,       // $/min for each online server that answers (before market saturation)
+    revenuePerServer: 24,       // $/min for each online server that answers (before market saturation)
     // a problem fixed within slaWindow minutes pays the client's SLA bonus (less the slower the fix)
-    slaBonus: 300, slaWindow: 30,
+    slaBonus: 150, slaWindow: 30,
     // Client contracts: one-off payments when the datacenter reaches a goal (kept in the save).
     // up: healthy servers online · svc: specialisations online and healthy · vms: running VMs
     contracts: [
-      { id: 'up3', name: 'Loja virtual', goal: '3 servidores no ar', need: { up: 3 }, cash: 4000 },
-      { id: 'web', name: 'Hospedagem de sites', goal: 'servidor Web + DNS no ar', need: { svc: ['web', 'dns'] }, cash: 5000 },
-      { id: 'up5', name: 'Rede de clínicas', goal: '5 servidores no ar', need: { up: 5 }, cash: 7000 },
-      { id: 'db', name: 'Sistema de gestão (ERP)', goal: 'Banco de dados no ar', need: { svc: ['db'] }, cash: 6000 },
-      { id: 'win', name: 'Rede corporativa', goal: 'Windows Server com domínio (AD)', need: { svc: ['win'], domain: true }, cash: 6000 },
-      { id: 'up8', name: 'Startup de aplicativos', goal: '8 servidores no ar', need: { up: 8 }, cash: 10000 },
-      { id: 'vm3', name: 'Nuvem privada', goal: '3 VMs rodando', need: { vms: 3 }, cash: 8000 },
-      { id: 'up12', name: 'Varejista nacional', goal: '12 servidores no ar', need: { up: 12 }, cash: 15000 },
-      { id: 'up20', name: 'Banco digital', goal: '20 servidores no ar', need: { up: 20 }, cash: 25000 },
+      { id: 'up3', name: 'Loja virtual', goal: '3 servidores no ar', need: { up: 3 }, cash: 2500 },
+      { id: 'web', name: 'Hospedagem de sites', goal: 'servidor Web + DNS no ar', need: { svc: ['web', 'dns'] }, cash: 3000 },
+      { id: 'up5', name: 'Rede de clínicas', goal: '5 servidores no ar', need: { up: 5 }, cash: 4000 },
+      { id: 'db', name: 'Sistema de gestão (ERP)', goal: 'Banco de dados no ar', need: { svc: ['db'] }, cash: 3500 },
+      { id: 'win', name: 'Rede corporativa', goal: 'Windows Server com domínio (AD)', need: { svc: ['win'], domain: true }, cash: 3500 },
+      { id: 'up8', name: 'Startup de aplicativos', goal: '8 servidores no ar', need: { up: 8 }, cash: 6000 },
+      { id: 'vm3', name: 'Nuvem privada', goal: '3 VMs rodando', need: { vms: 3 }, cash: 5000 },
+      { id: 'up12', name: 'Varejista nacional', goal: '12 servidores no ar', need: { up: 12 }, cash: 9000 },
+      { id: 'up20', name: 'Banco digital', goal: '20 servidores no ar', need: { up: 20 }, cash: 15000 },
     ],
     // Payroll: every member has an individual monthly salary (role base × level × a personal factor
     // negotiated at hiring), paid once a month. One day on the HUD clock (24 game hours = 24 real
@@ -63,9 +69,9 @@
     onCallFee: 250,             // each time an on-call member is called in to cover a shift
     // hardware (hardware.js): a server rends revenuePerServer × its model's perf × how well its network
     // keeps up; storage rents its usable capacity; equipment pays for the power it draws
-    storagePerTB: 0.35,         // $/min per usable TB (× the array's speed)
-    wifiPerAp: 4,               // $/min for each powered access point (guest Wi-Fi)
-    energyPerKw: 1.5,           // $/min per kW drawn by the equipment
+    storagePerTB: 0.15,         // $/min per usable TB (× the array's speed)
+    wifiPerAp: 2,               // $/min for each powered access point (guest Wi-Fi)
+    energyPerKw: 2,           // $/min per kW drawn by the equipment
     credits: {
       taskOrder: 6, taskAuto: 2,          // a crew task finished (ordered by you / routine)
       serverSetup: 50,                    // a server you configured goes online
@@ -342,7 +348,8 @@
       }
       if (CO.phase !== 'live') return;
       const r = CO.months[0];
-      game.toast(r.profit >= 0 ? 'ok' : 'warn', 'Fechamento do mês ' + r.month, 'Receitas ' + money(r.income) + ' · despesas ' + money(r.costs) + ' (salários ' + money(total) + ') · ' + (r.profit >= 0 ? 'lucro ' : 'prejuízo ') + money(Math.abs(r.profit)));
+      if (!E.runningCosts) game.toast('ok', 'Fechamento do mês ' + r.month, 'Receitas ' + money(r.income));
+      else game.toast(r.profit >= 0 ? 'ok' : 'warn', 'Fechamento do mês ' + r.month, 'Receitas ' + money(r.income) + ' · despesas ' + money(r.costs) + ' (salários ' + money(total) + ') · ' + (r.profit >= 0 ? 'lucro ' : 'prejuízo ') + money(Math.abs(r.profit)));
       game.emit('payday', { total, slips, cash: CO.cash });
       render();
     }
@@ -478,8 +485,8 @@
       CO.problems = problems();
       CO.revenue = (CO.servers + CO.storage + CO.wifi) * rewardK();
       CO.payrollMonth = payrollMonth();
-      CO.payroll = live ? (CO.payrollMonth / E.monthMinutes) * k : 0; // salaries, paid minute by minute
-      if (!live) { CO.energy = 0; CO.rent = 0; CO.link = 0; CO.maint = 0; CO.traffic = 0; }
+      CO.payroll = live && E.runningCosts ? (CO.payrollMonth / E.monthMinutes) * k : 0; // salaries, paid minute by minute
+      if (!live || !E.runningCosts) { CO.energy = 0; CO.rent = 0; CO.link = 0; CO.maint = 0; CO.traffic = 0; }
       const mins = dt; // 1 s = 1 game minute
       const costs = CO.energy + CO.rent + CO.link + CO.maint + CO.traffic + CO.payroll;
       CO.net = CO.revenue - costs;
@@ -549,7 +556,7 @@
         game.toast('ok', 'Primeira receita!', 'O primeiro cliente contratou hospedagem: +' + money(amount) + '. Agora cada servidor no ar rende por minuto.');
       }
       if (CO.kit.config > 0) { CO.kit.config--; floater('Kit inicial · configuração grátis', 'cash'); return; }
-      if (CO.phase !== 'live') return;
+      if (CO.phase !== 'live' || !E.runningCosts) return;
       CO.cash -= E.serverSetupFee;
       CO.mo.setup += E.serverSetupFee;
       CLAIM.opex += E.serverSetupFee;
@@ -611,7 +618,7 @@
       el.cash.textContent = money(CO.cash);
       // the company's result per minute: revenue minus every cost (salaries included)
       const net = CO.net || 0, setup = CO.phase !== 'live';
-      el.flow.textContent = setup ? 'Preparação · sem custos' : CO.frozen && net >= 0 && !CO.revenue ? 'Tutorial · custos pausados' : (net >= 0 ? 'Lucro +' : 'Prejuízo -') + money(Math.abs(net)).replace('-', '') + '/min';
+      el.flow.textContent = setup ? 'Preparação · sem custos' : CO.frozen && net >= 0 && !CO.revenue ? (E.runningCosts ? 'Tutorial · custos pausados' : 'Tutorial') : (net >= 0 ? 'Lucro +' : 'Prejuízo -') + money(Math.abs(net)).replace('-', '') + '/min';
       el.flow.className = 'econ__flow ' + (setup ? 'is-up' : net < 0 ? 'is-loss' : 'is-up');
       el.btn.classList.toggle('is-loss', !setup && net < 0);
       el.cash.classList.toggle('is-neg', CO.cash < 0);
@@ -619,7 +626,7 @@
         const kit = Object.keys(CO.kit).filter((k) => CO.kit[k] > 0).length;
         const out = CO.payroll + CO.energy + CO.rent + CO.link + CO.maint + (CO.traffic || 0);
         const txt = setup ? 'Economia começa no 1º servidor' + (kit ? ' · kit inicial ativo' : '')
-          : 'Receita +' + money(CO.revenue) + '/min · despesas -' + money(out) + '/min' + (CO.debt > 0 ? ' · dívida ' + money(CO.debt) : '');
+          : 'Receita +' + money(CO.revenue) + '/min' + (E.runningCosts ? ' · despesas -' + money(out) + '/min' : ' · sem custos fixos') + (CO.debt > 0 ? ' · dívida ' + money(CO.debt) : '');
         if (el.pay.textContent !== txt) el.pay.textContent = txt;
         el.pay.classList.toggle('is-warn', !setup && (CO.debt > 0 || net < 0));
       }
@@ -683,7 +690,8 @@
         (CO.wifi ? row('Wi-Fi de visitantes (' + CO.poe.ap + ' AP)', plus(CO.wifi * rk), 'is-up') : '') +
         row('Vendas na recepção (este mês)', '+' + money(CO.mo.sales), 'is-up') +
         row('Contratos e bônus de SLA (este mês)', '+' + money(CO.mo.contracts), 'is-up') + '</ul>';
-      // costs
+      // costs (only when running costs are on — otherwise the cash only drops on purchases)
+      if (E.runningCosts) {
       h += '<span class="eyebrow-sm w-sub">Despesas' + (!setup && CO.opexK < 1 ? ' · entrando aos poucos (' + Math.round(CO.opexK * 100) + '%)' : '') + '</span><ul class="w-rows">' +
         row('Salários (' + members().length + ' pessoa' + (members().length === 1 ? '' : 's') + ')', minus(CO.payroll)) +
         row('Energia · ' + (Math.round(CO.kw * 10) / 10).toLocaleString('pt-BR') + ' kW', minus(CO.energy)) +
@@ -692,11 +700,12 @@
         row('Manutenção · ' + (CO.devCount || 0) + ' equipamento(s)', minus(CO.maint)) +
         row('Tráfego e licenças · ' + (CO.upCount || 0) + ' servidor(es) no ar', minus(CO.traffic || 0)) +
         '<li class="w-total"><span>' + (net >= 0 ? 'Lucro' : 'Prejuízo') + ' por minuto</span><b class="' + (net >= 0 ? 'is-up' : 'is-loss') + '">' + (net >= 0 ? '+' : '-') + money(Math.abs(net)).replace('-', '') + '/min</b></li></ul>';
+      } else h += '<p class="w-note">Sem custos fixos: salários, energia, aluguel e manutenção não são cobrados. O caixa só diminui quando você <b>compra</b> algo ou <b>contrata</b> alguém.</p>';
       if (CO.debt > 0) h += '<p class="w-note"><b class="is-loss">Dívida: ' + money(CO.debt) + '</b> · paga automaticamente com ' + Math.round(E.loanRepay * 100) + '% do lucro.</p>';
       // this month and the last ones
       const mo = CO.mo, inc = monthIncome(mo), cost = monthCosts(mo);
       h += '<span class="eyebrow-sm w-sub">Este mês · ' + CO.month + '</span><ul class="w-rows">' +
-        row('Receitas (servidores, storage, Wi-Fi, vendas, contratos)', '+' + money(inc), 'is-up') + row('Salários', '-' + money(mo.salaries)) + row('Infraestrutura (energia, aluguel, link, manutenção, tráfego)', '-' + money(mo.energy + mo.rent + mo.link + mo.maint + mo.traffic)) +
+        row('Receitas (servidores, storage, Wi-Fi, vendas, contratos)', '+' + money(inc), 'is-up') + (E.runningCosts ? row('Salários', '-' + money(mo.salaries)) + row('Infraestrutura (energia, aluguel, link, manutenção, tráfego)', '-' + money(mo.energy + mo.rent + mo.link + mo.maint + mo.traffic)) : '') +
         (mo.setup ? row('Licenças e configuração de servidores', '-' + money(mo.setup)) : '') +
         (mo.oncall ? row('Plantões', '-' + money(mo.oncall)) : '') +
         '<li class="w-total"><span>Resultado do mês</span><b class="' + (inc - cost >= 0 ? 'is-up' : 'is-loss') + '">' + money(inc - cost) + '</b></li>' +
@@ -705,7 +714,8 @@
         const max = Math.max(1, ...CO.months.map((x) => Math.max(Math.abs(x.income), Math.abs(x.costs))));
         h += '<div class="w-months">' + CO.months.slice().reverse().map((x) => '<div class="w-month" title="Mês ' + x.month + ': receitas ' + money(x.income) + ', despesas ' + money(x.costs) + '"><i class="is-in" style="height:' + Math.round((x.income / max) * 100) + '%"></i><i class="is-out" style="height:' + Math.round((x.costs / max) * 100) + '%"></i><small class="' + (x.profit >= 0 ? 'is-up' : 'is-loss') + '">' + (x.profit >= 0 ? '+' : '') + fmt(x.profit) + '</small><em>m' + x.month + '</em></div>').join('') + '</div>';
       }
-      // payroll: who earns what
+      // payroll: who earns what (no salaries without running costs)
+      if (E.runningCosts) {
       h += '<span class="eyebrow-sm w-sub">Folha de pagamento</span>' +
         '<p class="w-note w-pay">Salários debitados minuto a minuto; o mês fecha à 00:00 do relógio (1 dia = 1 mês da empresa), em <b>' + fmtIn(payIn()) + '</b>.</p>';
       if (members().length) {
@@ -715,6 +725,7 @@
         }).join('') + '<li class="w-total"><span>Total mensal</span><b>-' + money(CO.payrollMonth) + '</b></li></ul>';
       } else h += '<p class="w-note">Ninguém contratado: sem folha. Contratar custa metade de um salário (recrutamento).</p>';
       if (CO.paid.length) h += '<p class="w-note">Pagos: ' + CO.paid.slice(0, 3).map((p) => 'mês ' + p.month + ' ' + money(p.total)).join(' · ') + (CO.hired ? ' · contratações ' + money(CO.hired) : '') + '</p>';
+      }
       // client contracts: goals that pay once
       const left = E.contracts.filter((c) => CO.contracts.indexOf(c.id) < 0);
       h += '<span class="eyebrow-sm w-sub">Contratos de clientes · ' + (E.contracts.length - left.length) + '/' + E.contracts.length + '</span>';
@@ -844,7 +855,7 @@
       hireCharge, payDay, start, priceOf, goLive, lotCost, lotCharge,
       get phase() { return CO.phase; },
       // an operating cost outside the per-minute rates (on-call cover): counted with the month's costs
-      charge(amount, why) { CO.cash -= amount; CO.mo.oncall += amount; CLAIM.opex += amount; floater('-' + money(amount) + ' · ' + why, 'spend'); render(); },
+      charge(amount, why) { if (!E.runningCosts) return; CO.cash -= amount; CO.mo.oncall += amount; CLAIM.opex += amount; floater('-' + money(amount) + ' · ' + why, 'spend'); render(); },
       income(amount, why) { CO.cash += amount; CO.earned += amount; CO.mo.sales += amount; CLAIM.revenue += amount; floater('+' + money(amount) + ' · ' + why, 'cash'); render(); },
       /* ---------- cloud (services/*.js) ---------- */
       get cloud() { return CLOUD.on; },

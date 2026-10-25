@@ -1,7 +1,6 @@
-/* DataLab — learning modes. One setting changes how much the game holds the player's hand and how much
-   it pays: Iniciante (maximum help, smaller rewards), Intermediário (moderate help) and Experiente
-   (little help, bigger challenges, easier money). Everyone can still ask for help — only the amount of
-   assistance changes. Every system reads the numbers from DL.mode(), so tuning lives here. */
+/* DataLab — learning modes. Every player plays Iniciante (maximum help, smaller rewards); the choice was
+   removed. Intermediário and Experiente stay defined only as tuning references. Every system reads the
+   numbers from DL.learn(), so tuning lives here. */
 (function () {
   'use strict';
   const DL = window.DL;
@@ -37,16 +36,11 @@
   };
   DL.MODE_ORDER = ['iniciante', 'intermediario', 'experiente'];
 
-  let current = 'intermediario';
-  try { const v = localStorage.getItem(KEY); if (v && DL.MODES[v]) current = v; } catch (e) { /* private mode */ }
-  const listeners = [];
+  const current = 'iniciante';
+  try { localStorage.removeItem(KEY); } catch (e) { /* private mode */ }
 
   DL.learn = () => DL.MODES[current];
-  DL.setLearn = function (id) {
-    if (!DL.MODES[id] || id === current) return;
-    current = id;
-    try { localStorage.setItem(KEY, id); } catch (e) { /* private mode */ }
-    listeners.forEach((fn) => fn(DL.MODES[id]));
-  };
-  DL.onLearnChange = (fn) => listeners.push(fn);
+  // the mode no longer changes; kept so older callers still work
+  DL.setLearn = function () {};
+  DL.onLearnChange = () => {};
 })();

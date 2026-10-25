@@ -693,7 +693,9 @@
 
     function repaint() { scene.refreshWorld(true); }
 
-    const chip = (attr, v, label, on, extra) => '<button type="button" class="chip' + (on ? ' is-on' : '') + '" ' + attr + '="' + v + '"' + (extra || '') + '>' + label + '</button>';
+    // the fine controls (floor, walls, light, RGB) stay folded until the player asks for them
+    let custom = false;
+    const chip = (attr, v, label, on, extra, xs) => '<button type="button" class="chip' + (xs ? ' chip--xs' : '') + (on ? ' is-on' : '') + '" ' + attr + '="' + v + '"' + (extra || '') + '>' + label + '</button>';
     const swatches = (attr, cols, cur) => '<div class="swatches">' + cols.map((c) => '<button type="button" class="swatch swatch--sm' + (cur === c ? ' is-on' : '') + '" ' + attr + '="' + c + '" style="--c:' + c + '" aria-label="' + c + '"></button>').join('') + '</div>';
     const group = (label, body, cls) => '<div class="st-group' + (cls ? ' ' + cls : '') + '"><span class="eyebrow-sm">' + label + '</span>' + body + '</div>';
 
@@ -703,12 +705,15 @@
       if (!r) { el.innerHTML = ''; return; }
       const s = styleOf(r) || { floor: r.floor === 'carpet' ? 'carpet' : 'tile', wall: 'plain', light: 'auto', rgb: { on: false, color: '#7c5cff', intensity: 50, areas: ['ceiling'], effect: 'static' }, classic: true };
       const rgb = s.rgb || {};
-      let h = '<div class="room-list">' + W.rooms.map((x, i) => chip('data-st-room', i, esc(x.name), x === r)).join('') + '<span class="st-tip">ou clique numa sala no mapa</span></div>';
-      h += '<div class="st-themes">' + chip('data-st-theme', '', 'Padrão', !r.style && !r.theme) + THEME_ORDER.map((id) => {
+      let h = '<div class="room-sec"><span class="eyebrow-sm room-sec__k">Sala</span><div class="room-list">' + W.rooms.map((x, i) => chip('data-st-room', i, esc(x.name), x === r, '', true)).join('') + '<span class="st-tip">ou clique numa sala no mapa</span></div></div>';
+      h += '<div class="room-sec"><span class="eyebrow-sm room-sec__k">Tema</span><div class="st-themes">' + chip('data-st-theme', '', 'Padrão', !r.style && !r.theme, '', true) + THEME_ORDER.map((id) => {
         const th = THEMES[id];
         const dots = '<span class="st-dots">' + th.swatch.map((c) => '<i style="background:' + c + '"></i>').join('') + '</span>';
-        return chip('data-st-theme', id, dots + th.name, r.theme === id && (!r.style || r.style.fromTheme === id), ' title="' + th.desc + '"');
-      }).join('') + '<button type="button" class="btn btn--sm" data-st-act="decorate">Decorar com o tema</button></div>';
+        return chip('data-st-theme', id, dots + th.name, r.theme === id && (!r.style || r.style.fromTheme === id), ' title="' + th.desc + '"', true);
+      }).join('') + '</div></div>';
+      h += '<div class="room-sec st-acts"><button type="button" class="btn btn--sm" data-st-act="decorate">Decorar com o tema</button>' +
+        '<button type="button" class="btn btn--sm' + (custom ? ' is-on' : '') + '" data-st-act="custom" aria-expanded="' + custom + '">Personalizar piso, paredes e luz ' + (custom ? '▴' : '▾') + '</button></div>';
+      if (!custom) { el.innerHTML = h; return; }
       h += '<div class="st-grid">';
       h += group('Piso', '<div class="chips">' + FLOORS.map(([v, l]) => chip('data-st-floor', v, l, s.floor === v)).join('') + '</div>' + swatches('data-st-floorcol', FLOOR_COLORS, s.floorColor));
       h += group('Paredes', '<div class="chips">' + WALLS.map(([v, l]) => chip('data-st-wall', v, l, s.wall === v)).join('') + '</div>' + swatches('data-st-wallcol', WALL_COLORS, s.wallColor));
@@ -782,6 +787,7 @@
       }
       else if (d.stTheme != null) applyTheme(d.stTheme);
       else if (d.stAct === 'decorate') decorate();
+      else if (d.stAct === 'custom') { custom = !custom; render(); }
       else if (d.stFloor) edit((s) => { s.floor = d.stFloor; if (!s.floorColor || FLOOR_COLORS.indexOf(s.floorColor) < 0) s.floorColor = DEFAULT_COLOR[d.stFloor]; });
       else if (d.stFloorcol) edit((s) => { s.floorColor = d.stFloorcol; });
       else if (d.stWall) edit((s) => { s.wall = d.stWall; if (!s.wallColor) s.wallColor = WALL_DEFAULT[d.stWall]; });

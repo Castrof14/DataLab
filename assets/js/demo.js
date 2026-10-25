@@ -110,6 +110,9 @@
   // the incident director paces faults and broken hardware: one problem at a time (director.js)
   const director = DL.createDirector(G, { ops });
   G.director = director;
+  // the player's level: one mission per level; bots work alone only below it (career.js)
+  const career = DL.createCareer(G, { ops, crew });
+  G.career = career;
   const talk = DL.createTalk(G, { crew, ops, economy, cabling });
   const roles = DL.createRoles(G, { crew });
   // H / L open the apps only when nothing else is on screen
@@ -623,24 +626,7 @@
     S.refused = refused;
   }
 
-  // Learning mode (difficulty.js): chosen on the start card, shown on the HUD and in the terminal
-  const modeChoices = $('modeChoices');
-  function renderModes() {
-    const cur = DL.learn();
-    modeChoices.innerHTML = DL.MODE_ORDER.map((id) => {
-      const m = DL.MODES[id], on = id === cur.id;
-      return '<button type="button" class="start-opt start-opt--mode' + (on ? ' is-on' : '') + '" role="radio" aria-checked="' + on + '" data-learn="' + id + '" style="--c:' + m.color + '"><b>' + m.name + '</b><span>' + m.desc + '</span><em class="eyebrow-sm">' + m.tag + '</em></button>';
-    }).join('');
-    const hm = $('hudMode');
-    if (hm) { hm.innerHTML = 'Modo <b>' + cur.name + '</b>'; hm.style.setProperty('--c', cur.color); }
-  }
-  modeChoices.addEventListener('click', (ev) => {
-    const b = ev.target.closest('[data-learn]');
-    if (!b || S.phase !== 'intro') return;
-    DL.setLearn(b.dataset.learn);
-  });
-  DL.onLearnChange(renderModes);
-  renderModes();
+  // Learning mode (difficulty.js): everyone plays Iniciante, there is nothing to choose
   $('helpBtn').addEventListener('click', () => $('help').classList.add('is-open'));
   $('helpClose').addEventListener('click', () => $('help').classList.remove('is-open'));
 
@@ -727,13 +713,40 @@
   canvas.addEventListener('pointerup', up);
   canvas.addEventListener('pointercancel', up);
   canvas.addEventListener('contextmenu', (ev) => ev.preventDefault());
+  // Smooth zoom: the wheel / trackpad moves a target and the scale glides to it every frame (zoomStep).
+  // At the default (5) it is deliberately slow: a full trackpad swipe (~300px) is about one zoom level.
+  // The player picks 1 (≈ ⅓ as fast) … 10 (≈ 4× as fast) in Configurações; it stays in this browser.
+  const SETTINGS_KEY = 'datalab.settings.v1';
+  const settings = { zoomSens: 5 };
+  try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) { /* defaults */ }
+  settings.zoomSens = Math.max(1, Math.min(10, Math.round(Number(settings.zoomSens) || 5)));
+  const zoomSens = () => (1 / 320) * Math.pow(2, (settings.zoomSens - 5) / 2.5);
+  const sensIn = $('zoomSens'), sensVal = $('zoomSensVal');
+  sensIn.value = sensVal.textContent = settings.zoomSens;
+  sensIn.addEventListener('input', () => {
+    settings.zoomSens = Number(sensIn.value);
+    sensVal.textContent = settings.zoomSens;
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ }
+  });
+  const zoomRange = () => [2 - scene.autoS, 3];
+  const wheelZ = { target: 0 };
   canvas.addEventListener('wheel', (ev) => {
     ev.preventDefault();
     if (S.phase === 'intro') return;
-    const z = (scene.o.zoom || 0) + (ev.deltaY < 0 ? 1 : -1);
-    scene.o.zoom = Math.max(2 - scene.autoS, Math.min(3, z));
-    scene.resize();
+    // lines / pages → pixels; pinch-to-zoom (ctrlKey) sends small deltas, so it counts more
+    const unit = ev.deltaMode === 1 ? 33 : ev.deltaMode === 2 ? 400 : 1;
+    const d = Math.max(-120, Math.min(120, ev.deltaY * unit * (ev.ctrlKey ? 4 : 1)));
+    const [lo, hi] = zoomRange();
+    wheelZ.target = Math.max(lo, Math.min(hi, wheelZ.target - d * zoomSens()));
   }, { passive: false });
+  function zoomStep(dt) {
+    const z = scene.o.zoom || 0, [lo, hi] = zoomRange();
+    wheelZ.target = Math.max(lo, Math.min(hi, wheelZ.target));
+    if (Math.abs(wheelZ.target - z) < 0.002) return;
+    const k = reduced ? 1 : 1 - Math.exp(-dt * 14);
+    scene.o.zoom = Math.abs(wheelZ.target - z) < 0.01 ? wheelZ.target : z + (wheelZ.target - z) * k;
+    scene.S = Math.max(2, scene.autoS + scene.o.zoom);
+  }
 
   // touch joystick (explore mode)
   if (matchMedia('(hover: none) and (pointer: coarse)').matches) {
@@ -1037,6 +1050,7 @@
     if (S.phase !== 'intro') S.time += dt;
     updatePlayer(dt);
     camGlide(dt);
+    zoomStep(dt);
     S.target = canMove() ? findTarget() : null;
     crew.update(dt);
     if (S.phase !== 'intro') director.update(dt);
@@ -1049,6 +1063,7 @@
     infra.update(dt);
     monitor.update(dt);
     tutorial.update(dt);
+    if (S.phase !== 'intro') career.update(dt);
     if (S.panel && Math.hypot(S.panel.ix - player.x, S.panel.iy - player.y) > 44) closePanel();
     const c = clockAt(S.time);
     if (c !== lastClock) { lastClock = c; $('clock').textContent = c; }
@@ -1079,6 +1094,7 @@
     $('intro').classList.remove('is-open');
     // from scratch: a small budget and the starter kit; ready-made environments are already operating
     economy.start(preset);
+    career.start();
     // presets come with a team already on its routine
     for (const role of DL.PRESETS[preset].crew || []) {
       const p = crew.api.randomProfile();
@@ -1087,7 +1103,6 @@
       crew.api.hire(p, { silent: true, free: true, at: crew.api.nav.randomSpot(), level: 1 + Math.floor(Math.random() * 3) });
     }
     crew.startShift();
-    toast('info', 'Modo ' + DL.learn().name, DL.learn().desc + ' · ' + DL.learn().tag.toLowerCase());
     // presets come with specialised servers (web, banco, DNS…) and a virtualization node with VMs
     if (preset !== 'zero') infra.seed(preset);
     if (preset !== 'zero') toast('ok', DL.PRESETS[preset].name, 'Ambiente pronto · personalize à vontade com B');
@@ -1125,7 +1140,7 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
     // fast-forward the simulation (game minutes) without drawing — for automated checks
     step,
     advance(sec, dt) { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) { step(dt); scene.update(dt); } },

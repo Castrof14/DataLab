@@ -1722,6 +1722,8 @@
     const ROOM_TOOLS = [['select', 'Selecionar'], ['draw', 'Nova sala'], ['wall', 'Parede'], ['box', 'Cômodo'], ['erase', 'Apagar parede'], ['door', 'Porta'], ['door2', 'Porta dupla']];
     const WALL_MATS = [['solid', 'Alvenaria'], ['glass', 'Vidro']];
     const esc = (t) => String(t).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    // Espaços: the tool row always; below it only what the chosen tool needs. With "Selecionar":
+    // the rooms, the selected room's settings and the land. Wall tools: the material. Others: nothing.
     function renderRoom() {
       if (B.tab !== 'room') return;
       const rooms = world.rooms;
@@ -1729,19 +1731,42 @@
       const r = rooms[B.roomIdx], ai = areaOfRoom(B.roomIdx), a = world.areas[ai];
       const step = (label, key, val, off) =>
         '<div class="stepper"><span class="eyebrow-sm">' + label + '</span><button type="button" class="btn btn--sm" data-room="' + key + '-"' + (off ? ' disabled' : '') + ' aria-label="Diminuir ' + label + '">−</button><b>' + val + '</b><button type="button" class="btn btn--sm" data-room="' + key + '+"' + (off ? ' disabled' : '') + ' aria-label="Aumentar ' + label + '">+</button></div>';
-      let h = '<div class="room-row"><div class="room-tools">';
-      for (const [id, label] of ROOM_TOOLS) h += '<button type="button" class="chip' + (B.roomTool === id ? ' is-on' : '') + '" data-room-tool="' + id + '">' + label + '</button>';
+      let h = '<div class="room-tools seg" role="toolbar" aria-label="Ferramentas de espaço">';
+      for (const [id, label] of ROOM_TOOLS) h += '<button type="button" class="seg__b' + (B.roomTool === id ? ' is-on' : '') + '" data-room-tool="' + id + '">' + label + '</button>';
       h += '</div>';
       if (B.roomTool === 'wall' || B.roomTool === 'box') {
-        h += '<div class="room-mats"><span class="eyebrow-sm">Material <kbd>R</kbd></span>' + WALL_MATS.map(([id, l]) => '<button type="button" class="chip chip--xs' + (B.wallMat === id ? ' is-on' : '') + '" data-wall-mat="' + id + '">' + l + '</button>').join('') + '</div>';
-      }
-      if (world.lot) {
-        const pw = lotQuote(4, 0), ph = lotQuote(0, 4), lbl = (p) => (p ? DL.money(p) : 'grátis');
-        h += '<div class="room-lot"><span class="eyebrow-sm">Terreno</span>' +
-          step('Larg.', 'lw', world.lot.w, false) + step('Alt.', 'lh', world.lot.h, false) +
-          '<span class="lot-prices" title="O preço sobe com o tamanho do terreno e com a área construída">+4 larg. <b>' + lbl(pw) + '</b> · +4 alt. <b>' + lbl(ph) + '</b></span></div>';
+        h += '<div class="room-sec room-mats"><span class="eyebrow-sm">Material <kbd>R</kbd></span>' + WALL_MATS.map(([id, l]) => '<button type="button" class="chip chip--xs' + (B.wallMat === id ? ' is-on' : '') + '" data-wall-mat="' + id + '">' + l + '</button>').join('') + '</div>';
       }
       const ask = B.lotAsk;
+      if (B.roomTool === 'select') {
+        // rooms
+        h += '<div class="room-sec"><span class="eyebrow-sm room-sec__k">Salas</span><div class="room-list">';
+        rooms.forEach((x, k) => {
+          h += '<button type="button" class="chip chip--xs' + (k === B.roomIdx ? ' is-on' : '') + (x.doors ? '' : ' is-warn') + '" data-room-pick="' + k + '"' + (x.doors ? '' : ' title="Sala sem porta"') + '>' + esc(x.name) + ' <span class="mono">' + (x.n === x.w * x.h ? x.w + '×' + x.h : x.n + ' m²') + '</span>' + (x.doors || rooms.length < 2 ? '' : ' <span class="room-nodoor">sem porta</span>') + '</button>';
+        });
+        h += '</div></div>';
+        // the selected room: name, type, size, floor (the rarer actions behind "Mais")
+        if (r) {
+          h += '<div class="room-sec room-edit"><input class="input input--sm" data-room-name type="text" maxlength="24" value="' + esc(r.name) + '" spellcheck="false" autocomplete="off" aria-label="Nome da sala">' +
+            '<label class="room-type"><span class="eyebrow-sm">Tipo</span><select class="input input--sm" data-room-type-sel aria-label="Tipo da sala">' +
+            (r.type ? '' : '<option value="" selected>—</option>') + ROOM_TYPES.map((t) => '<option value="' + t.id + '"' + (r.type === t.id ? ' selected' : '') + '>' + t.label + '</option>').join('') + '</select></label>';
+          if (a) h += step('L', 'w', a.w, a.fixed) + step('A', 'h', a.h, a.fixed);
+          h += '<button type="button" class="btn btn--sm room-more' + (B.roomMore ? ' is-on' : '') + '" data-room-more="1" aria-expanded="' + (B.roomMore ? 'true' : 'false') + '">Mais ' + (B.roomMore ? '▴' : '▾') + '</button></div>';
+          if (B.roomMore) {
+            h += '<div class="room-sec room-extra"><button type="button" class="btn btn--sm" data-room="floor">Piso · ' + (r.floor === 'carpet' ? 'carpete' : 'técnico') + '</button>';
+            if (!world.lot) h += '<button type="button" class="btn btn--sm" data-room="add-e">+ Espaço a leste</button><button type="button" class="btn btn--sm" data-room="add-s">+ Espaço ao sul</button>';
+            if (a && !a.fixed && a.id !== 'hall' && world.areas.length > 1) h += '<button type="button" class="btn btn--sm btn--danger" data-room="del">Remover área</button>';
+            h += '</div>';
+          }
+        }
+        // the land
+        if (world.lot) {
+          const pw = lotQuote(4, 0), ph = lotQuote(0, 4), lbl = (p) => (p ? DL.money(p) : 'grátis');
+          h += '<div class="room-sec room-lot"><span class="eyebrow-sm room-sec__k">Terreno</span>' +
+            step('Larg.', 'lw', world.lot.w, false) + step('Alt.', 'lh', world.lot.h, false) +
+            '<span class="lot-prices" title="O preço sobe com o tamanho do terreno e com a área construída">+4 larg. <b>' + lbl(pw) + '</b> · +4 alt. <b>' + lbl(ph) + '</b></span></div>';
+        }
+      }
       if (B.lotBusy) h += '<div class="lot-ask" role="status"><span>Confirmando a compra do terreno com o servidor…</span></div>';
       if (ask && world.lot) {
         const price = lotQuote(ask.dw, ask.dh), co = company(), after = co ? co.cash - price : 0;
@@ -1750,26 +1775,6 @@
           (co && price ? ' · caixa depois: <b class="' + (after < 0 ? 'is-neg' : '') + '">' + DL.money(after) + '</b>' : '') + '</span>' +
           '<button type="button" class="btn btn--sm btn--primary" data-room="lot-ok"' + (co && after < 0 ? ' disabled' : '') + '>Confirmar</button><button type="button" class="btn btn--sm" data-room="lot-no">Cancelar</button></div>';
       }
-      h += '</div><div class="room-list">';
-      rooms.forEach((x, i) => {
-        h += '<button type="button" class="chip' + (i === B.roomIdx ? ' is-on' : '') + (x.doors ? '' : ' is-warn') + '" data-room-pick="' + i + '"' + (x.doors ? '' : ' title="Sala sem porta"') + '>' + esc(x.name) + ' <span class="mono">' + (x.n === x.w * x.h ? x.w + '×' + x.h : x.n + ' m²') + '</span>' + (x.doors || rooms.length < 2 ? '' : ' <span class="room-nodoor">sem porta</span>') + '</button>';
-      });
-      h += '</div>';
-      if (r) {
-        h += '<div class="room-ctl room-ctl--type"><label class="room-name"><span class="eyebrow-sm">Nome</span><input class="input input--sm" data-room-name type="text" maxlength="24" value="' + esc(r.name) + '" spellcheck="false" autocomplete="off"></label>';
-        h += '<div class="room-types"><span class="eyebrow-sm">Tipo</span>' + ROOM_TYPES.map((t) => '<button type="button" class="chip chip--xs' + (r.type === t.id ? ' is-on' : '') + '" data-room-type="' + t.id + '">' + t.label + '</button>').join('') + '</div></div>';
-      }
-      h += '<div class="room-ctl">';
-      if (a) {
-        h += '<span class="eyebrow-sm room-ctl__lbl">Área</span>' + step('Largura', 'w', a.w, a.fixed) + step('Altura', 'h', a.h, a.fixed);
-      }
-      if (r) h += '<button type="button" class="btn btn--sm" data-room="floor">Piso · ' + (r.floor === 'carpet' ? 'carpete' : 'técnico') + '</button>';
-      if (!world.lot) {
-        h += '<button type="button" class="btn btn--sm" data-room="add-e">+ Espaço a leste</button>';
-        h += '<button type="button" class="btn btn--sm" data-room="add-s">+ Espaço ao sul</button>';
-      }
-      if (a && !a.fixed && a.id !== 'hall' && world.areas.length > 1) h += '<button type="button" class="btn btn--sm" data-room="del">Remover área</button>';
-      h += '</div>';
       el.room.innerHTML = h;
     }
 
@@ -1859,11 +1864,15 @@
     };
 
     function syncUi() {
+      // Decoração groups three tabs (items, themed items, room style) under one main tab + sub-tabs
+      const fam = B.tab === 'theme' || B.tab === 'style' ? 'deco' : B.tab;
       el.dock.querySelectorAll('[data-tab]').forEach((b) => {
-        const on = b.dataset.tab === B.tab;
+        const on = b.dataset.family ? b.dataset.family === fam : b.dataset.tab === B.tab;
         b.classList.toggle('is-on', on);
         b.setAttribute('aria-selected', on ? 'true' : 'false');
       });
+      const sub = document.getElementById('buildSub');
+      if (sub) sub.hidden = fam !== 'deco';
       el.dock.querySelectorAll('[data-tool]').forEach((b) => b.classList.toggle('is-on', B.tool === b.dataset.tool && !B.def));
       el.items.hidden = B.tab === 'room' || B.tab === 'style';
       if (el.groups) el.groups.hidden = el.items.hidden || !el.groups.innerHTML;
@@ -1882,6 +1891,7 @@
       B.wd = null;
       if (B.tab !== t) B.group = null;
       B.tab = t;
+      if (t === 'deco' || t === 'theme' || t === 'style') B.decoTab = t;
       if (t === 'room') { B.roomIdx = Math.max(0, Math.min(B.roomIdx, world.rooms.length - 1)); renderRoom(); select(null); }
       else if (t === 'style') { B.roomIdx = Math.max(0, Math.min(B.roomIdx, world.rooms.length - 1)); select(null); }
       else renderCatalog();
@@ -1908,7 +1918,8 @@
     el.dock.addEventListener('click', (ev) => {
       const b = ev.target.closest('button');
       if (!b || b.disabled) return;
-      if (b.dataset.tab) setTab(b.dataset.tab);
+      if (b.dataset.family) setTab(B.tab === 'deco' || B.tab === 'theme' || B.tab === 'style' ? B.tab : B.decoTab || 'deco');
+      else if (b.dataset.tab) setTab(b.dataset.tab);
       else if (b.dataset.tool) { cancelPlace(); B.tool = b.dataset.tool; select(null); syncUi(); }
       else if (b.dataset.def) chooseDef(b.dataset.def);
       else if (b.dataset.roomPick) {
@@ -1919,6 +1930,7 @@
       } else if (b.dataset.roomTool) setRoomTool(b.dataset.roomTool);
       else if (b.dataset.wallMat) { B.wallMat = b.dataset.wallMat; renderRoom(); }
       else if (b.dataset.roomType) setRoomType(B.roomIdx, b.dataset.roomType);
+      else if (b.dataset.roomMore) { B.roomMore = !B.roomMore; renderRoom(); }
       else if (b.dataset.room) {
         const a = b.dataset.room, i = B.roomIdx;
         if (a === 'w-') resizeRoom(i, -1, 0);
@@ -1955,6 +1967,7 @@
     });
     el.room.addEventListener('change', (ev) => {
       if (ev.target.matches('[data-room-name]')) renameRoom(B.roomIdx, ev.target.value);
+      else if (ev.target.matches('[data-room-type-sel]')) setRoomType(B.roomIdx, ev.target.value);
     });
     el.room.addEventListener('keydown', (ev) => {
       if (!ev.target.matches('[data-room-name]')) return;

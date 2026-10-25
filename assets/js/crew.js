@@ -1043,10 +1043,12 @@
 
     // can this member fix that fault?
     const fixDefFor = (a, d) => tasksOf(a).find((t) => t.kind === 'fix' && d.fault && t.types.indexOf(d.fault.type) >= 0);
+    // on their own, bots only do tasks of a level below the player's (career.js); orders are never blocked
+    const botCan = (def) => !game.career || game.career.botCan(def);
 
     function askHelp(a, d, def) {
       if (d.fault) d.fault.help = true;
-      const helpers = C.members.filter((m) => m !== a && fixDefFor(m, d) && !m.crew.hold && !m.crew.off).sort((x, y) => (y.crew.stats.skills[def.skill] || 0) - (x.crew.stats.skills[def.skill] || 0));
+      const helpers = C.members.filter((m) => m !== a && fixDefFor(m, d) && botCan(fixDefFor(m, d)) && !m.crew.hold && !m.crew.off).sort((x, y) => (y.crew.stats.skills[def.skill] || 0) - (x.crew.stats.skills[def.skill] || 0));
       const h = helpers[0];
       if (!h) return;
       chat.later(between(1.8, 2.8), () => {
@@ -1065,7 +1067,7 @@
           const f = d.fault;
           if (!f || !f.found || busyWith(d) || (f.botTried && scene.t - f.botTried < 90)) continue;
           const fd = fixDefFor(a, d);
-          if (!fd) continue;
+          if (!fd || !botCan(fd)) continue;
           // the player gets time to fix it first (more in Experiente, less in Iniciante — difficulty.js)
           if (!f.help && scene.t - (f.foundAt || scene.t) < (DL.learn ? DL.learn().crewGrace : FIX_GRACE)) continue;
           if (!startJob(a, fd, { auto: true, target: d })) {
@@ -1077,7 +1079,7 @@
       // 1b. broken hardware nobody (or no work order) has claimed: the technicians go for it
       if (game.staff && !game.paused()) {
         const rep = defs.find((d) => d.kind === 'repair');
-        if (rep) {
+        if (rep && botCan(rep)) {
           for (const b of game.staff.broken()) {
             if (b.taken || game.staff.claimed(b)) continue;
             if (!startJob(a, rep, { auto: true, target: b })) {
@@ -1090,7 +1092,7 @@
       // 2. the role's own work, weighted; now and then a short social moment
       const opts = [];
       for (const def of defs) {
-        if (!def.auto) continue;
+        if (!def.auto || !botCan(def)) continue;
         const o = optionsFor(a, def);
         if (!o.targets) continue;
         // people stay in their own sector: routine work elsewhere only now and then
@@ -1189,9 +1191,9 @@
       const c = a.crew, t = scene.t, grace = DL.learn ? DL.learn().crewGrace : FIX_GRACE;
       if (game.ops) for (const d of game.ops.devices()) {
         const f = d.fault;
-        if (f && f.found && !busyWith(d) && fixDefFor(a, d) && (f.help || t - (f.foundAt || t) >= grace)) return true;
+        if (f && f.found && !busyWith(d) && fixDefFor(a, d) && botCan(fixDefFor(a, d)) && (f.help || t - (f.foundAt || t) >= grace)) return true;
       }
-      if (game.staff && tasksOf(a).some((x) => x.kind === 'repair') && game.staff.broken().some((b) => !b.taken && !game.staff.claimed(b))) return true;
+      if (game.staff && tasksOf(a).some((x) => x.kind === 'repair' && botCan(x)) && game.staff.broken().some((b) => !b.taken && !game.staff.claimed(b))) return true;
       if (game.staff && game.staff.clientWaitingFor && game.staff.clientWaitingFor(a)) return true;
       return false;
     }
@@ -1853,7 +1855,8 @@
     function workHtml(a) {
       const c = a.crew, eco = game.economy;
       let h = '<div class="cc__work">';
-      h += '<div class="cc__pay"><span class="eyebrow-sm">Salário</span><b>' + DL.money(DL.salaryOf ? DL.salaryOf(a) : 0) + '<small>/mês</small></b>' +
+      // salaries only exist with running costs on (economy.js)
+      if (DL.ECON.runningCosts) h += '<div class="cc__pay"><span class="eyebrow-sm">Salário</span><b>' + DL.money(DL.salaryOf ? DL.salaryOf(a) : 0) + '<small>/mês</small></b>' +
         '<span class="cc__payin" data-live="payin">' + (eco ? 'pagamento em ' + eco.payInText() : '') + '</span></div>';
       h += '<label class="cc__sel"><span class="eyebrow-sm">Turno</span><select data-cc-sel="shift" aria-label="Turno de ' + esc(c.name) + '">';
       for (const [id, s] of Object.entries(DL.SHIFTS || {})) h += '<option value="' + id + '"' + (c.shift.id === id ? ' selected' : '') + '>' + esc(s.label) + '</option>';
@@ -1879,7 +1882,9 @@
       let h = '<div class="cc__menu"><span class="eyebrow-sm">Tarefas de ' + esc(r.title) + '</span>';
       for (const def of tasksOf(a)) {
         const o = optionsFor(a, def);
-        h += '<button type="button" class="task-opt" data-task="' + def.id + '"' + (o.targets ? '' : ' disabled') + '><b>' + def.name + '</b><span>' + esc(o.targets ? def.desc : o.reason) + '</span></button>';
+        // tasks the bot does not do alone yet (career.js): still available as an order
+        const solo = (def.auto || def.kind === 'fix' || def.kind === 'repair') && !botCan(def) ? ' · sozinho(a) só a partir do seu nível ' + game.career.levelFor(def) : '';
+        h += '<button type="button" class="task-opt" data-task="' + def.id + '"' + (o.targets ? '' : ' disabled') + '><b>' + def.name + '</b><span>' + esc((o.targets ? def.desc : o.reason) + solo) + '</span></button>';
       }
       h += '<button type="button" class="linkbtn cc__back" data-cc="back">Voltar</button></div>';
       return h;
@@ -2239,9 +2244,11 @@
       const eco = game.economy, cash = eco ? eco.company.cash : 0;
       const needs = (DL.needsOfRole ? DL.needsOfRole(p.role) : []).map((id) => DL.WORK_RES[id]);
       const chk = DL.checkNeeds ? DL.checkNeeds(world(), p.role, null, DL.roomTypeOf) : [];
-      let h = '<div class="cr-cost__grid"><div><span class="eyebrow-sm">Salário</span><b>' + DL.money(sal) + '<small>/mês</small></b></div>';
-      if (hiring) h += '<div><span class="eyebrow-sm">Contratação</span><b class="' + (cash < fee ? 'is-neg' : '') + '">' + DL.money(fee) + '</b></div>';
-      h += '<div><span class="eyebrow-sm">Próximo pagamento</span><b>' + (eco ? 'em ' + eco.payInText() : '—') + '</b></div></div>';
+      const paid = DL.ECON.runningCosts;
+      let h = '<div class="cr-cost__grid">' + (paid ? '<div><span class="eyebrow-sm">Salário</span><b>' + DL.money(sal) + '<small>/mês</small></b></div>' : '');
+      if (hiring) h += '<div><span class="eyebrow-sm">Contratação' + (paid ? '' : ' · pagamento único') + '</span><b class="' + (cash < fee ? 'is-neg' : '') + '">' + DL.money(fee) + '</b></div>';
+      if (paid) h += '<div><span class="eyebrow-sm">Próximo pagamento</span><b>' + (eco ? 'em ' + eco.payInText() : '—') + '</b></div>';
+      h += '</div>';
       if (needs.length) h += '<p class="cr-cost__needs"><span class="eyebrow-sm">Precisa para trabalhar</span>' + chk.map((n) => '<span class="need' + (n.ok ? ' is-ok' : ' is-miss') + '">' + (n.ok ? '✓ ' : '✗ ') + esc(n.short) + '</span>').join('') + '</p>';
       if (hiring && cash < fee) h += '<p class="cr-cost__warn">Caixa insuficiente para contratar agora (' + DL.money(cash) + ').</p>';
       if (box.dataset.k !== h) { box.dataset.k = h; box.innerHTML = h; }
