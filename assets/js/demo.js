@@ -97,6 +97,7 @@
   const decor = DL.createDecor(G, builder);
   crew = DL.createCrew(G);
   const terminal = DL.createTerminal(G);
+  DL.devHooks = { terminal }; // DEV-AUTOPLAY: o botão Auto (assets/js/dev/dev-autoplay.js, só com ?dev=1) usa este console
   const opsSys = { terminal, crew };
   const ops = DL.createOps(G, opsSys);
   G.ops = ops;

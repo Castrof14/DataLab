@@ -8,3 +8,5 @@
 /PROXIMOS-PASSOS.txt
 /DESIGN-x.ai.md
 /tests/
+# DEV-AUTOPLAY: o botão Auto do console é só de desenvolvimento e nunca vai para o deploy
+/assets/js/dev/
