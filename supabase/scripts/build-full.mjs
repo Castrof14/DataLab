@@ -6,10 +6,13 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
 const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const parts = readdirSync(path.join(dir, 'migrations')).filter((f) => f.endsWith('.sql')).sort().map((f) => ['migrations/' + f, f]);
-parts.push(['seed.sql', 'seed.sql'], ['seed_scenarios.sql', 'seed_scenarios.sql']);
+const migrations = readdirSync(path.join(dir, 'migrations')).filter((f) => f.endsWith('.sql')).sort();
+// the catalog seed goes right after the first release's migrations (20261005…, which create the tables it
+// fills): the later ones may need its rows (costume skins → shop categories), as on a database updated over time
+const first = migrations.filter((f) => f.startsWith('20261005')), later = migrations.filter((f) => !f.startsWith('20261005'));
+const parts = first.map((f) => ['migrations/' + f, f]).concat([['seed.sql', 'seed.sql']], later.map((f) => ['migrations/' + f, f]), [['seed_scenarios.sql', 'seed_scenarios.sql']]);
 const bar = '-- ===================================================================';
-let out = '-- DataLab · SQL completo (gerado por supabase/scripts/build-full.mjs: migrations em ordem + seed + seed dos cenários).\n' +
+let out = '-- DataLab · SQL completo (gerado por supabase/scripts/build-full.mjs: migrations da 1ª versão, seed, migrations seguintes, seed dos cenários).\n' +
   '-- Cole no SQL Editor do Supabase e execute uma vez. Fonte da verdade: supabase/migrations/*.sql, seed.sql e seed_scenarios.sql\n' +
   '-- (este arquivo é só a concatenação).\n';
 for (const [file, label] of parts) out += '\n' + bar + '\n-- ' + label + '\n' + bar + '\n' + readFileSync(path.join(dir, file), 'utf8').replace(/^﻿/, '').trimEnd() + '\n';

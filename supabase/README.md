@@ -48,7 +48,7 @@ services/admin-service ┘                       ▼
 | `functions/{shop,inventory,economy,game,admin,payments,payments-webhook}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |
 | `scripts/build-scenarios.mjs` | regera o `seed_scenarios.sql` direto dos arquivos do jogo (sem navegador) |
-| `scripts/build-full.mjs` | regera o `datalab_full.sql` (todas as migrations em ordem + `seed.sql` + `seed_scenarios.sql`) |
+| `scripts/build-full.mjs` | regera o `datalab_full.sql`: migrations da 1ª versão (20261005…), `seed.sql`, as migrations seguintes (algumas precisam das linhas do seed) e `seed_scenarios.sql` |
 | `config.toml` | configuração da CLI (`verify_jwt = true` em todas as funções) |
 
 ## Configuração passo a passo
@@ -88,6 +88,8 @@ services/admin-service ┘                       ▼
   ("Servidor indisponível"). Use sempre `/supabase/`. Teste: abra `https://SEU-SITE/assets/js/supabase/config.js`.
 - *Authentication → URL Configuration*: **Site URL** = `https://SEU-SITE.vercel.app/jogo.html`; em **Redirect URLs**
   adicione `https://SEU-SITE.vercel.app/**` (e, para previews, `https://datalab-*-SEU-TIME.vercel.app/**`).
+  O link de confirmação de e-mail abre `email-verificado.html` (página "E-mail verificado"), que precisa estar
+  coberta por essas Redirect URLs.
   Sem isso, o link de confirmação/recuperação volta para `localhost` e o login PKCE falha (o "code verifier" fica
   no navegador do domínio da Vercel).
 - `supabase secrets set ALLOWED_ORIGINS="https://SEU-SITE.vercel.app,https://datalab-*-SEU-TIME.vercel.app,http://localhost:5500"`

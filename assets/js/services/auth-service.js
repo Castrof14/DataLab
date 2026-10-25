@@ -23,6 +23,9 @@
     return null;
   }
   const here = () => location.origin + location.pathname;
+  // the confirmation e-mail opens a page that says the address was verified (it must be in the
+  // Redirect URLs of Supabase Auth, or Supabase falls back to the Site URL)
+  const verifiedPage = () => new URL('email-verificado.html', location.href).href;
 
   // player titles (badge next to the name), best first. Staff roles give theirs automatically; `grant`
   // ones are handed out by staff (user_titles, see migration 010) and carry no permission.
@@ -62,7 +65,7 @@
       if (!(await this.usernameAvailable(username))) return fail('Este nome de usuário já existe.', 'username_taken');
       // the server creates profile, wallet, inventory, progress and the company (signup trigger)
       const company_name = String(company || '').replace(/[<>\u0000-\u001f]/g, '').trim().slice(0, 40);
-      const { data, error } = await client().auth.signUp({ email, password, options: { data: { username, display_name: username, company_name }, emailRedirectTo: here() } });
+      const { data, error } = await client().auth.signUp({ email, password, options: { data: { username, display_name: username, company_name }, emailRedirectTo: verifiedPage() } });
       if (error) return fail(authMsg(error));
       // e-mail already registered: Supabase answers with an empty identity list (no enumeration)
       if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) return fail('Este e-mail já tem uma conta. Entre ou recupere a senha.', 'email_taken');
@@ -72,7 +75,7 @@
       if (!client()) return fail('Servidor indisponível.', 'offline');
       email = String(email || '').trim().toLowerCase();
       if (!EMAIL.test(email)) return fail('E-mail inválido.');
-      const { error } = await client().auth.resend({ type: 'signup', email, options: { emailRedirectTo: here() } });
+      const { error } = await client().auth.resend({ type: 'signup', email, options: { emailRedirectTo: verifiedPage() } });
       return error ? fail(authMsg(error)) : { ok: true };
     },
     async signIn({ email, password }) {

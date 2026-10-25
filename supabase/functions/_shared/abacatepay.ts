@@ -58,6 +58,7 @@ export async function productFor(pack: Pack): Promise<string> {
 export function createCheckout(productId: string, orderId: string, uid: string, sku: string, site: string | null): Promise<Checkout> {
   return api<Checkout>('POST', '/checkouts/create', {
     items: [{ id: productId, quantity: 1 }],
+    methods: ['PIX'], // Pix only: no card on the AbacatePay page
     externalId: orderId,
     metadata: { order: orderId, user: uid, sku },
     ...(site ? { returnUrl: site + '/jogo.html', completionUrl: site + '/pagamento.html' } : {}),

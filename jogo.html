@@ -594,10 +594,10 @@
               </div>
             </div>
             <div class="mm-weekly__info">
-              <b class="mm-weekly__name">Torre Aurora</b>
-              <span class="mm-weekly__time">Termina em: 2d 14h</span>
+              <b class="mm-weekly__name" id="mmWeeklyName">Torre Aurora</b>
+              <span class="mm-weekly__time" id="mmWeeklyTime">Termina em: 2d 14h</span>
             </div>
-            <button class="mm-btn mm-btn--small" type="button" data-go="weekly"><span class="mm-btn__text"><b>VER SALA</b></span></button>
+            <button class="mm-btn mm-btn--small" type="button" data-act="visit" data-i="0"><span class="mm-btn__text"><b>VER SALA</b></span></button>
           </div>
         </section>
 
@@ -607,6 +607,12 @@
         <div class="mm__hints" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> voltar</span><span><kbd>Tab</kbd> acessar Sala da Semana</span></div>
       </div>
       <p class="mm-flash" id="menuFlash" role="status" aria-live="polite"></p>
+    </section>
+    <!-- visiting a Sala da semana: simulated visitors and chat until the online mode exists (menu.js) -->
+    <section class="visit" id="visit" hidden aria-label="Visita à Sala da semana">
+      <div class="visit__drag" id="visitDrag"></div>
+      <div class="visit__tags" id="visitTags" aria-hidden="true"></div>
+      <div class="visit__ui" id="visitUi"></div>
     </section>
   </main>
 

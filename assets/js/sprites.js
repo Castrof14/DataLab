@@ -153,6 +153,9 @@
   }
 
   function drawChar(g, dir, pose, L, closed) {
+    // shop costumes recolour the whole look before anything is drawn (cosmetics.js)
+    const costume = DL.charCostume && DL.charCostume(L);
+    if (costume) L = Object.assign({}, L, costume);
     const ax = AX, ay = AY;
     const side = dir === 'right';
     const sit = pose.indexOf('sit') === 0;
