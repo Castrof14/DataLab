@@ -3,7 +3,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Silkscreen&display=swap');
 
 /* Hide HUD while menu is up */
-.game.is-title > :not(#world):not(.vignette):not(.title):not(.overlay) {
+.game.is-title > :not(#world):not(.vignette):not(.title):not(.overlay):not(.visit) {
   opacity: 0 !important;
   visibility: hidden;
   pointer-events: none !important;
@@ -1062,4 +1062,68 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .title .mm-btn::before { animation: none !important; }
+}
+
+/* ---------- visiting a Sala da semana (menu.js): the room at full brightness, the menu's pixel windows on top ---------- */
+.game.is-visit #world { filter: none; }
+.visit { position: absolute; inset: 0; z-index: 40; color: #e6ecf5; font: 400 16px/1 'Silkscreen', monospace; user-select: none; -webkit-user-select: none; }
+.visit[hidden] { display: none; }
+.visit__drag { position: absolute; inset: 0; cursor: grab; touch-action: none; }
+.visit__drag.is-grab { cursor: grabbing; }
+.visit__tags, .visit__ui { position: absolute; inset: 0; pointer-events: none; }
+.visit__ui > * { pointer-events: auto; }
+.visit-bar, .visit-chat, .visit-hint {
+  position: absolute; background: #0d1424;
+  box-shadow: 0 -4px #46506b, 0 4px #46506b, -4px 0 #46506b, 4px 0 #46506b,
+    0 -8px #05070d, 0 8px #05070d, -8px 0 #05070d, 8px 0 #05070d,
+    -4px -4px #05070d, 4px -4px #05070d, -4px 4px #05070d, 4px 4px #05070d, 8px 12px rgba(5, 7, 13, .8);
+}
+.visit-bar { left: 32px; right: 32px; top: 28px; display: flex; gap: 24px; align-items: flex-start; justify-content: space-between; padding: 16px 20px; }
+.visit-bar__info { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; min-width: 0; }
+.visit-bar__title { margin: 0; font: 400 20px/1.3 'Press Start 2P', monospace; color: #3dffa2; text-shadow: 0 3px #0f4a33; }
+.visit-tag { padding: 6px 8px 4px; font: 400 14px/1 'Silkscreen', monospace; color: #ffb547; background: #47300f; box-shadow: 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d; }
+.visit-bar__by { display: inline-flex; align-items: center; gap: 8px; font: 400 22px/1 'VT323', monospace; color: #c3ccd9; }
+.visit-face { width: 28px; height: 28px; background: #05070d; box-shadow: 0 0 0 2px #46506b; image-rendering: pixelated; }
+.visit-bar__blurb { flex-basis: 100%; margin: 0; font: 400 20px/1.15 'VT323', monospace; color: #c3ccd9; }
+.visit-bar__stats { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 400 20px/1 'VT323', monospace; color: #808ba6; }
+.visit-bar__stats b { font-weight: 400; color: #e6ecf5; }
+.visit-live { display: inline-block; width: 8px; height: 8px; margin-right: 6px; background: #3dffa2; animation: mm-blink 1.4s steps(1, end) infinite; }
+.visit-bar__acts { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 12px; flex: none; }
+.visit-btn {
+  height: auto; padding: 8px 12px 6px; border: 0; clip-path: none; cursor: pointer;
+  font: 400 16px/1 'Silkscreen', monospace; color: #e6ecf5; background: #262f46;
+  box-shadow: inset 0 2px #46506b, 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d;
+}
+.visit-btn:hover, .visit-btn:focus-visible { outline: none; color: #05070d; background: #3dffa2; box-shadow: inset 0 -2px #1f9e66, 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d; }
+.visit-btn.is-on { color: #3dffa2; }
+.visit-btn.is-on:hover, .visit-btn.is-on:focus-visible { color: #05070d; }
+.visit-btn--exit { color: #ffb547; }
+.visit-nav { display: inline-flex; align-items: center; gap: 8px; font: 400 20px/1 'VT323', monospace; color: #808ba6; }
+.visit-tag--sim { color: #a0c3ec; background: #1b2a44; }
+.visit-chat { left: 32px; bottom: 28px; width: 340px; display: flex; flex-direction: column; }
+.visit-chat__head { padding: 10px 12px 8px; font: 400 12px/1 'Press Start 2P', monospace; color: #3dffa2; background: #262f46; box-shadow: inset 0 -2px #05070d; }
+.visit-chat__log { list-style: none; margin: 0; padding: 10px 12px; height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; font: 400 19px/1.1 'VT323', monospace; color: #c3ccd9; user-select: text; -webkit-user-select: text; }
+.visit-chat__log b { font-weight: 400; color: #a0c3ec; }
+.visit-chat__log b.is-owner { color: #3dffa2; }
+.visit-chat__log .is-sys { color: #808ba6; font-style: italic; }
+.visit-chat__form { display: flex; gap: 8px; padding: 10px 12px 12px; }
+.visit-chat__form input { flex: 1; min-width: 0; padding: 6px 8px; border: 0; font: 400 19px/1 'VT323', monospace; color: #e6ecf5; background: #05070d; box-shadow: 0 0 0 2px #46506b; }
+.visit-chat__form input:focus { outline: none; box-shadow: 0 0 0 2px #3dffa2; }
+.visit-hint { right: 32px; bottom: 28px; display: flex; gap: 16px; padding: 10px 14px 8px; font-size: 14px; color: #808ba6; }
+.visit kbd { display: inline-block; min-width: 20px; padding: 3px 5px 1px; margin: 0 2px; font: 400 14px/1 'Silkscreen', monospace; text-align: center; color: #e6ecf5; background: #262f46; box-shadow: inset 0 2px #46506b, 0 2px #05070d; }
+/* name tags over the simulated visitors */
+.visit-nt { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: none; will-change: transform; }
+.visit-nt b { padding: 3px 6px 2px; font: 400 17px/1 'VT323', monospace; font-weight: 400; color: #e6ecf5; background: rgba(5, 7, 13, .78); box-shadow: 0 0 0 2px #262f46; white-space: nowrap; }
+.visit-nt.is-owner b { color: #3dffa2; box-shadow: 0 0 0 2px #1f9e66; }
+.visit-nt__say { max-width: 200px; padding: 6px 8px 4px; font: 400 18px/1.05 'VT323', monospace; color: #05070d; background: #e6ecf5; box-shadow: 0 0 0 2px #05070d; text-align: center; }
+@media (max-width: 1100px) {
+  .visit-hint { display: none; }
+}
+@media (max-width: 860px) {
+  .visit-bar { left: 16px; right: 16px; top: 16px; flex-direction: column; gap: 12px; padding: 12px 14px; }
+  .visit-bar__blurb { display: none; }
+  .visit-bar__title { font-size: 14px; }
+  .visit-bar__acts { justify-content: flex-start; gap: 10px; }
+  .visit-chat { left: 16px; right: 16px; bottom: 16px; width: auto; }
+  .visit-chat__log { height: 96px; }
 }
