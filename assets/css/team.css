@@ -85,6 +85,9 @@
 .w-month small.is-loss { color: var(--sunset); }
 .w-month em { position: absolute; top: -2px; left: 50%; transform: translateX(-50%); font: 400 9px/1 var(--font-mono); font-style: normal; color: var(--mute); }
 .cat-item__price.is-free { color: #9be6b5; opacity: 1; }
+.cat-item.is-locked { opacity: 0.45; filter: grayscale(1); cursor: not-allowed; }
+.cat-item.is-locked:hover { opacity: 0.6; }
+.cat-item__price.is-lock { color: var(--mute); opacity: 1; }
 
 .cr-cost { padding: 10px 12px; border: 1px solid var(--hairline); border-radius: var(--r-sm); background: #0e0e0f; }
 .cr-cost[hidden] { display: none; }

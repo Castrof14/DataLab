@@ -1,5 +1,5 @@
 /* DataLab — first-run tutorial in short blocks:
-   Construção (expand → room → rack → computer), Equipe (hire → assign), Técnico (install → cable → terminal),
+   Construção (expand → room → rack → computer), Técnico (install → cable → terminal),
    Monitorar, Rede (a port of the player's switch goes err-disabled and is fixed in the switch CLI) and
    Infra (the "Criar VM" screen says what each server lacks → set Virtualização → create the first VM).
    Never blocks: steps advance by watching what the player did (counted from the start, so presets work too),
@@ -17,11 +17,9 @@
     const U = { on: false, i: 0, done: false, acc: 0, guide: null, key: '' };
 
     const inBuild = () => game.mode() === 'build';
-    const inCrew = () => game.mode() === 'crew';
     const count = (kind) => world().items.filter((e) => e.kind === kind).length;
     const mine = () => sys.ops.devices().filter((d) => d.kind === 'server' && !d.pre);
     const toBuild = () => ({ act: 'Aperte <kbd>B</kbd> ou clique em <b>Construir</b>', guide: '[data-mode="build"]' });
-    const toCrew = () => ({ act: 'Aperte <kbd>C</kbd> ou clique em <b>Equipe</b>', guide: '[data-mode="crew"]' });
     const toOps = () => ({ act: 'Abra o painel <b>Tarefas</b> no topo da tela', guide: '#opsBtn' });
     const infra = () => sys.infra;
     // whatever covers the screen has to be closed before the next window is opened
@@ -60,7 +58,7 @@
     const STEPS = [
       {
         group: 'Construção', title: 'Expanda o terreno',
-        text: 'Todo datacenter cresce. Abra espaço no terreno para construir. Cada expansão custa mais que a anterior — a primeira é por conta do kit inicial.',
+        text: 'Todo datacenter cresce. Abra espaço no terreno para construir. Cada expansão custa mais que a anterior, então confira o preço antes de confirmar.',
         done: () => world().lot.w * world().lot.h > start.lot,
         how() {
           if (!inBuild()) return toBuild();
@@ -83,7 +81,7 @@
       },
       {
         group: 'Construção', title: 'Coloque um rack',
-        text: 'Racks guardam servidores e switches — o coração do datacenter. O kit inicial paga o primeiro rack, computador, servidor, switch e contratação: aprender não custa nada.',
+        text: 'Racks guardam servidores e switches — o coração do datacenter. Tudo sai do caixa da empresa: no começo só os itens básicos estão liberados, o resto abre conforme você sobe de nível.',
         done: () => count('rack') > start.racks,
         how: () => pickItem('rack', 'Rack', 'Clique dentro da sala nova para posicionar'),
       },
@@ -92,27 +90,6 @@
         text: 'É na estação de trabalho que a equipe senta, trabalha e monitora tudo.',
         done: () => count('desk') > start.desks,
         how: () => pickItem('desk', 'Computador', 'Clique para posicionar · <kbd>R</kbd> gira'),
-      },
-      {
-        group: 'Equipe', title: 'Crie um funcionário',
-        text: 'Escolha nome, aparência e função. Cada função tem sua rotina no datacenter.',
-        done: () => sys.crew.createdCount > 0,
-        how() {
-          if (sys.crew.creatorOpen) return { act: 'Personalize e clique em <b>Contratar</b>', guide: '#creatorSave' };
-          if (!inCrew()) return toCrew();
-          return { act: 'Clique em <b>Contratar</b> ou aperte <kbd>N</kbd>', guide: '#hireBtn' };
-        },
-      },
-      {
-        group: 'Equipe', title: 'Atribua uma tarefa',
-        text: 'Cada função tem tarefas reais (redes verifica switch, servidores instala hardware…). Sem ordens, a equipe trabalha sozinha.',
-        done: () => sys.crew.assignedCount > 0,
-        how() {
-          if (!inCrew() && !sys.crew.selected) return toCrew();
-          if (!sys.crew.selected) return { act: 'Clique numa pessoa no mapa ou na lista', guide: '.crew-row' };
-          if (sys.crew.menuOpen) return { act: 'Escolha uma das tarefas da função', guide: '.task-opt:not([disabled])' };
-          return { act: 'Clique em <b>Atribuir tarefa</b> — ou direto num computador livre', guide: '[data-cc="assign"]' };
-        },
       },
       {
         group: 'Técnico', title: 'Instale um servidor',

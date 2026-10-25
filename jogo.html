@@ -27,8 +27,81 @@
   <link rel="stylesheet" href="assets/css/store.css">
   <link rel="stylesheet" href="assets/css/account.css">
   <link rel="stylesheet" href="assets/css/auth.css">
+  <!-- The CSP <meta> above turns off Chrome's preload scanner, so the scripts at the end of <body> would
+       download one after another (~45 round trips). Listing them here fetches them all at once; they
+       still run in the same order. Keep this list in step with the <script> tags below. -->
+  <link rel="preload" href="assets/js/hero.js" as="script">
+  <link rel="preload" href="assets/js/sprites.js" as="script">
+  <link rel="preload" href="assets/js/difficulty.js" as="script">
+  <link rel="preload" href="assets/js/world.js" as="script">
+  <link rel="preload" href="assets/js/scene.js" as="script">
+  <link rel="preload" href="assets/js/decor.js" as="script">
+  <link rel="preload" href="assets/js/hardware.js" as="script">
+  <link rel="preload" href="assets/js/props.js" as="script">
+  <link rel="preload" href="assets/js/furniture.js" as="script">
+  <link rel="preload" href="assets/js/build.js" as="script">
+  <link rel="preload" href="assets/js/cosmetics.js" as="script">
+  <link rel="preload" href="assets/js/iso.js" as="script">
+  <link rel="preload" href="assets/js/interact.js" as="script">
+  <link rel="preload" href="assets/js/jobs.js" as="script">
+  <link rel="preload" href="assets/js/teamchat.js" as="script">
+  <link rel="preload" href="assets/js/workplace.js" as="script">
+  <link rel="preload" href="assets/js/crew.js" as="script">
+  <link rel="preload" href="assets/js/roles.js" as="script">
+  <link rel="preload" href="assets/js/terminal.js" as="script">
+  <link rel="preload" href="assets/js/ops.js" as="script">
+  <link rel="preload" href="assets/js/winserver.js" as="script">
+  <link rel="preload" href="assets/js/cabling.js" as="script">
+  <link rel="preload" href="assets/js/monitor.js" as="script">
+  <link rel="preload" href="assets/js/presets.js" as="script">
+  <link rel="preload" href="assets/js/tutorial.js" as="script">
+  <link rel="preload" href="assets/js/economy.js" as="script">
+  <link rel="preload" href="assets/js/director.js" as="script">
+  <link rel="preload" href="assets/js/career.js" as="script">
+  <link rel="preload" href="assets/js/talk.js" as="script">
+  <link rel="preload" href="assets/js/helpdesk.js" as="script">
+  <link rel="preload" href="assets/js/netlab.js" as="script">
+  <link rel="preload" href="assets/js/staff.js" as="script">
+  <link rel="preload" href="assets/js/shifts.js" as="script">
+  <link rel="preload" href="assets/js/infra.js" as="script">
+  <link rel="preload" href="assets/js/inventory.js" as="script">
+  <link rel="preload" href="assets/js/supabase/config.js" as="script">
+  <link rel="preload" href="assets/js/services/cloud.js" as="script">
+  <link rel="preload" href="assets/js/services/auth-service.js" as="script">
+  <link rel="preload" href="assets/js/services/save-service.js" as="script">
+  <link rel="preload" href="assets/js/services/economy-service.js" as="script">
+  <link rel="preload" href="assets/js/services/inventory-service.js" as="script">
+  <link rel="preload" href="assets/js/services/payment-service.js" as="script">
+  <link rel="preload" href="assets/js/services/admin-service.js" as="script">
+  <link rel="preload" href="assets/js/auth-gate.js" as="script">
+  <link rel="preload" href="assets/js/demo.js" as="script">
+  <link rel="preload" href="assets/js/menu.js" as="script">
+  <link rel="preload" href="assets/js/cloud-sync.js" as="script">
+  <link rel="preload" href="assets/js/account.js" as="script">
+  <style>
+    /* loading cover: the landing's last frame (index.html: CARREGANDO + a full bar) stays on screen until
+       auth-gate.js shows the login or the menu; it hides itself after 15 s in case something failed */
+    .bootcover {
+      position: fixed; inset: 0; z-index: 1000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 24px;
+      padding: 16px; background: #05070d;
+      animation: bootcover-out 0s 15s forwards;
+    }
+    .bootcover p { margin: 0; font: 16px/1 'Press Start 2P', monospace; color: #3dffa2; text-shadow: 0 2px #0f4a33; }
+    .bootcover div {
+      width: min(424px, 100%); height: 36px; padding: 8px; background: #05070d;
+      box-shadow: 0 -4px #46506b, 0 4px #46506b, -4px 0 #46506b, 4px 0 #46506b;
+    }
+    .bootcover div::before {
+      content: ''; display: block; height: 100%;
+      background: repeating-linear-gradient(90deg, #3dffa2 0 calc(5% - 3px), transparent calc(5% - 3px) 5%);
+    }
+    .is-hero .bootcover { display: none; }
+    @keyframes bootcover-out { to { visibility: hidden; } }
+  </style>
 </head>
 <body class="demo">
+  <div class="bootcover" id="bootCover" aria-hidden="true"><p>CARREGANDO</p><div></div></div>
   <!-- Access: nobody reaches the menu or the game without a Supabase session (auth-gate.js) -->
   <section class="auth is-open" id="auth" role="dialog" aria-modal="true" aria-labelledby="authTitle">
     <div class="auth__grid" aria-hidden="true"></div>
