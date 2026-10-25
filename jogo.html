@@ -79,6 +79,7 @@
       <button class="me-btn" id="meBtn" type="button" title="Editar meu personagem (P)">
         <canvas id="meFace" aria-hidden="true"></canvas>
         <span class="me-btn__txt"><b id="meName">Você</b><span class="eyebrow-sm" id="meRole"></span></span>
+        <span class="me-btn__title" id="meTitle"></span>
         <kbd>P</kbd>
       </button>
       <nav class="modes" id="modes" aria-label="Modo de jogo">
@@ -479,7 +480,7 @@
         </div>
 
         <div class="mm__player" aria-label="Informações do jogador">
-          <span class="mm__me"><canvas id="mmFace" aria-hidden="true"></canvas><span><b id="mmName">Você</b><span class="eyebrow-sm" id="mmRole">Operador(a)</span></span></span>
+          <span class="mm__me"><canvas id="mmFace" aria-hidden="true"></canvas><span><span class="mm__name"><b id="mmName">Você</b><span id="mmTitle"></span></span><span class="eyebrow-sm" id="mmRole">Operador(a)</span></span></span>
           <span class="mm__bal" id="mmBal"></span>
           <button class="mm__logout" id="mmLogout" type="button">Sair da conta</button>
         </div>
