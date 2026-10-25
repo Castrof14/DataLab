@@ -29,7 +29,8 @@
     'show-int': { cmd: 'show interfaces status', ex: 'show interfaces status', what: 'Lista as portas do switch e o estado de cada uma (connected, notconnect, err-disabled). Abreviação: sh int status.', when: 'Para achar a porta com problema.' },
     'conf-t': { cmd: 'configure terminal', ex: 'conf t', what: 'Entra no modo de configuração global do switch.', when: 'Antes de mudar qualquer configuração.' },
     interface: { cmd: 'interface <porta>', ex: 'interface gi0/3', what: 'Seleciona uma porta para configurar (prompt vira config-if).', when: 'Depois do conf t, para mexer em uma porta específica.' },
-    shutdown: { cmd: 'shutdown  /  no shutdown', ex: 'shutdown\nno shutdown', what: '"shutdown" desliga a porta; "no shutdown" liga de novo. Juntos, reiniciam a porta e tiram o estado err-disabled.', when: 'Quando uma porta está em err-disabled e a causa já foi resolvida.' },
+    shutdown: { cmd: 'shutdown', ex: 'shutdown', what: 'Desativa administrativamente a porta selecionada (o status vira disabled). Numa porta err-disabled, é o primeiro passo para "zerar" o estado de erro.', when: 'Em config-if da porta com problema (interface <porta>), quando ela está err-disabled e a causa já foi resolvida.' },
+    'no-shutdown': { cmd: 'no shutdown', ex: 'no shutdown', what: 'Reativa a porta. Depois do shutdown, tira a porta do err-disabled e ela volta a conectar (status connected).', when: 'Logo depois do shutdown, ainda em config-if da mesma porta.' },
     cabling: { cmd: 'Cabeamento do rack', ex: 'Tarefas → Cabeamento  (ou o botão abaixo)', what: 'Mostra os cabos do rack: azul = ligado e correto, amarelo = incompleto, vermelho = conexão errada, laranja = cabo solto.', when: 'Quando ip link mostra NO-CARRIER: não é configuração, é a camada física (cabo).' },
     end: { cmd: 'end', ex: 'end', what: 'Sai do modo de configuração e volta ao modo privilegiado (#).', when: 'Ao terminar de configurar, para voltar a usar comandos show.' },
   };
@@ -88,18 +89,26 @@
         { text: 'Confira o disco de novo.', help: ['df'], done: (d, ran) => ran.has('df-ok') },
       ],
     }),
-    port: (d) => ({
-      title: 'Porta em erro · ' + d.name,
-      goal: 'Uma porta do switch ' + d.name + ' entrou em err-disabled e derrubou um servidor. Encontre e reative a porta.',
-      steps: [
-        { text: 'Entre no modo privilegiado.', help: ['enable'], done: (d) => d.sw.mode !== 'user' || d.sw.fixed },
-        { text: 'Veja o status das portas.', help: ['show-int'], done: (d, ran) => ran.has('show-int') },
-        { text: 'Entre no modo de configuração.', help: ['conf-t'], done: (d) => d.sw.mode === 'conf' || d.sw.mode === 'if' || d.sw.fixed },
-        { text: 'Selecione a porta com problema.', help: ['interface'], cmd: 'interface ' + d.sw.bad, done: (d) => (d.sw.mode === 'if' && d.sw.cur === d.sw.bad) || d.sw.fixed },
-        { text: 'Reinicie a porta: shutdown e depois no shutdown.', help: ['shutdown'], done: (d) => d.sw.fixed },
-        { text: 'Volte (end) e confira o status das portas.', help: ['end', 'show-int'], done: (d, ran) => ran.has('show-int-ok') },
-      ],
-    }),
+    port: (d) => {
+      // the broken port as it was when the task opened: ops clears d.sw.bad / fixed as soon as the fault is resolved
+      // (half a second after "no shutdown", console still open), so the steps follow this port instead
+      const port = d.sw.bad;
+      const healed = (d) => d.sw.fixed || (d.sw.bad !== port && d.sw.ports[port] !== 'err-disabled' && d.sw.ports[port] !== 'disabled');
+      return {
+        title: 'Porta em erro · ' + d.name,
+        goal: 'Uma porta do switch ' + d.name + ' entrou em err-disabled e derrubou um servidor. Encontre e reative a porta.',
+        steps: [
+          { text: 'Entre no modo privilegiado.', help: ['enable'], done: (d) => d.sw.mode !== 'user' || healed(d) },
+          { text: 'Veja o status das portas.', help: ['show-int'], done: (d, ran) => ran.has('show-int') },
+          { text: 'Entre no modo de configuração.', help: ['conf-t'], done: (d) => d.sw.mode === 'conf' || d.sw.mode === 'if' || healed(d) },
+          { text: 'Selecione a porta com problema.', help: ['interface'], cmd: 'interface ' + port, done: (d) => (d.sw.mode === 'if' && d.sw.cur === port) || healed(d) },
+          { text: 'Desligue a porta.', help: ['shutdown'], done: (d) => healed(d) || d.sw.ports[port] === 'disabled' },
+          { text: 'Ligue a porta novamente.', help: ['no-shutdown'], done: healed },
+          // a show taken while this port is connected again (one taken between shutdown and no shutdown doesn't count)
+          { text: 'Volte (end) e confira o status das portas.', help: ['end', 'show-int'], done: (d, ran) => ran.has('show-int-ok:' + port) },
+        ],
+      };
+    },
   };
   DL.LESSONS = LESSONS;
 
@@ -356,7 +365,8 @@
         }
         if (idle) out.push('<span class="m">… mais ' + idle + ' portas sem cabo (notconnect)</span>');
         ran.push('show-int');
-        if (s.fixed) ran.push('show-int-ok');
+        // which ports this show saw connected (the "Porta em erro" task checks its own port)
+        for (const [p, st] of Object.entries(s.ports)) if (st === 'connected') ran.push('show-int-ok:' + p);
         return { out, ran };
       }
       if (kw(t[1], 'running-config')) {
@@ -385,16 +395,22 @@
       return { out, ran };
     }
     if (kw(c, 'shutdown', 4) || (c === 'no' && kw(t[1], 'shutdown', 4))) {
-      if (s.mode !== 'if') { bad('Selecione uma porta antes (interface gi0/N).'); return { out, ran }; }
-      const no = c === 'no', p = s.cur;
-      if (!no) { s.ports[p] = 'disabled'; s.shut = p; out.push('%LINK-5-CHANGED: Interface ' + p.replace('gi', 'Gi') + ', changed state to administratively down'); }
+      // interface commands: say what is missing to get into the port's config-if
+      const broken = s.bad && !s.fixed;
+      if (s.mode === 'user' || s.mode === 'priv') { bad('Esse comando vale dentro da porta: configure terminal → interface ' + (broken ? '&lt;porta com problema&gt;' : 'gi0/N') + '.'); return { out, ran }; }
+      if (s.mode !== 'if') { bad('Selecione a porta antes: interface gi0/N.'); return { out, ran }; }
+      const no = c === 'no', p = s.cur, full = 'GigabitEthernet' + p.slice(2);
+      // the err-disabled port only recovers with shutdown first
+      if (no && p === s.bad && !s.fixed && s.ports[p] !== 'disabled') { out.push('<span class="w">Primeiro desligue a porta com shutdown.</span>'); ran.push('error'); return { out, ran }; }
+      if (!no) { s.ports[p] = 'disabled'; s.shut = p; out.push('%LINK-5-CHANGED: Interface ' + full + ', changed state to administratively down'); }
       else {
-        const wasShut = s.ports[p] === 'disabled';
-        if (p === s.bad && !wasShut) { out.push('<span class="m">(a porta continua err-disabled: primeiro "shutdown", depois "no shutdown")</span>'); return { out, ran }; }
         s.ports[p] = s.linked && s.linked.has(p) ? 'connected' : 'notconnect';
-        out.push('%LINK-3-UPDOWN: Interface ' + p.replace('gi', 'Gi') + ', changed state to up');
+        if (s.shut === p) s.shut = null;
+        out.push('%LINK-3-UPDOWN: Interface ' + full + ', changed state to up');
         if (p === s.bad) s.fixed = true;
       }
+      // like a real switch it ran, but this is not the port the task is about
+      if (broken && p !== s.bad) out.push('<span class="m">Você está na ' + p + ', que está OK. A porta com problema está err-disabled no show interfaces status.</span>');
       ran.push(no ? 'noshut' : 'shut');
       return { out, ran };
     }
@@ -571,7 +587,7 @@
       const ex = step && step.cmd ? { [step.help[0]]: step.cmd } : null;
       let h = '<p class="term__hint">' + (stepLabel ? 'Para ' + (m.stepText === 'hidden' ? '' : 'este passo: ') + '<b>' + esc(stepLabel) + '</b>' : 'Comandos mais usados aqui:') +
         ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth, ex);
-      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'end'];
+      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'no-shutdown', 'end'];
       const forDev = (k) => (X.dev.kind === 'switch' ? SWITCH_KEYS.includes(k) : win ? HELP[k].os === 'win' || k === 'cabling' : !HELP[k].os && !SWITCH_KEYS.includes(k));
       h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter(forDev)
         .map((k) => '<button type="button" class="chip" data-help="' + k + '">' + esc(HELP[k].cmd.split(' <')[0]) + '</button>').join('') + '<div data-help-out></div></details>';

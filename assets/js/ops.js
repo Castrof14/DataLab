@@ -228,7 +228,8 @@
         for (const p of list) if (linkAt(d.key, p)) d.sw.linked.add(p);
         for (let i = 1; i < list.length; i++) {
           const p = 'gi0/' + i;
-          if (d.sw.bad === p && !d.sw.fixed) d.sw.ports[p] = 'err-disabled';
+          // the broken port stays err-disabled until the player shuts it down (then disabled until "no shutdown")
+          if (d.sw.bad === p && !d.sw.fixed) d.sw.ports[p] = d.sw.shut === p ? 'disabled' : 'err-disabled';
           else if (d.sw.ports[p] !== 'disabled') d.sw.ports[p] = d.sw.linked.has(p) ? 'connected' : 'notconnect';
         }
       }
@@ -333,6 +334,7 @@
         if (!used.length) return null;
         d.sw.bad = opts && used.indexOf(opts.port) >= 0 ? opts.port : pick(used);
         d.sw.fixed = false;
+        if (d.sw.shut === d.sw.bad) d.sw.shut = null;
       } else FAULTS[t].apply(d);
       d.fault = { type: t, found: false, at: scene.t };
       d.ran = new Set();
