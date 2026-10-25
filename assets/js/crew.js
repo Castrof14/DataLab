@@ -2149,7 +2149,7 @@
     el.form.addEventListener('click', (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;
-      if (b.hasAttribute('data-cr-shop')) { closeCreator(); if (game.store) game.store.open('char'); return; }
+      if (b.hasAttribute('data-cr-shop')) { closeCreator(); if (game.store) game.store.open('clothes'); return; }
       const p = CR.profile;
       if (b.dataset.k) {
         p[b.dataset.k] = b.dataset.v;

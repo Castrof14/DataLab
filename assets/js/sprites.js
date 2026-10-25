@@ -473,7 +473,7 @@
       else { H(-2, 4, 2, 3, hs); H(0, 7, 3, 1, hs); H(3, 7, 1, 1, C.twilight); }
     }
     // shop accessories: visor, sunglasses, scarf, chain, backpack (cosmetics.js)
-    if (DL.charTop) DL.charTop(g, dir, pose, L, { ty, hy, hx, side, sit });
+    if (DL.charTop) DL.charTop(g, dir, pose, L, { ty, hy, hx, side, sit, closed });
   }
 
   function outline(src) {
