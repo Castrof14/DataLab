@@ -9,8 +9,8 @@
   const DL = window.DL;
 
   DL.ECON = {
-    // Two phases. Setup: a small budget to learn building — nothing costs money over time and the
-    // starter kit pays the tutorial's first rack, computer, server, switch, hire and configuration.
+    // Two phases. Setup: a small budget to learn building — nothing costs money over time (there is
+    // no free starter kit: the tutorial's first rack, computer, server and switch are paid too).
     // Live (from the first server installed): salaries, energy, rent, internet and maintenance start,
     // ramping up over `opexRamp` minutes; servers earn by type. Problems NEVER take money away: they
     // raise alerts and a broken server simply stops earning until it is fixed (and a quick fix pays
@@ -25,7 +25,8 @@
     runningCosts: false,
     startCash: 15000,           // company balance at the start of a fresh game ($)
     presetCash: { office: 45000, noc: 70000, dcs: 110000, dcm: 180000 }, // ready-made environments start live
-    starterKit: { rack: 1, desk: 1, server: 1, switch: 1, patch: 1, hire: 1, config: 1, lot: 1 },
+    // nothing comes free: every rack, computer, server, hire and land expansion is paid from the start
+    starterKit: {},
     // Land: the starting lot is free; each expansion is paid per new m², dearer the bigger the lot
     // already is and the more floor is built on it (see DL.lotPrice). Shrinking gives nothing back.
     lot: { base: 18, freeArea: 90, growth: 1.05, builtK: 600 },
@@ -879,7 +880,7 @@
       applyServer(s) {
         if (!s) return;
         if (s.cash != null) CO.cash = Number(s.cash);
-        if (s.kit) CO.kit = Object.assign({}, s.kit);
+        CO.kit = {};
         if (s.phase === 'live' && CO.phase !== 'live') goLive(true);
         if (s.month) CO.month = Math.max(CO.month, s.month);
         if (s.first_contract != null) CO.firstContract = !!s.first_contract;
@@ -894,7 +895,7 @@
       restore(s) {
         if (!s) return;
         // (saves from before contracts existed: the goals already met came with the company — no payout)
-        Object.assign(CO, { cash: Number(s.cash) || 0, kit: Object.assign({}, s.kit || {}), month: s.month || 1, firstContract: !!s.firstContract, debt: s.debt || 0, loans: s.loans || 0, lastPay: nowMin(), payAt: null, rateAt: -1, mo: freshMonth(), months: [], paid: [],
+        Object.assign(CO, { cash: Number(s.cash) || 0, kit: {}, month: s.month || 1, firstContract: !!s.firstContract, debt: s.debt || 0, loans: s.loans || 0, lastPay: nowMin(), payAt: null, rateAt: -1, mo: freshMonth(), months: [], paid: [],
           contracts: Array.isArray(s.contracts) ? s.contracts.filter((x) => typeof x === 'string').slice(0, 50) : [], seedContracts: !Array.isArray(s.contracts) });
         CO.phase = 'setup';
         if (s.phase === 'live') goLive(true);

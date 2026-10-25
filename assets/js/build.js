@@ -680,6 +680,35 @@
   DL.CATALOG = CATALOG;
   DL.CATALOG_DEF = DEF;
 
+  // Items unlock with the player's level (career.js): a new game starts with only the basics and the
+  // rest opens as the career goes on. UNLOCK names the level of the key items; anything else is placed
+  // by its price (equipment and the rest have their own bands). Doors are always available.
+  const UNLOCK = {
+    // nível 1: o mínimo para montar a primeira sala
+    rack: 1, desk1: 1, desk: 1, srv_basic: 1, server: 1, sw_8: 1, switch: 1, patch: 1, monitor: 1,
+    table: 1, chair: 1, plant: 1, bin: 1,
+    // 2: contratar · 3: servidores com switch · 4: cabos · 5: terminal · 6: problemas
+    desksupport: 2, deskoffice: 2, sw_16: 2, laptop: 2,
+    desktech: 3, desk3: 3, nas_2: 3,
+    sw_24poe: 4, ap: 4, camera: 4, netcab: 4, kvm: 4, ventile: 4,
+    desk4: 5, deskadmin: 5, sw_48: 5, nas_4: 5, pdu: 5,
+    srv_adv: 6, crac: 6, desknoc: 6, deskwork: 6, serverlift: 6,
+    // 7: 8 servidores · 8: ordens · 9: sênior · 10: especialista · 11: tech lead
+    sw_10g: 7, nas_8: 7, ups: 7, sw_48poe: 7,
+    srv_hi: 8, storage: 8, fm200: 8, tapelib: 9,
+    sw_25g: 9, deskgamer: 9, deskgamerpc: 9, deskstream: 9,
+    srv_gpu: 10, st_flash: 11,
+  };
+  const BANDS_EQUIP = [[2000, 3], [5000, 5], [15000, 7], [40000, 9]];
+  const BANDS_OTHER = [[150, 2], [400, 3], [900, 5], [2000, 7]];
+  DL.unlockLevel = function (def) {
+    if (!def || def.cat === 'wall') return 1;
+    if (UNLOCK[def.id]) return UNLOCK[def.id];
+    const p = def.price || 0;
+    for (const [max, lvl] of def.cat === 'equip' ? BANDS_EQUIP : BANDS_OTHER) if (p <= max) return lvl;
+    return def.cat === 'equip' ? 11 : 9;
+  };
+
   const NAMES = {
     rack: 'Rack', switch: 'Switch', router: 'Roteador', core: 'Switch core', storage: 'Storage', crac: 'Ar de precisão', ups: 'Nobreak',
     desk: 'Computador', chair: 'Cadeira', plant: 'Planta', table: 'Mesa', monitor: 'Monitor', sofa: 'Sofá', shelf: 'Estante',
@@ -979,7 +1008,6 @@
     const RESALE = 0.5;
     const company = () => (game.economy && game.economy.company) || null;
     // the player's own placements are paid; presets and theme decoration (api.place) come free
-    // the economy may discount it (economy.js: the starter kit pays the first rack, server, switch…)
     const priceOf = (def) => (game.economy && game.economy.priceOf ? game.economy.priceOf(def) : def.price || 0);
     function pay(def) {
       const price = priceOf(def);
@@ -990,6 +1018,9 @@
       game.emit('purchase', { price, name: def.name, def });
       return price;
     }
+    // the player's level (career.js; without a career everything is open) and what a def needs
+    const playerLevel = () => (game.career ? (game.career.done ? Infinity : game.career.level) : Infinity);
+    const lockedLevel = (def) => { const n = DL.unlockLevel(def); return n > playerLevel() ? n : 0; };
     const renderCatalogSoon = () => setTimeout(() => { if (B.active && B.tab !== 'room' && B.tab !== 'style') renderCatalog(); }, 0);
     function refund(amount, name) {
       if (amount > 0 && !B.free) game.emit('refund', { amount: Math.round(amount * RESALE), name });
@@ -1693,14 +1724,17 @@
       el.groups.innerHTML = groups.length < 2 ? '' : ['<button type="button" class="chip chip--xs' + (!B.group ? ' is-on' : '') + '" data-group="">Todos <span class="mono">' + defs.length + '</span></button>']
         .concat(groups.map((gname) => '<button type="button" class="chip chip--xs' + (B.group === gname ? ' is-on' : '') + '" data-group="' + gname + '">' + gname + '</button>')).join('');
       el.items.innerHTML = '';
-      for (const def of defs) {
+      // what the player can buy first, then the locked items by the level that opens them
+      const order = defs.slice().sort((a, b) => lockedLevel(a) - lockedLevel(b));
+      for (const def of order) {
         if (B.group && def.group !== B.group) continue;
         const b = document.createElement('button');
         b.type = 'button';
-        b.className = 'cat-item' + (B.def === def ? ' is-on' : '');
+        const lock = lockedLevel(def);
+        b.className = 'cat-item' + (B.def === def ? ' is-on' : '') + (lock ? ' is-locked' : '');
         b.dataset.def = def.id;
         const price = def.price ? priceOf(def) : 0;
-        b.title = def.desc + (def.price ? ' · ' + (price ? DL.money(price) : 'grátis (kit inicial)') : '');
+        b.title = lock ? 'Libera no nível ' + lock + ' da carreira · ' + def.desc : def.desc + (def.price ? ' · ' + (price ? DL.money(price) : 'grátis') : '');
         if (!thumbs.has(def.id)) thumbs.set(def.id, thumb(def));
         const c = thumbs.get(def.id), cv = document.createElement('canvas');
         cv.width = c.width; cv.height = c.height;
@@ -1709,10 +1743,15 @@
         const s = document.createElement('span');
         s.textContent = def.name;
         b.appendChild(s);
-        if (def.price) {
+        if (lock) {
+          const p = document.createElement('em');
+          p.className = 'cat-item__price is-lock';
+          p.textContent = '🔒 Nível ' + lock;
+          b.appendChild(p);
+        } else if (def.price) {
           const p = document.createElement('em');
           p.className = 'cat-item__price' + (price ? '' : ' is-free');
-          p.textContent = price ? DL.money(price) : 'Kit · grátis';
+          p.textContent = price ? DL.money(price) : 'grátis';
           b.appendChild(p);
         }
         el.items.appendChild(b);
@@ -1902,6 +1941,8 @@
     function chooseDef(id) {
       if (B.move) cancelMove();
       const def = DEF[id];
+      const lock = lockedLevel(def);
+      if (lock) { nope(def.name + ' libera no nível ' + lock + ' da carreira'); return; }
       B.def = B.def === def ? null : def;
       B.rot = 0;
       B.ghost = null;
@@ -2381,6 +2422,11 @@
       if (B.sel && world.items.indexOf(B.sel) < 0) select(null);
       else if (B.sel) renderInspector();
       if (B.tab === 'room' && B.active) renderRoom();
+    });
+    // a promotion (or a new game / loaded save) changes what the catalog lets the player buy
+    game.on('career', () => {
+      if (B.def && lockedLevel(B.def)) cancelPlace();
+      renderCatalogSoon();
     });
 
     return {

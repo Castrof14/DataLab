@@ -9,17 +9,18 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   // tier of every crew task: bots do it alone once the player's level is above it
-  // (tier 0 = always: breaks, getting to know the place, reception, the basic chores)
+  // (tier 0 = always: breaks, getting to know the place, reception, the basic chores; tier 1 is the
+  // hiring level, so nothing new opens there)
   const TASK_TIER = {
     chat: 0, break: 0, rest: 0, tv: 0, arcade: 0, explore: 0, coffee: 0, frontdesk: 0, visitors: 0, round: 0, support: 0, bench: 0,
-    inv: 1, tickets: 1, cams: 1, access: 1, docs: 1, walk: 1, meeting: 1, seals: 1, pcmaint: 1, benchtest: 1, repair: 1, cool: 1,
-    hw: 2, switch: 2, install: 2, swmaint: 2, cables: 2,
-    ping: 3, topo: 3,
-    svc: 4, sys: 4, patch: 4, runbook: 4,
-    fixnet: 5, fixhw: 5, fixinc: 5, fixtec: 5, alerts: 5,
-    backup: 6, kpi: 6, needs: 6, follow: 6, board: 6,
-    capacity: 7,
-    expand: 8,
+    inv: 2, tickets: 2, cams: 2, access: 2, docs: 2, walk: 2, meeting: 2, seals: 2, pcmaint: 2, benchtest: 2, repair: 2, cool: 2,
+    hw: 3, switch: 3, install: 3, swmaint: 3, cables: 3,
+    ping: 4, topo: 4,
+    svc: 5, sys: 5, patch: 5, runbook: 5,
+    fixnet: 6, fixhw: 6, fixinc: 6, fixtec: 6, alerts: 6,
+    backup: 7, kpi: 7, needs: 7, follow: 7, board: 7,
+    capacity: 8,
+    expand: 9,
   };
   const tierOf = (def) => (def && TASK_TIER[def.id]) || 0;
 
@@ -135,8 +136,9 @@
 
     // everything a mission measures. Missions count only what happens AFTER they start (K.base is a
     // snapshot of these counters), so a level never passes by itself and promotions don't chain.
+    // (hired: people on the team — legendary bots come from the inventory, not from hiring)
     const counters = () => ({
-      v: 2, rack: count('rack'), desk: count('desk'),
+      v: 3, rack: count('rack'), desk: count('desk'), hired: sys.crew.members.filter((m) => !m.legend).length,
       linked: mine().filter((d) => sys.ops.switchesNear(d).length).length,
       cabled: mine().filter((d) => d.state !== 'new').length,
       online: online(mine()), fixed: K.fixed, orders: K.orders, area: lotArea(), pays: K.pays,
@@ -148,6 +150,9 @@
       { rank: R('Estagiário(a)', 'EST', 'est', 0), mission: 'Monte dois postos: dois racks e dois computadores novos',
         how: 'Construir (B) → Equipamentos → Rack e Computador.',
         progress: () => [since('rack', 2) + since('desk', 2), 4] },
+      { rank: R('Trainee', 'TRN', 'est', 1), mission: 'Contrate seu primeiro funcionário',
+        how: 'Equipe (C) → Contratar (N): escolha nome, aparência e função. Cada função tem sua rotina no datacenter.',
+        progress: () => [since('hired', 1), 1] },
       { rank: R('Júnior I', 'JR I', 'jr', 1), mission: 'Instale mais 2 servidores numa sala com switch',
         how: 'Construir (B) → Equipamentos → Servidor e Switch, clicando no rack.',
         progress: () => [since('linked', 2), 2] },
@@ -202,7 +207,8 @@
       K.base = baseFor(K.level);
       if (silent) return;
       const un = unlocksAt(K.level);
-      game.toast('ok', 'Promoção · ' + cur().rank.name, 'Nova patente (nível ' + K.level + ') · nova missão: ' + cur().mission + (un.length ? ' · a equipe agora faz sozinha: ' + un.join(', ').toLowerCase() : ''));
+      const items = DL.unlockLevel ? (DL.CATALOG || []).filter((d) => DL.unlockLevel(d) === K.level).length : 0;
+      game.toast('ok', 'Promoção · ' + cur().rank.name, 'Nova patente (nível ' + K.level + ') · nova missão: ' + cur().mission + (items ? ' · ' + items + ' novos itens liberados em Construir' : '') + (un.length ? ' · a equipe agora faz sozinha: ' + un.join(', ').toLowerCase() : ''));
       game.sfx('done');
       showPromo(cur());
       game.emit('career', { level: K.level });
@@ -302,7 +308,7 @@
     return {
       update, reset, render, LEVELS, TASK_TIER, tierOf,
       // a new game: presets that already have servers online skip the levels they already meet
-      start() { reset(); settle(true); },
+      start() { reset(); settle(true); game.emit('career', { level: K.level }); },
       // may a bot pick this task on its own?
       botCan: (def) => K.done || tierOf(def) < K.level,
       // the player level a task needs before bots do it alone
@@ -311,14 +317,19 @@
       restore(s) {
         reset();
         if (s) {
-          K.level = Math.max(1, Math.min(MAX, s.level | 0 || 1));
+          // saves from before the hiring level (nível 2) was added: from level 2 on, every level moved up one
+          const old = !s.base || s.base.v !== 3;
+          const lvl = (s.level | 0) || 1;
+          K.level = Math.max(1, Math.min(MAX, old && lvl >= 2 ? lvl + 1 : lvl));
           K.done = !!s.done && K.level === MAX;
           K.fixed = s.fixed | 0; K.orders = s.orders | 0; K.pays = s.pays | 0;
-          // older saves kept a single number here: the mission then starts counting from now
-          K.base = s.base && s.base.v === 2 ? s.base : baseFor(K.level);
+          // older saves: the mission then starts counting from now
+          K.base = old ? baseFor(K.level) : s.base;
         }
         settle(true);
+        game.emit('career', { level: K.level });
       },
+      get done() { return K.done; },
       get level() { return K.level; },
       get title() { return cur().rank.name; },
       get rank() { return cur().rank; },
