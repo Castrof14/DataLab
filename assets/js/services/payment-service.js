@@ -68,7 +68,7 @@
       S.since = Date.now();
       addEventListener('focus', check);
       S.timer = setTimeout(check, POLL_MS);
-      notify('info', 'Pagamento aberto', 'Pague na aba da AbacatePay (Pix ou cartão). O Gold entra aqui sozinho.');
+      notify('info', 'Pagamento aberto', 'Pague o Pix na aba da AbacatePay. O Gold entra aqui sozinho.');
       return r;
     },
   };

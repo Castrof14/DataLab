@@ -89,7 +89,7 @@
     // Gold: earned by playing (each datacenter completed), exchanged from Créditos, or in packs
     gold: { welcome: 100, datacenter: 20, rate: 10 }, // rate: créditos per 1 Gold
     // Gold packs: paid with AbacatePay when logged in (price and coins come from public.gold_packs on
-    // the server; keep these in sync for display). Without an account they are only a simulation.
+    // the server; keep these in sync for display). Buying needs an account (Pix, payment-service.js).
     store: [
       { sku: 'gold_100', coins: 100, price: 'R$ 4,00' },
     ],
@@ -102,19 +102,6 @@
     if (added <= 0) return 0;
     const perTile = L.base * Math.pow(Math.max(1, area / L.freeArea), L.growth) * (1 + (built || 0) / L.builtK);
     return Math.round((added * perTile) / 50) * 50;
-  };
-
-  /* ------------------------------------------------------------------ */
-  /* Payments: a mock provider with the shape a real one will need.      */
-  /* A real gateway must confirm the purchase server-side and only then  */
-  /* credit the wallet; replace `provider` + `purchase` when that exists. */
-  /* ------------------------------------------------------------------ */
-  DL.Payments = {
-    provider: 'mock',
-    live: false,
-    purchase(pack) {
-      return new Promise((resolve) => setTimeout(() => resolve({ ok: true, simulated: true, sku: pack.sku, coins: pack.coins, receipt: 'sim_' + Date.now().toString(36) }), 650));
-    },
   };
 
   const WALLET_KEY = 'datalab.wallet.v1';
@@ -754,9 +741,9 @@
         '<span class="eyebrow-sm w-sub">Este datacenter' + (world().dcDone ? ' · concluído ✓' : '') + '</span><ul class="w-check">' +
         cl.map((c) => '<li class="' + (c.ok ? 'is-ok' : '') + '"><i></i>' + c.label + '</li>').join('') + '</ul></section>';
       const real = CLOUD.on && DL.PaymentService;
-      h += '<section class="w-card w-card--wide"><span class="eyebrow-sm">Pacotes de Gold' + (real ? ' · Pix ou cartão' : ' · simulação') + '</span><div class="w-store">' + E.store.map((p) =>
+      h += '<section class="w-card w-card--wide"><span class="eyebrow-sm">Pacotes de Gold · Pix</span><div class="w-store">' + E.store.map((p) =>
         '<button type="button" class="w-pack" data-sku="' + p.sku + '"><span class="cur cur--dc">⬢</span><b>' + fmt(p.coins) + '</b>' + (p.tag ? '<em>' + p.tag + '</em>' : '') + '<small>' + p.price + '</small></button>').join('') +
-        '</div><p class="w-note">' + (real ? 'O pagamento abre numa nova aba, pela AbacatePay. O Gold entra na sua conta assim que o pagamento é confirmado.' : 'Modo de teste: nenhuma cobrança é feita e nenhum dado de pagamento é pedido.') + '</p>' +
+        '</div><p class="w-note">' + (real ? 'O Pix abre numa nova aba, pela AbacatePay. O Gold entra na sua conta assim que o pagamento é confirmado.' : 'Entre na sua conta para comprar Gold: o pagamento é feito por Pix, pela AbacatePay.') + '</p>' +
         '<span class="eyebrow-sm w-sub">Extrato</span><ul class="w-ledger">' + (W.ledger.slice(0, 6).map((l) =>
           '<li><span class="mono">' + l.t + '</span><span>' + esc(l.why) + '</span><b class="' + (curOf(l.cur) === 'gold' ? 'is-dc' : '') + '">' + (l.amount > 0 ? '+' : '') + fmt(l.amount) + (curOf(l.cur) === 'gold' ? ' ⬢' : ' ◆') + '</b></li>').join('') || '<li class="m">Nada ainda. Conclua tarefas e resolva incidentes.</li>') + '</ul></section>';
       return h + '</div>';
@@ -810,20 +797,9 @@
       const b = ev.target.closest('[data-sku]');
       if (!b || b.disabled) return;
       const pack = E.store.find((p) => p.sku === b.dataset.sku);
-      // with an account, Gold only comes from the server: real payment (AbacatePay)
-      if (CLOUD.on) {
-        if (DL.PaymentService) DL.PaymentService.buy(pack.sku, game.toast);
-        return;
-      }
-      b.disabled = true;
-      b.classList.add('is-busy');
-      DL.Payments.purchase(pack).then((r) => {
-        if (r && r.ok) {
-          earn('gold', r.coins, 'Compra simulada · ' + fmt(r.coins) + ' Gold');
-          game.toast('ok', 'Compra simulada', '+' + fmt(r.coins) + ' Gold · nenhuma cobrança feita');
-        }
-        if (el.wallet.classList.contains('is-open')) el.walletBody.innerHTML = walletHtml();
-      });
+      // Gold is only bought with an account: Pix through AbacatePay, credited by the server
+      if (CLOUD.on && DL.PaymentService) DL.PaymentService.buy(pack.sku, game.toast);
+      else game.toast('info', 'Comprar Gold', 'Entre na sua conta para comprar Gold por Pix.');
     });
 
     function update(dt) {
