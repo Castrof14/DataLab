@@ -33,6 +33,9 @@
     port: { kinds: ['switch'], short: 'Porta em erro', msg: (d) => 'Porta ' + String(d.sw.bad).replace('gi', 'Gi') + ' do ' + d.name + ' em erro (err-disabled)', apply: null, fixed: (d) => !d.sw.bad || d.sw.fixed },
   };
   DL.FAULTS = FAULTS;
+  // a fault applies to a device when its kind matches and its optional `when(d)` agrees
+  // (winserver.js: Windows-only faults, and Linux-only ones skip Windows servers)
+  const faultFits = (k, d) => FAULTS[k].kinds.indexOf(d.kind) >= 0 && (!FAULTS[k].when || FAULTS[k].when(d));
 
   const STATE_LABEL = { new: 'Novo · sem cabo', link: 'Cabo ok · sem configuração', online: 'Online' };
 
@@ -316,8 +319,8 @@
     function injectFault(d, type) {
       // err-disabled is a feature of managed switches: the simple ones never shut a port down
       if (d.kind === 'switch' && d.model && d.model.managed === false) return null;
-      const types = Object.keys(FAULTS).filter((k) => FAULTS[k].kinds.indexOf(d.kind) >= 0);
-      if (!types.length) return null;
+      const types = Object.keys(FAULTS).filter((k) => faultFits(k, d));
+      if (!types.length || (type && types.indexOf(type) < 0)) return null;
       const t = type || pick(types);
       if (t === 'cable') {
         const tr = trace(d);
@@ -358,7 +361,9 @@
       // beginners get a short explanation of where to start
       if (DL.learn && DL.learn().tips) {
         const TIP = { link: 'a interface de rede caiu: no terminal, veja com ip link e ligue com sudo ip link set eth0 up.', cable: 'é camada física: abra o Cabeamento do rack e reconecte o cabo solto (laranja).', service: 'o serviço web parou: systemctl status nginx mostra o erro, sudo systemctl restart nginx resolve.', disk: 'disco cheio: df -h mostra o uso, du -sh /var/log acha o culpado.', port: 'porta do switch em erro: enable → sh int status → conf t → interface → shutdown / no shutdown.' };
-        setTimeout(() => game.toast('info', 'Dica · modo Iniciante', 'Tarefas (T) → Abrir terminal. ' + (TIP[d.fault ? d.fault.type : ''] || '')), 1200);
+        const ty = d.fault ? d.fault.type : '';
+        const tip = DL.isWin && DL.isWin(d) && DL.WIN_TALK && DL.WIN_TALK.steps[ty] ? DL.WIN_TALK.steps[ty] : TIP[ty];
+        setTimeout(() => game.toast('info', 'Dica · modo Iniciante', 'Tarefas (T) → Abrir terminal. ' + (tip || '')), 1200);
       }
       game.emit('fault', { d, who, how, msg });
       return true;
@@ -422,7 +427,7 @@
           const port = sw && portsOf(sw).find((p) => p !== 'te1' && !linkAt(sw.key, p));
           if (port) addLink({ dev: d.key, port: 'eth0' }, { dev: sw.key, port }, { quiet: true });
         }
-      }
+      } else if (FAULTS[f.type].fix) FAULTS[f.type].fix(d);
       f.fixedBy = who && who.crew ? who.crew.name : null;
       recompute();
       resolveFixed();
@@ -455,7 +460,7 @@
       const prefer = (!L || L.id !== 'experiente') && fixable.size && rand() < 0.8;
       for (let n = 0; n < 4; n++) {
         const pickD = total > 0 ? pickW() : pick(ok);
-        const kinds = Object.keys(FAULTS).filter((k) => FAULTS[k].kinds.indexOf(pickD.kind) >= 0 && (!prefer || fixable.has(k)));
+        const kinds = Object.keys(FAULTS).filter((k) => faultFits(k, pickD) && (!prefer || fixable.has(k)));
         if (!kinds.length) continue;
         const d = injectFault(pickD, pick(kinds));
         if (d) { if (dir) dir.started('fault', d.name); break; }
@@ -474,12 +479,14 @@
         return;
       }
       if (d.state === 'new') { game.toast('info', 'Falta o cabo', 'Ligue o ' + d.name + ' a um switch antes de configurar'); sys.cabling.open(d.rack, d); return; }
-      const lesson = d.fault && d.fault.found ? d.fault.type : d.state === 'link' ? 'setup' : null;
+      const win = DL.isWin && DL.isWin(d);
+      let lesson = d.fault && d.fault.found ? d.fault.type : d.state === 'link' ? (win ? 'winsetup' : 'setup') : null;
+      if (win && lesson && DL.winLessonFor) lesson = DL.winLessonFor(d, lesson);
       sys.terminal.open(d, lesson, () => complete(d, lesson));
     }
 
     function complete(d, lesson) {
-      if (lesson === 'setup') {
+      if (lesson === 'setup' || lesson === 'winsetup') {
         d.state = 'online';
         if (d.os.hostname === 'localhost') d.os.hostname = d.name.toLowerCase();
         logEvent('ok', d.name + ' online · ' + d.ip + ' · já aparece no monitoramento');
@@ -504,7 +511,7 @@
       const out = [];
       for (const d of devices()) {
         if (d.fault && d.fault.found) out.push({ d, kind: 'fault', title: FAULTS[d.fault.type].msg(d), by: d.fault.by });
-        else if (d.kind === 'server' && (d.state === 'new' || d.state === 'link')) out.push({ d, kind: 'setup', title: 'Instalar e configurar ' + d.name });
+        else if (d.kind === 'server' && (d.state === 'new' || d.state === 'link')) out.push({ d, kind: 'setup', title: (DL.isWin && DL.isWin(d) ? 'Instalar Windows Server no ' : 'Instalar e configurar ') + d.name });
       }
       out.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'fault' ? -1 : 1));
       return out;

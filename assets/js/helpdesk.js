@@ -151,6 +151,20 @@
     done: ['Voltou! Obrigado pela rapidez.', 'Site no ar de novo, valeu!'],
     pAsk: ['erro', 'quando', 'mensagem', 'codigo', '502'], pFix: [],
     tips: ['Qual erro aparece no navegador?', 'Encontramos o problema no servidor; a equipe já está corrigindo.'],
+    okText: 'Acabei de testar: o site está respondendo normalmente. Pode atualizar a página?',
+    back: (d) => 'O ' + d.name + ' voltou e o site respondeu ao teste. Pode verificar?',
+  };
+  // a locked-out account on the Windows domain (winserver.js) becomes the employee's own ticket
+  const LOGIN = {
+    id: 'login', cat: 'Contas', skill: 'sistemas', diff: 2, subject: 'Conta bloqueada no computador',
+    open: ['Não consigo entrar no computador: diz que minha conta foi bloqueada!', 'Errei a senha umas vezes e agora a conta travou. Pode liberar?'],
+    ask: ['Vou verificar sua conta no domínio.'],
+    detail: 'Aparece "A conta referenciada está bloqueada e não pode ser usada".',
+    done: ['Entrei! Obrigada.', 'Liberou, valeu! Vou anotar a senha direitinho.'],
+    pAsk: ['senha', 'mensagem', 'erro', 'bloque', 'usuario', 'login'], pFix: [],
+    tips: ['Qual mensagem aparece na tela de login?', 'Sua conta travou por senhas erradas; já estamos desbloqueando no AD.'],
+    okText: 'Olhei no AD: sua conta não está bloqueada. Tenta de novo, com calma na senha?',
+    back: () => 'Desbloqueei sua conta no AD (Unlock-ADAccount). Pode tentar entrar de novo?',
   };
 
   const NAMES = ['Ricardo Alves', 'Fernanda Souza', 'Paulo Mendes', 'Juliana Rocha', 'Marcos Lima', 'Aline Costa', 'Roberto Dias', 'Camila Nunes', 'Sérgio Prado', 'Larissa Melo', 'Tiago Freitas', 'Helena Barros', 'André Pires', 'Beatriz Lopes'];
@@ -204,9 +218,16 @@
       if (!force && open.length >= 4) return null;
       let sc = null, dev = null;
       // a real outage becomes a customer complaint
+      let who = null;
       if (game.ops && typeof force !== 'string' && !open.some((t) => t.sc.id === 'site')) {
         const d = game.ops.devices().find((x) => x.kind === 'server' && x.state === 'online' && x.fault && (x.fault.type === 'service' || x.fault.type === 'link' || x.fault.type === 'cable'));
         if (d && rand() < 0.7) { sc = SITE; dev = d; }
+      }
+      // the employee whose domain account is locked calls in (once per lockout)
+      if (!sc && game.ops && typeof force !== 'string' && !open.some((t) => t.sc.id === 'login')) {
+        const d = game.ops.devices().find((x) => x.fault && x.fault.type === 'lockout' && x.os && x.os.win);
+        const u = d && Object.values(d.os.win.users).find((x) => x.locked);
+        if (u) { sc = LOGIN; dev = d; who = u.name; }
       }
       if (!sc) {
         const used = new Set(open.map((t) => t.sc.id));
@@ -214,7 +235,7 @@
         sc = typeof force === 'string' ? SCENARIOS.find((s) => s.id === force) || pick(pool) : pick(pool.length ? pool : SCENARIOS);
       }
       const t = {
-        id: ++HD.seq, sc, dev, customer: { name: pick(NAMES), company: pick(COMPANIES) },
+        id: ++HD.seq, sc, dev, customer: { name: who || pick(NAMES), company: who ? 'Funcionário(a) · domínio' : pick(COMPANIES) },
         status: 'waiting', who: null, player: false, joined: false, msgs: [], queue: [], typing: null,
         created: now(), createdAt: clock(), step: 0, tries: 0, transfers: [], detailGiven: false, unhelpful: 0, confirmed: false, unread: 0,
         waitFix: !!dev, // the website ticket closes when the real fault is fixed, whoever handles it
@@ -323,7 +344,7 @@
     function botInvestigate(t) {
       const a = t.who;
       if (!alive(a) || t.status !== 'active') return;
-      if (t.sc.id === 'site') return botSite(t);
+      if (t.sc.id === 'site' || t.sc.id === 'login') return botSite(t);
       const steps = t.sc.look || [];
       if (steps.length > 1) say(t, 'staff', steps[0], { a });
       later(t, between(3, 5), () => {
@@ -350,7 +371,7 @@
     // the website: report the real fault, wait for whoever fixes it
     function botSite(t) {
       const a = t.who, d = t.dev;
-      if (!d || !d.fault) { say(t, 'staff', 'Acabei de testar: o site está respondendo normalmente. Pode atualizar a página?', { a }); later(t, 6, () => { say(t, 'customer', pick(SITE.done)); later(t, 2, () => resolve(t, a.crew.name)); }, 'customer'); return; }
+      if (!d || !d.fault) { say(t, 'staff', t.sc.okText, { a }); later(t, 6, () => { say(t, 'customer', pick(t.sc.done)); later(t, 2, () => resolve(t, a.crew.name)); }, 'customer'); return; }
       if (!d.fault.found && game.ops.report) game.ops.report(d, a, 'cliente');
       say(t, 'staff', 'Confirmado: o ' + d.name + ' está com problema (' + (DL.JOBS.FIX_NAME[d.fault.type] || d.fault.type) + '). Já está com a equipe técnica — te aviso assim que voltar.', { a });
       t.waitFix = true;
@@ -381,9 +402,12 @@
       const n = norm(text);
       const has = (list) => list.some((w) => n.indexOf(norm(w)) >= 0);
       later(t, between(2.5, 4.5), () => {
-        if (t.sc.id === 'site') {
+        // tickets tied to a real fault only close when the fault is fixed (in the terminal or by the crew)
+        if (t.sc.id === 'site' || t.sc.id === 'login') {
           if (!t.detailGiven && has(t.sc.pAsk)) { t.detailGiven = true; return say(t, 'customer', t.sc.detail); }
-          return say(t, 'customer', t.dev && t.dev.fault ? 'Ok… ainda está fora. Me avisa quando voltar?' : 'Acabei de testar: voltou!');
+          const still = t.dev && t.dev.fault;
+          if (t.sc.id === 'login') return say(t, 'customer', still ? 'Ainda aparece bloqueada aqui… (desbloqueie no AD: Unlock-ADAccount)' : 'Consegui entrar!');
+          return say(t, 'customer', still ? 'Ok… ainda está fora. Me avisa quando voltar?' : 'Acabei de testar: voltou!');
         }
         if (has(t.sc.pFix) && (t.detailGiven || t.sc.diff === 1 || t.unhelpful >= 1)) {
           t.confirmed = true;
@@ -414,9 +438,9 @@
         if (t.waitFix && t.dev && !t.dev.fault) {
           t.waitFix = false;
           const a = t.who !== 'player' && alive(t.who) ? t.who : null;
-          if (a) say(t, 'staff', 'O ' + t.dev.name + ' voltou e o site respondeu ao teste. Pode verificar?', { a });
+          if (a) say(t, 'staff', t.sc.back(t.dev), { a });
           else say(t, 'system', 'O ' + t.dev.name + ' voltou ao normal.');
-          later(t, 6, () => { say(t, 'customer', pick(SITE.done)); later(t, 2, () => resolve(t, a ? a.crew.name : playerName())); }, 'customer');
+          later(t, 6, () => { say(t, 'customer', pick(t.sc.done)); later(t, 2, () => resolve(t, a ? a.crew.name : playerName())); }, 'customer');
         }
       }
       // waiting tickets: the crew picks them up (frontline first, then whoever knows the subject)

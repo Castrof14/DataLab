@@ -1,5 +1,10 @@
 # DataLab · only the static game goes to Vercel (the backend lives in Supabase)
-supabase/
-.env*
-PROXIMOS-PASSOS.txt
-DESIGN-x.ai.md
+# Patterns follow .gitignore rules: WITHOUT a leading "/" a name matches at ANY depth.
+# "supabase/" used to strip assets/js/supabase/config.js from the deploy, so the published game had
+# no Supabase URL/key and the login stopped at "Servidor indisponível". Keep these anchored to the root.
+/supabase/
+/.env
+/.env.*
+/PROXIMOS-PASSOS.txt
+/DESIGN-x.ai.md
+/tests/

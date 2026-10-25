@@ -1094,7 +1094,7 @@
     crew.startShift();
     toast('info', 'Modo ' + DL.learn().name, DL.learn().desc + ' · ' + DL.learn().tag.toLowerCase());
     // presets come with specialised servers (web, banco, DNS…) and a virtualization node with VMs
-    if (preset !== 'zero') infra.seed();
+    if (preset !== 'zero') infra.seed(preset);
     if (preset !== 'zero') toast('ok', DL.PRESETS[preset].name, 'Ambiente pronto · personalize à vontade com B');
     if (document.activeElement) document.activeElement.blur();
     if (withTutorial) tutorial.begin();

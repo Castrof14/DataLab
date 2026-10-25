@@ -436,3 +436,54 @@ STATUS (05/10/2026, 17ª sessão) — BACKEND SUPABASE (contas, saves na nuvem, 
 - Testes (scratchpad): db-test.mjs 83/83 (PGlite: RLS, trapaças, economia, concessões), Edge Functions
   reais no Deno contra PGlite via socket + navegador: e2e-browser.mjs 29/29, save-test 21/21,
   store-test 47/47, regress.js 9/9.
+
+-------------------------------------------------------
+STATUS (09/10/2026, 18ª sessão) — LOGIN NA VERCEL + AUDITORIA + WINDOWS SERVER
+-------------------------------------------------------
+- Login na Vercel (causa): .vercelignore tinha "supabase/" sem "/" no começo → regra do .gitignore casa
+  em qualquer nível e tirava assets/js/supabase/config.js do deploy (jogo sem URL/chave → "Servidor
+  indisponível"). Agora "/supabase/". cloud.js avisa no console se o config.js não carregou.
+- cloud-sync.js: corrida no início — com o SDK rápido o evento de sessão saía antes do listener existir e
+  o jogador logado ficava sem carteira/inventário/save na nuvem. Agora sincroniza depois do init().
+- auth-gate.js: link de e-mail aberto em outro navegador (PKCE) explica "E-mail confirmado! Entre…".
+- save-service.js: o autosave renomeava o save para "Meu datacenter"; o nome do espaço agora é mantido.
+- Terminal (Iniciante): a dica do passo usava o exemplo fixo (10.0.1.12 / SRV-03) — passos têm `cmd`
+  com o IP/nome do próprio servidor. build.js: "por grátis" → "— grátis · kit inicial".
+- winserver.js (novo): Windows Server 2022 simulado. Infra → Servidores → "Windows Server (AD)" pede
+  confirmação e reinstala. Terminal: mídia (dism, setup.exe /install /index:n) → senha do Administrator
+  (política de complexidade) → PowerShell: rede (ipconfig, Get-NetAdapter, New-NetIPAddress…), nome,
+  funções (Install-WindowsFeature), AD (Install-ADDSForest, OU, usuários, grupos, bloqueio), net user,
+  pastas/NTFS (icacls, herança), compartilhamentos (New-SmbShare), DNS (zonas, A, CNAME, Resolve-DnsName),
+  DHCP (escopo sem IPs fixos, opções, autorização, concessões = mesas do mapa), serviços e Event Log.
+  help / help conceitos (AD, DNS, DHCP, permissões, instalação); ajuda do botão por modo de aprendizado.
+- Integração: lição winsetup; 5 missões no painel do terminal (+créditos, 1×); falhas winsvc e lockout
+  (FAULTS.when filtra por SO; service/disk só Linux); monitor (serviços parados, conta bloqueada);
+  talk/jobs/economy com textos do Windows; sysadmin conserta; chamado "Conta bloqueada" no Atendimento;
+  DC com DNS atende a dependência de DNS de Web/E-mail; receita cresce com o que o DC faz; preset
+  "Datacenter médio" já vem com um DC (corp.datalab.local); save guarda o estado (devices[].win).
+- Testes (scratchpad, CDP + Chrome): win.mjs 38/38, smoke.mjs 18/18 (5 presets, 6 h de jogo, janelas,
+  lições, save), store-test 47/47, auth.mjs 6/6 (SDK falso: corrida, login, link PKCE, config ausente),
+  node --check em todos os .js. save-test antigo usava saveLocal (removido): obsoleto.
+
+-------------------------------------------------------
+STATUS (09/10/2026, 19ª sessão) — SAVES NA VERCEL + ECONOMIA
+-------------------------------------------------------
+- Saves na Vercel (causa, confirmada em produção): o secret ALLOWED_ORIGINS das Edge Functions só tinha
+  localhost/127.0.0.1. O preflight CORS de https://datalab-six.vercel.app volta sem Access-Control-Allow-Origin,
+  então game:new falhava e o jogo ficava sem espaço de save ("escolha um espaço de save"). Login funcionava
+  (Auth não usa a lista). CORREÇÃO MANUAL: supabase secrets set ... (comando em supabase/README.md).
+  Funções game/shop/economy/inventory estão publicadas; tabelas com RLS (só as próprias linhas).
+- Cliente: "Salvar"/Ctrl+S e "Menu" pedem um espaço se o jogo ainda não tem (CloudSync.ensureSlot) e mostram
+  a causa real; erro de rede num site publicado explica ALLOWED_ORIGINS; listCloud devolve .error (menu
+  Carregar e Conta → Saves mostram o erro + "Tentar de novo" em vez de "nenhum jogo salvo"); "Menu" sem
+  conseguir salvar pede um 2º clique para sair sem salvar.
+- Economia (economy.js / DL.ECON): problemas nunca descontam dinheiro (só param de render) e conserto em até
+  30 min paga bônus de SLA; custos fixos menores (tráfego 4, link 3, manutenção 0,8, licença 250, plantão 250,
+  rampa 240 min); receita por servidor 48. Contratos de clientes (9 metas: 3/5/8/12/20 servidores, Web+DNS,
+  banco, AD, 3 VMs) pagam uma vez e ficam no save (econ.contracts; saves antigos marcam as metas já cumpridas
+  sem pagar). HUD: "Receita +$X/min · despesas -$Y/min"; Finanças lista contratos, plantões e o mês.
+  Servidor (game_save) não precisou mudar: os tetos anti-trapaça continuam acima dos novos valores.
+- Testes: econ-zero.mjs 11/11 (do zero: nunca negativo em 2 dias, meses com lucro, falha não desconta,
+  SLA, contrato, save antigo), save-flow.mjs 6/6 (SDK falso: CORS bloqueado → erro claro; liberado → cria
+  espaço, salva, reaproveita, lista, carrega; erro de RLS aparece), smoke 18/18, win 38/38, store 47/47,
+  auth 6/6, node --check 49/49.

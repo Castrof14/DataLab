@@ -123,6 +123,8 @@
           else if (!h.http) open(d.key + ':http', d, 'high', d.name + ': serviço HTTP (nginx) fora do ar');
           if (h.up && d.os.disk >= 90) open(d.key + ':disk', d, 'average', d.name + ': pouco espaço em disco (/ acima de 90%)');
           if (s && s.cpu.slice(-4).every((v) => v != null && v > 88)) open(d.key + ':cpu', d, 'warning', d.name + ': CPU acima de 88% por mais de 4 s');
+          // Windows Server roles (winserver.js): DNS / DHCP / AD services and locked-out accounts
+          if (h.up && DL.winTriggers) for (const [k, sev, text] of DL.winTriggers(d)) open(d.key + ':' + k, d, sev, text);
         } else if (d.kind === 'switch' && !h.up) {
           open(d.key + ':hw', d, 'high', d.name + ': switch fora do ar (defeito de hardware)');
         } else if (d.kind === 'switch' && h.errPorts) {
@@ -356,6 +358,8 @@
         if (!p) return null;
         return ['Um switch com porta em erro derruba o host ligado nela. Veja quais hosts ficaram vermelhos na disponibilidade.', 'A porta ' + p + ' está err-disabled. No terminal do switch: enable → conf t → interface ' + p + ' → shutdown / no shutdown.'];
       }
+      const wd = DL.winDiagnose ? DL.winDiagnose(d, h) : null;
+      if (wd) return wd;
       if (!h.up) {
         const t = d.path || O.trace(d);
         const first = 'O host parou de responder ao ping. Comece pela camada física (cabo e porta) e depois a configuração (interface e IP). No terminal: ip link.';

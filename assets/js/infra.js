@@ -34,11 +34,14 @@
     mail: { name: 'E-mail', short: 'MAIL', color: '#f2c14e', service: 'Postfix · Dovecot', need: { ram: 16, disk: 0.9 }, deps: ['dns'], rev: 0.9, load: [0.2, 0.45], desc: 'Caixas de e-mail. Depende de DNS (registros MX) e de disco.' },
     corp: { name: 'Aplicações corporativas', short: 'ERP', color: '#fca5a5', service: 'ERP · CRM', need: { cores: 8, ram: 64 }, deps: ['db'], rev: 1.2, load: [0.4, 0.65], desc: 'Sistemas de empresa. Dependem de um banco de dados.' },
     net: { name: 'Servidor de rede', short: 'NET', color: '#9aa3b0', service: 'DHCP · VPN · RADIUS', need: {}, deps: [], managed: true, rev: 0.7, load: [0.1, 0.25], desc: 'Serviços de rede. Precisa de switch gerenciável no caminho.' },
+    // winserver.js: installed and configured from the console (PowerShell); revenue grows with what it does
+    win: { name: 'Windows Server (AD)', short: 'WIN', color: '#60a5fa', service: 'AD DS · DNS · DHCP · arquivos', need: { cores: 4, ram: 16 }, deps: [], rev: 1, load: [0.15, 0.4], os: 'windows', desc: 'Windows Server 2022: domínio (usuários, grupos, permissões), DNS e DHCP da empresa. Trocar para ele reinstala o servidor: instale e configure pelo terminal. O DC com DNS atende Web e E-mail.' },
   };
-  const SVC_ORDER = ['web', 'db', 'game', 'ai', 'storage', 'virt', 'dns', 'mail', 'corp', 'net'];
+  const SVC_ORDER = ['web', 'db', 'game', 'ai', 'storage', 'virt', 'dns', 'mail', 'corp', 'net', 'win'];
   DL.SVC = SVC;
   const svcOf = (d) => (d && SVC[d.svc] ? d.svc : 'web');
-  DL.svcLabel = (d) => 'Linux · ' + SVC[svcOf(d)].name;
+  const winOs = (d) => !!(DL.isWin && DL.isWin(d));
+  DL.svcLabel = (d) => (winOs(d) ? 'Windows Server 2022' : 'Linux') + ' · ' + SVC[svcOf(d)].name;
 
   const OS_LIST = ['Debian 12', 'Ubuntu 24.04 LTS', 'Rocky Linux 9', 'Windows Server 2022'];
   const RAM_OPTS = [1, 2, 4, 8, 16, 32, 64, 128, 256];
@@ -57,6 +60,8 @@
     // a service exists if a healthy server or a running VM provides it
     function provided(type) {
       if (servers().some((d) => svcOf(d) === type && up(d))) return true;
+      // a domain controller with DNS running serves the whole company's names
+      if (DL.winProvides && servers().some((d) => up(d) && DL.winProvides(d, type))) return true;
       return V.vms.some((v) => v.svc === type && v.status === 'running' && nodeUp(v.node));
     }
     function needsOf(d) {
@@ -76,7 +81,7 @@
     DL.svcFactor = function (d) {
       if (!d.svc) return 1; // not specialised yet: the classic generic server
       const s = SVC[svcOf(d)];
-      let f = s.rev;
+      let f = s.os === 'windows' && DL.winFactor ? s.rev * DL.winFactor(d) : s.rev;
       if (needsOf(d).length) f *= 0.45;
       if (depsOf(d).length) f *= 0.6;
       if (s.storage && roomHas(d, 'storage')) f *= 1.2;
@@ -210,7 +215,7 @@
     };
 
     /* ---------------- presets: a varied, realistic starting fleet ---------------- */
-    function seed() {
+    function seed(preset) {
       const list = servers().sort((a, b) => a.key < b.key ? -1 : 1);
       const cycle = ['web', 'db', 'dns', 'web', 'mail', 'storage', 'corp', 'game', 'net', 'web'];
       // each server gets the next specialisation its hardware can actually serve
@@ -231,8 +236,13 @@
         for (const [name, svc, cores, ram, disk] of base) createVm({ node: node.key, name, svc, cores, ram, disk, os: OS_LIST[0], start: true });
         for (const v of V.vms) { v.status = 'running'; v.t = 0; v.up = 600 + rand() * 3000; }
       }
+      // the big datacenter already runs a Windows domain controller (corp.datalab.local) to explore
+      if (preset === 'dcm' && DL.winPreset) {
+        const dc = list.find((d) => d.svc === 'net' && d.state === 'online') || list.find((d) => d.svc === 'web' && d.state === 'online' && d !== node);
+        if (dc) { dc.svc = 'win'; if (needsOf(dc).length) dc.svc = 'net'; else DL.winPreset(dc); }
+      }
     }
-    function reset() { V.vms = []; V.seq = 100; V.sel = null; V.view = 'summary'; }
+    function reset() { V.vms = []; V.seq = 100; V.sel = null; V.view = 'summary'; V.ask = null; }
 
     /* ================================================================== */
     /* UI                                                                  */
@@ -300,14 +310,21 @@
     function viewServers() {
       const srv = servers();
       if (!srv.length) return '<h3 class="px-h">Servidores físicos</h3><p class="px-note">Nenhum servidor instalado. Construir (B) → Equipamentos → Servidor, num rack.</p>';
-      let h = '<h3 class="px-h">Servidores físicos</h3><p class="px-note">Cada servidor tem uma especialização. Ela define o que ele precisa e quanto rende. Servidores de <b>Virtualização</b> viram nós para VMs.</p>';
+      let h = '<h3 class="px-h">Servidores físicos</h3><p class="px-note">Cada servidor tem uma especialização. Ela define o que ele precisa e quanto rende. Servidores de <b>Virtualização</b> viram nós para VMs; <b>Windows Server</b> roda o domínio (AD), DNS e DHCP.</p>';
+      const ask = V.ask && ops.get(V.ask.key);
+      if (ask) {
+        const toWin = SVC[V.ask.svc].os === 'windows';
+        h += '<div class="px-ask" role="alertdialog" aria-label="Reinstalar servidor"><p><b>Reinstalar o ' + esc(ask.name) + ' com ' + (toWin ? 'Windows Server 2022' : 'Linux') + '?</b> ' +
+          (toWin ? 'O disco é apagado e o servidor sai do ar até você instalar o Windows pelo terminal (mídia de instalação → senha → IP fixo → nome). Depois, missões ensinam AD, DNS, DHCP e permissões.' : 'O Windows (domínio, DNS, DHCP, usuários) é apagado e o servidor precisa ser configurado de novo no terminal Linux.') +
+          '</p><div class="px-acts"><button type="button" class="btn btn--sm btn--primary" data-px="osok">Reinstalar</button><button type="button" class="btn btn--sm" data-px="osno">Cancelar</button></div></div>';
+      }
       h += '<table class="px-table"><thead><tr><th>Servidor</th><th>Hardware</th><th>Estado</th><th>Especialização</th><th>Necessidades</th><th>Rende</th></tr></thead><tbody>';
       for (const d of srv) {
         const m = DL.hwOf(d), n = needsOf(d).concat(depsOf(d));
         const st = d.state !== 'online' ? (d.state === 'new' ? 'Sem cabo' : 'Configurar') : up(d) ? 'Online' : 'Fora do ar';
         h += '<tr><td><b>' + esc(d.name) + '</b><small>' + esc(d.where || '') + '</small></td><td>' + esc(m.name) + '<small>' + m.cores + ' núcleos · ' + DL.hwFmt.ram(m.ram) + ' · ' + fmt1(m.diskTB || 0) + ' TB · ' + (m.nic || 1) + ' Gb/s</small></td>' +
           '<td><span class="px-st ' + (up(d) ? 'is-run' : d.state === 'online' ? 'is-down' : 'is-off') + '">' + st + '</span></td>' +
-          '<td><select class="px-sel" data-svc="' + d.key + '" aria-label="Especialização do ' + esc(d.name) + '">' + SVC_ORDER.map((t) => '<option value="' + t + '"' + (svcOf(d) === t ? ' selected' : '') + '>' + SVC[t].name + '</option>').join('') + '</select><small>' + (d.svc ? esc(SVC[svcOf(d)].service) : 'padrão (ainda não especializado)') + '</small></td>' +
+          '<td><select class="px-sel" data-svc="' + d.key + '" aria-label="Especialização do ' + esc(d.name) + '">' + SVC_ORDER.map((t) => '<option value="' + t + '"' + (svcOf(d) === t ? ' selected' : '') + '>' + SVC[t].name + '</option>').join('') + '</select><small>' + (winOs(d) && DL.winSummary ? esc(DL.winSummary(d)) : d.svc ? esc(SVC[svcOf(d)].service) : 'padrão (ainda não especializado)') + '</small></td>' +
           '<td>' + (n.length ? '<ul class="px-needs">' + n.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<span class="px-ok">✓ Atendidas</span>') + '</td>' +
           '<td class="mono">' + (up(d) ? '×' + fmt1(DL.svcFactor(d)) : '—') + '</td></tr>';
       }
@@ -370,7 +387,7 @@
       let h = '<h3 class="px-h">Criar VM <small class="mono">ID ' + (V.seq + 1) + '</small></h3><form class="px-form" id="pxForm" autocomplete="off">';
       h += '<label><span class="eyebrow-sm">Nó</span><select name="node" class="px-sel">' + ns.map((n) => '<option value="' + n.key + '"' + (n.key === D.node ? ' selected' : '') + '>' + esc(n.name) + (up(n) ? '' : ' (fora do ar)') + '</option>').join('') + '</select></label>';
       h += '<label><span class="eyebrow-sm">Nome</span><input class="input" name="name" maxlength="24" value="' + esc(D.name) + '"></label>';
-      h += '<label><span class="eyebrow-sm">Serviço hospedado</span><select name="svc" class="px-sel">' + SVC_ORDER.filter((t) => t !== 'virt').map((t) => '<option value="' + t + '"' + (t === D.svc ? ' selected' : '') + '>' + SVC[t].name + '</option>').join('') + '</select></label>';
+      h += '<label><span class="eyebrow-sm">Serviço hospedado</span><select name="svc" class="px-sel">' + SVC_ORDER.filter((t) => t !== 'virt' && t !== 'win').map((t) => '<option value="' + t + '"' + (t === D.svc ? ' selected' : '') + '>' + SVC[t].name + '</option>').join('') + '</select></label>';
       h += '<label><span class="eyebrow-sm">Sistema</span><select name="os" class="px-sel">' + OS_LIST.map((o) => '<option' + (o === D.os ? ' selected' : '') + '>' + o + '</option>').join('') + '</select></label>';
       h += '<label><span class="eyebrow-sm">vCPU</span><input class="input" name="cores" type="number" min="1" max="' + c.cores + '" value="' + D.cores + '"></label>';
       h += '<label><span class="eyebrow-sm">RAM</span><select name="ram" class="px-sel">' + RAM_OPTS.map((r) => '<option value="' + r + '"' + (r === +D.ram ? ' selected' : '') + '>' + r + ' GB</option>').join('') + '</select></label>';
@@ -450,6 +467,13 @@
       }
       const p = b.dataset.px;
       if (p === 'close') { close(); return; }
+      if (p === 'osok' || p === 'osno') {
+        const d = V.ask && ops.get(V.ask.key);
+        if (p === 'osok' && d) reinstall(d, V.ask.svc);
+        V.ask = null;
+        render(true);
+        return;
+      }
       V.msg = '';
       if (p === 'node') { V.view = 'node'; V.sel = ops.get(b.dataset.key); }
       else if (p === 'vm') { V.view = 'vm'; V.sel = V.vms.find((x) => x.id === +b.dataset.vm); }
@@ -464,17 +488,32 @@
       D.node = f.node.value; D.name = f.name.value; D.svc = f.svc.value; D.os = f.os.value;
       D.cores = f.cores.value; D.ram = f.ram.value; D.disk = f.disk.value; D.start = f.start.checked;
     };
+    function applySvc(d, svc) {
+      const was = svcOf(d);
+      d.svc = svc;
+      if (was === 'virt' && d.svc !== 'virt') for (const v of V.vms) if (v.node === d.key && v.status !== 'stopped') { v.status = 'stopped'; v.cpu = v.mem = 0; }
+      game.toast('ok', d.name, 'Agora é ' + SVC[d.svc].name + ' · ' + SVC[d.svc].service);
+      ops.logEvent('info', d.name + ' especializado como ' + SVC[d.svc].name);
+      game.emit('svc', { d });
+    }
+    // Windows ↔ Linux is a reinstall: the server leaves the air until it is installed and configured again
+    function reinstall(d, svc) {
+      const toWin = SVC[svc].os === 'windows';
+      if (toWin) DL.winInstall(d); else DL.winRemove(d);
+      if (d.state !== 'new') d.state = 'link';
+      ops.recompute();
+      applySvc(d, svc);
+      ops.logEvent('info', d.name + ' reinstalado com ' + (toWin ? 'Windows Server 2022' : 'Linux') + ' · abra o terminal (Tarefas → T) para configurar');
+      game.toast('info', d.name + ' reinstalado', toWin ? 'Instale o Windows Server pelo terminal: Tarefas (T) → Abrir terminal' : 'Configure o Linux pelo terminal: Tarefas (T) → Abrir terminal');
+    }
     el.root.addEventListener('change', (ev) => {
       const s = ev.target.closest('[data-svc]');
       if (s) {
         const d = ops.get(s.dataset.svc);
         if (d) {
-          const was = svcOf(d);
-          d.svc = s.value;
-          if (was === 'virt' && d.svc !== 'virt') for (const v of V.vms) if (v.node === d.key && v.status !== 'stopped') { v.status = 'stopped'; v.cpu = v.mem = 0; }
-          game.toast('ok', d.name, 'Agora é ' + SVC[d.svc].name + ' · ' + SVC[d.svc].service);
-          ops.logEvent('info', d.name + ' especializado como ' + SVC[d.svc].name);
-          game.emit('svc', { d });
+          // changing the operating system needs a confirmation (render shows it)
+          if ((SVC[s.value].os === 'windows') !== winOs(d)) V.ask = { key: d.key, svc: s.value };
+          else { V.ask = null; applySvc(d, s.value); }
         }
         s.blur();
         render(true);

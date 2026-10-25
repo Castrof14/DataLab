@@ -44,7 +44,13 @@
     link: 'ainda apresenta perda de conexão', cable: 'está sem sinal no cabo', port: 'está com uma porta em erro',
     service: 'está com o serviço web parado', disk: 'está com o disco quase cheio',
   };
-  const AREA = { redes: ['cable', 'port', 'link'], servidores: ['disk', 'cable', 'link'], sysadmin: ['service', 'disk', 'link'] };
+  const AREA = { redes: ['cable', 'port', 'link'], servidores: ['disk', 'cable', 'link'], sysadmin: ['service', 'disk', 'link', 'winsvc', 'lockout'] };
+  // Windows servers (winserver.js) have their own words for the same problems, plus their own faults
+  const faultLine = (map, key, d, ty) => {
+    const w = DL.WIN_TALK && DL.isWin && DL.isWin(d) && DL.WIN_TALK[key] && DL.WIN_TALK[key][ty];
+    const v = w || map[ty] || (DL.WIN_TALK && DL.WIN_TALK[key] && DL.WIN_TALK[key][ty]);
+    return typeof v === 'function' ? v(d) : v || '';
+  };
 
   const QUICK = [
     ['servers', 'Como estão os servidores?'], ['problems', 'Tem algum problema?'], ['doing', 'O que você está fazendo?'],
@@ -118,9 +124,9 @@
     };
     function diag(a, d) {
       const L = DL.learn ? DL.learn() : null, ty = d.fault.type;
-      if (L && L.crewHints === 'vague') return VAGUE[ty](d) + ' ' + LOOK[ty];
-      const base = expertOn(a, ty) ? HINT[ty](d) : VAGUE[ty](d);
-      return L && L.id === 'iniciante' ? base + ' Passo a passo: ' + STEPS[ty] : base;
+      if (L && L.crewHints === 'vague') return faultLine(VAGUE, 'vague', d, ty) + ' ' + faultLine(LOOK, 'look', d, ty);
+      const base = expertOn(a, ty) ? faultLine(HINT, 'hint', d, ty) : faultLine(VAGUE, 'vague', d, ty);
+      return L && L.id === 'iniciante' ? base + ' Passo a passo: ' + faultLine(STEPS, 'steps', d, ty) : base;
     }
     // never the same line twice in a row for the same person and subject
     function vary(a, key, opts) {
@@ -204,7 +210,7 @@
         const pend = srv.filter((d) => d.state !== 'online');
         const parts = [];
         if (ok.length) parts.push(ok.length <= 3 ? 'O' + (ok.length > 1 ? 's' : '') + ' ' + list(ok.map((d) => d.name)) + (ok.length > 1 ? ' estão' : ' está') + ' funcionando normalmente.' : ok.length + ' servidores estão funcionando normalmente.');
-        for (const d of bad.slice(0, 2)) parts.push('O ' + d.name + ' ' + STATE[d.fault.type] + '.');
+        for (const d of bad.slice(0, 2)) parts.push('O ' + d.name + ' ' + (faultLine(STATE, 'state', d, d.fault.type) || 'está com um problema') + '.');
         let spotted = null;
         if (lost.length && K.k >= 4) {
           spotted = lost[0];

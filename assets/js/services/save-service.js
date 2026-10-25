@@ -55,7 +55,12 @@
         legend: c.legendBot || null, legendItem: c.legend || null,
       };
     });
-    const devices = ops.devices().map((d) => ({ key: d.key, kind: d.kind, name: d.name, ip: d.ip, state: d.state, svc: d.svc || null, pre: !!d.pre }));
+    const devices = ops.devices().map((d) => {
+      const o = { key: d.key, kind: d.kind, name: d.name, ip: d.ip, state: d.state, svc: d.svc || null, pre: !!d.pre };
+      // Windows Server (winserver.js): the whole simulated server — domain, DNS, DHCP, shares…
+      if (DL.isWin && DL.isWin(d)) { o.os = 'windows'; o.win = DL.winSnapshot(d); }
+      return o;
+    });
     const links = ops.links.map((l) => ({ a: { dev: l.a.dev, port: l.a.port }, b: { dev: l.b.dev, port: l.b.port }, loose: l.loose || null }));
     const vms = D.infra.vms.map((v) => ({ id: v.id, name: v.name, node: v.node, svc: v.svc, os: v.os, cores: v.cores, ram: v.ram, disk: v.disk, status: v.status }));
     return {
@@ -132,6 +137,7 @@
       if (s.svc) d.svc = s.svc;
       d.pre = !!s.pre;
       if (d.kind === 'server' && s.state !== 'online') { d.state = s.state === 'link' ? 'link' : 'new'; DL.newOS(d, false); }
+      if (d.kind === 'server' && s.os === 'windows' && DL.winRestore) DL.winRestore(d, s.win);
     }
     for (const l of data.links || []) {
       const r = ops.addLink(l.a, l.b, { quiet: true });
@@ -167,26 +173,32 @@
   /* cloud slots (Edge Function "game")                                  */
   /* ------------------------------------------------------------------ */
   const game = () => window.DataLabDemo;
-  const S = { slot: null, busy: false, timer: 0, last: 0, lastError: null };
+  // name: the slot's save name, kept so the autosave doesn't rename it back to the default
+  const S = { slot: null, name: null, busy: false, timer: 0, last: 0, lastError: null };
 
+  // the account's slots (RLS: only the player's own rows); a failed read comes back as [] with .error set
   async function listCloud() {
     const q = DL.Cloud.from('game_saves');
-    if (!q) return [];
-    const { data, error } = await q.select('slot, name, version, stats, updated_at, play_minutes').order('slot');
-    return error ? [] : data;
+    const failed = (msg) => Object.assign([], { error: msg });
+    if (!q) return failed('Sem conexão com o servidor do DataLab.');
+    try {
+      const { data, error } = await q.select('slot, name, version, stats, updated_at, play_minutes').order('slot');
+      if (error) { console.warn('DataLab: lista de saves', error.code, error.message); return failed('Não foi possível ler seus saves (' + (error.code || 'erro') + ').'); }
+      return data || [];
+    } catch (e) { return failed('Falha de rede ao ler seus saves.'); }
   }
 
   DL.SaveService = {
     VERSION, serialize, apply,
     get slot() { return S.slot; },
-    set slot(v) { S.slot = v; },
+    set slot(v) { if (v !== S.slot) S.name = null; S.slot = v; },
     get busy() { return S.busy; },
     get lastSaved() { return S.last; },
     get lastError() { return S.lastError; },
     listCloud,
     async newGame(slot, name, preset) {
       const r = await DL.Cloud.call('game', { action: 'new', slot, name, preset });
-      if (r.ok) { S.slot = slot; game().economy.applyServer(r.data); }
+      if (r.ok) { S.slot = slot; S.name = name || null; game().economy.applyServer(r.data); }
       return r;
     },
     // save the running game into its cloud slot; the answer carries the server's balances
@@ -196,7 +208,8 @@
       if (!S.slot || S.busy || !DL.Cloud.signedIn || D.state.phase !== 'play') return { ok: false, code: 'idle', message: 'Nada para salvar agora.' };
       S.busy = true;
       try {
-        const data = serialize(D, opts.name);
+        if (opts.name) S.name = opts.name;
+        const data = serialize(D, S.name);
         const claim = D.economy.takeClaim();
         const r = await DL.Cloud.call('game', { action: 'save', slot: S.slot, data, claim, request_id: DL.Cloud.requestId() });
         if (r.ok) {
@@ -227,6 +240,7 @@
       if (!r.data.save.data) return { ok: false, code: 'empty', message: 'Este espaço ainda não foi salvo.' };
       const refused = apply(D, r.data.save.data, { company: r.data.company });
       S.slot = slot;
+      S.name = r.data.save.name || null;
       return { ok: true, data: r.data, refused };
     },
     remove: (slot) => DL.Cloud.call('game', { action: 'delete', slot }),

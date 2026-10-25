@@ -88,13 +88,15 @@
   /* Fault repair (what each fix is, told the way a tech would)          */
   /* ------------------------------------------------------------------ */
   const FIX_SAY = {
-    link: (d) => 'Subi a eth0 do ' + d.name + ' (ip link set eth0 up). Link de volta.',
+    link: (d) => (DL.isWin && DL.isWin(d) ? 'Habilitei o adaptador Ethernet do ' + d.name + ' (Enable-NetAdapter). Link de volta.' : 'Subi a eth0 do ' + d.name + ' (ip link set eth0 up). Link de volta.'),
+    winsvc: (d) => 'O ' + ((d.os.win && d.os.win.faultSvc) || 'serviço') + ' tinha parado no ' + d.name + '. Vi no log System e subi com Start-Service.',
+    lockout: (d) => 'Desbloqueei a conta travada no AD do ' + d.name + ' (Unlock-ADAccount) e confirmei com o usuário.',
     cable: (d) => 'Recoloquei o cabo solto do ' + d.name + ' e testei com ping: ok.',
     port: (d) => 'Reativei a porta ' + String(d.sw.bad || '').replace('gi', 'Gi') + ' do ' + d.name + ' com shutdown / no shutdown.',
     service: (d) => 'Reiniciei o nginx do ' + d.name + '. Já responde 200.',
     disk: (d) => 'Limpei logs antigos do ' + d.name + '. Disco caiu para 61%.',
   };
-  const FIX_NAME = { link: 'interface', cable: 'cabo', port: 'porta do switch', service: 'serviço', disk: 'disco' };
+  const FIX_NAME = { link: 'interface', cable: 'cabo', port: 'porta do switch', service: 'serviço', disk: 'disco', winsvc: 'serviço do Windows', lockout: 'conta bloqueada' };
 
   function fixTask(id, name, types, skill, desc) {
     return {
@@ -232,7 +234,7 @@
           return { say: pick(['Analisei os alertas: nada crítico, só ruído.', 'Fila de alertas zerada. Ajustei dois limiares que davam falso positivo.']) };
         },
       },
-      fixTask('fixinc', 'Resolver incidente', ['service', 'disk', 'link'], 'sistemas', 'Serviço parado, disco cheio ou interface.'),
+      fixTask('fixinc', 'Resolver incidente', ['service', 'disk', 'link', 'winsvc', 'lockout'], 'sistemas', 'Serviço parado, disco cheio, interface, serviço do Windows ou conta bloqueada no AD.'),
       {
         id: 'backup', name: 'Revisar backups', verb: 'Revisando backups', kind: 'pc', skill: 'sistemas', xp: 10, dur: [12, 18], auto: 1,
         desc: 'Confere a rotina de backup da madrugada.',

@@ -55,7 +55,13 @@
   }
 
   async function init() {
-    const cfg = window.DATALAB_CONFIG || {};
+    if (!window.DATALAB_CONFIG) {
+      // config.js never ran: on a deploy this means the file was not published (check .vercelignore)
+      C.status = 'misconfigured';
+      console.error('DataLab: assets/js/supabase/config.js não foi carregado (' + location.origin + '). Confira se o arquivo foi publicado — padrões sem "/" inicial no .vercelignore removem pastas em qualquer nível.');
+      return false;
+    }
+    const cfg = window.DATALAB_CONFIG;
     const url = String(cfg.supabaseUrl || '').trim(), key = String(cfg.supabasePublishableKey || '').trim();
     if (!url || !key) { C.status = 'offline'; return false; }
     if (looksSecret(key)) {
@@ -91,6 +97,14 @@
     console.warn('DataLab: a Edge Function "' + fn + '" não respondeu. Se o jogo está publicado (ex.: Vercel), confira se ' + location.origin + ' está no secret ALLOWED_ORIGINS do Supabase (supabase secrets set ALLOWED_ORIGINS=...).');
   }
 
+  // what the player reads when an Edge Function can't be reached: offline, or (on a deploy) the server
+  // refusing this site's address — the browser reports both the same way
+  function networkMessage() {
+    if (!navigator.onLine) return MESSAGES.network;
+    if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return MESSAGES.network;
+    return 'O servidor do DataLab não respondeu a este site (' + location.host + '). Se persistir, o endereço do site precisa ser liberado no servidor (ALLOWED_ORIGINS).';
+  }
+
   // Call an Edge Function. Always resolves: { ok: true, data } | { ok: false, code, message, status }
   async function call(fn, body) {
     if (!C.client) return { ok: false, code: 'offline', message: MESSAGES.offline, status: 0 };
@@ -106,10 +120,10 @@
       const code = (info && info.error) || (status ? 'http_' + status : 'network');
       if (code === 'network') networkHint(fn);
       if (status === 401) emit('expired', {});
-      return { ok: false, code, status, message: (info && info.message) || MESSAGES[code] || MESSAGES.network };
+      return { ok: false, code, status, message: (info && info.message) || (code === 'network' ? networkMessage() : MESSAGES[code] || 'Erro no servidor (' + code + ').') };
     } catch (e) {
       networkHint(fn);
-      return { ok: false, code: 'network', status: 0, message: MESSAGES.network };
+      return { ok: false, code: 'network', status: 0, message: networkMessage() };
     }
   }
 
