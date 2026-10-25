@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>DataLab</title>
-  <meta name="description" content="DataLab — opere um datacenter em pixel art. Um rack de cada vez.">
+  <meta name="description" content="DataLab é um jogo de simulação em pixel art: construa e opere um datacenter, contrate a equipe e resolva incidentes reais de redes e servidores, aprendendo TI no caminho.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' shape-rendering='crispEdges'%3E%3Cpath fill='%2305070d' d='M0 0h16v16H0z'/%3E%3Cpath fill='%2346506b' d='M3 1h10v14H3z'/%3E%3Cpath fill='%23141b2d' d='M4 2h8v2H4zM4 5h8v2H4zM4 8h8v2H4zM4 11h8v2H4z'/%3E%3Cpath fill='%233dffa2' d='M5 3h1v1H5zM5 6h1v1H5zM5 12h1v1H5zM7 6h1v1H7z'/%3E%3Cpath fill='%23ffb547' d='M5 9h1v1H5z'/%3E%3C/svg%3E">
   <meta name="theme-color" content="#05070d">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen&family=VT323&display=swap" rel="stylesheet">
   <style>
     :root {
       --ink: #05070d;
@@ -33,16 +33,15 @@
     @media (max-height: 520px) { :root { --u: 5px; } }
 
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; }
+    html, body { margin: 0; }
+    @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
     body {
       background: var(--ink);
       color: var(--paper);
       font: 16px/1.5 'Silkscreen', 'Press Start 2P', monospace;
-      overflow: hidden;
+      overflow-x: hidden;
       -webkit-font-smoothing: none;
       -webkit-tap-highlight-color: transparent;
-      user-select: none;
-      -webkit-user-select: none;
     }
     canvas, svg, img { image-rendering: crisp-edges; image-rendering: pixelated; }
 
@@ -58,10 +57,12 @@
     /* ---------- title ---------- */
     .title {
       position: relative; z-index: 2;
-      height: 100vh; height: 100dvh;
+      height: 100vh; height: 100svh;   /* svh: keeps its height while a phone's toolbar slides away */
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      padding: 16px 16px 9vh;
+      padding: 16px 16px max(9vh, 80px);
       text-align: center;
+      user-select: none;
+      -webkit-user-select: none;
     }
     .logo {
       margin: 0 0 calc(var(--u) * 4);
@@ -117,7 +118,7 @@
     .touch .t { display: inline; }
 
     .foot {
-      position: fixed; left: 0; right: 0; bottom: max(8px, env(safe-area-inset-bottom)); z-index: 3;
+      position: absolute; left: 0; right: 0; bottom: 12px;
       margin: 0; text-align: center;
       font: 8px/1 'Silkscreen', monospace;
       color: var(--steel-3);
@@ -128,20 +129,24 @@
     @keyframes blink { 50% { opacity: 0; } }
 
     /* ---------- RPG dialog box ---------- */
+    /* the RPG window frame: a 4px edge, an ink outline with notched corners and a hard drop shadow */
+    .box, .panel {
+      background: var(--navy);
+      box-shadow:
+        0 -4px var(--edge), 0 4px var(--edge), -4px 0 var(--edge), 4px 0 var(--edge),
+        0 -8px var(--ink), 0 8px var(--ink), -8px 0 var(--ink), 8px 0 var(--ink),
+        -4px -4px var(--ink), 4px -4px var(--ink), -4px 4px var(--ink), 4px 4px var(--ink),
+        8px 12px rgba(5, 7, 13, .8), 12px 8px rgba(5, 7, 13, .8);
+    }
     .box {
+      --edge: var(--paper);
       width: min(520px, calc(100vw - 48px));
       max-height: calc(100dvh - 48px);
       margin: auto; padding: 24px 28px 20px;
       border: 0; border-radius: 0;
-      background: var(--navy);
       color: var(--paper);
       text-align: left;
       overflow: visible;
-      box-shadow:
-        0 -4px var(--paper), 0 4px var(--paper), -4px 0 var(--paper), 4px 0 var(--paper),
-        0 -8px var(--ink), 0 8px var(--ink), -8px 0 var(--ink), 8px 0 var(--ink),
-        -4px -4px var(--ink), 4px -4px var(--ink), -4px 4px var(--ink), 4px 4px var(--ink),
-        8px 12px rgba(5, 7, 13, .8), 12px 8px rgba(5, 7, 13, .8);
     }
     .box[open] { animation: unfold .2s steps(4, end); }
     .box::after {
@@ -192,12 +197,230 @@
     .leaving .fade { animation: fadeout .4s steps(4, end) forwards; }
     @keyframes fadeout { to { opacity: 1; } }
 
+    /* ================= the presentation below the title ================= */
+    /* the datacenter stays behind the whole page; scrolling dims it in four steps */
+    .shade {
+      position: fixed; inset: 0; z-index: 1; pointer-events: none; opacity: 0;
+      background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4' shape-rendering='crispEdges'%3E%3Cpath fill='%2305070d' d='M0 0h2v2H0zM2 2h2v2H2z'/%3E%3C/svg%3E"),
+        rgba(5, 7, 13, .62);
+    }
+    .more {
+      position: absolute; left: 50%; bottom: 36px; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      padding: 8px;
+      font: 8px/1 'Press Start 2P', monospace;
+      color: var(--steel-4); text-decoration: none; white-space: nowrap;
+      text-shadow: 2px 0 var(--ink), -2px 0 var(--ink), 0 2px var(--ink), 0 -2px var(--ink);
+    }
+    .more svg { width: 15px; height: 9px; color: var(--green); animation: nudge 1.2s steps(1, end) infinite; }
+    .more:hover { color: var(--paper); }
+    .more:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+    @keyframes nudge { 50% { transform: translateY(4px); } }
+
+    /* ---------- top bar, once the title has scrolled away ---------- */
+    .top {
+      position: fixed; left: 0; right: 0; top: 0; z-index: 10;
+      display: flex; align-items: center; gap: 24px;
+      padding: 12px max(16px, calc((100% - 1080px) / 2));
+      background: var(--ink);
+      box-shadow: 0 4px var(--steel-1), 0 8px rgba(5, 7, 13, .6);
+      transform: translateY(calc(-100% - 8px)); visibility: hidden;
+      transition: transform .24s steps(3, end), visibility 0s linear .24s;
+    }
+    .is-past .top { transform: none; visibility: visible; transition: transform .24s steps(3, end); }
+    .top__logo {
+      margin-right: auto;
+      font: 16px/1 'Press Start 2P', monospace; color: var(--green); text-decoration: none;
+      text-shadow: 0 2px var(--green-3);
+    }
+    .top__nav { display: flex; gap: 20px; }
+    .top__nav a { font: 16px/1 'Silkscreen', monospace; color: var(--steel-3); text-decoration: none; }
+    .top__nav a:hover, .top__nav a:focus-visible { color: var(--paper); outline: none; }
+
+    /* ---------- pixel button ---------- */
+    .pxbtn {
+      display: inline-flex; align-items: center; gap: 14px;
+      padding: 16px 20px 18px;
+      font: 16px/1 'Press Start 2P', monospace; text-transform: uppercase; text-decoration: none;
+      color: var(--ink); background: var(--green);
+      box-shadow:
+        inset 0 -4px var(--green-2), inset 0 4px #8cffc8,
+        0 -4px var(--ink), 0 4px var(--ink), -4px 0 var(--ink), 4px 0 var(--ink), 4px 8px rgba(5, 7, 13, .8);
+    }
+    .pxbtn svg { width: 9px; height: 15px; }
+    .pxbtn:hover { background: #6effba; }
+    .pxbtn:active { transform: translateY(4px); box-shadow: inset 0 4px var(--green-2), 0 -4px var(--ink), 0 4px var(--ink), -4px 0 var(--ink), 4px 0 var(--ink); }
+    .pxbtn:focus-visible { outline: 4px solid var(--paper); outline-offset: 8px; }
+    .pxbtn--sm { padding: 10px 12px 12px; font-size: 8px; gap: 8px; box-shadow: inset 0 -2px var(--green-2), 0 -2px var(--ink), 0 2px var(--ink), -2px 0 var(--ink), 2px 0 var(--ink); }
+    .pxbtn--sm:active { transform: translateY(2px); box-shadow: 0 -2px var(--ink), 0 2px var(--ink), -2px 0 var(--ink), 2px 0 var(--ink); }
+
+    /* ---------- sections ---------- */
+    .sec {
+      position: relative; z-index: 2;
+      width: min(1080px, 100% - 32px); margin: 0 auto;
+      padding-top: 128px;
+      scroll-margin-top: 24px;
+    }
+    .sec:focus { outline: none; }
+    .eyebrow {
+      margin: 0 0 16px;
+      font: 16px/1 'Silkscreen', monospace; text-transform: uppercase;
+      color: var(--amber);
+      text-shadow: 2px 2px var(--ink);
+    }
+    .h2 {
+      --hp: 3px;   /* one pixel of the heading font */
+      margin: 0 0 32px; max-width: 24em;
+      font: 400 calc(var(--hp) * 8)/1.5 'Press Start 2P', monospace; text-transform: uppercase;
+      color: var(--green);
+      text-shadow: 0 var(--hp) var(--green-3), 0 calc(var(--hp) * 2) var(--ink), var(--hp) calc(var(--hp) * 2) var(--ink);
+    }
+    .copy { font: 24px/1.2 'VT323', monospace; color: var(--steel-4); text-shadow: 2px 2px var(--ink); }
+    .copy p { margin: 0 0 16px; max-width: 52ch; }
+    .copy strong { font-weight: 400; color: var(--paper); }
+    .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+
+    .panel { --edge: var(--steel-2); position: relative; margin: 8px; }
+    .bar {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 14px;
+      font: 8px/1 'Press Start 2P', monospace; text-transform: uppercase;
+      color: var(--steel-4); background: var(--steel-1);
+      box-shadow: inset 0 -2px var(--ink);
+    }
+    .live { display: inline-flex; align-items: center; gap: 8px; color: var(--green); white-space: nowrap; }
+    .live--warn { color: var(--amber); }
+    .led { width: 6px; height: 6px; background: currentColor; box-shadow: 0 0 0 2px var(--ink); animation: blink 1s steps(1, end) infinite; }
+
+    /* 01 · the game */
+    .spec { margin-top: 8px; padding: 8px 20px; }
+    .spec div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; padding: 12px 0; box-shadow: 0 2px var(--steel-1); }
+    .spec div:last-child { box-shadow: none; }
+    .spec dt { font: 8px/24px 'Press Start 2P', monospace; color: var(--steel-3); text-transform: uppercase; }
+    .spec dd { margin: 0; font: 24px/1 'VT323', monospace; color: var(--paper); }
+    .screen { margin-top: 64px; }
+    .screen__view { position: relative; aspect-ratio: 16 / 9; background: #060709; overflow: hidden; }
+    .screen__view iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; pointer-events: none; opacity: 0; }
+    .screen.is-on iframe { opacity: 1; }
+    .screen__wait {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      font: 8px/1 'Press Start 2P', monospace; color: var(--steel-3);
+      animation: blink 1s steps(1, end) infinite;
+    }
+    .screen.is-on .screen__wait { display: none; }
+    .cap { margin: 20px 8px 0; font: 20px/1.2 'VT323', monospace; color: var(--steel-3); text-shadow: 2px 2px var(--ink); }
+
+    /* 02 · how it plays */
+    .steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+    .step { padding: 20px 20px 24px; }
+    .step__icon { display: block; width: 48px; height: 48px; margin-bottom: 20px; }
+    .step__icon svg { display: block; width: 100%; height: 100%; }
+    .step h3 { margin: 0 0 14px; font: 400 16px/1.25 'Press Start 2P', monospace; text-transform: uppercase; color: var(--paper); }
+    .step h3 b { font-weight: 400; color: var(--amber); }
+    .step p { margin: 0; font: 22px/1.15 'VT323', monospace; color: var(--steel-4); }
+
+    /* 03 · learning */
+    .learn { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); gap: 40px; align-items: start; margin-top: 16px; }
+    .term__out {
+      padding: 16px 20px 20px;
+      font: 20px/1.2 'VT323', monospace; color: var(--steel-4);
+      background: var(--ink);
+    }
+    .ln { display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .ln--cmd::before { content: 'admin@srv-03:~$ '; color: var(--green); }
+    .ln--cmd { color: var(--paper); }
+    .ln--alert, .ln--warn { color: var(--amber); }
+    .ln--ok, .ln--done { color: var(--green); }
+    .ln.wait { visibility: hidden; }
+    .ln.typing .rest { visibility: hidden; }
+    .cur { display: inline-block; width: 10px; height: 18px; margin-right: -10px; vertical-align: -3px; background: var(--green); animation: blink 1s steps(1, end) infinite; }
+    .modes { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 28px 8px 0; }
+    .chip {
+      padding: 8px 10px 6px;
+      font: 8px/1 'Press Start 2P', monospace; text-transform: uppercase; color: var(--paper);
+      background: var(--steel-1);
+      box-shadow: inset 0 2px var(--steel-2), 0 -2px var(--ink), 0 2px var(--ink), -2px 0 var(--ink), 2px 0 var(--ink);
+    }
+    .modes p { flex-basis: 100%; margin: 6px 0 0; font: 20px/1.2 'VT323', monospace; color: var(--steel-3); text-shadow: 2px 2px var(--ink); }
+    .tools { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 22px; }
+    .tools li { display: grid; grid-template-columns: 8px minmax(0, 1fr); gap: 4px 16px; }
+    .tools i { grid-row: span 2; width: 8px; height: 8px; margin-top: 4px; background: var(--c); box-shadow: 0 0 0 2px var(--ink); }
+    .tools strong { font: 400 16px/1 'Silkscreen', monospace; text-transform: uppercase; color: var(--paper); text-shadow: 2px 2px var(--ink); }
+    .tools span { font: 20px/1.15 'VT323', monospace; color: var(--steel-4); text-shadow: 2px 2px var(--ink); }
+
+    /* 04 · the crew */
+    .crew { list-style: none; margin: 32px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
+    .mate { padding: 20px 16px 18px; text-align: center; }
+    .mate canvas { display: block; width: 56px; height: 120px; margin: 0 auto; }
+    .mate__floor {
+      height: 8px; margin: 0 -16px 16px;
+      background: repeating-conic-gradient(var(--steel-1) 0 25%, #1c2438 0 50%) 0 0 / 8px 8px;
+      box-shadow: inset 0 2px var(--steel-2);
+    }
+    .mate h3 { margin: 0 0 8px; font: 400 8px/1.5 'Press Start 2P', monospace; text-transform: uppercase; color: var(--role); }
+    .mate p { margin: 0; font: 20px/1.1 'VT323', monospace; color: var(--steel-4); }
+
+    /* 05 · career */
+    .xp { display: flex; align-items: center; gap: 12px; padding: 18px 20px 6px; font: 8px/1 'Press Start 2P', monospace; color: var(--steel-3); }
+    .xp__bar { flex: 1; height: 12px; background: var(--ink); box-shadow: 0 0 0 2px var(--steel-2); }
+    .xp__bar i { display: block; width: 35%; height: 100%; background: repeating-linear-gradient(90deg, var(--green) 0 8px, var(--green-2) 8px 10px); }
+    .quest ol { list-style: none; margin: 0; padding: 4px 20px 12px; }
+    .quest li { display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 4px 8px; padding: 12px 0; box-shadow: 0 2px var(--steel-1); }
+    .quest li:last-child { box-shadow: none; }
+    .quest b { grid-row: span 2; font: 400 8px/16px 'Press Start 2P', monospace; color: var(--steel-3); }
+    .quest strong { font: 400 16px/1 'Silkscreen', monospace; color: var(--paper); }
+    .quest span { font: 20px/1.1 'VT323', monospace; color: var(--steel-4); }
+    .quest .now b { color: var(--green); }
+    .quest .now b::before { content: '>'; margin-right: 6px; animation: blink 1s steps(1, end) infinite; }
+
+    /* 06 · call to play */
+    .cta { padding-top: 160px; text-align: center; }
+    .cta .h2 { margin-left: auto; margin-right: auto; }
+    .cta .copy p { margin: 0 auto 40px; max-width: 40ch; }
+    .keysline { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; margin: 48px 0 0; font: 16px/1 'Silkscreen', monospace; color: var(--steel-3); text-shadow: 2px 2px var(--ink); }
+    .keysline span { display: inline-flex; align-items: center; gap: 6px; }
+    .page-foot {
+      position: relative; z-index: 2;
+      margin: 0; padding: 96px 16px 32px; text-align: center;
+      font: 8px/1 'Silkscreen', monospace; color: var(--steel-3);
+    }
+
+    /* panels step in as they reach the screen (only with motion, and only once the script runs) */
+    .rv-on .rv { opacity: 0; }
+    .rv-on .rv.in { opacity: 1; animation: stepin .32s steps(4, end); }
+    @keyframes stepin { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+    @media (max-width: 1023px) {
+      .steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 959px) {
+      .top__nav { display: none; }
+    }
+    @media (max-width: 899px) {
+      .split, .learn { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+      .crew { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
     @media (max-width: 599px) {
       .menu ul { gap: 4px; }
       .box { padding: 20px 20px 16px; }
       .keys { gap: 12px 14px; }
+      .sec { padding-top: 96px; }
+      .h2 { --hp: 2px; margin-bottom: 24px; }
+      .copy { font-size: 21px; }
+      .steps { grid-template-columns: minmax(0, 1fr); }
+      .screen { margin-top: 40px; }
+      .screen__view { aspect-ratio: 4 / 3; }
+      .spec div { grid-template-columns: 96px minmax(0, 1fr); }
+      .term__out { padding: 12px 14px 16px; font-size: 18px; }
+      .crew { gap: 16px; }
+      .mate { padding: 16px 10px 14px; }
+      .mate__floor { margin: 0 -10px 14px; }
+      .cta { padding-top: 128px; }
     }
     @media (max-height: 520px) {
+      .more { display: none; }
       .title { padding-bottom: 32px; }
       .logo { margin-bottom: calc(var(--u) * 3); }
       .menu { margin-top: 16px; }
@@ -211,23 +434,203 @@
 </head>
 <body>
   <canvas id="dc" aria-hidden="true"></canvas>
+  <div class="shade" aria-hidden="true"></div>
 
-  <main class="title" id="title">
-    <h1 class="logo">DATALAB</h1>
-    <p class="tagline"><span>Opere um datacenter.</span> <span>Um rack de cada vez.</span></p>
-
-    <nav class="menu" aria-label="Menu principal">
-      <ul>
-        <li><a class="item is-sel" href="jogo.html"><span class="arrow" aria-hidden="true">&gt;</span>Jogar</a></li>
-        <li><button class="item" type="button" data-box="howto" aria-haspopup="dialog"><span class="arrow" aria-hidden="true">&gt;</span>Como jogar</button></li>
-        <li><button class="item" type="button" data-box="credits" aria-haspopup="dialog"><span class="arrow" aria-hidden="true">&gt;</span>Créditos</button></li>
-      </ul>
+  <header class="top">
+    <a class="top__logo" href="#title">DATALAB</a>
+    <nav class="top__nav" aria-label="Seções">
+      <a href="#sobre">O jogo</a>
+      <a href="#como">Como se joga</a>
+      <a href="#aprenda">Aprenda</a>
+      <a href="#equipe">Equipe</a>
+      <a href="#carreira">Carreira</a>
     </nav>
+    <a class="pxbtn pxbtn--sm" href="jogo.html" data-play>Jogar</a>
+  </header>
 
-    <button class="press" id="press" type="button"><span class="k">PRESSIONE ENTER</span><span class="t">TOQUE PARA COMEÇAR</span></button>
+  <main>
+    <section class="title" id="title">
+      <h1 class="logo">DATALAB</h1>
+      <p class="tagline"><span>Opere um datacenter.</span> <span>Um rack de cada vez.</span></p>
+
+      <nav class="menu" aria-label="Menu principal">
+        <ul>
+          <li><a class="item is-sel" href="jogo.html"><span class="arrow" aria-hidden="true">&gt;</span>Jogar</a></li>
+          <li><a class="item" href="#sobre"><span class="arrow" aria-hidden="true">&gt;</span>Sobre o jogo</a></li>
+          <li><button class="item" type="button" data-box="howto" aria-haspopup="dialog"><span class="arrow" aria-hidden="true">&gt;</span>Como jogar</button></li>
+          <li><button class="item" type="button" data-box="credits" aria-haspopup="dialog"><span class="arrow" aria-hidden="true">&gt;</span>Créditos</button></li>
+        </ul>
+      </nav>
+
+      <button class="press" id="press" type="button"><span class="k">PRESSIONE ENTER</span><span class="t">TOQUE PARA COMEÇAR</span></button>
+
+      <a class="more" href="#sobre">CONHEÇA O JOGO<svg viewBox="0 0 5 3" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h5v1H0zM1 1h3v1H1zM2 2h1v1H2z"/></svg></a>
+      <p class="foot">v0.9 · acesso antecipado</p>
+    </section>
+
+    <!-- 01 · what the game is, and the real game running -->
+    <section class="sec" id="sobre" aria-labelledby="sobre-t" tabindex="-1">
+      <div class="split">
+        <div class="rv">
+          <p class="eyebrow">01 · O jogo</p>
+          <h2 class="h2" id="sobre-t">Um datacenter inteiro nas suas mãos</h2>
+          <div class="copy">
+            <p>O <strong>DataLab</strong> é um jogo de simulação em pixel art. Você constrói um datacenter do zero, contrata uma equipe e mantém tudo funcionando: servidores no ar, clientes atendidos e a empresa crescendo.</p>
+            <p>Quando algo quebra, é você quem investiga, no monitoramento, no terminal e nos cabos. E, sem perceber, aprende infraestrutura de TI de verdade.</p>
+          </div>
+        </div>
+        <dl class="spec panel rv">
+          <div><dt>Gênero</dt><dd>Simulação e gestão</dd></div>
+          <div><dt>Visual</dt><dd>Isométrico, em pixel art</dd></div>
+          <div><dt>Onde</dt><dd>No navegador, sem instalar nada</dd></div>
+          <div><dt>Progresso</dt><dd>Salvo na sua conta</dd></div>
+          <div><dt>Versão</dt><dd>0.9 · acesso antecipado</dd></div>
+        </dl>
+      </div>
+
+      <figure class="screen panel rv" id="live">
+        <div class="bar"><span>DC-01 · Datacenter médio</span><span class="live"><i class="led"></i>Ao vivo</span></div>
+        <div class="screen__view">
+          <span class="screen__wait">Carregando...</span>
+          <!-- jogo.html?hero (assets/js/hero.js): the real game as a silent showcase, loaded when it comes near -->
+          <iframe data-src="jogo.html?hero" title="O DataLab rodando ao vivo" tabindex="-1" aria-hidden="true"></iframe>
+        </div>
+      </figure>
+      <p class="cap rv">Este é o próprio jogo rodando: um datacenter médio com a equipe em pleno turno.</p>
+    </section>
+
+    <!-- 02 · the loop -->
+    <section class="sec" id="como" aria-labelledby="como-t" tabindex="-1">
+      <p class="eyebrow rv">02 · Como se joga</p>
+      <h2 class="h2 rv" id="como-t">Construa. Contrate. Opere. Resolva.</h2>
+      <ol class="steps">
+        <li class="step panel rv">
+          <span class="step__icon" data-icon="rack"></span>
+          <h3><b>1</b> Construa</h3>
+          <p>Comece do zero ou de um modelo pronto: escritório, NOC ou datacenter. Desenhe salas, paredes e portas e instale racks, servidores, switches, mesas e ar-condicionado.</p>
+        </li>
+        <li class="step panel rv">
+          <span class="step__icon" data-icon="hire"></span>
+          <h3><b>2</b> Contrate</h3>
+          <p>Monte a equipe e personalize cada pessoa. Todo mundo tem cargo, turno e habilidades, trabalha sozinho e sobe de nível com a experiência.</p>
+        </li>
+        <li class="step panel rv">
+          <span class="step__icon" data-icon="chart"></span>
+          <h3><b>3</b> Opere</h3>
+          <p>Servidor online gera receita, e o dinheiro só sai quando você compra: equipamentos, móveis, terreno e contratações. Cumpra contratos de clientes e faça a empresa crescer.</p>
+        </li>
+        <li class="step panel rv">
+          <span class="step__icon" data-icon="alert"></span>
+          <h3><b>4</b> Resolva</h3>
+          <p>Cabos se soltam, portas caem, serviços param e discos enchem. O monitoramento acusa, a equipe avisa e você decide quem resolve.</p>
+        </li>
+      </ol>
+    </section>
+
+    <!-- 03 · what the player learns -->
+    <section class="sec" id="aprenda" aria-labelledby="aprenda-t" tabindex="-1">
+      <p class="eyebrow rv">03 · Aprenda fazendo</p>
+      <h2 class="h2 rv" id="aprenda-t">Cada incidente é uma aula disfarçada</h2>
+      <div class="copy rv"><p>As ferramentas imitam as de verdade: os comandos que você digita no jogo são os mesmos de um servidor real. O monitoramento acusa, você investiga e corrige.</p></div>
+      <div class="learn">
+        <div class="rv">
+          <div class="term panel">
+            <div class="bar"><span>Console · SRV-03 · RACK-N01</span><span class="live live--warn"><i class="led"></i>Incidente</span></div>
+            <div class="term__out" id="term">
+              <span class="ln ln--alert">[!] Monitor: SRV-03 parou de responder</span>
+              <span class="ln ln--cmd">ip link</span>
+              <span class="ln">1: lo: mtu 65536 state UNKNOWN</span>
+              <span class="ln ln--warn">2: eth0: mtu 1500 state DOWN</span>
+              <span class="ln ln--cmd">sudo ip link set eth0 up</span>
+              <span class="ln ln--cmd">ping -c 3 10.0.1.1</span>
+              <span class="ln">PING 10.0.1.1 56(84) bytes of data.</span>
+              <span class="ln">64 bytes from 10.0.1.1: icmp_seq=1 ttl=64 time=0.41 ms</span>
+              <span class="ln">64 bytes from 10.0.1.1: icmp_seq=2 ttl=64 time=0.38 ms</span>
+              <span class="ln">64 bytes from 10.0.1.1: icmp_seq=3 ttl=64 time=0.52 ms</span>
+              <span class="ln ln--ok">3 packets transmitted, 3 received, 0% packet loss</span>
+              <span class="ln ln--done">[OK] Incidente resolvido. SRV-03 online.</span>
+            </div>
+          </div>
+          <div class="modes">
+            <span class="chip">Iniciante</span><span class="chip">Intermediário</span><span class="chip">Experiente</span>
+            <p>Três modos de aprendizado. No Iniciante, cada passo mostra o comando, um exemplo e para que ele serve.</p>
+          </div>
+        </div>
+        <ul class="tools rv">
+          <li style="--c: var(--green)"><i></i><strong>Terminal Linux</strong><span>ip, ping, systemctl, journalctl, df e curl num Ubuntu simulado.</span></li>
+          <li style="--c: #a0c3ec"><i></i><strong>Switches</strong><span>enable, show interfaces e shutdown / no shutdown para reativar portas.</span></li>
+          <li style="--c: #c4b5fd"><i></i><strong>Windows Server</strong><span>PowerShell, Active Directory, DNS, DHCP e permissões de pasta.</span></li>
+          <li style="--c: var(--amber)"><i></i><strong>Cabeamento</strong><span>Servidor, patch panel e switch, ligados porta por porta.</span></li>
+          <li style="--c: #ff7a17"><i></i><strong>Monitoramento</strong><span>CPU, rede, temperatura e alertas, no estilo Zabbix e Grafana.</span></li>
+          <li style="--c: #5eead4"><i></i><strong>Lab de redes</strong><span>VLANs, roteadores e rotas, com desafios para treinar.</span></li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 04 · the crew (role names and colours from assets/js/crew.js) -->
+    <section class="sec" id="equipe" aria-labelledby="equipe-t" tabindex="-1">
+      <div class="split">
+        <div class="rv">
+          <p class="eyebrow">04 · Sua equipe</p>
+          <h2 class="h2" id="equipe-t">Ninguém opera um datacenter sozinho</h2>
+        </div>
+        <div class="copy rv">
+          <p>Contrate, escolha a aparência e o turno de cada pessoa. A equipe trabalha por conta própria: faz rondas, atende chamados, faz pausa para o café, conversa no chat e avisa você quando encontra um problema.</p>
+          <p>Precisa de alguém diferente? Descreva o cargo em texto e o jogo monta as tarefas.</p>
+        </div>
+      </div>
+      <ul class="crew">
+        <li class="mate panel rv" style="--role: #a0c3ec" data-hair="#14100e" data-skin="#c68a5e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Redes</h3><p>Switches, cabos e conectividade.</p></li>
+        <li class="mate panel rv" style="--role: #ffc285" data-hair="#c9852e" data-skin="#f1c3a0"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Servidores</h3><p>Instala e mantém o hardware.</p></li>
+        <li class="mate panel rv" style="--role: #c4b5fd" data-hair="#3b2416" data-skin="#e7ad84"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Sysadmin</h3><p>Sistemas, alertas e incidentes.</p></li>
+        <li class="mate panel rv" style="--role: #5eead4" data-hair="#14100e" data-skin="#8d5a3b"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Técnico de TI</h3><p>Conserta PCs e switches na bancada.</p></li>
+        <li class="mate panel rv" style="--role: #ff7a17" data-hair="#241710" data-skin="#7a4a2e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Segurança</h3><p>Rondas, acessos e câmeras.</p></li>
+        <li class="mate panel rv" style="--role: #dadbdf" data-hair="#e3c27a" data-skin="#f1c3a0"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Assistente</h3><p>Chamados, inventário e documentação.</p></li>
+        <li class="mate panel rv" style="--role: #7ee0a1" data-hair="#6b6f7a" data-skin="#e7ad84"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Gerente</h3><p>Indicadores, capacidade e equipe.</p></li>
+        <li class="mate panel rv" style="--role: #f9a8d4" data-hair="#5e2a1a" data-skin="#c68a5e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Atendente</h3><p>Recebe clientes e atende chamados.</p></li>
+      </ul>
+    </section>
+
+    <!-- 05 · the player's career (levels and missions from assets/js/career.js) -->
+    <section class="sec" id="carreira" aria-labelledby="carreira-t" tabindex="-1">
+      <div class="split">
+        <div class="rv">
+          <p class="eyebrow">05 · Sua carreira</p>
+          <h2 class="h2" id="carreira-t">De estagiário(a) a diretor(a)</h2>
+          <div class="copy">
+            <p>Você também sobe de cargo. Cada nível traz uma missão de verdade no datacenter: cumpriu, foi promovido(a).</p>
+            <p>E a equipe aprende com você. Sozinhos, os bots só fazem o que você já domina.</p>
+          </div>
+        </div>
+        <div class="quest panel rv">
+          <div class="bar"><span>Carreira</span><span>10 níveis</span></div>
+          <div class="xp" aria-hidden="true"><span>NV 1</span><span class="xp__bar"><i></i></span><span>XP</span></div>
+          <ol>
+            <li class="now"><b>01</b><strong>Estagiário(a)</strong><span>Monte o primeiro posto: um rack e um computador</span></li>
+            <li><b>02</b><strong>Técnico(a) Jr</strong><span>Instale um servidor e um switch na mesma sala</span></li>
+            <li><b>03</b><strong>Técnico(a)</strong><span>Ligue o cabo de rede de um servidor</span></li>
+            <li><b>04</b><strong>Analista Jr</strong><span>Coloque um servidor online pelo terminal</span></li>
+            <li><b>05</b><strong>Analista</strong><span>Resolva você mesmo(a) um problema no datacenter</span></li>
+            <li><b>06</b><strong>Analista Sr</strong><span>Tenha 3 servidores seus online ao mesmo tempo</span></li>
+            <li><b>07</b><strong>Especialista</strong><span>Dê 5 ordens à equipe</span></li>
+            <li><b>08</b><strong>Coordenador(a)</strong><span>Expanda o terreno do datacenter</span></li>
+            <li><b>09</b><strong>Gerente</strong><span>Feche um mês com o caixa positivo</span></li>
+            <li><b>10</b><strong>Diretor(a)</strong><span>Tenha 6 servidores seus online ao mesmo tempo</span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 · call to play -->
+    <section class="sec cta" id="jogar" aria-labelledby="jogar-t" tabindex="-1">
+      <h2 class="h2 rv" id="jogar-t">Seu turno começa agora.</h2>
+      <div class="copy rv"><p>Crie sua conta e jogue no navegador. Seu datacenter, sua equipe e seu progresso ficam salvos na nuvem.</p></div>
+      <a class="pxbtn rv" href="jogo.html" data-play>Jogar<svg viewBox="0 0 3 5" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h1v5H0zM1 1h1v3H1zM2 2h1v1H2z"/></svg></a>
+      <p class="keysline rv"><span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</span><span><kbd>E</kbd> inspecionar</span><span><kbd>B</kbd> construir</span><span><kbd>C</kbd> equipe</span></p>
+    </section>
+
+    <p class="page-foot">DataLab · v0.9 · acesso antecipado</p>
   </main>
-
-  <p class="foot">v0.9 · acesso antecipado</p>
 
   <dialog class="box" id="howto" aria-labelledby="howto-t">
     <h2 id="howto-t">COMO JOGAR</h2>
@@ -245,7 +648,7 @@
     <h2 id="credits-t">CRÉDITOS</h2>
     <p>DataLab · v0.9 · acesso antecipado.</p>
     <p>Jogo, código e pixel art: equipe DataLab.</p>
-    <p>Fontes: Press Start 2P (CodeMan38) e Silkscreen (Jason Kottke).</p>
+    <p>Fontes: Press Start 2P (CodeMan38), Silkscreen (Jason Kottke) e VT323 (Peter Hull).</p>
     <p class="dim">Obrigado por testar!</p>
     <button class="ok" type="button"><span class="k">ENTER · FECHAR</span><span class="t">TOQUE PARA FECHAR</span><svg viewBox="0 0 5 3" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h5v1H0zM1 1h3v1H1zM2 2h1v1H2z"/></svg></button>
   </dialog>
@@ -305,9 +708,18 @@
     let rows = [], lines = [], pal = null, bg = null, bg32 = null, ledId = 0;
     let alertSlot = null, alertX = 0, plenumPackets = [], plenumHalf = 0;
 
+    // the canvas covers the *large* viewport, so a phone's toolbar sliding in and out while the page
+    // scrolls changes nothing; the scene is only rebuilt for a real new size
+    const tall = document.createElement('div');
+    tall.style.cssText = 'position:fixed;top:0;width:0;height:100vh;height:100lvh;visibility:hidden;pointer-events:none';
+    document.body.appendChild(tall);
+    let builtW = 0, builtH = 0;
+
     function resize() {
       const dpr = window.devicePixelRatio || 1;
-      const dw = Math.max(1, Math.round(innerWidth * dpr)), dh = Math.max(1, Math.round(innerHeight * dpr));
+      const dw = Math.max(1, Math.round(innerWidth * dpr)), dh = Math.max(1, Math.round(Math.max(innerHeight, tall.offsetHeight) * dpr));
+      if (dw === builtW && dh === builtH) return;
+      builtW = dw; builtH = dh;
       const s = Math.max(1, Math.round(dh / TARGET_H));
       W = Math.ceil(dw / s); H = Math.ceil(dh / s);
       cvs.width = W; cvs.height = H;
@@ -804,14 +1216,14 @@
       '....kkkk.kkk..',
     ];
 
-    function sprite(rowsArr) {
+    function sprite(rowsArr, pal = SKIN) {
       const make = (flip) => {
         const c = document.createElement('canvas');
         c.width = 14; c.height = rowsArr.length;
         const g = c.getContext('2d');
         rowsArr.forEach((line, y) => {
           for (let x = 0; x < line.length; x++) {
-            const col = SKIN[line[x]];
+            const col = pal[line[x]];
             if (!col) continue;
             g.fillStyle = col;
             g.fillRect(flip ? 13 - x : x, y, 1, 1);
@@ -925,16 +1337,29 @@
       if (focus) items[sel].focus({ preventScroll: true });
     }
 
+    // into the game: four frames of fade to black first
+    function leave(href, el) {
+      if (leaving) return;
+      leaving = true;
+      if (still) { location.assign(href); return; }
+      if (el) el.classList.add('is-go');
+      root.classList.add('leaving');
+      setTimeout(() => location.assign(href), 520);
+    }
+
     function activate(i) {
       if (leaving) return;
       select(i);
       const el = items[sel];
       if (el.dataset.box) return openBox(el.dataset.box);
-      leaving = true;
-      if (still) { location.assign(el.href); return; }
-      el.classList.add('is-go');
-      root.classList.add('leaving');
-      setTimeout(() => location.assign(el.href), 520);
+      const hash = el.getAttribute('href');
+      if (hash.charAt(0) === '#') {   // "Sobre o jogo": down to the presentation
+        const to = document.querySelector(hash);
+        to.scrollIntoView();
+        to.focus({ preventScroll: true });
+        return;
+      }
+      leave(el.href, el);
     }
 
     function openBox(id) {
@@ -969,25 +1394,25 @@
       });
     });
     press.addEventListener('click', () => activate(sel));
+    document.querySelectorAll('[data-play]').forEach((a) => a.addEventListener('click', (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.button) return;   // new tab / window
+      e.preventDefault();
+      leave(a.href);
+    }));
 
-    // touch: anywhere on the screen counts as "start"
-    document.getElementById('title').addEventListener('click', (e) => {
-      if (!root.classList.contains('touch') || e.target.closest('.item, .press')) return;
-      activate(sel);
-    });
-
+    // the title screen is played with the keyboard; further down, keys scroll and click as on any page
     addEventListener('keydown', (e) => {
       if (e.altKey || e.ctrlKey || e.metaKey) return;
       root.classList.remove('touch');
       const k = e.key, open = document.querySelector('.box[open]');
-      const confirm = k === 'Enter' || k === ' ';
       if (open) {
-        if (confirm) { e.preventDefault(); if (!e.repeat) closeBox(open); }
+        if (k === 'Enter' || k === ' ') { e.preventDefault(); if (!e.repeat) closeBox(open); }
         return;   // Esc closes natively
       }
+      if (scrollY > innerHeight * 0.5 || e.target.closest?.('.top, .sec, .more')) return;
       if (k === 'ArrowUp' || k === 'w' || k === 'W') { e.preventDefault(); select(sel - 1, true); }
       else if (k === 'ArrowDown' || k === 's' || k === 'S') { e.preventDefault(); select(sel + 1, true); }
-      else if (confirm) { e.preventDefault(); if (!e.repeat) activate(sel); }
+      else if (k === 'Enter') { e.preventDefault(); if (!e.repeat) activate(sel); }
     });
 
     const coarse = matchMedia('(hover: none) and (pointer: coarse)');
@@ -1001,6 +1426,207 @@
       root.classList.remove('leaving');
       items.forEach((el) => el.classList.remove('is-go'));
     });
+
+    /* ================= the presentation below the title ================= */
+    // scrolling down dims the datacenter in four steps and drops the top bar in
+    const shade = document.querySelector('.shade');
+    let shadeStep = -1, scrollQueued = false;
+    function onScroll() {
+      scrollQueued = false;
+      const step = Math.min(4, Math.floor(scrollY / (innerHeight * 0.15)));
+      if (step !== shadeStep) { shadeStep = step; shade.style.opacity = step / 4; }
+      root.classList.toggle('is-past', scrollY > innerHeight * 0.8);
+    }
+    addEventListener('scroll', () => { if (!scrollQueued) { scrollQueued = true; requestAnimationFrame(onScroll); } }, { passive: true });
+    onScroll();
+
+    const watch = (el, cb, margin = '0px') => {
+      if (!('IntersectionObserver' in window)) { cb(true); return; }
+      new IntersectionObserver((list) => cb(list[list.length - 1].isIntersecting), { rootMargin: margin }).observe(el);
+    };
+
+    // pixel icons: one character per pixel, drawn as crisp SVG rectangles
+    const ICON_PAL = { K: INK, S: STEEL[7], D: STEEL[3], g: GREEN, a: AMBER, h: '#3b2416', k: '#e7ad84', c: '#2f5f8f', w: STEEL[11] };
+    const ICONS = {
+      rack: [
+        'KKKKKKKKKKKK',
+        'KSSSSSSSSSSK',
+        'KSgDDDDDDDSK',
+        'KSSSSSSSSSSK',
+        'KSgDDDDDDDSK',
+        'KSSSSSSSSSSK',
+        'KSaDDDDDDDSK',
+        'KSSSSSSSSSSK',
+        'KSgDDDDDDDSK',
+        'KSSSSSSSSSSK',
+        'KKKKKKKKKKKK',
+        '.KK......KK.',
+      ],
+      hire: [
+        '....KKKK....',
+        '...KhhhhK...',
+        '..KhhhhhhK..',
+        '..KhkkkkhK..',
+        '..KkKkkKkK..',
+        '..KkkkkkkK..',
+        '...KkkkkK...',
+        '..KKccccKK..',
+        '.KccccwcccK.',
+        '.KccccwcccK.',
+        '.KccccccccK.',
+        '.KKKKKKKKKK.',
+      ],
+      chart: [
+        '........KKKK',
+        '........KggK',
+        '........KggK',
+        '....KKKKKggK',
+        '....KggKKggK',
+        '....KggKKggK',
+        'KKKKKggKKggK',
+        'KggKKggKKggK',
+        'KggKKggKKggK',
+        'KggKKggKKggK',
+        'KggKKggKKggK',
+        'KKKKKKKKKKKK',
+      ],
+      alert: [
+        '.....KK.....',
+        '....KaaK....',
+        '....KaaK....',
+        '...KaKKaK...',
+        '...KaKKaK...',
+        '..KaaKKaaK..',
+        '..KaaKKaaK..',
+        '.KaaaaaaaaK.',
+        '.KaaaKKaaaK.',
+        'KaaaaKKaaaaK',
+        'KaaaaaaaaaaK',
+        'KKKKKKKKKKKK',
+      ],
+    };
+    function pixelSvg(rowsArr, pal) {
+      const paths = {};
+      rowsArr.forEach((line, y) => {
+        for (let x = 0; x < line.length;) {
+          let n = 1;
+          while (line[x + n] === line[x]) n++;
+          if (pal[line[x]]) (paths[line[x]] = paths[line[x]] || []).push('M' + x + ' ' + y + 'h' + n + 'v1H' + x + 'z');
+          x += n;
+        }
+      });
+      return '<svg viewBox="0 0 ' + rowsArr[0].length + ' ' + rowsArr.length + '" shape-rendering="crispEdges" aria-hidden="true">' +
+        Object.keys(paths).map((ch) => '<path fill="' + pal[ch] + '" d="' + paths[ch].join('') + '"/>').join('') + '</svg>';
+    }
+    document.querySelectorAll('[data-icon]').forEach((el) => { el.innerHTML = pixelSvg(ICONS[el.dataset.icon], ICON_PAL); });
+
+    // the live game (jogo.html?hero): loaded when it comes near, paused while it is off screen
+    const live = document.getElementById('live');
+    const frame = live.querySelector('iframe');
+    let liveNear = false, livePaused = false;
+    const tell = (msg) => { try { frame.contentWindow.postMessage(msg, location.origin); } catch (err) { /* not loaded yet */ } };
+    const syncLive = () => {
+      if (!frame.src) return;
+      const stop = !liveNear || still;
+      if (stop !== livePaused) { livePaused = stop; tell(stop ? 'datalab:pause' : 'datalab:play'); }
+    };
+    frame.addEventListener('load', () => { live.classList.add('is-on'); livePaused = false; syncLive(); });
+    watch(live, (near) => {
+      liveNear = near;
+      if (near && !frame.src) frame.src = frame.dataset.src;
+      syncLive();
+    }, '300px 0px');
+
+    // an incident typed out in the console, on a loop while it is on screen. Every line keeps its place
+    // (hidden until its turn), so the panel never changes height.
+    const term = document.getElementById('term');
+    if (!still) {
+      const lines = [...term.querySelectorAll('.ln')].map((el) => {
+        const text = el.textContent, typed = document.createElement('span'), rest = document.createElement('span');
+        rest.className = 'rest';
+        el.textContent = '';
+        el.append(typed, rest);
+        return { el, text, typed, rest, cmd: el.classList.contains('ln--cmd') };
+      });
+      const cursor = document.createElement('i');
+      cursor.className = 'cur';
+      let seen = false;
+      const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+      const onScreen = async () => { while (!seen) await pause(300); };
+      const reset = () => lines.forEach((l) => {
+        l.typed.textContent = ''; l.rest.textContent = l.text;
+        l.el.classList.add('wait'); l.el.classList.remove('typing');
+      });
+      reset();
+      (async () => {
+        for (;;) {
+          for (const l of lines) {
+            await onScreen();
+            if (!l.cmd) { await pause(l === lines[0] ? 700 : 110); l.el.classList.remove('wait'); continue; }
+            l.el.classList.replace('wait', 'typing');
+            l.el.insertBefore(cursor, l.rest);
+            await pause(600);
+            for (let i = 1; i <= l.text.length; i++) {
+              l.typed.textContent = l.text.slice(0, i);
+              l.rest.textContent = l.text.slice(i);
+              await pause(40 + Math.random() * 70);
+            }
+            await pause(400);
+            cursor.remove();
+            l.el.classList.remove('typing');
+          }
+          await pause(4500);
+          await onScreen();
+          reset();
+        }
+      })();
+      watch(term, (v) => { seen = v; });
+    }
+
+    // the crew: the title's technician, recoloured per role. They idle and turn around now and then;
+    // hovering a card makes its owner walk.
+    const mates = [...document.querySelectorAll('.mate')].map((el) => {
+      const role = el.style.getPropertyValue('--role').trim(), hair = el.dataset.hair, skin = el.dataset.skin;
+      const pal = Object.assign({}, SKIN, {
+        c: role, C: mix(role, INK, 0.4), l: mix(role, '#ffffff', 0.4), g: mix(role, INK, 0.6),
+        h: hair, j: mix(hair, '#ffffff', 0.18), s: skin, d: mix(skin, INK, 0.25),
+      });
+      const m = {
+        g: el.querySelector('canvas').getContext('2d'), dir: Math.random() < 0.5 ? 1 : -1, next: 1 + Math.random() * 4, walk: false,
+        stand: sprite([...HEAD, ...TORSO, ...LEGS_STAND], pal), stride: sprite([...HEAD, ...TORSO, ...LEGS_STRIDE], pal), pass: sprite([...HEAD, ...TORSO, ...LEGS_PASS], pal),
+      };
+      el.addEventListener('pointerenter', () => { m.walk = true; });
+      el.addEventListener('pointerleave', () => { m.walk = false; });
+      return m;
+    });
+    function paintMate(m, t) {
+      let spr = m.stand, y = 1;
+      if (m.walk && !still) { const f = Math.floor(t * 7) % 4; spr = f % 2 ? m.pass : m.stride; y = f % 2 ? 0 : 1; }
+      else if (!still && t > m.next) { m.dir = -m.dir; m.next = t + 2 + Math.random() * 4; }
+      m.g.clearRect(0, 0, 14, 30);
+      m.g.fillStyle = 'rgba(5, 7, 13, .55)';
+      m.g.fillRect(2, 29, 11, 1);
+      m.g.drawImage(m.dir < 0 ? spr.l : spr.r, 0, y);
+    }
+    mates.forEach((m) => paintMate(m, 0));
+    if (!still) {
+      let crewTimer = 0, crewT = 0;
+      watch(document.querySelector('.crew'), (v) => {
+        clearInterval(crewTimer);
+        if (v) crewTimer = setInterval(() => { crewT += 1 / 14; mates.forEach((m) => paintMate(m, crewT)); }, 1000 / 14);
+      });
+    }
+
+    // panels step in as they reach the screen
+    if (!still && 'IntersectionObserver' in window) {
+      root.classList.add('rv-on');
+      const reveal = new IntersectionObserver((list) => list.forEach((e) => {
+        if (!e.isIntersecting) return;
+        e.target.classList.add('in');
+        reveal.unobserve(e.target);
+      }), { rootMargin: '0px 0px -8% 0px' });
+      document.querySelectorAll('.rv').forEach((el) => reveal.observe(el));
+    }
   })();
   </script>
 </body>
