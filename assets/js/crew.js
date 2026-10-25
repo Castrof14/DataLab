@@ -306,7 +306,7 @@
       card: $('crewCard'), tags: $('nametags'),
       creator: $('creator'), form: $('creatorForm'), canvas: $('creatorCanvas'), poseSeg: $('creatorPose'),
       save: $('creatorSave'), cancel: $('creatorCancel'), random: $('creatorRandom'), title: $('creatorTitle'), sub: $('creatorSub'),
-      me: $('meBtn'), meName: $('meName'), meRole: $('meRole'), meFace: $('meFace'),
+      me: $('meBtn'), meName: $('meName'), meRole: $('meRole'), meFace: $('meFace'), meTitle: $('meTitle'),
     };
     const C = { assigned: 0, created: 0, members: [], leaving: [], sel: null, hover: null, mode: 'explore', seq: 0, cardKey: '', uiAcc: 0, down: null, pan: null, recent: [] };
 
@@ -383,6 +383,8 @@
         drawFace(el.meFace, pl ? pl.sheet : DL.makeSheet(L));
       }
     }
+    // account title (Dev, Beta Tester…) in the HUD, next to my name
+    addEventListener('datalab:titles', (ev) => { if (el.meTitle) el.meTitle.innerHTML = ev.detail.length ? DL.titleBadge(ev.detail[0]) : ''; });
     function drawFace(cv, sheet) {
       if (!cv) return;
       const k = 2;
@@ -2353,11 +2355,11 @@
 
       // my own tag in team mode
       if (!meTag) { meTag = document.createElement('span'); meTag.className = 'nametag is-me'; el.tags.appendChild(meTag); }
-      const pl = game.player, showMe = !!pl && C.mode === 'crew';
+      const pl = game.player, showMe = !!pl && (C.mode === 'crew' || (C.mode !== 'build' && !!(DL.Auth && DL.Auth.myTitles.length)));
       meTag.classList.toggle('is-on', showMe);
       if (showMe) {
-        const k = PL.profile.name + PL.profile.role;
-        if (meTag.dataset.k !== k) { meTag.dataset.k = k; meTag.innerHTML = '<i style="background:' + ROLES[PL.profile.role].color + '"></i>' + esc(PL.profile.name) + ' <small>você</small>'; }
+        const title = DL.Auth && DL.Auth.myTitles[0], k = PL.profile.name + PL.profile.role + (title || '');
+        if (meTag.dataset.k !== k) { meTag.dataset.k = k; meTag.innerHTML = '<i style="background:' + ROLES[PL.profile.role].color + '"></i>' + esc(PL.profile.name) + (title ? ' ' + DL.titleBadge(title) : '') + ' <small>você</small>'; }
         anchor(meTag, pl, 31);
       }
 

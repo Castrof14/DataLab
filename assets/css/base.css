@@ -1,9 +1,9 @@
 /* DataLab — shared tokens (from DESIGN-x.ai.md) */
 :root {
   /* Pixel Art + Neon Green Palette */
-  --neon: #39FF14;
-  --neon-dark: #1FBF0A;
-  --neon-deep: #0B3D0B;
+  --neon: #3DFFA2;
+  --neon-dark: #1FBF78;
+  --neon-deep: #0B3D27;
   --panel: rgba(5, 10, 5, 0.78);
   --text: #E8FFE8;
   --text-dim: #7FBF7F;
@@ -12,8 +12,8 @@
   --disabled: #3A4A3A;
 
   /* Logo colors */
-  --logo-a: #39FF14;
-  --logo-b: #1FBF0A;
+  --logo-a: #3DFFA2;
+  --logo-b: #1FBF78;
   --logo-led-amber: #FFD23F;
   --logo-led-blue: #4D9BFF;
 
@@ -36,8 +36,8 @@
   /* demo-only semantic: healthy equipment */
   --signal: var(--neon);
 
-  --pill-border: rgba(57, 255, 20, 0.4);
-  --pill-border-hover: rgba(57, 255, 20, 0.7);
+  --pill-border: rgba(61, 255, 162, 0.4);
+  --pill-border-hover: rgba(61, 255, 162, 0.7);
 
   --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;

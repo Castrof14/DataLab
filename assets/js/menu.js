@@ -355,6 +355,7 @@
 
   function refreshMenuMeta() {
     $('mmName').textContent = playerName();
+    $('mmTitle').innerHTML = M.account && DL.Auth.myTitles.length ? DL.titleBadge(DL.Auth.myTitles[0]) : '';
     const prof = playerProfile();
     $('mmRole').textContent = (M.account ? '@' + M.account.username + ' · ' : '') + (prof && DL.ROLES[prof.role] ? DL.ROLES[prof.role].name : 'Operador(a)');
     if (M.account && $('titleUser')) $('titleUser').textContent = 'Conectado como @' + M.account.username;
@@ -590,6 +591,6 @@
 
   D.menu = { open: (id) => (id ? openSub(id) : setScreen('menu')), close: closeSub, newGame, backToMenu, get screen() { return M.screen; }, get sub() { return M.sub; },
     // the logged-in account (auth-gate.js): shown in the menu footer and on the title screen
-    setAccount(p) { M.account = p; refreshMenuMeta(); },
+    setAccount(p) { M.account = p; refreshMenuMeta(); DL.Auth.titles().then(refreshMenuMeta); },
     refresh: refreshMenuMeta };
 })();

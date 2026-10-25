@@ -24,6 +24,25 @@
   }
   const here = () => location.origin + location.pathname;
 
+  // player titles (badge next to the name), best first. Staff roles give theirs automatically; `grant`
+  // ones are handed out by staff (user_titles, see migration 010) and carry no permission.
+  DL.TITLES = {
+    admin: { name: 'Admin', color: '#ff7a17' },
+    developer: { name: 'Dev', color: '#7ee0a1' },
+    moderator: { name: 'Moderador', color: '#a0c3ec' },
+    founder: { name: 'Fundador', color: '#f2c14e', grant: true },
+    beta: { name: 'Beta Tester', color: '#c4b5fd', grant: true },
+    creator: { name: 'Criador de conteúdo', color: '#f472b6', grant: true },
+    vip: { name: 'VIP', color: '#ffc285', grant: true },
+    supporter: { name: 'Apoiador', color: '#5eead4', grant: true },
+  };
+  const TITLE_ORDER = Object.keys(DL.TITLES);
+  DL.titlesOf = (roles, titles) => TITLE_ORDER.filter((id) => (roles || []).indexOf(id) >= 0 || (titles || []).indexOf(id) >= 0);
+  DL.titleBadge = (id) => {
+    const t = DL.TITLES[id];
+    return t ? '<em class="ptitle" style="--tc:' + t.color + '">' + t.name + '</em>' : '';
+  };
+
   DL.Auth = {
     USERNAME,
     passwordProblem,
@@ -109,6 +128,16 @@
       if (!u || !client()) return [];
       const { data } = await client().from('user_roles').select('role').eq('user_id', u.id);
       return (data || []).map((r) => r.role);
+    },
+    // the player's titles, best first: staff roles give theirs, the rest come from user_titles
+    myTitles: [],
+    async titles() {
+      const u = DL.Cloud.user;
+      if (!u || !client()) return (DL.Auth.myTitles = []);
+      const [roles, { data }] = await Promise.all([DL.Auth.roles(), client().from('user_titles').select('title').eq('user_id', u.id)]);
+      DL.Auth.myTitles = DL.titlesOf(roles, (data || []).map((r) => r.title));
+      dispatchEvent(new CustomEvent('datalab:titles', { detail: DL.Auth.myTitles }));
+      return DL.Auth.myTitles;
     },
   };
 })();

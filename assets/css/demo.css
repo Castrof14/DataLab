@@ -1821,3 +1821,54 @@ b.is-loss { color: var(--sunset); }
 .build__style .room-sec:first-child { margin-top: 0; }
 .st-acts .btn.is-on { border-color: var(--pill-border-hover); background: rgba(255, 255, 255, 0.06); }
 .room-type select { max-width: 150px; }
+
+/* Player title (Dev, Beta Tester, Fundador…): pixel badge next to the name — menu, account, my nametag */
+.ptitle {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 7px;
+  border: 2px solid var(--tc);
+  background: color-mix(in srgb, var(--tc) 18%, #0a0a0a);
+  box-shadow: inset -2px -2px 0 color-mix(in srgb, var(--tc) 35%, transparent);
+  font: 400 11px/1 var(--font-mono);
+  font-style: normal;
+  letter-spacing: 1px;
+  text-shadow: 0 0 6px color-mix(in srgb, var(--tc) 60%, transparent);
+  text-transform: uppercase;
+  color: var(--tc);
+  white-space: nowrap;
+  clip-path: var(--px-notch);
+}
+.mm__name { display: inline-flex; align-items: center; gap: 8px; }
+.mm__name:has(#mmTitle:empty) { gap: 0; }
+.acc-roles { flex-wrap: wrap; }
+.nametags .ptitle { height: 16px; margin-left: 0; padding: 0 5px; font-size: 9px; }
+.me-btn__title:empty { display: none; }
+.me-btn__title .ptitle { height: 22px; font-size: 11px; }
+
+/* Top bar (navbar) with the same mono, uppercase lettering as the build dock */
+.hud-top .brand, .hud-top .btn, .me-btn__txt b, .hud-meta {
+  font: 400 11px/1 var(--font-mono);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+}
+.hud-top .brand { font-size: 13px; }
+.me-btn__txt b { line-height: 14px; }
+
+/* Pixel look across the whole game: square corners everywhere, notched (1-pixel) corners on controls like a sprite frame.
+   Panels only lose the rounding (a clip-path there would cut off popovers and floating children). */
+.demo {
+  --px-notch: polygon(0 2px, 2px 2px, 2px 0, calc(100% - 2px) 0, calc(100% - 2px) 2px, 100% 2px, 100% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 100%, 2px 100%, 2px calc(100% - 2px), 0 calc(100% - 2px));
+}
+.demo *, .demo *::before, .demo *::after { border-radius: 0 !important; }
+.demo button, .demo .btn, .demo .tab, .demo .tool, .demo .chip, .demo .seg__b, .demo .mode,
+.demo .cat-item, .demo .subtabs, .demo .seg, .demo kbd, .demo .input, .demo input, .demo select, .demo textarea {
+  clip-path: var(--px-notch);
+}
+.demo button, .demo .btn, .demo .tab, .demo .tool, .demo .chip, .demo .seg__b, .demo .mode,
+.demo .cat-item, .demo .input, .demo select { border-width: 2px; }
+.demo button:focus-visible, .demo .btn:focus-visible, .demo .input:focus-visible, .demo input:focus-visible, .demo select:focus-visible { outline-offset: -4px; }
+
+/* Build dock: thicker frame with the same notch */
+.build { border-width: 2px; clip-path: var(--px-notch); }
