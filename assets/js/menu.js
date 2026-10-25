@@ -430,9 +430,13 @@
     const go = ev.target.closest('[data-go]');
     if (go) {
       const id = go.dataset.go;
+      if (go.hasAttribute('disabled') || go.getAttribute('aria-disabled') === 'true') {
+        if (id === 'online') { ev.preventDefault(); return; }
+      }
       if (id === 'menu') return closeSub();
       if (id === 'new') return newGame('zero');
       if (id === 'account') return DL.AccountUI && DL.AccountUI.open();
+      if (id === 'online') return; // disabled
       return openSub(id);
     }
     const tab = ev.target.closest('[data-rank]');
@@ -469,7 +473,8 @@
 
   $('titleStart').addEventListener('click', () => setScreen('menu'));
   stage.addEventListener('click', (ev) => { if (M.screen === 'title' && !ev.target.closest('a,button')) setScreen('menu'); });
-  $('introMenu').addEventListener('click', backToMenu);
+  const introMenu = $('introMenu');
+  if (introMenu) introMenu.addEventListener('click', backToMenu);
 
   // Keys: the menu owns the keyboard while it is up (runs before demo.js' own handler).
   addEventListener('keydown', (ev) => {
@@ -487,9 +492,22 @@
     if (M.screen === 'title' && (ev.code === 'Enter' || ev.code === 'Space')) { ev.preventDefault(); setScreen('menu'); return; }
     if (M.screen === 'menu' && !M.sub && (ev.code === 'ArrowDown' || ev.code === 'ArrowUp')) {
       ev.preventDefault();
-      const items = Array.from(root.querySelectorAll('.mm-item'));
-      const i = items.indexOf(document.activeElement);
-      items[(i + (ev.code === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+      const items = Array.from(root.querySelectorAll('.mm-btn:not([disabled])'));
+      const weekly = root.querySelector('.mm-weekly');
+      const list = weekly ? items.concat([weekly]) : items;
+      if (!list.length) return;
+      const i = list.indexOf(document.activeElement);
+      if (i === -1) { list[0].focus(); return; }
+      list[(i + (ev.code === 'ArrowDown' ? 1 : -1) + list.length) % list.length].focus();
+      return;
+    }
+    if (M.screen === 'menu' && !M.sub && ev.code === 'Enter') {
+      const el = document.activeElement;
+      if (el && el.classList && el.classList.contains('mm-weekly')) {
+        ev.preventDefault();
+        openSub('weekly');
+        return;
+      }
     }
   }, true);
 
