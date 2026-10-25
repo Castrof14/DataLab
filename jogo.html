@@ -128,14 +128,17 @@
           <button class="tab" type="button" role="tab" data-tab="room">Espaços</button>
           <button class="tab" type="button" role="tab" data-tab="equip">Equipamentos</button>
           <button class="tab" type="button" role="tab" data-tab="furn">Móveis</button>
-          <button class="tab" type="button" role="tab" data-tab="deco">Decoração</button>
-          <button class="tab" type="button" role="tab" data-tab="theme">Temas</button>
-          <button class="tab" type="button" role="tab" data-tab="style">Estilo da sala</button>
+          <button class="tab" type="button" role="tab" data-tab="deco" data-family="deco">Decoração</button>
         </div>
         <div class="tools" aria-label="Ferramentas">
-          <button class="tool" type="button" data-tool="select">Selecionar <kbd>V</kbd></button>
-          <button class="tool" type="button" data-tool="remove">Remover <kbd>X</kbd></button>
+          <button class="tool tool--icon" type="button" data-tool="select" title="Selecionar e mover (V)" aria-label="Selecionar (V)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2 L13 8.5 L8.6 9.4 L11 14 L9.2 14.8 L6.9 10.3 L3 13 Z" fill="currentColor"/></svg></button>
+          <button class="tool tool--icon" type="button" data-tool="remove" title="Remover (X)" aria-label="Remover (X)"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4.5 H13 M6.5 4.5 V3 H9.5 V4.5 M4.5 4.5 L5.2 13.5 H10.8 L11.5 4.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
         </div>
+      </div>
+      <div class="subtabs" id="buildSub" hidden role="tablist" aria-label="Decoração">
+        <button class="subtab" type="button" role="tab" data-tab="deco">Itens</button>
+        <button class="subtab" type="button" role="tab" data-tab="theme">Temas</button>
+        <button class="subtab" type="button" role="tab" data-tab="style">Estilo da sala</button>
       </div>
       <div class="build__items" id="buildItems"></div>
       <div class="build__room" id="buildRoom" hidden></div>

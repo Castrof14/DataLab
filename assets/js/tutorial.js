@@ -38,6 +38,7 @@
           if (!inBuild()) return toBuild();
           if (B().tab !== 'room') return { act: 'Abra a aba <b>Espaços</b>', guide: '[data-tab="room"]' };
           if (B().lotAsk) return { act: 'Confira o preço e clique em <b>Confirmar</b>', guide: '[data-room="lot-ok"]' };
+          if (B().roomTool !== 'select') return { act: 'Escolha a ferramenta <b>Selecionar</b>', guide: '[data-room-tool="select"]' };
           return { act: 'Clique em <b>+</b> na largura do <b>Terreno</b>', guide: '[data-room="lw+"]' };
         },
       },
