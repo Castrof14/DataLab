@@ -7,7 +7,9 @@
   const DL = window.DL;
   const $ = (id) => document.getElementById(id);
   const el = { box: $('auth'), card: $('authCard') };
-  if (!el.box || DL.HERO) return; // landing showcase (hero.js): no account involved
+  // the loading cover (jogo.html) leaves once there is something to show: the login or the menu
+  const uncover = () => { const c = $('bootCover'); if (c) c.remove(); };
+  if (!el.box || DL.HERO) { uncover(); return; } // landing showcase (hero.js): no account involved
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const params = new URLSearchParams(location.search + '&' + location.hash.replace(/^#/, ''));
   const V = {
@@ -67,6 +69,7 @@
   function render(focus) {
     el.card.innerHTML = (VIEWS[V.view] || VIEWS.login)();
     el.card.dataset.view = V.view;
+    if (V.view !== 'loading') uncover();
     if (focus !== false) {
       const first = Array.from(el.card.querySelectorAll('input')).find((i) => !i.value) || el.card.querySelector('input');
       if (first) setTimeout(() => first.focus({ preventScroll: true }), 30);
@@ -83,6 +86,7 @@
     setTimeout(() => { el.box.hidden = true; }, 450);
     const D = await waitFor(() => window.DataLabDemo && window.DataLabDemo.menu);
     D.menu.open(); // straight to the Main Menu: Novo Jogo / Carregar Jogo
+    uncover();
     const p = await DL.Auth.profile();
     if (p && D.menu.setAccount) D.menu.setAccount(p);
   }
