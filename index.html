@@ -167,6 +167,9 @@
     }
     .box p { margin: 0 0 12px; }
     .box .dim { color: var(--steel-3); }
+    .devs { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
+    .devs li { display: flex; align-items: center; gap: 10px; color: var(--green); }
+    .devs li::before { content: ''; width: 6px; height: 6px; background: var(--green); box-shadow: 0 0 0 2px var(--green-3); }
     .keys { display: grid; grid-template-columns: max-content 1fr; gap: 14px 20px; align-items: center; margin: 0 0 8px; }
     .keys div { display: contents; }
     .keys dt { display: flex; gap: 8px; }
@@ -352,7 +355,7 @@
     /* 04 · the crew */
     .crew { list-style: none; margin: 32px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; }
     .mate { padding: 20px 16px 18px; text-align: center; }
-    .mate canvas { display: block; width: 56px; height: 120px; margin: 0 auto; }
+    .mate canvas { display: block; width: 88px; height: 124px; margin: 0 auto; }
     .mate__floor {
       height: 8px; margin: 0 -16px 16px;
       background: repeating-conic-gradient(var(--steel-1) 0 25%, #1c2438 0 50%) 0 0 / 8px 8px;
@@ -416,6 +419,7 @@
       .term__out { padding: 12px 14px 16px; font-size: 18px; }
       .crew { gap: 16px; }
       .mate { padding: 16px 10px 14px; }
+      .mate canvas { width: 66px; height: 93px; }
       .mate__floor { margin: 0 -10px 14px; }
       .cta { padding-top: 128px; }
     }
@@ -580,14 +584,14 @@
         </div>
       </div>
       <ul class="crew">
-        <li class="mate panel rv" style="--role: #a0c3ec" data-hair="#14100e" data-skin="#c68a5e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Redes</h3><p>Switches, cabos e conectividade.</p></li>
-        <li class="mate panel rv" style="--role: #ffc285" data-hair="#c9852e" data-skin="#f1c3a0"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Servidores</h3><p>Instala e mantém o hardware.</p></li>
-        <li class="mate panel rv" style="--role: #c4b5fd" data-hair="#3b2416" data-skin="#e7ad84"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Sysadmin</h3><p>Sistemas, alertas e incidentes.</p></li>
-        <li class="mate panel rv" style="--role: #5eead4" data-hair="#14100e" data-skin="#8d5a3b"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Técnico de TI</h3><p>Conserta PCs e switches na bancada.</p></li>
-        <li class="mate panel rv" style="--role: #ff7a17" data-hair="#241710" data-skin="#7a4a2e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Segurança</h3><p>Rondas, acessos e câmeras.</p></li>
-        <li class="mate panel rv" style="--role: #dadbdf" data-hair="#e3c27a" data-skin="#f1c3a0"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Assistente</h3><p>Chamados, inventário e documentação.</p></li>
-        <li class="mate panel rv" style="--role: #7ee0a1" data-hair="#6b6f7a" data-skin="#e7ad84"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Gerente</h3><p>Indicadores, capacidade e equipe.</p></li>
-        <li class="mate panel rv" style="--role: #f9a8d4" data-hair="#5e2a1a" data-skin="#c68a5e"><canvas width="14" height="30" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Atendente</h3><p>Recebe clientes e atende chamados.</p></li>
+        <li class="mate panel rv" style="--role: #a0c3ec" data-role="redes"><canvas width="22" height="31" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Redes</h3><p>Switches, cabos e conectividade.</p></li>
+        <li class="mate panel rv" style="--role: #ffc285" data-role="servidores"><canvas width="22" height="31" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Servidores</h3><p>Instala e mantém o hardware.</p></li>
+        <li class="mate panel rv" style="--role: #c4b5fd" data-role="sysadmin"><canvas width="22" height="31" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Sysadmin</h3><p>Sistemas, alertas e incidentes.</p></li>
+        <li class="mate panel rv" style="--role: #5eead4" data-role="tecnico"><canvas width="22" height="31" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Técnico de TI</h3><p>Conserta PCs e switches na bancada.</p></li>
+        <li class="mate panel rv" style="--role: #ff7a17" data-role="seguranca"><canvas width="22" height="31" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Segurança</h3><p>Rondas, acessos e câmeras.</p></li>
+        <li class="mate panel rv" style="--role: #dadbdf" data-role="funcionario"><canvas width="22" height="31" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Assistente</h3><p>Chamados, inventário e documentação.</p></li>
+        <li class="mate panel rv" style="--role: #7ee0a1" data-role="gerente"><canvas width="22" height="31" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Gerente</h3><p>Indicadores, capacidade e equipe.</p></li>
+        <li class="mate panel rv" style="--role: #f9a8d4" data-role="atendente"><canvas width="22" height="31" aria-hidden="true"></canvas><div class="mate__floor"></div><h3>Atendente</h3><p>Recebe clientes e atende chamados.</p></li>
       </ul>
     </section>
 
@@ -596,7 +600,7 @@
       <div class="split">
         <div class="rv">
           <p class="eyebrow">05 · Sua carreira</p>
-          <h2 class="h2" id="carreira-t">De estagiário(a) a diretor(a)</h2>
+          <h2 class="h2" id="carreira-t">De estagiário(a) a tech lead</h2>
           <div class="copy">
             <p>Você também sobe de cargo. Cada nível traz uma missão de verdade no datacenter: cumpriu, foi promovido(a).</p>
             <p>E a equipe aprende com você. Sozinhos, os bots só fazem o que você já domina.</p>
@@ -607,15 +611,15 @@
           <div class="xp" aria-hidden="true"><span>NV 1</span><span class="xp__bar"><i></i></span><span>XP</span></div>
           <ol>
             <li class="now"><b>01</b><strong>Estagiário(a)</strong><span>Monte o primeiro posto: um rack e um computador</span></li>
-            <li><b>02</b><strong>Técnico(a) Jr</strong><span>Instale um servidor e um switch na mesma sala</span></li>
-            <li><b>03</b><strong>Técnico(a)</strong><span>Ligue o cabo de rede de um servidor</span></li>
-            <li><b>04</b><strong>Analista Jr</strong><span>Coloque um servidor online pelo terminal</span></li>
-            <li><b>05</b><strong>Analista</strong><span>Resolva você mesmo(a) um problema no datacenter</span></li>
-            <li><b>06</b><strong>Analista Sr</strong><span>Tenha 3 servidores seus online ao mesmo tempo</span></li>
-            <li><b>07</b><strong>Especialista</strong><span>Dê 5 ordens à equipe</span></li>
-            <li><b>08</b><strong>Coordenador(a)</strong><span>Expanda o terreno do datacenter</span></li>
-            <li><b>09</b><strong>Gerente</strong><span>Feche um mês com o caixa positivo</span></li>
-            <li><b>10</b><strong>Diretor(a)</strong><span>Tenha 6 servidores seus online ao mesmo tempo</span></li>
+            <li><b>02</b><strong>Júnior I</strong><span>Instale um servidor e um switch na mesma sala</span></li>
+            <li><b>03</b><strong>Júnior II</strong><span>Ligue o cabo de rede de um servidor</span></li>
+            <li><b>04</b><strong>Júnior III</strong><span>Coloque um servidor online pelo terminal</span></li>
+            <li><b>05</b><strong>Pleno I</strong><span>Resolva você mesmo(a) um problema no datacenter</span></li>
+            <li><b>06</b><strong>Pleno II</strong><span>Tenha 3 servidores seus online ao mesmo tempo</span></li>
+            <li><b>07</b><strong>Pleno III</strong><span>Dê 5 ordens à equipe</span></li>
+            <li><b>08</b><strong>Sênior</strong><span>Expanda o terreno do datacenter</span></li>
+            <li><b>09</b><strong>Especialista</strong><span>Feche um mês com o caixa positivo</span></li>
+            <li><b>10</b><strong>Tech Lead</strong><span>Tenha 6 servidores seus online ao mesmo tempo</span></li>
           </ol>
         </div>
       </div>
@@ -647,7 +651,13 @@
   <dialog class="box" id="credits" aria-labelledby="credits-t">
     <h2 id="credits-t">CRÉDITOS</h2>
     <p>DataLab · v0.9 · acesso antecipado.</p>
-    <p>Jogo, código e pixel art: equipe DataLab.</p>
+    <p>Desenvolvido por:</p>
+    <ul class="devs">
+      <li>Pierre da Paz</li>
+      <li>Tiago Farias</li>
+      <li>João Pedro Medeiros</li>
+      <li>Abner Castro</li>
+    </ul>
     <p>Fontes: Press Start 2P (CodeMan38), Silkscreen (Jason Kottke) e VT323 (Peter Hull).</p>
     <p class="dim">Obrigado por testar!</p>
     <button class="ok" type="button"><span class="k">ENTER · FECHAR</span><span class="t">TOQUE PARA FECHAR</span><svg viewBox="0 0 5 3" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h5v1H0zM1 1h3v1H1zM2 2h1v1H2z"/></svg></button>
@@ -656,6 +666,8 @@
   <div class="fade" aria-hidden="true"></div>
   <div class="crt" aria-hidden="true"></div>
 
+  <!-- the game's character sprites: the title's technician and the crew are drawn with them -->
+  <script src="assets/js/sprites.js"></script>
   <script>
   /* DataLab — title screen.
      The datacenter is painted into a tiny canvas (~200 art pixels tall) that the browser scales up by a whole
@@ -1111,136 +1123,13 @@
     }
 
     /* ================= the technician ================= */
-    const SKIN = { k: INK, h: '#3b2416', j: '#5e3b23', s: '#e7ad84', d: '#b9744d', c: '#2f5f8f', C: '#1f3f63', l: '#4f86bf', g: GREEN, w: '#d5ddeb', p: '#273046', P: '#171c2b', b: '#0f121b', n: '#3a4256' };
-    const HEAD = [
-      '.....kkkkk....',
-      '....kjjhhhk...',
-      '...kjhhhhhhk..',
-      '...khhhhhhhhk.',
-      '...khhhhhsssk.',
-      '...khhhdhsksk.',
-      '...khhhddsssk.',
-      '....khhhssdk..',
-      '.....kkssdk...',
-      '......kddk....',
-    ];
-    const TORSO = [
-      '....kCccccgk..',
-      '....kCCclcgk..',
-      '....kCCclcgk..',
-      '....kCCclcwk..',
-      '....kCCclcck..',
-      '....kCCclcck..',
-      '....kCCsscck..',
-    ];
-    const LEGS_STAND = [
-      '....kppssppk..',
-      '....kppppppk..',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kbnbbk...',
-      '.....kbbbbbk..',
-      '.....kkkkkkk..',
-    ];
-    const LEGS_STRIDE = [
-      '....kppssppk..',
-      '....kppppppk..',
-      '....kPpkkppk..',
-      '...kPpk.kppk..',
-      '...kPpk..kppk.',
-      '..kPpk...kppk.',
-      '..kPpk...kppk.',
-      '.kPpk.....kpk.',
-      '.kbnk.....kbnk',
-      'kbbbk.....kbbb',
-      'kkkkk.....kkkk',
-    ];
-    const LEGS_PASS = [
-      '....kppssppk..',
-      '....kppppppk..',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPppkk...',
-      '.....kPpkpk...',
-      '.....kPpkPk...',
-      '.....kPpkPk...',
-      '.....kbnkbk...',
-      '.....kbbbbbk..',
-      '.....kkkkkkk..',
-    ];
-    const BACK_HEAD = [
-      '.....kkkkk....',
-      '....kjjhhhk...',
-      '...kjhhhhhhk..',
-      '...khhhhhhhk..',
-      '...khhhhhhhk..',
-      '...kdhhhhhdk..',
-      '...kdhhhhhdk..',
-      '....khhhhhk...',
-      '.....kdddk....',
-      '......kdk.....',
-    ];
-    const BACK_TORSO_A = [
-      '...kCcccccCk..',
-      '..ksCcccccCk..',
-      '..ksCcccccCk..',
-      '..kkCcccccCk..',
-      '...kCcccccCk..',
-      '...kCcccccCk..',
-      '...kCCcccCCk..',
-    ];
-    const BACK_TORSO_B = [
-      '...kCcccccCk..',
-      '...kCcccccCsk.',
-      '...kCcccccCsk.',
-      '...kCcccccCkk.',
-      '...kCcccccCk..',
-      '...kCcccccCk..',
-      '...kCCcccCCk..',
-    ];
-    const BACK_LEGS = [
-      '....kppppppk..',
-      '....kppppppk..',
-      '....kPpkkpPk..',
-      '....kPpk.pPk..',
-      '....kPpk.pPk..',
-      '....kPpk.pPk..',
-      '....kPpk.pPk..',
-      '....kPpk.pPk..',
-      '....kbbk.bbk..',
-      '....kbbk.bbk..',
-      '....kkkk.kkk..',
-    ];
-
-    function sprite(rowsArr, pal = SKIN) {
-      const make = (flip) => {
-        const c = document.createElement('canvas');
-        c.width = 14; c.height = rowsArr.length;
-        const g = c.getContext('2d');
-        rowsArr.forEach((line, y) => {
-          for (let x = 0; x < line.length; x++) {
-            const col = pal[line[x]];
-            if (!col) continue;
-            g.fillStyle = col;
-            g.fillRect(flip ? 13 - x : x, y, 1, 1);
-          }
-        });
-        return c;
-      };
-      return { r: make(false), l: make(true) };
-    }
-    const SPR = {
-      stand: sprite([...HEAD, ...TORSO, ...LEGS_STAND]),
-      stride: sprite([...HEAD, ...TORSO, ...LEGS_STRIDE]),
-      pass: sprite([...HEAD, ...TORSO, ...LEGS_PASS]),
-      backA: sprite([...BACK_HEAD, ...BACK_TORSO_A, ...BACK_LEGS]),
-      backB: sprite([...BACK_HEAD, ...BACK_TORSO_B, ...BACK_LEGS]),
+    // the game's own character (DL.makeSheet / DL.makeActSheet in assets/js/sprites.js)
+    const C_TEC = '#5eead4';   // the "Técnico de TI" role colour (crew.js)
+    const LOOK = {
+      body: 'm', skin: '#e0ac7e', hair: '#5a3a25', hairStyle: 'short', outfit: 'uniform', shirt: '#2f3a4d', pants: '#232a36', shoes: '#16181d',
+      role: 'tecnico', roleColor: C_TEC, badge: C_TEC, lanyard: C_TEC, capColor: C_TEC,
     };
-    const WALK = [SPR.stride, SPR.pass, SPR.stride, SPR.pass];
+    const SHEET = DL.makeSheet(LOOK), ACT = DL.makeActSheet(LOOK), { AX, AY } = DL.CHAR;
 
     const tech = { X: 0, z: 1, feet: 0, dir: 1, act: 'walk', wait: 0, anim: 0, wp: 0, path: [], placed: false };
 
@@ -1275,13 +1164,16 @@
 
     function paintTech(cam) {
       const sx = Math.round(cx + (tech.X - cam) / tech.z);
-      let spr = SPR.stand, bob = 0;
-      if (tech.act === 'walk') { const f = Math.floor(tech.anim * 7) % 4; spr = WALK[f]; bob = f % 2 ? -1 : 0; }
-      else if (tech.act === 'fix') spr = Math.floor(tech.anim * 3) % 2 ? SPR.backB : SPR.backA;
-      ctx.fillStyle = 'rgba(5, 7, 13, .55)';
-      ctx.fillRect(sx - 5, tech.feet, 11, 1);
-      ctx.fillRect(sx - 3, tech.feet + 1, 7, 1);
-      ctx.drawImage(tech.dir < 0 ? spr.l : spr.r, sx - 7, tech.feet - 27 + bob);
+      // walking: side view · fixing: back to the camera, hands going to the rack · standing: facing us, blinking
+      let frame;
+      if (tech.act === 'walk') frame = SHEET[tech.dir < 0 ? 'left' : 'right'].walk[Math.floor(tech.anim * 8) % 4];
+      else if (tech.act === 'fix') frame = Math.floor(tech.anim * 3) % 2 ? ACT.up.reach : SHEET.up.idle;
+      else frame = tech.anim % 3 > 2.85 ? SHEET.down.blink : SHEET.down.idle;
+      ctx.fillStyle = 'rgba(5, 7, 13, .55)';   // the shadow of DL.drawActor
+      ctx.fillRect(sx - 4, tech.feet - 2, 8, 1);
+      ctx.fillRect(sx - 5, tech.feet - 1, 10, 1);
+      ctx.fillRect(sx - 4, tech.feet, 8, 1);
+      ctx.drawImage(frame, sx - AX, tech.feet - AY);
     }
 
     /* ================= loop ================= */
@@ -1583,37 +1475,59 @@
       watch(term, (v) => { seen = v; });
     }
 
-    // the crew: the title's technician, recoloured per role. They idle and turn around now and then;
-    // hovering a card makes its owner walk.
-    const mates = [...document.querySelectorAll('.mate')].map((el) => {
-      const role = el.style.getPropertyValue('--role').trim(), hair = el.dataset.hair, skin = el.dataset.skin;
-      const pal = Object.assign({}, SKIN, {
-        c: role, C: mix(role, INK, 0.4), l: mix(role, '#ffffff', 0.4), g: mix(role, INK, 0.6),
-        h: hair, j: mix(hair, '#ffffff', 0.18), s: skin, d: mix(skin, INK, 0.25),
-      });
-      const m = {
-        g: el.querySelector('canvas').getContext('2d'), dir: Math.random() < 0.5 ? 1 : -1, next: 1 + Math.random() * 4, walk: false,
-        stand: sprite([...HEAD, ...TORSO, ...LEGS_STAND], pal), stride: sprite([...HEAD, ...TORSO, ...LEGS_STRIDE], pal), pass: sprite([...HEAD, ...TORSO, ...LEGS_PASS], pal),
-      };
-      el.addEventListener('pointerenter', () => { m.walk = true; });
-      el.addEventListener('pointerleave', () => { m.walk = false; });
-      return m;
-    });
+    // the crew: the game's own characters (DL.makeSheet in assets/js/sprites.js), one look per role made
+    // from the game's creator options (crew.js). They blink and glance around; hovering a card makes its
+    // owner walk.
+    const ROLE_COLOR = { redes: '#a0c3ec', servidores: '#ffc285', sysadmin: '#c4b5fd', tecnico: '#5eead4', seguranca: '#ff7a17', funcionario: '#dadbdf', gerente: '#7ee0a1', atendente: '#f9a8d4' };
+    const LOOKS = {
+      redes: { body: 'f', skin: '#c98e66', hair: '#0f0b0a', hairStyle: 'ponytail', outfit: 'uniform', shirt: '#2f3a4d', pants: '#232a36', headset: true },
+      servidores: { body: 'm', skin: '#f2c8a0', hair: '#b8562c', hairStyle: 'short', outfit: 'tee', shirt: '#3b4250', pants: '#4a3a2a', beard: true },
+      sysadmin: { body: 'n', skin: '#e0ac7e', hair: '#2a1c16', hairStyle: 'bob', outfit: 'hoodie', shirt: '#7c3aed', pants: '#1b1f27', glasses: true },
+      tecnico: { body: 'm', skin: '#8d5a3b', hair: '#0f0b0a', hairStyle: 'afro', outfit: 'uniform', shirt: '#1f6f5c', pants: '#1b1f27' },
+      seguranca: { body: 'm', skin: '#5e3a26', hair: '#0f0b0a', hairStyle: 'buzz', outfit: 'shirt', shirt: '#232a36', pants: '#1b1f27', hat: 'cap' },
+      funcionario: { body: 'f', skin: '#f5d3b8', hair: '#d9b26a', hairStyle: 'bun', outfit: 'shirt', shirt: '#e9e9e6', pants: '#2a3140', earrings: true },
+      gerente: { body: 'm', skin: '#e0ac7e', hair: '#c9c9c9', hairStyle: 'short', outfit: 'blazer', shirt: '#3b4250', pants: '#232a36', glasses: true },
+      atendente: { body: 'f', skin: '#c98e66', hair: '#5a3a25', hairStyle: 'curly', outfit: 'tee', shirt: '#a0c3ec', pants: '#1f2d44', headset: true },
+    };
+    const crewList = document.querySelector('.crew');
+    const mates = [];
     function paintMate(m, t) {
-      let spr = m.stand, y = 1;
-      if (m.walk && !still) { const f = Math.floor(t * 7) % 4; spr = f % 2 ? m.pass : m.stride; y = f % 2 ? 0 : 1; }
-      else if (!still && t > m.next) { m.dir = -m.dir; m.next = t + 2 + Math.random() * 4; }
-      m.g.clearRect(0, 0, 14, 30);
-      m.g.fillStyle = 'rgba(5, 7, 13, .55)';
-      m.g.fillRect(2, 29, 11, 1);
-      m.g.drawImage(m.dir < 0 ? spr.l : spr.r, 0, y);
+      const { AX, AY } = DL.CHAR;
+      let set = m.sheet[m.dir], frame = set.idle;
+      if (m.walk && !still) { set = m.sheet.down; frame = set.walk[Math.floor(t * 8) % 4]; }
+      else if (!still) {
+        if (t > m.next) {   // look aside for a moment, then back at the camera
+          m.dir = m.dir === 'down' ? (Math.random() < 0.5 ? 'left' : 'right') : 'down';
+          m.next = t + (m.dir === 'down' ? 3 + Math.random() * 4 : 0.8 + Math.random());
+          set = m.sheet[m.dir];
+        }
+        frame = (t + m.phase) % 3.7 < 0.14 ? set.blink : set.idle;
+      }
+      m.g.clearRect(0, 0, m.g.canvas.width, m.g.canvas.height);
+      m.g.fillStyle = 'rgba(0, 0, 0, .32)';   // the same shadow as DL.drawActor
+      m.g.fillRect(AX - 4, AY - 2, 8, 1);
+      m.g.fillRect(AX - 5, AY - 1, 10, 1);
+      m.g.fillRect(AX - 4, AY, 8, 1);
+      m.g.drawImage(frame, 0, 0);
     }
-    mates.forEach((m) => paintMate(m, 0));
+    function startCrew() {
+      crewList.querySelectorAll('.mate').forEach((el) => {
+        const role = el.dataset.role, c = ROLE_COLOR[role], p = LOOKS[role];
+        // the fields DL.crewLook (crew.js) hands to the sprite builder
+        const look = Object.assign({ shoes: '#16181d', role, roleColor: c, badge: c, lanyard: c, capColor: c }, p);
+        const m = { g: el.querySelector('canvas').getContext('2d'), sheet: DL.makeSheet(look), dir: 'down', walk: false, next: 1 + Math.random() * 3, phase: Math.random() * 3.7 };
+        el.addEventListener('pointerenter', () => { m.walk = true; });
+        el.addEventListener('pointerleave', () => { m.walk = false; });
+        mates.push(m);
+        paintMate(m, 0);
+      });
+    }
+    startCrew();
     if (!still) {
       let crewTimer = 0, crewT = 0;
-      watch(document.querySelector('.crew'), (v) => {
+      watch(crewList, (v) => {
         clearInterval(crewTimer);
-        if (v) crewTimer = setInterval(() => { crewT += 1 / 14; mates.forEach((m) => paintMate(m, crewT)); }, 1000 / 14);
+        if (v) crewTimer = setInterval(() => { crewT += 1 / 12; mates.forEach((m) => paintMate(m, crewT)); }, 1000 / 12);
       });
     }
 

@@ -17,6 +17,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Geist+Mono&family=Inter:wght@400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/base.css">
   <link rel="stylesheet" href="assets/css/demo.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Silkscreen&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/css/menu.css">
   <link rel="stylesheet" href="assets/css/apps.css">
   <link rel="stylesheet" href="assets/css/infra.css">
@@ -439,34 +442,78 @@
       </div>
 
       <div class="mm" id="mainMenu">
-        <div class="mm__side">
-          <div class="mm__brand">
-            <span class="logo__mark logo__mark--sm" aria-hidden="true"><i></i><i></i><i></i></span>
-            <span class="mm__word">DATALAB</span>
-          </div>
-          <nav class="mm__list" aria-label="Menu principal">
-            <button class="mm-item mm-item--hero" type="button" data-go="new" style="--i:0"><span class="mm-item__n">01</span><span class="mm-item__t"><b>Novo jogo</b><small>Escolha um ponto de partida e comece a construir</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-            <button class="mm-item" type="button" data-go="load" style="--i:1"><span class="mm-item__n">02</span><span class="mm-item__t"><b>Carregar jogo</b><small id="mmSaves">Nenhum save</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-            <button class="mm-item" type="button" data-go="account" style="--i:2"><span class="mm-item__n">☁</span><span class="mm-item__t"><b>Conta</b><small>Perfil, saves e administração</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-            <button class="mm-item" type="button" data-go="online" style="--i:2"><span class="mm-item__n">03</span><span class="mm-item__t"><b>Jogar online</b><small>Em breve — estamos desenvolvendo</small></span><span class="mm-item__pill">Em breve</span></button>
-            <span class="mm__sep" style="--i:3" aria-hidden="true"></span>
-            <button class="mm-item" type="button" data-go="shop" style="--i:4"><span class="mm-item__n">04</span><span class="mm-item__t"><b>Loja</b><small>Skins, roupas, itens de evento e bots lendários</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-            <button class="mm-item" type="button" data-go="inventory" style="--i:4"><span class="mm-item__n">✦</span><span class="mm-item__t"><b>Inventário</b><small>Seus itens: equipar, vender, raridades</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-            <button class="mm-item" type="button" data-go="market" style="--i:5"><span class="mm-item__n">05</span><span class="mm-item__t"><b>Marketplace</b><small>Layouts e temas da comunidade</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-            <button class="mm-item" type="button" data-go="ranking" style="--i:6"><span class="mm-item__n">06</span><span class="mm-item__t"><b>Tabela global</b><small>Os melhores operadores da temporada</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-            <button class="mm-item" type="button" data-go="friends" style="--i:7"><span class="mm-item__n">07</span><span class="mm-item__t"><b>Amigos</b><small>Convide, visite e jogue junto</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-            <button class="mm-item" type="button" data-go="weekly" style="--i:8"><span class="mm-item__n">08</span><span class="mm-item__t"><b>Salas da semana</b><small>Datacenters em destaque para se inspirar</small></span><span class="mm-item__go" aria-hidden="true">→</span></button>
-          </nav>
-          <footer class="mm__foot">
-            <span class="mm__me"><canvas id="mmFace" aria-hidden="true"></canvas><span><b id="mmName">Você</b><span class="eyebrow-sm" id="mmRole">Operador(a)</span></span></span>
-            <span class="mm__bal" id="mmBal"></span>
-            <button class="btn btn--sm mm__logout" id="mmLogout" type="button">Sair da conta</button>
-          </footer>
+        <div class="mm__logo" aria-label="DataLab">
+          <svg class="dl-logo dl-logo--sm" viewBox="0 0 280 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DataLab SIMULADOR DE DATACENTER" shape-rendering="crispEdges" image-rendering="pixelated">
+            <g class="dl-logo__rack">
+              <rect x="2" y="8" width="32" height="32" rx="0" fill="#0b1120" stroke="#152033" stroke-width="2"/>
+              <rect x="6" y="12" width="24" height="4" rx="0" fill="#0f1626"/>
+              <rect x="6" y="18" width="24" height="4" rx="0" fill="#0f1626"/>
+              <rect x="6" y="24" width="24" height="4" rx="0" fill="#0f1626"/>
+              <rect x="6" y="30" width="24" height="4" rx="0" fill="#0f1626"/>
+              <rect x="8" y="14" width="2" height="0" fill="#05b5b1"/>
+              <rect class="dl-led dl-led--a" x="26" y="13" width="2" height="2" rx="0"/>
+              <rect class="dl-led dl-led--b" x="26" y="19" width="2" height="2" rx="0"/>
+              <rect class="dl-led dl-led--c" x="26" y="25" width="2" height="2" rx="0"/>
+              <rect class="dl-led dl-led--d" x="26" y="31" width="2" height="2" rx="0"/>
+              <rect x="2" y="8" width="32" height="2" rx="0" fill="rgba(71,155,255,0.18)"/>
+            </g>
+            <g class="dl-logo__text">
+              <text x="44" y="26" class="dl-logo__datalab">DATALAB</text>
+              <text x="44" y="38" class="dl-logo__sub">SIMULADOR DE DATACENTER</text>
+            </g>
+          </svg>
         </div>
+
+        <div class="mm__player" aria-label="Informações do jogador">
+          <span class="mm__me"><canvas id="mmFace" aria-hidden="true"></canvas><span><b id="mmName">Você</b><span class="eyebrow-sm" id="mmRole">Operador(a)</span></span></span>
+          <span class="mm__bal" id="mmBal"></span>
+          <button class="mm__logout" id="mmLogout" type="button">Sair da conta</button>
+        </div>
+
+        <nav class="mm__menu" aria-label="Menu principal">
+          <button class="mm-btn mm-btn--primary" type="button" data-go="new" style="--i:0">
+            <span class="mm-btn__icon mm-btn__icon--play" aria-hidden="true"></span>
+            <span class="mm-btn__text"><b>Novo Jogo</b></span>
+          </button>
+          <button class="mm-btn" type="button" data-go="load" style="--i:1">
+            <span class="mm-btn__icon mm-btn__icon--disk" aria-hidden="true"></span>
+            <span class="mm-btn__text"><b>Carregar Jogo</b><small id="mmSaves">Nenhum save</small></span>
+          </button>
+          <button class="mm-btn" type="button" data-go="account" style="--i:2">
+            <span class="mm-btn__icon mm-btn__icon--user" aria-hidden="true"></span>
+            <span class="mm-btn__text"><b>Conta</b></span>
+          </button>
+          <button class="mm-btn mm-btn--disabled" type="button" data-go="online" style="--i:3" disabled aria-disabled="true">
+            <span class="mm-btn__icon mm-btn__icon--globe" aria-hidden="true"></span>
+            <span class="mm-btn__text"><b>Jogar On-Line</b></span>
+            <span class="mm-btn__pill">EM BREVE</span>
+          </button>
+        </nav>
+
+        <section class="mm-weekly" aria-label="Sala da Semana" tabindex="0" role="button" data-go="weekly">
+          <header class="mm-weekly__head">
+            <span class="mm-weekly__title">SALA DA SEMANA</span>
+          </header>
+          <div class="mm-weekly__body">
+            <div class="mm-weekly__thumb" aria-hidden="true">
+              <div class="mm-weekly__iso">
+                <span class="iso-block iso-block--a"></span>
+                <span class="iso-block iso-block--b"></span>
+                <span class="iso-block iso-block--c"></span>
+              </div>
+            </div>
+            <div class="mm-weekly__info">
+              <b class="mm-weekly__name">Torre Aurora</b>
+              <span class="mm-weekly__time">Termina em: 2d 14h</span>
+            </div>
+            <button class="mm-btn mm-btn--small" type="button" data-go="weekly"><span class="mm-btn__text"><b>VER SALA</b></span></button>
+          </div>
+        </section>
+
         <div class="mm__view" id="menuView" hidden role="region" aria-labelledby="menuViewTitle">
           <div class="mm__view-body" id="menuViewBody"></div>
         </div>
-        <div class="mm__hints eyebrow-sm" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> voltar</span></div>
+        <div class="mm__hints" aria-hidden="true"><span><kbd>↑</kbd><kbd>↓</kbd> navegar</span><span><kbd>Enter</kbd> abrir</span><span><kbd>Esc</kbd> voltar</span><span><kbd>Tab</kbd> acessar Sala da Semana</span></div>
       </div>
       <p class="mm-flash" id="menuFlash" role="status" aria-live="polite"></p>
     </section>

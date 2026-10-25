@@ -108,7 +108,7 @@
   }
 
   function render() {
-    let h = '<header class="acc-head"><div><p class="eyebrow-sm">DataLab · conta</p><h2 class="card__title card__title--sm" id="accountTitle">Sua conta</h2></div><button class="cc__x" type="button" data-acc="close" aria-label="Fechar">×</button></header>';
+    let h = '<header class="acc-head-px"><svg class="dl-logo dl-logo--xs" viewBox="0 0 240 44" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DataLab SIMULADOR DE DATACENTER" shape-rendering="crispEdges" image-rendering="pixelated"><g class="dl-logo__rack"><rect x="2" y="8" width="28" height="28" rx="0" fill="#0b1120" stroke="#152033" stroke-width="2"/><rect x="6" y="12" width="20" height="3" rx="0" fill="#0f1626"/><rect x="6" y="17" width="20" height="3" rx="0" fill="#0f1626"/><rect x="6" y="22" width="20" height="3" rx="0" fill="#0f1626"/><rect x="6" y="27" width="20" height="3" rx="0" fill="#0f1626"/><rect class="dl-led dl-led--a" x="22" y="13" width="2" height="2" rx="0"/><rect class="dl-led dl-led--b" x="22" y="18" width="2" height="2" rx="0"/><rect class="dl-led dl-led--c" x="22" y="23" width="2" height="2" rx="0"/><rect class="dl-led dl-led--d" x="22" y="28" width="2" height="2" rx="0"/></g><g class="dl-logo__text"><text x="40" y="24" class="dl-logo__datalab">DATALAB</text><text x="40" y="36" class="dl-logo__sub">SIMULADOR DE DATACENTER</text></g></svg><button class="cc__x" type="button" data-acc="close" aria-label="Fechar">×</button></header>';
     h += tabs();
     if (V.msg) h += '<p class="acc-msg is-' + V.tone + '" role="status">' + esc(V.msg) + '</p>';
     const view = { profile: viewProfile, saves: viewSaves, admin: viewAdmin }[V.tab] || viewProfile;
