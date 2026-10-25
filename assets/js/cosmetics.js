@@ -99,6 +99,11 @@
   add({ id: 'shirt_jacket', cat: 'char', slot: 'shirt', value: 'jacket', name: 'Jaqueta Aberta', rarity: 'rare', price: 45, desc: 'Jaqueta por cima de uma camiseta branca.' });
   add({ id: 'shirt_jersey', cat: 'char', slot: 'shirt', value: 'jersey', name: 'Camisa de Time', rarity: 'rare', price: 45, desc: 'Camisa de time com número 7 e faixas nos ombros.' });
   add({ id: 'shirt_launch', cat: 'char', slot: 'shirt', value: 'launch', name: 'Camiseta do Lançamento', rarity: 'rare', price: 40, event: 'lancamento', desc: 'Com a marca do DataLab no peito. Edição limitada.' });
+  // full-body costumes: worn in the shirt slot, they also recolour the legs, hands and boots and cover the
+  // head (DL.charCostume + charOutfit + charTop below). All three are original designs.
+  add({ id: 'costume_hero', cat: 'char', slot: 'shirt', value: 'hero', name: 'Capitão Debug', rarity: 'epic', price: 120, desc: 'Traje de super-herói do DataLab: máscara com visor, um bug dourado no peito, luvas e botas amarelas.' });
+  add({ id: 'costume_ceo', cat: 'char', slot: 'shirt', value: 'ceo', name: 'Terno de Magnata', rarity: 'rare', price: 70, desc: 'Terno azul-marinho, camisa branca e gravata dourada. Para quem é dono do datacenter.' });
+  add({ id: 'costume_hacker', cat: 'char', slot: 'shirt', value: 'hacker', name: 'Hacker Anônimo', rarity: 'epic', price: 100, desc: 'Moletom preto com capuz e máscara branca. Ninguém sabe quem está no terminal.' });
   // pants (profile.pantsStyle)
   add({ id: 'pants_jeans', cat: 'char', slot: 'pants', value: 'jeans', name: 'Calça Jeans', rarity: 'common', price: 12, desc: 'Costura clara e barra dobrada.' });
   add({ id: 'pants_cargo', cat: 'char', slot: 'pants', value: 'cargo', name: 'Calça Cargo', rarity: 'uncommon', price: 22, desc: 'Bolsos laterais para levar o alicate de crimpar.' });
@@ -398,6 +403,24 @@
   const WHITE = '#f1f1ee', GOLD = '#f2c14e', GOLD_L = '#fff1b8', GOLD_D = '#b8892f';
   const AX = DL.CHAR.AX, AY = DL.CHAR.AY;
 
+  // Costumes (shirt slot, see the catalog): before drawChar paints anything, the look is patched — suit
+  // colour on torso and legs, boots, gloves (the skin colour: only the hands show, the head is covered),
+  // and nothing on the head that the mask or hood would cut through.
+  const HERO = { suit: '#5b2bd1', dark: '#3a1a8c', light: '#7d55e8', gold: '#ffd23f', band: '#14102e' };
+  const HOOD = { cloth: '#1b1d24', dark: '#0e0f14', light: '#2b2f3a', mask: '#e9e9e6', maskD: '#b9bcc4', ink: '#0b0d12', code: '#39ff14' };
+  const CEO = { suit: '#1b2236', tie: '#c9a227', tieL: '#f2c14e' };
+  const BARE = { hat: '', glasses: false, headset: false, beard: false, earrings: false, shades: false, visor: false, scarf: false, hairStyle: 'buzz' };
+  // role: null drops the job's gear (cable coil, tie, tool belt…), which would sit on top of the costume
+  const SUIT = { lanyard: null, badge: null, vest: null, role: null };
+  DL.charCostume = function (L) {
+    switch (L.outfit) {
+      case 'hero': return Object.assign({}, BARE, SUIT, { shirt: HERO.suit, pants: HERO.suit, shoes: HERO.gold, skin: HERO.gold });
+      case 'hacker': return Object.assign({}, BARE, SUIT, { shirt: HOOD.cloth, pants: '#22252d', shoes: '#e9e9e6', skin: HOOD.light });
+      case 'ceo': return Object.assign({}, SUIT, { shirt: CEO.suit, pants: CEO.suit, shoes: '#0b0d12' });
+    }
+    return null;
+  };
+
   // new shirt models; returns true when it handled the outfit
   DL.charOutfit = function (g, dir, ty, L, shirt, shirtD, shirtL) {
     const ax = AX, o = L.outfit, side = dir !== 'down' && dir !== 'up';
@@ -442,6 +465,34 @@
         else { R(g, ax, ty + 3, 1, 1, k); R(g, ax + 1, ty + 4, 1, 1, k); R(g, ax, ty + 5, 1, 1, k); }
         return true;
       }
+      case 'hero': {
+        // a gold bug on the chest (body + six legs) and a gold belt
+        const y = HERO.gold;
+        if (dir === 'down') {
+          R(g, ax - 1, ty + 2, 2, 3, y); R(g, ax - 2, ty + 2, 1, 1, y); R(g, ax + 1, ty + 2, 1, 1, y); R(g, ax - 2, ty + 4, 1, 1, y); R(g, ax + 1, ty + 4, 1, 1, y);
+          R(g, ax - 1, ty + 1, 1, 1, y); R(g, ax, ty + 1, 1, 1, y); R(g, ax - 4, ty + 6, 8, 1, y);
+        } else if (dir === 'up') { R(g, ax - 4, ty + 6, 8, 1, y); R(g, ax - 1, ty, 2, 6, HERO.dark); }
+        else { R(g, ax, ty + 2, 2, 3, y); R(g, ax + 2, ty + 3, 1, 1, y); R(g, ax - 3, ty + 6, 6, 1, y); }
+        return true;
+      }
+      case 'hacker':
+        // hoodie: drawstrings, a line of green code and the front pocket
+        if (dir === 'down') {
+          R(g, ax - 2, ty + 1, 1, 2, HOOD.mask); R(g, ax + 1, ty + 1, 1, 2, HOOD.mask);
+          R(g, ax - 3, ty + 3, 1, 1, HOOD.code); R(g, ax - 1, ty + 3, 2, 1, HOOD.code); R(g, ax + 2, ty + 3, 1, 1, HOOD.code);
+          R(g, ax - 3, ty + 5, 6, 2, HOOD.light); R(g, ax - 3, ty + 5, 6, 1, HOOD.dark);
+        } else if (dir === 'up') { R(g, ax - 3, ty, 6, 3, HOOD.light); R(g, ax - 2, ty + 3, 4, 1, HOOD.dark); }
+        else { R(g, ax, ty + 3, 2, 1, HOOD.code); R(g, ax - 1, ty + 5, 4, 2, HOOD.light); }
+        return true;
+      case 'ceo':
+        // white shirt in the V, lapels, a gold tie and a pocket square
+        if (dir === 'down') {
+          R(g, ax - 1, ty, 2, 5, WHITE); R(g, ax - 2, ty, 1, 4, shirtL); R(g, ax + 1, ty, 1, 4, shirtL);
+          R(g, ax - 1, ty + 1, 2, 1, CEO.tieL); R(g, ax - 1, ty + 2, 2, 3, CEO.tie); R(g, ax - 1, ty + 5, 2, 1, shade(CEO.tie, -0.3));
+          R(g, ax + 2, ty + 2, 1, 1, WHITE); R(g, ax - 3, ty + 5, 1, 1, CEO.tieL);
+        } else if (dir === 'up') { R(g, ax - 3, ty, 6, 1, WHITE); R(g, ax, ty + 1, 1, 6, shirtD); }
+        else { R(g, ax + 1, ty, 2, 3, WHITE); R(g, ax + 2, ty + 1, 1, 4, CEO.tie); R(g, ax + 1, ty, 1, 4, shirtL); }
+        return true;
       case 'legend':
         // the legendary bots' suit: gold collar, seam and belt with a light on the chest
         if (dir === 'down') { R(g, ax - 3, ty, 6, 1, GOLD); R(g, ax, ty + 1, 1, 5, GOLD_D); R(g, ax - 2, ty + 2, 1, 1, GOLD_L); R(g, ax - 4, ty + 6, 8, 1, GOLD_D); R(g, ax - 4, ty, 1, 1, GOLD_L); R(g, ax + 3, ty, 1, 1, GOLD_L); }
@@ -540,6 +591,35 @@
   // accessories on top of everything (glasses, visor, chain, scarf, backpack)
   DL.charTop = function (g, dir, pose, L, o) {
     const ax = AX, ty = o.ty, hy = o.hy, side = o.side;
+    const hx = o.hx;
+    if (L.outfit === 'hero') {
+      // full mask in the suit colour with a dark visor band and glowing gold eyes
+      R(g, hx - 4, hy - 1, 8, 1, HERO.suit); R(g, hx - 5, hy, 10, 9, HERO.suit); R(g, hx - 4, hy + 9, 8, 1, HERO.dark);
+      if (dir === 'down') {
+        R(g, hx + 4, hy + 1, 1, 8, HERO.dark); R(g, hx - 3, hy, 4, 1, HERO.light);
+        R(g, hx - 5, hy + 4, 10, 3, HERO.band); R(g, hx - 3, hy + 5, 2, 1, HERO.gold); R(g, hx + 1, hy + 5, 2, 1, HERO.gold);
+      } else if (side) {
+        R(g, hx + 5, hy + 5, 1, 2, HERO.suit); R(g, hx - 5, hy + 1, 1, 8, HERO.dark); R(g, hx - 2, hy, 4, 1, HERO.light);
+        R(g, hx - 1, hy + 4, 7, 3, HERO.band); R(g, hx + 2, hy + 5, 3, 1, HERO.gold);
+      } else {
+        R(g, hx - 3, hy, 4, 1, HERO.light); R(g, hx - 5, hy + 4, 10, 2, HERO.band); R(g, hx - 1, hy + 6, 2, 3, HERO.dark);
+      }
+    } else if (L.outfit === 'hacker') {
+      // hood up over the head; from the front and the side, a plain white mask with a thin smile
+      R(g, hx - 5, hy - 2, 10, 2, HOOD.cloth); R(g, hx - 6, hy, 12, 10, HOOD.cloth); R(g, hx - 4, hy - 2, 4, 1, HOOD.light);
+      if (dir === 'down') {
+        R(g, hx - 6, hy, 1, 10, HOOD.light); R(g, hx + 5, hy, 1, 10, HOOD.dark);
+        R(g, hx - 4, hy + 1, 8, 8, HOOD.mask); R(g, hx + 3, hy + 2, 1, 6, HOOD.maskD); R(g, hx - 4, hy + 1, 8, 1, HOOD.maskD);
+        R(g, hx - 3, hy + 4, 2, 1, HOOD.ink); R(g, hx + 1, hy + 4, 2, 1, HOOD.ink);
+        R(g, hx - 3, hy + 6, 1, 1, HOOD.ink); R(g, hx - 2, hy + 7, 4, 1, HOOD.ink); R(g, hx + 2, hy + 6, 1, 1, HOOD.ink);
+      } else if (side) {
+        R(g, hx - 6, hy, 1, 10, HOOD.dark);
+        R(g, hx + 1, hy + 1, 5, 8, HOOD.mask); R(g, hx + 1, hy + 1, 1, 8, HOOD.maskD);
+        R(g, hx + 3, hy + 4, 2, 1, HOOD.ink); R(g, hx + 3, hy + 7, 2, 1, HOOD.ink); R(g, hx + 5, hy + 6, 1, 1, HOOD.ink);
+      } else {
+        R(g, hx - 1, hy - 1, 2, 11, HOOD.dark); R(g, hx - 6, hy, 1, 10, HOOD.light);
+      }
+    }
     if (L.visor) {
       if (dir === 'down') { R(g, ax - 5, hy + 4, 10, 2, GOLD); R(g, ax - 4, hy + 5, 8, 1, GOLD_L); }
       else if (side) { R(g, ax, hy + 4, 6, 2, GOLD); R(g, ax + 2, hy + 5, 3, 1, GOLD_L); }

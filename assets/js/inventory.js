@@ -298,6 +298,8 @@
     function previewProfile(it) {
       if (it.cat === 'legend') return Object.assign({}, it.bot);
       const p = Object.assign({}, profile());
+      // a costume worn now would hide the hat, hair or accessory being previewed: show it on a plain tee
+      if (it.slot !== 'shirt' && DL.charCostume && DL.charCostume(p)) p.outfit = 'tee';
       if (it.slot === 'shirt') p.outfit = it.value;
       else if (it.slot === 'pants') p.pantsStyle = it.value;
       else if (it.slot === 'hair') { p.hairStyle = it.value; p.hat = ''; }
