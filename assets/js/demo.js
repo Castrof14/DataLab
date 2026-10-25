@@ -626,24 +626,7 @@
     S.refused = refused;
   }
 
-  // Learning mode (difficulty.js): chosen on the start card, shown on the HUD and in the terminal
-  const modeChoices = $('modeChoices');
-  function renderModes() {
-    const cur = DL.learn();
-    modeChoices.innerHTML = DL.MODE_ORDER.map((id) => {
-      const m = DL.MODES[id], on = id === cur.id;
-      return '<button type="button" class="start-opt start-opt--mode' + (on ? ' is-on' : '') + '" role="radio" aria-checked="' + on + '" data-learn="' + id + '" style="--c:' + m.color + '"><b>' + m.name + '</b><span>' + m.desc + '</span><em class="eyebrow-sm">' + m.tag + '</em></button>';
-    }).join('');
-    const hm = $('hudMode');
-    if (hm) { hm.innerHTML = 'Modo <b>' + cur.name + '</b>'; hm.style.setProperty('--c', cur.color); }
-  }
-  modeChoices.addEventListener('click', (ev) => {
-    const b = ev.target.closest('[data-learn]');
-    if (!b || S.phase !== 'intro') return;
-    DL.setLearn(b.dataset.learn);
-  });
-  DL.onLearnChange(renderModes);
-  renderModes();
+  // Learning mode (difficulty.js): everyone plays Iniciante, there is nothing to choose
   $('helpBtn').addEventListener('click', () => $('help').classList.add('is-open'));
   $('helpClose').addEventListener('click', () => $('help').classList.remove('is-open'));
 
@@ -1120,7 +1103,6 @@
       crew.api.hire(p, { silent: true, free: true, at: crew.api.nav.randomSpot(), level: 1 + Math.floor(Math.random() * 3) });
     }
     crew.startShift();
-    toast('info', 'Modo ' + DL.learn().name, DL.learn().desc + ' · ' + DL.learn().tag.toLowerCase());
     // presets come with specialised servers (web, banco, DNS…) and a virtualization node with VMs
     if (preset !== 'zero') infra.seed(preset);
     if (preset !== 'zero') toast('ok', DL.PRESETS[preset].name, 'Ambiente pronto · personalize à vontade com B');

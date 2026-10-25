@@ -59,7 +59,6 @@
       <a class="brand" href="index.html" aria-label="Voltar para a página inicial do DataLab">
         <span class="brand__mark" aria-hidden="true"></span>DataLab
       </a>
-      <span class="hud-chip eyebrow-sm hud-mode" id="hudMode" title="Modo de aprendizado (escolhido ao começar)"></span>
       <button class="me-btn" id="meBtn" type="button" title="Editar meu personagem (P)">
         <canvas id="meFace" aria-hidden="true"></canvas>
         <span class="me-btn__txt"><b id="meName">Você</b><span class="eyebrow-sm" id="meRole"></span></span>
@@ -218,8 +217,6 @@
         <p class="eyebrow-sm"><span class="dot dot--live"></span>&nbsp; Construção · Simulação · Aprendizado</p>
         <h1 class="card__title" id="introTitle">Esse é o seu datacenter.</h1>
         <p class="card__text">Construa do zero, contrate a equipe, instale servidores e configure tudo num terminal de verdade — com ajuda sempre que travar.</p>
-        <p class="eyebrow-sm intro-label">Modo de aprendizado</p>
-        <div class="start-opts start-opts--mode" id="modeChoices" role="radiogroup" aria-label="Modo de aprendizado"></div>
         <ol class="intro-steps" aria-label="O que o tutorial ensina">
           <li><b>Construção</b>Expandir, sala, rack, computador</li>
           <li><b>Equipe</b>Contratar e atribuir tarefa</li>
@@ -249,7 +246,7 @@
           <li><span class="keys"><kbd>B</kbd></span><span>construção: salas, paredes, portas, equipamentos e móveis · <b>Temas</b> e <b>Estilo da sala</b> (piso, paredes, luz, RGB)</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span>equipe: selecione alguém e clique num computador</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span><b>Escalas</b> (painel da equipe): turno de cada pessoa, horários personalizados e plantonistas · 1 técnico + 1 atendente de plantão por turno</span></li>
-          <li><span class="keys"><kbd>$</kbd></span><span>cada pessoa tem salário próprio, pago todo mês (00:00 no relógio = virada do mês) · contratar custa metade de um salário</span></li>
+          <li><span class="keys"><kbd>$</kbd></span><span>sem custos fixos: não há salários, energia nem aluguel · o caixa só diminui quando você compra algo ou contrata (pagamento único)</span></li>
           <li><span class="keys"><kbd>N</kbd></span><span>contratar alguém para a equipe · <b>Cargos</b> (no painel da equipe): crie cargos novos, inclusive com IA</span></li>
           <li><span class="keys"><kbd>P</kbd></span><span>editar o meu personagem: aparência, cabelo, roupa, acessórios, nome e função</span></li>
           <li><span class="keys"><kbd>K</kbd></span><span>abrir / recolher o chat da equipe</span></li>
@@ -258,7 +255,7 @@
           <li><span class="keys"><kbd>I</kbd></span><span>Infra: especialização de cada servidor (Web, BD, Jogos, IA, DNS, E-mail…) e máquinas virtuais (criar, ligar, desligar, reiniciar, remover)</span></li>
           <li><span class="keys"><kbd>C</kbd></span><span>no cartão de cada pessoa: <b>Estação</b> própria e <b>Setor</b> (sala onde fica) · o <b>Gerente</b> abre ordens de serviço e manda os técnicos instalarem e consertarem (Tarefas → Ordens)</span></li>
           <li><span class="keys"><kbd>Mouse</kbd></span><span>clique num funcionário → <b>Conversar</b>: pergunte sobre servidores, rede, problemas e finanças</span></li>
-          <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa (infraestrutura, terreno, salários) e, separados, créditos e Gold (moeda dourada) · câmbio de créditos em Gold</span></li>
+          <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa (compras, terreno, contratações) e, separados, créditos e Gold (moeda dourada) · câmbio de créditos em Gold</span></li>
           <li><span class="keys"><kbd>O</kbd></span><span>Loja: skins de racks, servidores, switches e storage, LEDs, roupas, cabelos, acessórios, itens especiais, itens de evento e bots lendários — tudo em Gold</span></li>
           <li><span class="keys"><kbd>U</kbd></span><span>Inventário: filtros por categoria e raridade, equipar / desequipar, usar, vender, ativar bots lendários · itens de evento ficam guardados</span></li>
           <li><span class="keys"><kbd>B</kbd></span><span>Espaços → <b>Terreno</b>: cada expansão mostra o preço antes de confirmar e fica mais cara conforme o terreno e a área construída crescem</span></li>
@@ -362,7 +359,7 @@
             <span class="term__lights" aria-hidden="true"><i></i><i></i><i></i></span>
             <span class="eyebrow-sm" id="termTitle">Console</span>
             <span class="eyebrow-sm term__where" id="termWhere"></span>
-            <span class="term__mode" id="termMode" aria-label="Modo de aprendizado"></span>
+            <span class="term__mode" id="termMode" aria-label="Modo de aprendizado" hidden></span>
             <button class="cc__x" id="termClose" type="button" aria-label="Fechar terminal">×</button>
           </div>
           <div class="term__out" id="termOut" aria-live="polite"></div>

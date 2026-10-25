@@ -1855,7 +1855,8 @@
     function workHtml(a) {
       const c = a.crew, eco = game.economy;
       let h = '<div class="cc__work">';
-      h += '<div class="cc__pay"><span class="eyebrow-sm">Salário</span><b>' + DL.money(DL.salaryOf ? DL.salaryOf(a) : 0) + '<small>/mês</small></b>' +
+      // salaries only exist with running costs on (economy.js)
+      if (DL.ECON.runningCosts) h += '<div class="cc__pay"><span class="eyebrow-sm">Salário</span><b>' + DL.money(DL.salaryOf ? DL.salaryOf(a) : 0) + '<small>/mês</small></b>' +
         '<span class="cc__payin" data-live="payin">' + (eco ? 'pagamento em ' + eco.payInText() : '') + '</span></div>';
       h += '<label class="cc__sel"><span class="eyebrow-sm">Turno</span><select data-cc-sel="shift" aria-label="Turno de ' + esc(c.name) + '">';
       for (const [id, s] of Object.entries(DL.SHIFTS || {})) h += '<option value="' + id + '"' + (c.shift.id === id ? ' selected' : '') + '>' + esc(s.label) + '</option>';
@@ -2243,9 +2244,11 @@
       const eco = game.economy, cash = eco ? eco.company.cash : 0;
       const needs = (DL.needsOfRole ? DL.needsOfRole(p.role) : []).map((id) => DL.WORK_RES[id]);
       const chk = DL.checkNeeds ? DL.checkNeeds(world(), p.role, null, DL.roomTypeOf) : [];
-      let h = '<div class="cr-cost__grid"><div><span class="eyebrow-sm">Salário</span><b>' + DL.money(sal) + '<small>/mês</small></b></div>';
-      if (hiring) h += '<div><span class="eyebrow-sm">Contratação</span><b class="' + (cash < fee ? 'is-neg' : '') + '">' + DL.money(fee) + '</b></div>';
-      h += '<div><span class="eyebrow-sm">Próximo pagamento</span><b>' + (eco ? 'em ' + eco.payInText() : '—') + '</b></div></div>';
+      const paid = DL.ECON.runningCosts;
+      let h = '<div class="cr-cost__grid">' + (paid ? '<div><span class="eyebrow-sm">Salário</span><b>' + DL.money(sal) + '<small>/mês</small></b></div>' : '');
+      if (hiring) h += '<div><span class="eyebrow-sm">Contratação' + (paid ? '' : ' · pagamento único') + '</span><b class="' + (cash < fee ? 'is-neg' : '') + '">' + DL.money(fee) + '</b></div>';
+      if (paid) h += '<div><span class="eyebrow-sm">Próximo pagamento</span><b>' + (eco ? 'em ' + eco.payInText() : '—') + '</b></div>';
+      h += '</div>';
       if (needs.length) h += '<p class="cr-cost__needs"><span class="eyebrow-sm">Precisa para trabalhar</span>' + chk.map((n) => '<span class="need' + (n.ok ? ' is-ok' : ' is-miss') + '">' + (n.ok ? '✓ ' : '✗ ') + esc(n.short) + '</span>').join('') + '</p>';
       if (hiring && cash < fee) h += '<p class="cr-cost__warn">Caixa insuficiente para contratar agora (' + DL.money(cash) + ').</p>';
       if (box.dataset.k !== h) { box.dataset.k = h; box.innerHTML = h; }

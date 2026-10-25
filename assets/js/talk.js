@@ -191,6 +191,7 @@
       },
       salary(a) {
         const sal = DL.salaryOf ? DL.salaryOf(a) : 0, eco2 = eco;
+        if (!DL.ECON.runningCosts) return { text: vary(a, 'salary', ['Salário? Aqui a contratação já foi paga, relaxa 😄', 'Tô bem pago, pode ficar tranquilo(a).', 'O que importa é colocar mais servidor no ar!']) };
         return { text: 'Ganho ' + DL.money(sal) + ' por mês' + (eco2 ? ', e o próximo pagamento sai em ' + eco2.payInText() + '.' : '.') + ' ' + vary(a, 'salary', ['Subindo de nível, o salário acompanha 😉', 'Tá justo pelo que eu faço.', 'Se eu passar de nível, conversamos sobre aumento!']) };
       },
       workplace(a) {
@@ -274,7 +275,7 @@
         let t = 'A empresa tem ' + DL.money(CO.cash) + '. ';
         if (K.role === 'gerente' || K.k >= 6) {
           t += 'Entram ' + DL.money(CO.revenue) + '/min dos servidores' + ': resultado de ' + (flow >= 0 ? '+' : '') + DL.money(flow) + '/min.';
-          t += ' A folha é de ' + DL.money(CO.payrollMonth || 0) + '/mês e sai em ' + eco.payInText() + (CO.cash < (CO.payrollMonth || 0) ? ' — o caixa ainda não cobre!' : '.');
+          if (DL.ECON.runningCosts) t += ' A folha é de ' + DL.money(CO.payrollMonth || 0) + '/mês e sai em ' + eco.payInText() + (CO.cash < (CO.payrollMonth || 0) ? ' — o caixa ainda não cobre!' : '.');
         } else t += flow >= 0 ? 'Estamos no azul, ' + (flow >= 0 ? '+' : '') + DL.money(flow) + '/min.' : 'Estamos perdendo ' + DL.money(-flow) + '/min.';
         if (worst) t += ' O ' + worst.name + ' está com problema (' + worst.loss.label.toLowerCase() + ') e não rende enquanto não for resolvido.';
         else if (!CO.revenue) t += ' Cada servidor no ar rende dinheiro: precisamos colocar servidores online.';
