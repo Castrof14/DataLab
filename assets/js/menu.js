@@ -321,6 +321,7 @@
       closeSub(true);
       refreshMenuMeta();
       setTimeout(() => { const b = root.querySelector('.mm-item[data-go="' + (M.last || 'new') + '"]') || root.querySelector('.mm-item'); if (b) b.focus({ preventScroll: true }); }, 60);
+      if (pendingFlash) { flash(pendingFlash, 'warn'); pendingFlash = ''; }
     }
   }
 
@@ -404,7 +405,16 @@
     game.classList.remove('is-title');
     D.scene.o.attract = false;
     const r = await DL.CloudSync.load(+slot);
-    if (!r.ok) { game.classList.add('is-title'); root.hidden = false; setScreen('menu'); flash(r.message || 'Não foi possível carregar.', 'warn'); }
+    if (r.ok) return;
+    const msg = r.message || 'Não foi possível carregar.';
+    // the load already started an empty game to restore into, and a started game can't go back to the
+    // start card (Novo jogo would be stuck there): reload, as leaving a game does, and say why on the menu
+    if (D.state.phase === 'play') {
+      try { sessionStorage.setItem(FLASH_KEY, msg); } catch (e) { /* storage blocked: reload anyway */ }
+      location.replace(location.pathname);
+      return;
+    }
+    game.classList.add('is-title'); root.hidden = false; setScreen('menu'); flash(msg, 'warn');
   }
   async function deleteSave(btn) {
     if (btn.dataset.confirm !== '1') { btn.dataset.confirm = '1'; btn.textContent = 'Confirmar exclusão'; return; }
@@ -417,6 +427,10 @@
   function soonToast(what) {
     flash((what || 'Este recurso') + ' chega com o modo online — estamos desenvolvendo.');
   }
+  // a message carried over a reload (a failed Continuar, see loadSave): shown once the menu is up
+  const FLASH_KEY = 'datalab.menuFlash';
+  let pendingFlash = '';
+  try { pendingFlash = sessionStorage.getItem(FLASH_KEY) || ''; sessionStorage.removeItem(FLASH_KEY); } catch (e) { /* storage blocked */ }
   let flashT = 0;
   function flash(text, tone) {
     const el = $('menuFlash');
