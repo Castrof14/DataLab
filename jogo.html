@@ -34,10 +34,24 @@
     <div class="auth__grid" aria-hidden="true"></div>
     <div class="auth__wrap">
       <div class="auth__brand">
-        <span class="logo__mark" aria-hidden="true"><i></i><i></i><i></i></span>
-        <p class="eyebrow">Construa · Opere · Escale</p>
-        <h1 class="auth__title">DataLab</h1>
-        <p class="auth__lead">Seu datacenter, sua equipe e seus servidores ficam salvos na sua conta.</p>
+        <svg class="dl-logo dl-logo--auth" viewBox="0 0 280 48" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DataLab SIMULADOR DE DATACENTER" shape-rendering="crispEdges" image-rendering="pixelated">
+          <g class="dl-logo__rack">
+            <rect x="2" y="8" width="32" height="32" rx="0" fill="#0b1120" stroke="#152033" stroke-width="2"/>
+            <rect x="6" y="12" width="24" height="4" rx="0" fill="#0f1626"/>
+            <rect x="6" y="18" width="24" height="4" rx="0" fill="#0f1626"/>
+            <rect x="6" y="24" width="24" height="4" rx="0" fill="#0f1626"/>
+            <rect x="6" y="30" width="24" height="4" rx="0" fill="#0f1626"/>
+            <rect class="dl-led dl-led--a" x="26" y="13" width="2" height="2" rx="0"/>
+            <rect class="dl-led dl-led--b" x="26" y="19" width="2" height="2" rx="0"/>
+            <rect class="dl-led dl-led--c" x="26" y="25" width="2" height="2" rx="0"/>
+            <rect class="dl-led dl-led--d" x="26" y="31" width="2" height="2" rx="0"/>
+            <rect x="2" y="8" width="32" height="2" rx="0" fill="rgba(71,155,255,0.18)"/>
+          </g>
+          <g class="dl-logo__text">
+            <text x="44" y="26" class="dl-logo__datalab">DATALAB</text>
+            <text x="44" y="38" class="dl-logo__sub">SIMULADOR DE DATACENTER</text>
+          </g>
+        </svg>
       </div>
       <div class="auth__card" id="authCard" aria-live="polite"></div>
     </div>
@@ -65,7 +79,6 @@
       <button class="me-btn" id="meBtn" type="button" title="Editar meu personagem (P)">
         <canvas id="meFace" aria-hidden="true"></canvas>
         <span class="me-btn__txt"><b id="meName">Você</b><span class="eyebrow-sm" id="meRole"></span></span>
-        <span class="me-btn__title" id="meTitle"></span>
         <kbd>P</kbd>
       </button>
       <nav class="modes" id="modes" aria-label="Modo de jogo">
@@ -466,7 +479,7 @@
         </div>
 
         <div class="mm__player" aria-label="Informações do jogador">
-          <span class="mm__me"><canvas id="mmFace" aria-hidden="true"></canvas><span><span class="mm__name"><b id="mmName">Você</b><span id="mmTitle"></span></span><span class="eyebrow-sm" id="mmRole">Operador(a)</span></span></span>
+          <span class="mm__me"><canvas id="mmFace" aria-hidden="true"></canvas><span><b id="mmName">Você</b><span class="eyebrow-sm" id="mmRole">Operador(a)</span></span></span>
           <span class="mm__bal" id="mmBal"></span>
           <button class="mm__logout" id="mmLogout" type="button">Sair da conta</button>
         </div>
