@@ -867,3 +867,162 @@
 }
 @keyframes fade-up { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes orb { 0% { transform: scale(0.35); opacity: 0; } 30% { opacity: 1; } 100% { transform: scale(1.1); opacity: 0; } }
+
+/* ---------- landing look (index.html) for the title screen and the main menu ----------
+   Same palette (LED green on navy/steel), the RPG window frame (4px edge, notched ink outline, hard drop
+   shadow), the ">" selection arrow and bigger type. Only tokens and surfaces change; layout stays. */
+.title {
+  --teal: #3dffa2;          /* landing --green */
+  --teal-dark: #1f9e66;
+  --blue: #a0c3ec;
+  --bg: #05070d;            /* landing --ink */
+  --panel: #0d1424;         /* landing --navy */
+  --panel-2: #05070d;
+  --border: #46506b;        /* landing --steel-2 */
+  --border-dark: #05070d;
+  --text: #e6ecf5;
+  --text-dim: #808ba6;
+  --warn: #ffb547;
+  --logo-a: #3dffa2;
+  --edge: #46506b;
+}
+.title .mm__player, .title .mm-btn, .title .mm-weekly, .title .mm__hints, .title .mm__view-body, .title .mm-flash {
+  border: 0;
+  background: #0d1424;
+  box-shadow:
+    0 -4px var(--edge), 0 4px var(--edge), -4px 0 var(--edge), 4px 0 var(--edge),
+    0 -8px #05070d, 0 8px #05070d, -8px 0 #05070d, 8px 0 #05070d,
+    -4px -4px #05070d, 4px -4px #05070d, -4px 4px #05070d, 4px 4px #05070d,
+    8px 12px rgba(5, 7, 13, .8), 12px 8px rgba(5, 7, 13, .8);
+}
+/* demo.css notches every button with a clip-path, which also cuts off anything drawn outside the box:
+   the frame above and the ">" arrow. These controls draw their own pixel corners. */
+.title button, .title .btn, .title kbd { clip-path: none; }
+.title kbd {
+  display: inline-block; min-width: 24px; height: auto; padding: 4px 6px 2px; margin: 0 2px 4px;
+  border: 0; font: 400 16px/1 'Silkscreen', monospace; text-align: center;
+  color: #e6ecf5; background: #262f46;
+  box-shadow: inset 0 2px #46506b, 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d, 0 4px #05070d;
+}
+
+/* logo */
+.title .mm__logo { left: 40px; top: 32px; }
+.title .dl-logo--sm { width: 360px; height: 62px; filter: drop-shadow(0 2px 0 #0f4a33) drop-shadow(2px 2px 0 #05070d); }
+.title .dl-logo__datalab { fill: #3dffa2; }
+.title .dl-logo__sub { font-family: 'Silkscreen', monospace; fill: #808ba6; }
+
+/* player card */
+.title .mm__player { right: 40px; top: 32px; gap: 20px; padding: 12px 16px 12px 12px; }
+.title .mm__me canvas { width: 40px; height: 40px; border: 0; background: #05070d; box-shadow: 0 0 0 2px #46506b; }
+.title .mm__me b { font: 400 24px/1 'VT323', monospace; }
+.title .mm__me .eyebrow-sm { font: 400 16px/1 'Silkscreen', monospace; letter-spacing: 1px; }
+.title .mm-bal { font: 400 24px/1 'VT323', monospace; }
+.title .mm-bal .eyebrow-sm { font: 400 16px/1 'Silkscreen', monospace; letter-spacing: 1px; }
+.title .mm__logout {
+  height: auto; padding: 8px 10px 6px; border: 0;
+  font: 400 16px/1 'Silkscreen', monospace; color: #e6ecf5; background: #262f46;
+  box-shadow: inset 0 2px #46506b, 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d;
+}
+.title .mm__logout:hover, .title .mm__logout:focus-visible {
+  color: #05070d; background: #3dffa2; transform: none;
+  box-shadow: inset 0 -2px #1f9e66, 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d;
+}
+
+/* menu buttons: a window each; the selected one turns green with the blinking ">" of the landing */
+.title .mm__menu { left: 56px; bottom: 96px; gap: 24px; }
+.title .mm-btn { min-width: 300px; min-height: 60px; padding: 10px 18px; gap: 16px; }
+.title .mm-btn__text b { font: 400 16px/1.2 'Press Start 2P', monospace; text-transform: uppercase; color: #c3ccd9; }
+.title .mm-btn__text small { font: 400 20px/1 'VT323', monospace; }
+.title .mm-btn::before {
+  content: '>'; position: absolute; left: -36px; top: 50%; transform: translateY(-50%);
+  font: 400 16px/1 'Press Start 2P', monospace; color: #3dffa2; visibility: hidden;
+}
+.title .mm-btn:hover:not(:disabled), .title .mm-btn:focus-visible:not(:disabled) {
+  --edge: #3dffa2;
+  --bg: #3dffa2;            /* the icons and texts Tiago's hover paints with --bg now come out green */
+  background: #0d1424;
+  transform: none;
+  box-shadow:               /* the frame again: the base hover rule above replaces it with a flat shadow */
+    0 -4px var(--edge), 0 4px var(--edge), -4px 0 var(--edge), 4px 0 var(--edge),
+    0 -8px #05070d, 0 8px #05070d, -8px 0 #05070d, 8px 0 #05070d,
+    -4px -4px #05070d, 4px -4px #05070d, -4px 4px #05070d, 4px 4px #05070d,
+    8px 12px rgba(5, 7, 13, .8), 12px 8px rgba(5, 7, 13, .8);
+}
+.title .mm-btn:hover:not(:disabled) .mm-btn__text b, .title .mm-btn:focus-visible:not(:disabled) .mm-btn__text b {
+  color: #3dffa2; text-shadow: 0 2px #0f4a33;
+}
+.title .mm-btn:hover:not(:disabled)::before, .title .mm-btn:focus-visible:not(:disabled)::before {
+  visibility: visible; animation: mm-blink 1s steps(1, end) infinite;
+}
+.title .mm-btn:active:not(:disabled) { transform: translateY(2px); }
+.title .mm-btn--disabled { --edge: #262f46; }
+.title .mm-btn__pill {
+  padding: 6px 8px 4px; border: 0;
+  font: 400 14px/1 'Silkscreen', monospace; color: #ffb547; background: #47300f;
+  box-shadow: 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d;
+}
+@keyframes mm-blink { 50% { opacity: 0; } }
+
+/* Sala da semana card */
+.title .mm-weekly { right: 48px; bottom: 96px; width: 360px; }
+.title .mm-weekly:hover, .title .mm-weekly:focus-visible { --edge: #3dffa2; outline: none; }
+.title .mm-weekly__head { padding: 12px 14px 10px; background: #262f46; border: 0; box-shadow: inset 0 -2px #05070d; }
+.title .mm-weekly__title { font: 400 12px/1 'Press Start 2P', monospace; letter-spacing: 1px; color: #3dffa2; text-shadow: 0 2px #0f4a33; }
+.title .mm-weekly__body { padding: 16px; gap: 12px; }
+.title .mm-weekly__thumb { height: 96px; border: 0; background: #05070d; box-shadow: 0 0 0 2px #46506b; }
+.title .mm-weekly__name { font: 400 24px/1 'VT323', monospace; }
+.title .mm-weekly__time { font: 400 20px/1 'VT323', monospace; }
+
+/* keys hint */
+.title .mm__hints { bottom: 28px; gap: 20px; padding: 10px 16px; flex-wrap: nowrap; white-space: nowrap; font: 400 16px/1 'Silkscreen', monospace; }
+
+/* title screen (before the menu): the landing's green button and labels */
+.title .title__start {
+  height: auto; padding: 16px 28px 18px; border: 0;
+  font: 400 16px/1 'Press Start 2P', monospace; letter-spacing: 2px; color: #05070d; background: #3dffa2;
+  box-shadow: inset 0 -4px #1f9e66, inset 0 4px #8cffc8, 0 -4px #05070d, 0 4px #05070d, -4px 0 #05070d, 4px 0 #05070d, 4px 8px rgba(5, 7, 13, .8);
+}
+.title .title__start:hover { background: #6effba; color: #05070d; transform: none; }
+.title .title__start:active { transform: translateY(4px); }
+.title .title__press, .title .title__foot { font: 400 16px/1 'Silkscreen', monospace; }
+.title .title__tag { font: 400 16px/1 'Silkscreen', monospace; color: #ffb547; letter-spacing: 1px; }
+
+/* sub-screens: the same window; header, back and buttons like the landing. While one is open it takes
+   the room between the menu and the right edge, and the Sala da semana card steps aside. */
+@media (min-width: 861px) {
+  .title .mm__view { left: 488px; right: 48px; top: 136px; bottom: 96px; }
+}
+.title.has-sub .mm-weekly { opacity: 0; visibility: hidden; pointer-events: none; }
+.title .mm__view-body { padding: 28px 32px 36px; }
+.title .mv__title { font: 400 24px/1.4 'Press Start 2P', monospace; letter-spacing: 0; color: #3dffa2; text-shadow: 0 3px #0f4a33, 0 6px #05070d; }
+.title .mv__back, .title .btn {
+  height: auto; padding: 8px 12px 6px; border: 0;
+  font: 400 16px/1 'Silkscreen', monospace; color: #e6ecf5; background: #262f46;
+  box-shadow: inset 0 2px #46506b, 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d;
+}
+.title .btn--primary { color: #05070d; background: #3dffa2; box-shadow: inset 0 -2px #1f9e66, 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d; }
+.title .mv__back:hover, .title .mv__back:focus-visible, .title .btn:hover:not(:disabled), .title .btn:focus-visible:not(:disabled) {
+  color: #05070d; background: #3dffa2; transform: none;
+  box-shadow: inset 0 -2px #1f9e66, 0 -2px #05070d, 0 2px #05070d, -2px 0 #05070d, 2px 0 #05070d;
+}
+.title .mm-flash { --edge: #3dffa2; padding: 12px 18px; font: 400 16px/1 'Silkscreen', monospace; }
+.title .mm-flash--warn { --edge: #ffb547; }
+
+/* phones and narrow windows: logo, then the player card under it, the buttons full width, the Sala da
+   semana card compact at the bottom; the keyboard hints are left out (touch) */
+@media (max-width: 860px) {
+  .title .mm__logo { left: 16px; top: 16px; }
+  .title .dl-logo--sm { width: 280px; height: 48px; }
+  .title .mm__player { left: 16px; right: 16px; top: 84px; max-width: none; gap: 12px 16px; padding: 10px 12px; }
+  .title .mm__menu { left: 24px; right: 24px; bottom: 224px; gap: 20px; }
+  .title .mm-btn { min-width: 0; min-height: 52px; }
+  .title .mm-btn::before { display: none; }
+  .title .mm-weekly { left: 16px; right: 16px; bottom: 24px; width: auto; }
+  .title .mm-weekly__thumb { display: none; }
+  .title .mm-weekly__body { padding: 12px 16px 14px; }
+  .title .mm__hints { display: none; }
+  .title .mm-btn__pill { position: absolute; right: 10px; top: -12px; }   /* a sticker on the frame, so the label keeps one line */
+}
+@media (prefers-reduced-motion: reduce) {
+  .title .mm-btn::before { animation: none !important; }
+}
