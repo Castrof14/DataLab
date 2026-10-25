@@ -95,7 +95,7 @@
         { text: 'Entre no modo privilegiado.', help: ['enable'], done: (d) => d.sw.mode !== 'user' || d.sw.fixed },
         { text: 'Veja o status das portas.', help: ['show-int'], done: (d, ran) => ran.has('show-int') },
         { text: 'Entre no modo de configuração.', help: ['conf-t'], done: (d) => d.sw.mode === 'conf' || d.sw.mode === 'if' || d.sw.fixed },
-        { text: 'Selecione a porta com problema.', help: ['interface'], done: (d) => (d.sw.mode === 'if' && d.sw.cur === d.sw.bad) || d.sw.fixed },
+        { text: 'Selecione a porta com problema.', help: ['interface'], cmd: 'interface ' + d.sw.bad, done: (d) => (d.sw.mode === 'if' && d.sw.cur === d.sw.bad) || d.sw.fixed },
         { text: 'Reinicie a porta: shutdown e depois no shutdown.', help: ['shutdown'], done: (d) => d.sw.fixed },
         { text: 'Volte (end) e confira o status das portas.', help: ['end', 'show-int'], done: (d, ran) => ran.has('show-int-ok') },
       ],
@@ -321,6 +321,8 @@
 
   // Switch CLI with abbreviations (sh int status, conf t, int gi0/3, no shut).
   const kw = (tok, word, min) => !!tok && tok.length >= (min || 2) && word.indexOf(tok.toLowerCase()) === 0;
+  // gi0/13, Gi0/13, GigabitEthernet0/13, gig0/13, g0/13 and "gi 0/13" all name the same port
+  const swPort = (s) => { const m = /^([a-z]+)(\d+\/\d+)$/.exec(String(s).toLowerCase()); return m && 'gigabitethernet'.indexOf(m[1]) === 0 ? 'gi' + m[2] : null; };
   function swcli(d, line, ctx) {
     const s = d.sw, out = [], ran = [];
     const t = line.trim().split(/\s+/).filter(Boolean);
@@ -373,11 +375,13 @@
     }
     if (kw(c, 'interface', 3)) {
       if (s.mode !== 'conf' && s.mode !== 'if') { bad('Comando inválido neste modo. Use "configure terminal" antes.'); return { out, ran }; }
-      const p = (t.slice(1).join('') || '').toLowerCase().replace('gigabitethernet', 'gi');
-      if (!s.ports[p]) { bad('Porta inválida. Portas: gi0/1 a gi0/' + Object.keys(s.ports).length); return { out, ran }; }
+      const p = swPort(t.slice(1).join(''));
+      if (!p || !s.ports[p]) { bad('Porta inválida. Portas: gi0/1 a gi0/' + Object.keys(s.ports).length); return { out, ran }; }
       s.mode = 'if';
       s.cur = p;
       ran.push('if:' + p);
+      // like a real switch the port is selected anyway, but the player learns it isn't the broken one
+      if (s.bad && !s.fixed && p !== s.bad) out.push('<span class="m">Essa porta está OK. Veja no show interfaces status qual está err-disabled.</span>');
       return { out, ran };
     }
     if (kw(c, 'shutdown', 4) || (c === 'no' && kw(t[1], 'shutdown', 4))) {
@@ -546,12 +550,13 @@
 
     // how deep the help goes depends on the learning mode: syntax only (Experiente), + example
     // (Intermediário), or everything with when to use it (Iniciante). Asking is always allowed.
-    function helpCard(keys, depth) {
+    // `ex` replaces the generic example of one command (the step's own, with this device's port / IP / name)
+    function helpCard(keys, depth, ex) {
       depth = depth || 'full';
       return keys.map((k) => {
-        const h = HELP[k];
+        const h = HELP[k], e = ex && ex[k] ? ex[k] : h.ex;
         return '<div class="hcard"><code class="hcard__cmd">' + esc(h.cmd) + '</code>' +
-          '<dl>' + (depth !== 'syntax' ? '<dt>Exemplo</dt><dd><code>' + esc(h.ex).replace(/\n/g, '<br>') + '</code></dd>' : '') +
+          '<dl>' + (depth !== 'syntax' ? '<dt>Exemplo</dt><dd><code>' + esc(e).replace(/\n/g, '<br>') + '</code></dd>' : '') +
           '<dt>O que faz</dt><dd>' + esc(h.what) + '</dd>' + (depth === 'full' ? '<dt>Quando usar</dt><dd>' + esc(h.when) + '</dd>' : '') + '</dl></div>';
       }).join('');
     }
@@ -559,10 +564,13 @@
     function renderHelp() {
       const i = curStep(), m = L();
       const win = isWin(X.dev);
-      const keys = X.lesson && i < X.lesson.steps.length ? X.lesson.steps[i].help : X.dev.kind === 'switch' ? ['enable', 'show-int', 'conf-t'] : win ? ['win-ipconfig', 'win-features', 'win-service'] : ['ip-addr', 'ping', 'sudo'];
-      const stepLabel = X.lesson && i < X.lesson.steps.length ? (m.stepText === 'hidden' ? 'o próximo passo' : X.lesson.steps[i].text) : '';
+      const step = X.lesson && i < X.lesson.steps.length ? X.lesson.steps[i] : null;
+      const keys = step ? step.help : X.dev.kind === 'switch' ? ['enable', 'show-int', 'conf-t'] : win ? ['win-ipconfig', 'win-features', 'win-service'] : ['ip-addr', 'ping', 'sudo'];
+      const stepLabel = step ? (m.stepText === 'hidden' ? 'o próximo passo' : step.text) : '';
+      // the step's exact command (same source as the hint in the terminal) is the example of its first card
+      const ex = step && step.cmd ? { [step.help[0]]: step.cmd } : null;
       let h = '<p class="term__hint">' + (stepLabel ? 'Para ' + (m.stepText === 'hidden' ? '' : 'este passo: ') + '<b>' + esc(stepLabel) + '</b>' : 'Comandos mais usados aqui:') +
-        ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth);
+        ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth, ex);
       const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'end'];
       const forDev = (k) => (X.dev.kind === 'switch' ? SWITCH_KEYS.includes(k) : win ? HELP[k].os === 'win' || k === 'cabling' : !HELP[k].os && !SWITCH_KEYS.includes(k));
       h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter(forDev)

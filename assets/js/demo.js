@@ -104,7 +104,8 @@
   const monitor = DL.createMonitor(G, { ops, cabling });
   opsSys.cabling = cabling;
   opsSys.monitor = monitor;
-  tutorial = DL.createTutorial(G, { builder, crew, ops, terminal, cabling, monitor });
+  const tutSys = { builder, crew, ops, terminal, cabling, monitor };
+  tutorial = DL.createTutorial(G, tutSys);
   const economy = DL.createEconomy(G, { ops, crew });
   G.economy = economy;
   // the incident director paces faults and broken hardware: one problem at a time (director.js)
@@ -129,6 +130,7 @@
   G.on('payday', () => updateMeta());
   // server specialisations + virtualization (Infra, I)
   const infra = DL.createInfra(G, { ops });
+  tutSys.infra = infra;
   // inventory + shop: skins, clothes, special items, legendary bots — paid in Gold (inventory.js)
   const inventory = DL.createInventory(G, { crew, economy, playing: () => S.phase === 'play' });
   G.store = { open: (tab) => inventory.openShop(tab), inventory: (id) => inventory.openInventory(id) };

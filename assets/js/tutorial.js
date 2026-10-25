@@ -1,5 +1,7 @@
-/* DataLab — first-run tutorial in three short blocks:
-   Construção (expand → room → rack → computer), Equipe (hire → assign), Técnico (install → cable → terminal).
+/* DataLab — first-run tutorial in short blocks:
+   Construção (expand → room → rack → computer), Equipe (hire → assign), Técnico (install → cable → terminal),
+   Monitorar, Rede (a port of the player's switch goes err-disabled and is fixed in the switch CLI) and
+   Infra (the "Criar VM" screen says what each server lacks → set Virtualização → create the first VM).
    Never blocks: steps advance by watching what the player did (counted from the start, so presets work too),
    the right control pulses, and the whole thing can be skipped or closed at any time. */
 (function () {
@@ -21,6 +23,29 @@
     const toBuild = () => ({ act: 'Aperte <kbd>B</kbd> ou clique em <b>Construir</b>', guide: '[data-mode="build"]' });
     const toCrew = () => ({ act: 'Aperte <kbd>C</kbd> ou clique em <b>Equipe</b>', guide: '[data-mode="crew"]' });
     const toOps = () => ({ act: 'Abra o painel <b>Tarefas</b> no topo da tela', guide: '#opsBtn' });
+    const infra = () => sys.infra;
+    // whatever covers the screen has to be closed before the next window is opened
+    function closeFirst() {
+      if (sys.terminal.isOpen) return { act: 'Feche o terminal (<kbd>Esc</kbd>)', guide: '#termClose' };
+      if (sys.monitor.isOpen) return { act: 'Feche o monitoramento (<kbd>Esc</kbd>)', guide: '#monClose' };
+      if (sys.cabling.isOpen) return { act: 'Feche o cabeamento (<kbd>Esc</kbd>)', guide: '#cabClose' };
+      return null;
+    }
+    function toInfra() {
+      if (infra().isOpen) return null;
+      return closeFirst() || { act: 'Aperte <kbd>I</kbd> ou clique em <b>Infra</b> no topo', guide: '#infraBtn' };
+    }
+
+    // Rede: the port of the player's server goes err-disabled on purpose (the game is paused during the
+    // tutorial, so nobody on the team fixes it first). A switch that can't do it (unmanaged) skips the step.
+    function portFault() {
+      const srv = mine().find((d) => d.state === 'online' && sys.ops.health(d).up);
+      const t = srv && sys.ops.trace(srv);
+      const sw = t && t.ok && !t.sw.fault ? sys.ops.injectFault(t.sw, 'port', { port: t.port }) : null;
+      if (!sw) { U.port = { skip: true }; return; }
+      sys.ops.report(sw, null);
+      U.port = { sw: sw.key, srv: srv.name };
+    }
 
     function pickItem(kind, label, where) {
       if (!inBuild()) return toBuild();
@@ -126,6 +151,62 @@
           return { act: 'Aperte <kbd>M</kbd> ou clique em <b>Monitor</b> no topo', guide: '#monBtn' };
         },
       },
+      {
+        group: 'Rede', title: 'Reative a porta do switch',
+        text: 'Problemas acontecem: a porta do switch onde o seu servidor está ligado entrou em err-disabled e derrubou o servidor. No terminal do switch, ache a porta com show interfaces status e reinicie-a (shutdown, depois no shutdown).',
+        enter: portFault,
+        done() {
+          if (!U.port) return false;
+          if (U.port.skip) return true;
+          const sw = sys.ops.get(U.port.sw);
+          return !sw || !sw.fault || sw.fault.type !== 'port';
+        },
+        how() {
+          const sw = U.port && sys.ops.get(U.port.sw);
+          if (!sw) return { act: '', guide: null };
+          if (sys.terminal.isOpen && sys.terminal.device === sw) return { act: 'Siga os passos à direita do terminal · a tabela do <b>show interfaces status</b> mostra a porta em vermelho', guide: null };
+          if (sys.terminal.isOpen) return { act: 'Esse é o terminal de outro equipamento: feche (<kbd>Esc</kbd>) e abra o do <b>' + sw.name + '</b>', guide: '#termClose' };
+          const c = closeFirst();
+          if (c) return c;
+          if (infra().isOpen) return { act: 'Feche a janela Infra (<kbd>Esc</kbd>)', guide: '#infra [data-px="close"]' };
+          if (game.opsOpen()) return { act: 'No alerta do <b>' + sw.name + '</b>, clique em <b>Abrir terminal</b>', guide: '[data-op="term"][data-dev="' + sw.key + '"]' };
+          return toOps();
+        },
+      },
+      {
+        group: 'Infra', title: 'Veja o que falta para criar VMs',
+        text: 'Um servidor pode virar nó de virtualização e hospedar várias máquinas virtuais (VMs). A tela Criar VM diz, servidor por servidor, o que falta.',
+        done: () => infra().createViews > start.vmViews || infra().readyNodes().length > 0,
+        how() {
+          const o = toInfra();
+          if (o) return o;
+          return { act: 'Abra a aba <b>Criar VM</b>', guide: '#infra .px__tabs [data-px="create"]' };
+        },
+      },
+      {
+        group: 'Infra', title: 'Transforme o servidor em nó',
+        text: 'Um nó precisa estar online e ter a função Virtualização. Clique no seu servidor na lista: a aba Servidores abre com ele destacado.',
+        done: () => infra().readyNodes().length > 0,
+        how() {
+          const o = toInfra();
+          if (o) return o;
+          const srv = mine().find((d) => d.state === 'online') || mine()[0];
+          if (infra().view === 'servers') return { act: 'Na coluna <b>Especialização</b>' + (srv ? ' do ' + srv.name : '') + ', escolha <b>Virtualização</b>', guide: srv ? '[data-svc="' + srv.key + '"]' : null };
+          if (infra().view === 'create') return { act: 'Clique no servidor da lista: o texto diz o que falta', guide: srv ? '[data-px="goto"][data-key="' + srv.key + '"]' : '[data-px="goto"]' };
+          return { act: 'Abra a aba <b>Criar VM</b>', guide: '#infra .px__tabs [data-px="create"]' };
+        },
+      },
+      {
+        group: 'Infra', title: 'Crie a primeira VM',
+        text: 'Escolha nome, serviço, vCPU, RAM e disco. A VM roda um serviço e rende pelo que usa: o nó divide o hardware entre as VMs.',
+        done: () => infra().vms.length > start.vms,
+        how() {
+          const o = toInfra();
+          if (o) return o;
+          if (infra().view !== 'create') return { act: 'Abra a aba <b>Criar VM</b>', guide: '#infra .px__tabs [data-px="create"]' };
+          return { act: 'Confira os recursos livres e clique em <b>Criar VM</b>', guide: '#pxForm [type="submit"]' };
+        },
+      },
     ];
 
     el.bars.innerHTML = STEPS.map((s, i) => '<i' + (i && STEPS[i - 1].group !== s.group ? ' class="gap"' : '') + '></i>').join('');
@@ -164,6 +245,9 @@
       start.racks = count('rack');
       start.desks = count('desk');
       start.mon = sys.monitor.opened;
+      start.vmViews = infra() ? infra().createViews : 0;
+      start.vms = infra() ? infra().vms.length : 0;
+      U.port = null;
       U.on = true;
       U.done = false;
       U.i = 0;
@@ -182,7 +266,7 @@
       el.step.textContent = 'Concluído';
       el.title.textContent = 'Esse é o seu datacenter.';
       el.text.textContent = 'Agora a empresa está operando: servidores no ar geram receita, e o caixa só diminui quando você compra algo ou contrata. Acompanhe o card de finanças e resolva os problemas rápido — equipamento com problema não gera receita.';
-      el.act.innerHTML = '<kbd>B</kbd> construir · <kbd>C</kbd> equipe · <kbd>M</kbd> monitor · <kbd>T</kbd> tarefas';
+      el.act.innerHTML = '<kbd>B</kbd> construir · <kbd>C</kbd> equipe · <kbd>M</kbd> monitor · <kbd>T</kbd> tarefas · <kbd>I</kbd> infra';
       bars.forEach((b) => { b.classList.add('is-done'); b.classList.remove('is-current'); });
       el.skip.hidden = true;
       el.close.hidden = false;
@@ -207,6 +291,8 @@
       let moved = false;
       while (U.i < STEPS.length && STEPS[U.i].done()) { U.i++; moved = true; }
       if (U.i >= STEPS.length) { finish(); return; }
+      // a step may set the scene when it starts (the Rede step breaks a switch port)
+      if (moved && STEPS[U.i].enter) STEPS[U.i].enter();
       if (moved) game.sfx('step');
       render(moved);
     }

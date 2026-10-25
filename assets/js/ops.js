@@ -316,7 +316,8 @@
     /* ------------------------------------------------------------------ */
     /* Faults                                                              */
     /* ------------------------------------------------------------------ */
-    function injectFault(d, type) {
+    // opts.port: the switch port to put in err-disabled (the tutorial picks the one of the player's server)
+    function injectFault(d, type, opts) {
       // err-disabled is a feature of managed switches: the simple ones never shut a port down
       if (d.kind === 'switch' && d.model && d.model.managed === false) return null;
       const types = Object.keys(FAULTS).filter((k) => faultFits(k, d));
@@ -330,7 +331,7 @@
       } else if (t === 'port') {
         const used = Array.from(d.sw.linked || []).filter((p) => p !== 'te1');
         if (!used.length) return null;
-        d.sw.bad = pick(used);
+        d.sw.bad = opts && used.indexOf(opts.port) >= 0 ? opts.port : pick(used);
         d.sw.fixed = false;
       } else FAULTS[t].apply(d);
       d.fault = { type: t, found: false, at: scene.t };

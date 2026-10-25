@@ -51,7 +51,7 @@
     const world = () => scene.world;
     const $ = (id) => document.getElementById(id);
     const el = { ov: $('infra'), root: $('infraRoot'), btn: $('infraBtn') };
-    const V = { vms: [], seq: 100, view: 'summary', sel: null, acc: 0, key: '', draft: null, msg: '', revenue: 0 };
+    const V = { vms: [], seq: 100, view: 'summary', sel: null, acc: 0, key: '', draft: null, msg: '', revenue: 0, focus: null, drawn: '', createViews: 0 };
 
     /* ---------------- specialisation rules ---------------- */
     const servers = () => ops.devices().filter((d) => d.kind === 'server');
@@ -91,6 +91,27 @@
 
     /* ---------------- virtualization ---------------- */
     const nodes = () => servers().filter((d) => svcOf(d) === 'virt');
+    const readyNodes = () => nodes().filter(up);
+    // why each server can't host VMs yet, and what fixes it: 'state' (bring it online) or 'svc' (set Virtualização)
+    function virtWhy() {
+      const n = SVC.virt.need;
+      return servers().filter((d) => !(svcOf(d) === 'virt' && up(d))).map((d) => {
+        const virt = svcOf(d) === 'virt', m = DL.hwOf(d);
+        const off = d.state === 'new' ? 'offline: sem cabo' : d.state !== 'online' ? 'offline: falta configurar no terminal' : !up(d) ? 'fora do ar: veja em Tarefas' : null;
+        let text = virt ? d.name + ' tem a função Virtualização, mas está ' + off
+          : off ? d.name + ' está ' + off + ' e sem a função Virtualização'
+          : d.name + ' está online, mas sem a função Virtualização';
+        if (!virt && (m.cores < n.cores || m.ram < n.ram)) text += ' (' + m.cores + ' núcleos · ' + DL.hwFmt.ram(m.ram) + '; o ideal é ' + n.cores + '+ e ' + DL.hwFmt.ram(n.ram) + '+)';
+        return { d, text, what: off ? 'state' : 'svc' };
+      });
+    }
+    // the reasons as links: each opens Servidores on that server, focused on what is missing
+    function whyList(compact) {
+      if (!servers().length) return compact ? '<p>Nenhum servidor instalado. Instale um num rack (B), deixe-o online e defina <b>Virtualização</b>.</p>'
+        : '<p class="px-note">Nenhum servidor instalado. Para criar VMs, instale um servidor num rack (Construir (B) → Equipamentos → Servidor), deixe-o online e defina a função <b>Virtualização</b>.</p>';
+      return (compact ? '<p>Nenhum nó de virtualização no ar:</p>' : '<p class="px-note">Nenhum servidor pronto para VMs. Um nó precisa estar <b>online</b> e ter a função <b>Virtualização</b>. Clique num servidor para resolver:</p>') +
+        '<ul class="px-why">' + virtWhy().map((x) => '<li><button type="button" class="linkbtn" data-px="goto" data-key="' + x.d.key + '" data-what="' + x.what + '">' + esc(x.text) + '</button></li>').join('') + '</ul>';
+    }
     const nodeByKey = (k) => ops.get(k);
     const nodeUp = (k) => { const d = nodeByKey(k); return !!d && svcOf(d) === 'virt' && up(d); };
     function capOf(d) {
@@ -242,14 +263,14 @@
         if (dc) { dc.svc = 'win'; if (needsOf(dc).length) dc.svc = 'net'; else DL.winPreset(dc); }
       }
     }
-    function reset() { V.vms = []; V.seq = 100; V.sel = null; V.view = 'summary'; V.ask = null; }
+    function reset() { V.vms = []; V.seq = 100; V.sel = null; V.view = 'summary'; V.ask = null; V.focus = null; }
 
     /* ================================================================== */
     /* UI                                                                  */
     /* ================================================================== */
     const isOpen = () => el.ov.classList.contains('is-open');
     function open(view, ref) {
-      if (view) V.view = view;
+      if (view) { V.view = view; V.focus = null; }
       if (ref !== undefined) V.sel = ref;
       el.ov.classList.add('is-open');
       game.keysReset && game.keysReset();
@@ -275,7 +296,7 @@
           h += '<button type="button" class="px-node px-node--l2' + (V.view === 'vm' && V.sel === v ? ' is-on' : '') + '" data-px="vm" data-vm="' + v.id + '"><i class="px-ico px-ico--vm ' + (STATUS[v.status] || STATUS.stopped)[1] + '"></i>' + v.id + ' (' + esc(v.name) + ')</button>';
         }
       }
-      if (!ns.length) h += '<p class="px-tree__empty">Nenhum nó. Defina um servidor como <b>Virtualização</b> na aba Servidores.</p>';
+      if (!ns.some(up)) h += '<div class="px-tree__empty">' + whyList(true) + '</div>';
       return h + '</nav>';
     }
 
@@ -322,9 +343,11 @@
       for (const d of srv) {
         const m = DL.hwOf(d), n = needsOf(d).concat(depsOf(d));
         const st = d.state !== 'online' ? (d.state === 'new' ? 'Sem cabo' : 'Configurar') : up(d) ? 'Online' : 'Fora do ar';
-        h += '<tr><td><b>' + esc(d.name) + '</b><small>' + esc(d.where || '') + '</small></td><td>' + esc(m.name) + '<small>' + m.cores + ' núcleos · ' + DL.hwFmt.ram(m.ram) + ' · ' + fmt1(m.diskTB || 0) + ' TB · ' + (m.nic || 1) + ' Gb/s</small></td>' +
-          '<td><span class="px-st ' + (up(d) ? 'is-run' : d.state === 'online' ? 'is-down' : 'is-off') + '">' + st + '</span></td>' +
-          '<td><select class="px-sel" data-svc="' + d.key + '" aria-label="Especialização do ' + esc(d.name) + '">' + SVC_ORDER.map((t) => '<option value="' + t + '"' + (svcOf(d) === t ? ' selected' : '') + '>' + SVC[t].name + '</option>').join('') + '</select><small>' + (winOs(d) && DL.winSummary ? esc(DL.winSummary(d)) : d.svc ? esc(SVC[svcOf(d)].service) : 'padrão (ainda não especializado)') + '</small></td>' +
+        // a server that is not up gets the action that brings it online (cabling or the terminal)
+        const fix = up(d) ? '' : '<button type="button" class="btn btn--sm px-mini px-stact" data-px="srvact" data-key="' + d.key + '" data-focus="act:' + d.key + '">' + (d.state === 'new' ? 'Ligar cabo' : 'Abrir terminal') + '</button>';
+        h += '<tr' + (V.focus && V.focus.key === d.key ? ' class="is-target"' : '') + '><td><b>' + esc(d.name) + '</b><small>' + esc(d.where || '') + '</small></td><td>' + esc(m.name) + '<small>' + m.cores + ' núcleos · ' + DL.hwFmt.ram(m.ram) + ' · ' + fmt1(m.diskTB || 0) + ' TB · ' + (m.nic || 1) + ' Gb/s</small></td>' +
+          '<td><span class="px-st ' + (up(d) ? 'is-run' : d.state === 'online' ? 'is-down' : 'is-off') + '">' + st + '</span>' + fix + '</td>' +
+          '<td><select class="px-sel" data-svc="' + d.key + '" data-focus="svc:' + d.key + '" aria-label="Especialização do ' + esc(d.name) + '">' + SVC_ORDER.map((t) => '<option value="' + t + '"' + (svcOf(d) === t ? ' selected' : '') + '>' + SVC[t].name + '</option>').join('') + '</select><small>' + (winOs(d) && DL.winSummary ? esc(DL.winSummary(d)) : d.svc ? esc(SVC[svcOf(d)].service) : 'padrão (ainda não especializado)') + '</small></td>' +
           '<td>' + (n.length ? '<ul class="px-needs">' + n.map((x) => '<li>' + esc(x) + '</li>').join('') + '</ul>' : '<span class="px-ok">✓ Atendidas</span>') + '</td>' +
           '<td class="mono">' + (up(d) ? '×' + fmt1(DL.svcFactor(d)) : '—') + '</td></tr>';
       }
@@ -380,7 +403,8 @@
 
     function viewCreate() {
       const ns = nodes();
-      if (!ns.length) return '<h3 class="px-h">Criar VM</h3><p class="px-note">Nenhum nó de virtualização. Vá em <button type="button" class="linkbtn" data-px="servers">Servidores</button> e defina um servidor online como <b>Virtualização</b>.</p>';
+      // the form only makes sense with a node that can run a VM now
+      if (!ns.some(up)) return '<h3 class="px-h">Criar VM</h3>' + whyList(false);
       const D = V.draft || (V.draft = { node: (ns.find(up) || ns[0]).key, name: 'vm-' + (V.seq + 1), svc: 'web', os: OS_LIST[0], cores: 2, ram: 4, disk: 32, start: true });
       if (!ns.some((d) => d.key === D.node)) D.node = ns[0].key;
       const d = nodeByKey(D.node), c = capOf(d), a = allocOf(d.key);
@@ -414,9 +438,22 @@
       else if (V.view === 'vm') body = viewVm(sel);
       else if (V.view === 'create') body = viewCreate();
       else body = viewSummary();
+      if (V.view === 'create') V.createViews++;
+      // live re-renders keep the scroll and the focused control (a server picked from the "Criar VM" list)
+      const was = V.drawn === V.view + ':' + (sel && (sel.key || sel.id)), pane = (q) => el.root.querySelector(q);
+      const keep = { body: was && pane('.px__body') ? pane('.px__body').scrollTop : 0, tree: pane('.px-tree') ? pane('.px-tree').scrollTop : 0, focus: was && el.root.contains(document.activeElement) ? document.activeElement.dataset.focus : null };
       el.root.innerHTML = '<header class="app__bar px__bar"><span class="px__logo"><i aria-hidden="true"></i>DataLab <b>VE</b><small>Virtual Environment</small></span>' +
         '<nav class="px__tabs" aria-label="Seções">' + tabs.map(([id, l]) => '<button type="button" data-px="' + id + '" class="' + (V.view === id || (id === 'vms' && V.view === 'vm') ? 'is-on' : '') + '">' + l + '</button>').join('') + '</nav>' +
         '<button class="cc__x" type="button" data-px="close" aria-label="Fechar">×</button></header><div class="px__main">' + tree() + '<section class="px__body">' + body + '</section></div>';
+      V.drawn = V.view + ':' + (sel && (sel.key || sel.id));
+      pane('.px__body').scrollTop = keep.body;
+      pane('.px-tree').scrollTop = keep.tree;
+      const f = V.focus && V.focus.fresh && V.view === 'servers' ? (V.focus.what === 'svc' ? 'svc:' : 'act:') + V.focus.key : keep.focus;
+      const target = f && pane('[data-focus="' + f + '"]');
+      if (target) {
+        target.focus({ preventScroll: true });
+        if (V.focus && V.focus.fresh) { V.focus.fresh = false; target.scrollIntoView({ block: 'center' }); }
+      }
       sparks();
     }
 
@@ -474,8 +511,15 @@
         render(true);
         return;
       }
+      if (p === 'srvact') {
+        const d = ops.get(b.dataset.key);
+        if (d) { close(); ops.openTerminal(d); }
+        return;
+      }
       V.msg = '';
-      if (p === 'node') { V.view = 'node'; V.sel = ops.get(b.dataset.key); }
+      V.focus = null;
+      if (p === 'goto') { V.view = 'servers'; V.focus = { key: b.dataset.key, what: b.dataset.what, fresh: true }; }
+      else if (p === 'node') { V.view = 'node'; V.sel = ops.get(b.dataset.key); }
       else if (p === 'vm') { V.view = 'vm'; V.sel = V.vms.find((x) => x.id === +b.dataset.vm); }
       else if (p === 'create') { V.view = 'create'; V.draft = null; if (b.dataset.key) { viewCreate(); V.draft.node = b.dataset.key; } }
       else V.view = p;
@@ -562,7 +606,10 @@
       update, open, close, key, seed, reset, createVm, act, needsOf, depsOf, provided, usageOf, capOf,
       get isOpen() { return isOpen(); },
       get vms() { return V.vms; },
-      nodes,
+      get view() { return V.view; },
+      // how many times "Criar VM" was shown (tutorial.js)
+      get createViews() { return V.createViews; },
+      nodes, readyNodes,
       // saves (services/save-service.js): put back the VMs of a loaded game
       restoreVms(list) {
         V.vms = (list || []).map((v) => Object.assign({ t: 0, up: v.status === 'running' ? 600 : 0, cpu: 0, mem: 0, h: hist(), created: game.clock() }, v));
