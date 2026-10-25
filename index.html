@@ -167,6 +167,9 @@
     }
     .box p { margin: 0 0 12px; }
     .box .dim { color: var(--steel-3); }
+    .devs { list-style: none; margin: 0 0 16px; padding: 0; display: grid; gap: 8px; }
+    .devs li { display: flex; align-items: center; gap: 10px; color: var(--green); }
+    .devs li::before { content: ''; width: 6px; height: 6px; background: var(--green); box-shadow: 0 0 0 2px var(--green-3); }
     .keys { display: grid; grid-template-columns: max-content 1fr; gap: 14px 20px; align-items: center; margin: 0 0 8px; }
     .keys div { display: contents; }
     .keys dt { display: flex; gap: 8px; }
@@ -648,7 +651,13 @@
   <dialog class="box" id="credits" aria-labelledby="credits-t">
     <h2 id="credits-t">CRÉDITOS</h2>
     <p>DataLab · v0.9 · acesso antecipado.</p>
-    <p>Jogo, código e pixel art: equipe DataLab.</p>
+    <p>Desenvolvido por:</p>
+    <ul class="devs">
+      <li>Pierre da Paz</li>
+      <li>Tiago Farias</li>
+      <li>João Pedro Medeiros</li>
+      <li>Abner Castro</li>
+    </ul>
     <p>Fontes: Press Start 2P (CodeMan38), Silkscreen (Jason Kottke) e VT323 (Peter Hull).</p>
     <p class="dim">Obrigado por testar!</p>
     <button class="ok" type="button"><span class="k">ENTER · FECHAR</span><span class="t">TOQUE PARA FECHAR</span><svg viewBox="0 0 5 3" shape-rendering="crispEdges" aria-hidden="true"><path fill="currentColor" d="M0 0h5v1H0zM1 1h3v1H1zM2 2h1v1H2z"/></svg></button>
@@ -657,6 +666,8 @@
   <div class="fade" aria-hidden="true"></div>
   <div class="crt" aria-hidden="true"></div>
 
+  <!-- the game's character sprites: the title's technician and the crew are drawn with them -->
+  <script src="assets/js/sprites.js"></script>
   <script>
   /* DataLab — title screen.
      The datacenter is painted into a tiny canvas (~200 art pixels tall) that the browser scales up by a whole
@@ -1112,136 +1123,13 @@
     }
 
     /* ================= the technician ================= */
-    const SKIN = { k: INK, h: '#3b2416', j: '#5e3b23', s: '#e7ad84', d: '#b9744d', c: '#2f5f8f', C: '#1f3f63', l: '#4f86bf', g: GREEN, w: '#d5ddeb', p: '#273046', P: '#171c2b', b: '#0f121b', n: '#3a4256' };
-    const HEAD = [
-      '.....kkkkk....',
-      '....kjjhhhk...',
-      '...kjhhhhhhk..',
-      '...khhhhhhhhk.',
-      '...khhhhhsssk.',
-      '...khhhdhsksk.',
-      '...khhhddsssk.',
-      '....khhhssdk..',
-      '.....kkssdk...',
-      '......kddk....',
-    ];
-    const TORSO = [
-      '....kCccccgk..',
-      '....kCCclcgk..',
-      '....kCCclcgk..',
-      '....kCCclcwk..',
-      '....kCCclcck..',
-      '....kCCclcck..',
-      '....kCCsscck..',
-    ];
-    const LEGS_STAND = [
-      '....kppssppk..',
-      '....kppppppk..',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kbnbbk...',
-      '.....kbbbbbk..',
-      '.....kkkkkkk..',
-    ];
-    const LEGS_STRIDE = [
-      '....kppssppk..',
-      '....kppppppk..',
-      '....kPpkkppk..',
-      '...kPpk.kppk..',
-      '...kPpk..kppk.',
-      '..kPpk...kppk.',
-      '..kPpk...kppk.',
-      '.kPpk.....kpk.',
-      '.kbnk.....kbnk',
-      'kbbbk.....kbbb',
-      'kkkkk.....kkkk',
-    ];
-    const LEGS_PASS = [
-      '....kppssppk..',
-      '....kppppppk..',
-      '.....kPpppk...',
-      '.....kPpppk...',
-      '.....kPppkk...',
-      '.....kPpkpk...',
-      '.....kPpkPk...',
-      '.....kPpkPk...',
-      '.....kbnkbk...',
-      '.....kbbbbbk..',
-      '.....kkkkkkk..',
-    ];
-    const BACK_HEAD = [
-      '.....kkkkk....',
-      '....kjjhhhk...',
-      '...kjhhhhhhk..',
-      '...khhhhhhhk..',
-      '...khhhhhhhk..',
-      '...kdhhhhhdk..',
-      '...kdhhhhhdk..',
-      '....khhhhhk...',
-      '.....kdddk....',
-      '......kdk.....',
-    ];
-    const BACK_TORSO_A = [
-      '...kCcccccCk..',
-      '..ksCcccccCk..',
-      '..ksCcccccCk..',
-      '..kkCcccccCk..',
-      '...kCcccccCk..',
-      '...kCcccccCk..',
-      '...kCCcccCCk..',
-    ];
-    const BACK_TORSO_B = [
-      '...kCcccccCk..',
-      '...kCcccccCsk.',
-      '...kCcccccCsk.',
-      '...kCcccccCkk.',
-      '...kCcccccCk..',
-      '...kCcccccCk..',
-      '...kCCcccCCk..',
-    ];
-    const BACK_LEGS = [
-      '....kppppppk..',
-      '....kppppppk..',
-      '....kPpkkpPk..',
-      '....kPpk.pPk..',
-      '....kPpk.pPk..',
-      '....kPpk.pPk..',
-      '....kPpk.pPk..',
-      '....kPpk.pPk..',
-      '....kbbk.bbk..',
-      '....kbbk.bbk..',
-      '....kkkk.kkk..',
-    ];
-
-    function sprite(rowsArr) {
-      const make = (flip) => {
-        const c = document.createElement('canvas');
-        c.width = 14; c.height = rowsArr.length;
-        const g = c.getContext('2d');
-        rowsArr.forEach((line, y) => {
-          for (let x = 0; x < line.length; x++) {
-            const col = SKIN[line[x]];
-            if (!col) continue;
-            g.fillStyle = col;
-            g.fillRect(flip ? 13 - x : x, y, 1, 1);
-          }
-        });
-        return c;
-      };
-      return { r: make(false), l: make(true) };
-    }
-    const SPR = {
-      stand: sprite([...HEAD, ...TORSO, ...LEGS_STAND]),
-      stride: sprite([...HEAD, ...TORSO, ...LEGS_STRIDE]),
-      pass: sprite([...HEAD, ...TORSO, ...LEGS_PASS]),
-      backA: sprite([...BACK_HEAD, ...BACK_TORSO_A, ...BACK_LEGS]),
-      backB: sprite([...BACK_HEAD, ...BACK_TORSO_B, ...BACK_LEGS]),
+    // the game's own character (DL.makeSheet / DL.makeActSheet in assets/js/sprites.js)
+    const C_TEC = '#5eead4';   // the "Técnico de TI" role colour (crew.js)
+    const LOOK = {
+      body: 'm', skin: '#e0ac7e', hair: '#5a3a25', hairStyle: 'short', outfit: 'uniform', shirt: '#2f3a4d', pants: '#232a36', shoes: '#16181d',
+      role: 'tecnico', roleColor: C_TEC, badge: C_TEC, lanyard: C_TEC, capColor: C_TEC,
     };
-    const WALK = [SPR.stride, SPR.pass, SPR.stride, SPR.pass];
+    const SHEET = DL.makeSheet(LOOK), ACT = DL.makeActSheet(LOOK), { AX, AY } = DL.CHAR;
 
     const tech = { X: 0, z: 1, feet: 0, dir: 1, act: 'walk', wait: 0, anim: 0, wp: 0, path: [], placed: false };
 
@@ -1276,13 +1164,16 @@
 
     function paintTech(cam) {
       const sx = Math.round(cx + (tech.X - cam) / tech.z);
-      let spr = SPR.stand, bob = 0;
-      if (tech.act === 'walk') { const f = Math.floor(tech.anim * 7) % 4; spr = WALK[f]; bob = f % 2 ? -1 : 0; }
-      else if (tech.act === 'fix') spr = Math.floor(tech.anim * 3) % 2 ? SPR.backB : SPR.backA;
-      ctx.fillStyle = 'rgba(5, 7, 13, .55)';
-      ctx.fillRect(sx - 5, tech.feet, 11, 1);
-      ctx.fillRect(sx - 3, tech.feet + 1, 7, 1);
-      ctx.drawImage(tech.dir < 0 ? spr.l : spr.r, sx - 7, tech.feet - 27 + bob);
+      // walking: side view · fixing: back to the camera, hands going to the rack · standing: facing us, blinking
+      let frame;
+      if (tech.act === 'walk') frame = SHEET[tech.dir < 0 ? 'left' : 'right'].walk[Math.floor(tech.anim * 8) % 4];
+      else if (tech.act === 'fix') frame = Math.floor(tech.anim * 3) % 2 ? ACT.up.reach : SHEET.up.idle;
+      else frame = tech.anim % 3 > 2.85 ? SHEET.down.blink : SHEET.down.idle;
+      ctx.fillStyle = 'rgba(5, 7, 13, .55)';   // the shadow of DL.drawActor
+      ctx.fillRect(sx - 4, tech.feet - 2, 8, 1);
+      ctx.fillRect(sx - 5, tech.feet - 1, 10, 1);
+      ctx.fillRect(sx - 4, tech.feet, 8, 1);
+      ctx.drawImage(frame, sx - AX, tech.feet - AY);
     }
 
     /* ================= loop ================= */
@@ -1584,9 +1475,9 @@
       watch(term, (v) => { seen = v; });
     }
 
-    // the crew: the game's own characters (DL.makeSheet in assets/js/sprites.js, loaded when the section
-    // comes near), one look per role made from the game's creator options (crew.js). They blink and glance
-    // around; hovering a card makes its owner walk.
+    // the crew: the game's own characters (DL.makeSheet in assets/js/sprites.js), one look per role made
+    // from the game's creator options (crew.js). They blink and glance around; hovering a card makes its
+    // owner walk.
     const ROLE_COLOR = { redes: '#a0c3ec', servidores: '#ffc285', sysadmin: '#c4b5fd', tecnico: '#5eead4', seguranca: '#ff7a17', funcionario: '#dadbdf', gerente: '#7ee0a1', atendente: '#f9a8d4' };
     const LOOKS = {
       redes: { body: 'f', skin: '#c98e66', hair: '#0f0b0a', hairStyle: 'ponytail', outfit: 'uniform', shirt: '#2f3a4d', pants: '#232a36', headset: true },
@@ -1601,7 +1492,7 @@
     const crewList = document.querySelector('.crew');
     const mates = [];
     function paintMate(m, t) {
-      const { AX, AY } = window.DL.CHAR;
+      const { AX, AY } = DL.CHAR;
       let set = m.sheet[m.dir], frame = set.idle;
       if (m.walk && !still) { set = m.sheet.down; frame = set.walk[Math.floor(t * 8) % 4]; }
       else if (!still) {
@@ -1624,21 +1515,14 @@
         const role = el.dataset.role, c = ROLE_COLOR[role], p = LOOKS[role];
         // the fields DL.crewLook (crew.js) hands to the sprite builder
         const look = Object.assign({ shoes: '#16181d', role, roleColor: c, badge: c, lanyard: c, capColor: c }, p);
-        const m = { g: el.querySelector('canvas').getContext('2d'), sheet: window.DL.makeSheet(look), dir: 'down', walk: false, next: 1 + Math.random() * 3, phase: Math.random() * 3.7 };
+        const m = { g: el.querySelector('canvas').getContext('2d'), sheet: DL.makeSheet(look), dir: 'down', walk: false, next: 1 + Math.random() * 3, phase: Math.random() * 3.7 };
         el.addEventListener('pointerenter', () => { m.walk = true; });
         el.addEventListener('pointerleave', () => { m.walk = false; });
         mates.push(m);
         paintMate(m, 0);
       });
     }
-    watch(crewList, (near) => {
-      if (!near || document.getElementById('spritesJs')) return;
-      const s = document.createElement('script');
-      s.id = 'spritesJs';
-      s.src = 'assets/js/sprites.js';
-      s.onload = startCrew;
-      document.body.appendChild(s);
-    }, '600px 0px');
+    startCrew();
     if (!still) {
       let crewTimer = 0, crewT = 0;
       watch(crewList, (v) => {
