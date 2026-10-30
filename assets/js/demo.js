@@ -38,7 +38,7 @@
     return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   };
   const fmtPower = (e) => (e.tel.unit === 'W' ? Math.round(e.power) : e.power.toFixed(e.power < 10 ? 2 : 1)) + '<small>' + e.tel.unit + '</small>';
-  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account', 'mpDialog', 'welcome'].some((id) => $(id).classList.contains('is-open'));
+  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account', 'mpDialog', 'welcome', 'feedback'].some((id) => $(id).classList.contains('is-open'));
   const canMove = () => S.phase !== 'intro' && !isOverlayOpen() && S.mode === 'explore';
 
   /* ---------------- toasts ---------------- */

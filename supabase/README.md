@@ -44,8 +44,9 @@ services/admin-service ┘                       ▼
 | `migrations/20261025000200_titles.sql` | `user_titles` (títulos do jogador: Fundador, Beta Tester, VIP…), concedidos por admin/dev |
 | `migrations/20261025000600_problems.sql` | problemas de carreira: `career_ranks`, `command_help`, `scenario_lessons`, `problems`, `scenario_steps`, `scenario_step_help` (catálogo), `problem_runs` (por save), `game_saves.career_xp/career_level`, `private.career_settle` e `private.game_save_career` |
 | `migrations/20261025000700_problem_devices.sql` | problemas em mais de um equipamento: `problems.devices` (ex.: `{"sw": "switch.of"}`), `problems.bot_action`, `scenario_steps.device_role` |
+| `migrations/20261030000400_feedback.sql` | comunidade: `ideas` + `idea_likes` (ideias e likes; as mais curtidas entram na próxima atualização), `bug_reports` + `private.bug_screenshots` (relato + print até 1 MB), funções `private.idea_*` / `private.bug_*` |
 | `seed_scenarios.sql` | lições do terminal, problemas, passos, ajudas e patentes (gerado de `assets/js/problems-data.js` + `terminal.js`) |
-| `functions/{shop,inventory,economy,game,admin,payments,payments-webhook}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
+| `functions/{shop,inventory,economy,game,admin,payments,payments-webhook,feedback}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |
 | `scripts/build-scenarios.mjs` | regera o `seed_scenarios.sql` direto dos arquivos do jogo (sem navegador) |
 | `scripts/build-full.mjs` | regera o `datalab_full.sql`: migrations da 1ª versão (20261005…), `seed.sql`, as migrations seguintes (algumas precisam das linhas do seed) e `seed_scenarios.sql` |
@@ -71,7 +72,7 @@ services/admin-service ┘                       ▼
 4. **Edge Functions**:
    ```bash
    supabase secrets set ALLOWED_ORIGINS="https://seu-site,http://localhost:5500"
-   supabase functions deploy shop inventory economy game admin
+   supabase functions deploy shop inventory economy game admin feedback
    ```
    `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_DB_URL` já existem no ambiente das funções e não precisam ser cadastradas.
 5. **Navegador**: em *Project Settings → API*, copie a *Project URL* e a ***publishable key*** (anon) para `assets/js/supabase/config.js`:

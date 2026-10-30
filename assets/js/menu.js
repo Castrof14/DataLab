@@ -183,6 +183,12 @@
         '<div class="mv-empty__actions"><button class="btn btn--primary" type="button" data-act="new">Jogar solo <span class="arrow">→</span></button><button class="btn" type="button" data-go="menu">Voltar</button></div></div>';
     },
 
+    // community ideas (likes) and bug reports (feedback.js); it mounts itself and talks to the server
+    feedback() {
+      if (DL.Feedback) return DL.Feedback.html(head);
+      return head('Comunidade', 'Ideias e bugs') + '<div class="mv-empty"><p>Indisponível nesta página.</p></div>';
+    },
+
     // the game's real shop and inventory (inventory.js), mounted here; purchases persist
     shop() {
       return head('Skins, roupas, eventos e bots lendários · em Gold', 'Loja') + '<p class="mv-note">Simulação de pagamento — nenhuma cobrança real. Os itens vão para o seu inventário e já valem no jogo.</p><div class="st st--menu" data-store-mount="shop"></div>';

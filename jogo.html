@@ -30,6 +30,7 @@
   <link rel="stylesheet" href="assets/css/spotify.css">
   <link rel="stylesheet" href="assets/css/multiplayer.css">
   <link rel="stylesheet" href="assets/css/welcome.css">
+  <link rel="stylesheet" href="assets/css/feedback.css">
   <!-- The CSP <meta> above turns off Chrome's preload scanner, so the scripts at the end of <body> would
        download one after another (~45 round trips). Listing them here fetches them all at once; they
        still run in the same order. Keep this list in step with the <script> tags below. -->
@@ -82,11 +83,13 @@
   <link rel="preload" href="assets/js/services/payment-service.js" as="script">
   <link rel="preload" href="assets/js/services/admin-service.js" as="script">
   <link rel="preload" href="assets/js/services/spotify-service.js" as="script">
+  <link rel="preload" href="assets/js/services/feedback-service.js" as="script">
   <link rel="preload" href="assets/js/auth-gate.js" as="script">
   <link rel="preload" href="assets/js/demo.js" as="script">
   <link rel="preload" href="assets/js/menu.js" as="script">
   <link rel="preload" href="assets/js/cloud-sync.js" as="script">
   <link rel="preload" href="assets/js/account.js" as="script">
+  <link rel="preload" href="assets/js/feedback.js" as="script">
   <link rel="preload" href="assets/js/spotify-player.js" as="script">
   <link rel="preload" href="assets/js/services/net-service.js" as="script">
   <link rel="preload" href="assets/js/multiplayer.js" as="script">
@@ -207,6 +210,7 @@
             <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
             <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
             <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
+            <button class="btn btn--sm" id="fbBtn" type="button" title="Relatar um bug (com print da tela) ou mandar uma ideia para o jogo">Relatar bug</button>
             <button class="btn btn--sm" id="mpOpenBtn" type="button" title="Transformar este datacenter numa sala: quem tiver o código entra e joga junto" hidden>Abrir sala</button>
             <button class="btn btn--sm" id="saveBtn" type="button" title="Salvar o jogo na sua conta (Ctrl+S)" data-keep>Salvar</button>
             <button class="btn btn--sm" id="menuBtn" type="button" title="Salvar e voltar ao Menu Principal" data-keep>Menu</button>
@@ -566,6 +570,16 @@
         <div class="mon__body" id="monBody"></div>
       </div>
     </div>
+    <!-- Ideias e bugs in game (feedback.js): opens on the bug form with a print of the scene attached -->
+    <div class="overlay overlay--fb" id="feedback" role="dialog" aria-modal="true" aria-labelledby="fbTitle">
+      <div class="card card--modal fb-card">
+        <header class="fb-card__head">
+          <div><p class="eyebrow-sm">Comunidade · sua voz no jogo</p><h2 class="card__title" id="fbTitle">Ideias e bugs</h2></div>
+          <button class="cc__x" id="fbClose" type="button" aria-label="Fechar">×</button>
+        </header>
+        <div class="fb" id="fbBody"></div>
+      </div>
+    </div>
     <section class="title" id="title" hidden data-screen="title" aria-label="DataLab — menu principal">
       <div class="title__bg" aria-hidden="true">
         <div class="title__grid"></div>
@@ -630,6 +644,10 @@
           <button class="mm-btn" type="button" data-go="online" style="--i:3">
             <span class="mm-btn__icon mm-btn__icon--globe" aria-hidden="true"></span>
             <span class="mm-btn__text"><b>Jogar On-Line</b><small>Crie uma sala ou entre com um código</small></span>
+          </button>
+          <button class="mm-btn" type="button" data-go="feedback" style="--i:4">
+            <span class="mm-btn__icon mm-btn__icon--idea" aria-hidden="true"></span>
+            <span class="mm-btn__text"><b>Ideias e Bugs</b><small>Vote no que entra na próxima atualização</small></span>
           </button>
         </nav>
 
@@ -720,11 +738,13 @@
   <script src="assets/js/services/payment-service.js"></script>
   <script src="assets/js/services/admin-service.js"></script>
   <script src="assets/js/services/spotify-service.js"></script>
+  <script src="assets/js/services/feedback-service.js"></script>
   <script src="assets/js/auth-gate.js"></script>
   <script src="assets/js/demo.js"></script>
   <script src="assets/js/menu.js"></script>
   <script src="assets/js/cloud-sync.js"></script>
   <script src="assets/js/account.js"></script>
+  <script src="assets/js/feedback.js"></script>
   <script src="assets/js/spotify-player.js"></script>
   <!-- multiplayer: the host's browser is the room (WebRTC, handshake over Supabase Realtime); nothing to install -->
   <script src="assets/js/services/net-service.js"></script>
