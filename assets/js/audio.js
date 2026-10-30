@@ -1,13 +1,14 @@
-/* DataLab — sound: chiptune-style effects synthesized with WebAudio (no audio files, nothing to download)
-   plus a soft server-room hum that grows with the number of machines online.
+/* DataLab — sound: chiptune-style effects synthesized with WebAudio (no audio files, nothing to download),
+   footsteps, a soft server-room hum that grows with the number of machines online, and the fans of the
+   racks around the player: louder up close, fading as they walk away, coming from the rack's side.
    DL.audio.play(name) is what game.sfx(name) calls; the volumes come from Configurações (demo.js). */
 (function () {
   'use strict';
   const DL = (window.DL = window.DL || {});
   const AC = window.AudioContext || window.webkitAudioContext;
 
-  let ctx = null, fx = null, amb = null, noiseBuf = null;
-  let fxVol = 0.6, ambVol = 0.3, humLevel = 0;
+  let ctx = null, fx = null, amb = null, near = null, nearPan = null, noiseBuf = null, dest = null;
+  let fxVol = 0.6, ambVol = 0.3, humLevel = 0, nearLevel = 0;
   const last = {};
   let lastHard = 0;
 
@@ -27,6 +28,7 @@
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
     startHum(comp);
+    startNear(comp);
   }
   addEventListener('pointerdown', unlock, true);
   addEventListener('keydown', unlock, true);
@@ -50,7 +52,7 @@
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(v, t + (o.attack || 0.005));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    osc.connect(g).connect(fx);
+    osc.connect(g).connect(dest || fx);
     osc.start(t);
     osc.stop(t + dur + 0.02);
   }
@@ -64,7 +66,7 @@
     f.frequency.value = o.freq || 1200;
     g.gain.setValueAtTime(o.vol || 0.15, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    src.connect(f).connect(g).connect(fx);
+    src.connect(f).connect(g).connect(dest || fx);
     src.start(t, Math.random() * 0.5);
     src.stop(t + dur + 0.02);
   }
@@ -96,20 +98,37 @@
     // incidents and tickets
     alert: (t) => notes(t, [880, 660, 880, 660], 0.11, 0.1, { vol: 0.16 }),
     ping: (t) => tone(t, 1319, 0.3, { type: 'sine', vol: 0.16 }),
-    // the player walking
-    foot: (t) => noise(t, 0.035, { freq: 380 + Math.random() * 160, rate: 0.6, vol: 0.06 }),
+    // footsteps: a low heel thump and a short scuff on the floor, a little different every time
+    foot: (t) => {
+      const k = 0.9 + Math.random() * 0.2;
+      tone(t, 110 * k, 0.06, { type: 'sine', to: 55, vol: 0.22 });
+      noise(t + 0.005, 0.045, { filter: 'bandpass', freq: 1800 * k, rate: 0.8, vol: 0.09 });
+    },
   };
   // soft sounds (toasts, coins) step aside when a main sound plays at the same moment: an alert already
   // says "warning", the toast that comes with it stays quiet. light ones (click, steps) never collide.
   const SOFT = { tick: 1, ok: 1, warn: 1, coin: 1 };
   const LIGHT = { click: 1, foot: 1 };
 
-  function play(name) {
+  // o (optional): { vol: 0…1, pan: -1 left … 1 right, key } — a sound placed in the room, like a
+  // coworker's footsteps. key keeps the 60 ms repeat guard per source instead of per sound.
+  function play(name, o) {
     const fn = BANK[name];
     if (!ctx || !fn || fxVol <= 0 || ctx.state !== 'running') return;
-    const now = performance.now();
-    if (now - (last[name] || 0) < 60) return;
-    last[name] = now;
+    const now = performance.now(), id = name + (o && o.key ? o.key : '');
+    if (now - (last[id] || 0) < 60) return;
+    last[id] = now;
+    if (o) {
+      const g = ctx.createGain(), p = ctx.createStereoPanner();
+      g.gain.value = o.vol == null ? 1 : o.vol;
+      p.pan.value = o.pan || 0;
+      g.connect(p).connect(fx);
+      dest = g;
+      fn(ctx.currentTime);
+      dest = null;
+      setTimeout(() => g.disconnect(), 1500);
+      return;
+    }
     if (SOFT[name]) {
       if (now - lastHard < 200) return;
       setTimeout(() => { if (performance.now() - lastHard >= 200) fn(ctx.currentTime); }, 70);
@@ -149,6 +168,38 @@
   }
   function applyHum() {
     if (amb) amb.gain.setTargetAtTime(curve(ambVol) * 0.4 * humLevel, ctx.currentTime, 0.8);
+    if (near) near.gain.setTargetAtTime(ambVol * 0.45 * nearLevel, ctx.currentTime, 0.25);
+  }
+
+  /* ---------------- racks near the player ---------------- */
+  // a brighter fan whoosh with a faint whine on top, panned toward the racks
+  function startNear(out) {
+    near = ctx.createGain();
+    near.gain.value = 0;
+    nearPan = ctx.createStereoPanner();
+    near.connect(nearPan).connect(out);
+    const src = ctx.createBufferSource();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    src.playbackRate.value = 0.93;
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 900;
+    bp.Q.value = 0.8;
+    src.connect(bp).connect(near);
+    src.start();
+    // the fans breathe a little: a slow wobble on the whoosh
+    const lfo = ctx.createOscillator(), lg = ctx.createGain();
+    lfo.frequency.value = 0.35;
+    lg.gain.value = 120;
+    lfo.connect(lg).connect(bp.frequency);
+    lfo.start();
+    const whine = ctx.createOscillator(), wg = ctx.createGain();
+    whine.type = 'triangle';
+    whine.frequency.value = 2400;
+    wg.gain.value = 0.012;
+    whine.connect(wg).connect(near);
+    whine.start();
   }
 
   DL.audio = {
@@ -165,6 +216,14 @@
       level = Math.max(0, Math.min(1, level));
       if (Math.abs(level - humLevel) < 0.01) return;
       humLevel = level;
+      applyHum();
+    },
+    // the racks around the listener: 0 = none in earshot, 1 = right next to a busy one; pan -1…1
+    near(level, pan) {
+      level = Math.max(0, Math.min(1, level));
+      if (nearPan) nearPan.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan || 0)), ctx.currentTime, 0.2);
+      if (Math.abs(level - nearLevel) < 0.005) return;
+      nearLevel = level;
       applyHum();
     },
   };
