@@ -99,8 +99,8 @@
   crew = DL.createCrew(G);
   const terminal = DL.createTerminal(G);
   DL.devHooks = { terminal }; // DEV-AUTOPLAY: o botão Auto (assets/js/dev/dev-autoplay.js) usa este console
-  // DEV-AUTOPLAY: carrega o botão Auto em desenvolvimento (localhost / file:// ou ?dev=1, lembrado; ?dev=0 desliga). Fica aqui e não inline no jogo.html por causa da CSP (script-src 'self'); o arquivo não vai para o deploy (.vercelignore)
-  (function () { const q = /[?&]dev=([01])(&|$)/.exec(location.search); let on = q ? q[1] === '1' : location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname); try { if (q) localStorage.setItem('datalab.dev', q[1]); const f = localStorage.getItem('datalab.dev'); if (!q && f) on = f === '1'; } catch (e) { /* storage blocked: the URL / host decide */ } if (on && !/[?&]hero/.test(location.search)) document.body.appendChild(Object.assign(document.createElement('script'), { src: 'assets/js/dev/dev-autoplay.js' })); })(); // DEV-AUTOPLAY
+  // DEV-AUTOPLAY: carrega o botão Auto para todos (?dev=0 desliga, lembrado; ?dev=1 religa). Fica aqui e não inline no jogo.html por causa da CSP (script-src 'self')
+  (function () { const q = /[?&]dev=([01])(&|$)/.exec(location.search); let on = q ? q[1] === '1' : true; try { if (q) localStorage.setItem('datalab.dev', q[1]); const f = localStorage.getItem('datalab.dev'); if (!q && f) on = f === '1'; } catch (e) { /* storage blocked: the URL / host decide */ } if (on && !/[?&]hero/.test(location.search)) document.body.appendChild(Object.assign(document.createElement('script'), { src: 'assets/js/dev/dev-autoplay.js' })); })(); // DEV-AUTOPLAY
   const opsSys = { terminal, crew };
   const ops = DL.createOps(G, opsSys);
   G.ops = ops;
@@ -118,6 +118,9 @@
   // the player's level: one mission per level; bots work alone only below it (career.js)
   const career = DL.createCareer(G, { ops, crew });
   G.career = career;
+  // career problems: sorted out over time for the player's rank, solved for XP (problems.js)
+  const problems = DL.createProblems(G, { ops, terminal, cabling, career, crew });
+  G.problems = problems;
   const talk = DL.createTalk(G, { crew, ops, economy, cabling });
   const roles = DL.createRoles(G, { crew });
   // H / L open the apps only when nothing else is on screen
@@ -1091,6 +1094,7 @@
     monitor.update(dt);
     tutorial.update(dt);
     if (S.phase !== 'intro') career.update(dt);
+    if (S.phase !== 'intro') problems.update(dt);
     if (S.panel && Math.hypot(S.panel.ix - player.x, S.panel.iy - player.y) > 44) closePanel();
     const c = clockAt(S.time);
     if (c !== lastClock) { lastClock = c; $('clock').textContent = c; }
@@ -1125,6 +1129,7 @@
     // from scratch: a small budget and the starter kit; ready-made environments are already operating
     economy.start(preset);
     career.start();
+    problems.reset();
     // presets come with a team already on its routine
     for (const role of DL.PRESETS[preset].crew || []) {
       const p = crew.api.randomProfile();
@@ -1170,7 +1175,7 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, problems, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
     // fast-forward the simulation (game minutes) without drawing — for automated checks
     step,
     advance(sec, dt) { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) { step(dt); scene.update(dt); } },

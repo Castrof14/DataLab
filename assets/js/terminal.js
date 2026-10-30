@@ -25,12 +25,25 @@
     du: { cmd: 'du -sh <pasta>', ex: 'du -sh /var/log', what: 'Mostra quanto espaço uma pasta ocupa no total.', when: 'Para descobrir o que está enchendo o disco.' },
     'journalctl-vacuum': { cmd: 'sudo journalctl --vacuum-size=<tamanho>', ex: 'sudo journalctl --vacuum-size=200M', what: 'Apaga os logs antigos do systemd até sobrar o tamanho indicado.', when: 'Quando os logs estão lotando o disco.' },
     hostnamectl: { cmd: 'sudo hostnamectl set-hostname <nome>', ex: 'sudo hostnamectl set-hostname srv-01', what: 'Define o nome da máquina.', when: 'Na configuração inicial, para identificar o servidor na rede.' },
+    hostname: { cmd: 'hostname', ex: 'hostname', what: 'Mostra o nome da máquina.', when: 'Para confirmar em qual servidor você está antes de mexer em algo.' },
+    whoami: { cmd: 'whoami', ex: 'whoami', what: 'Mostra com qual usuário você está logado (com sudo, root).', when: 'Ao entrar num servidor, para saber que permissões você tem.' },
+    uname: { cmd: 'uname -a', ex: 'uname -a', what: 'Mostra o sistema operacional, o nome da máquina e a versão do kernel.', when: 'Para documentar o servidor ou conferir a versão antes de uma atualização.' },
+    uptime: { cmd: 'uptime', ex: 'uptime', what: 'Mostra há quanto tempo o servidor está ligado e a carga média (load average).', when: 'Para saber se o servidor reiniciou ou está sobrecarregado.' },
     enable: { cmd: 'enable', ex: 'enable', what: 'No switch, entra no modo privilegiado (o prompt muda de > para #).', when: 'Antes de qualquer comando de diagnóstico ou configuração no switch.' },
     'show-int': { cmd: 'show interfaces status', ex: 'show interfaces status', what: 'Lista as portas do switch e o estado de cada uma (connected, notconnect, err-disabled). Abreviação: sh int status.', when: 'Para achar a porta com problema.' },
     'conf-t': { cmd: 'configure terminal', ex: 'conf t', what: 'Entra no modo de configuração global do switch.', when: 'Antes de mudar qualquer configuração.' },
     interface: { cmd: 'interface <porta>', ex: 'interface gi0/3', what: 'Seleciona uma porta para configurar (prompt vira config-if).', when: 'Depois do conf t, para mexer em uma porta específica.' },
     shutdown: { cmd: 'shutdown', ex: 'shutdown', what: 'Desativa administrativamente a porta selecionada (o status vira disabled). Numa porta err-disabled, é o primeiro passo para "zerar" o estado de erro.', when: 'Em config-if da porta com problema (interface <porta>), quando ela está err-disabled e a causa já foi resolvida.' },
     'no-shutdown': { cmd: 'no shutdown', ex: 'no shutdown', what: 'Reativa a porta. Depois do shutdown, tira a porta do err-disabled e ela volta a conectar (status connected).', when: 'Logo depois do shutdown, ainda em config-if da mesma porta.' },
+    lscpu: { cmd: 'lscpu', ex: 'lscpu', what: 'Mostra o processador: modelo, quantos soquetes, núcleos (cores) e threads.', when: 'Para documentar o hardware ou saber se o servidor aguenta mais carga.' },
+    free: { cmd: 'free -h', ex: 'free -h', what: 'Mostra a memória RAM: total, usada e livre, em unidades legíveis (GB).', when: 'Para documentar o servidor ou quando ele está lento.' },
+    tail: { cmd: 'tail -n <linhas> <arquivo>', ex: 'tail -n 20 /var/log/auth.log', what: 'Mostra as últimas linhas de um arquivo (10, se você não disser quantas). Os logs ficam em /var/log.', when: 'Para ver o que aconteceu por último num log: logins, erros, reinícios.' },
+    grep: { cmd: 'grep "<texto>" <arquivo>', ex: 'grep "Failed password" /var/log/auth.log', what: 'Mostra só as linhas que contêm o texto. -i ignora maiúsculas, -c conta as linhas. Também filtra a saída de outro comando: tail /var/log/auth.log | grep Failed.', when: 'Para achar o que interessa num log grande.' },
+    ss: { cmd: 'sudo ss -tlnp', ex: 'sudo ss -tlnp', what: 'Lista as portas TCP em escuta: -t TCP, -l escutando, -n em números, -p o processo de cada porta (precisa de sudo). netstat -tlnp mostra o mesmo.', when: 'Para saber em que porta um serviço atende, ou se ele está mesmo escutando.' },
+    'show-run': { cmd: 'show running-config', ex: 'show running-config', what: 'Mostra a configuração em uso agora, na memória do switch (abreviação: sh run). Ela se perde se o switch reiniciar sem salvar.', when: 'Antes e depois de mudar qualquer coisa no switch.' },
+    'show-start': { cmd: 'show startup-config', ex: 'show startup-config', what: 'Mostra a configuração salva: a que o switch carrega quando liga (abreviação: sh start).', when: 'Para conferir se o que está em uso já foi salvo.' },
+    'copy-run-start': { cmd: 'copy running-config startup-config', ex: 'copy running-config startup-config', what: 'Salva a configuração em uso como a de inicialização (abreviação: copy run start; write memory faz o mesmo).', when: 'Sempre que terminar uma mudança no switch: sem isso, um reinício desfaz tudo.' },
+    responder: { cmd: 'responder <valor>', ex: 'responder 10.0.1.25', what: 'Responde a pergunta do passo atual (um IP, uma porta, um número). O campo no painel ao lado faz o mesmo.', when: 'Quando o passo é uma pergunta: rode o comando que mostra a informação, leia a saída e responda.' },
     cabling: { cmd: 'Cabeamento do rack', ex: 'Tarefas → Cabeamento  (ou o botão abaixo)', what: 'Mostra os cabos do rack: azul = ligado e correto, amarelo = incompleto, vermelho = conexão errada, laranja = cabo solto.', when: 'Quando ip link mostra NO-CARRIER: não é configuração, é a camada física (cabo).' },
     end: { cmd: 'end', ex: 'end', what: 'Sai do modo de configuração e volta ao modo privilegiado (#).', when: 'Ao terminar de configurar, para voltar a usar comandos show.' },
   };
@@ -38,78 +51,10 @@
 
   /* ------------------------------------------------------------------ */
   /* Lessons: steps are checked against device state + what was run      */
+  /* (built from problems-data.js by problems.js; winserver.js adds the  */
+  /* Windows ones). Each entry: (device) → { title, goal, steps }.       */
   /* ------------------------------------------------------------------ */
-  const eth = (d) => d.os.ifaces.eth0;
-  const LESSONS = {
-    setup: (d) => ({
-      title: 'Configurar ' + d.name,
-      goal: 'Servidor novo, cabo conectado. Coloque-o na rede com o IP ' + d.ip + '/24 e teste a conexão com o gateway 10.0.1.1.',
-      steps: [
-        { text: 'Veja as interfaces de rede do servidor.', help: ['ip-addr'], done: (d, ran) => ran.has('ip-show') || ran.has('link-show') },
-        { text: 'A eth0 está DOWN. Ligue a interface.', help: ['ip-link-up', 'sudo'], done: (d) => eth(d).up },
-        { text: 'Atribua o IP ' + d.ip + '/24 à eth0.', help: ['ip-addr-add'], cmd: 'sudo ip addr add ' + d.ip + '/24 dev eth0', done: (d) => eth(d).ips.indexOf(d.ip + '/24') >= 0 },
-        { text: 'Crie a rota padrão pelo gateway 10.0.1.1.', help: ['ip-route-add', 'ip-route'], done: (d) => d.os.route === '10.0.1.1' },
-        { text: 'Teste a conexão com o gateway.', help: ['ping'], done: (d, ran) => ran.has('ping-ok:10.0.1.1') },
-      ],
-    }),
-    cable: (d) => ({
-      title: 'Falha de conexão · ' + d.name,
-      goal: d.name + ' sumiu da rede e o monitor marcou o host como indisponível. Descubra se é configuração ou camada física.',
-      steps: [
-        { text: 'Veja o estado do link da eth0.', help: ['ip-link', 'ip-addr'], done: (d, ran) => ran.has('ip-show') || ran.has('link-show') },
-        { text: 'NO-CARRIER = sem sinal no cabo. Reconecte o cabo no rack.', help: ['cabling'], action: 'cabling', done: (d) => d.os.cable },
-        { text: 'Teste a conexão com o gateway 10.0.1.1.', help: ['ping'], done: (d, ran) => ran.has('ping-ok:10.0.1.1') },
-      ],
-    }),
-    link: (d) => ({
-      title: 'Falha de conexão · ' + d.name,
-      goal: d.name + ' parou de responder na rede. Descubra o motivo, corrija e teste.',
-      steps: [
-        { text: 'Veja o estado das interfaces.', help: ['ip-link', 'ip-addr'], done: (d, ran) => ran.has('ip-show') || ran.has('link-show') },
-        { text: 'A eth0 caiu (DOWN). Ligue a interface de novo.', help: ['ip-link-up', 'sudo'], done: (d) => eth(d).up },
-        { text: 'Teste a conexão com o gateway 10.0.1.1.', help: ['ping'], done: (d, ran) => ran.has('ping-ok:10.0.1.1') },
-      ],
-    }),
-    service: (d) => ({
-      title: 'Serviço parado · ' + d.name,
-      goal: 'O site hospedado no ' + d.name + ' não responde. Verifique o serviço web (nginx).',
-      steps: [
-        { text: 'Veja o estado do serviço nginx.', help: ['systemctl-status'], done: (d, ran) => ran.has('status:nginx') },
-        { text: 'O nginx está "failed". Reinicie o serviço.', help: ['systemctl-restart', 'sudo'], done: (d) => d.os.services.nginx === 'active' },
-        { text: 'Confirme que o site responde.', help: ['curl'], done: (d, ran) => ran.has('curl-ok') },
-      ],
-    }),
-    disk: (d) => ({
-      title: 'Disco cheio · ' + d.name,
-      goal: 'O disco do ' + d.name + ' está quase lotado. Encontre o culpado e libere espaço.',
-      steps: [
-        { text: 'Veja o uso dos discos.', help: ['df'], done: (d, ran) => ran.has('df') },
-        { text: 'Descubra quanto ocupa a pasta de logs /var/log.', help: ['du'], done: (d, ran) => ran.has('du:/var/log') },
-        { text: 'Limpe os logs antigos do journal (deixe 200M).', help: ['journalctl-vacuum', 'sudo'], done: (d) => d.os.disk < 80 },
-        { text: 'Confira o disco de novo.', help: ['df'], done: (d, ran) => ran.has('df-ok') },
-      ],
-    }),
-    port: (d) => {
-      // the broken port as it was when the task opened: ops clears d.sw.bad / fixed as soon as the fault is resolved
-      // (half a second after "no shutdown", console still open), so the steps follow this port instead
-      const port = d.sw.bad;
-      const healed = (d) => d.sw.fixed || (d.sw.bad !== port && d.sw.ports[port] !== 'err-disabled' && d.sw.ports[port] !== 'disabled');
-      return {
-        title: 'Porta em erro · ' + d.name,
-        goal: 'Uma porta do switch ' + d.name + ' entrou em err-disabled e derrubou um servidor. Encontre e reative a porta.',
-        steps: [
-          { text: 'Entre no modo privilegiado.', help: ['enable'], done: (d) => d.sw.mode !== 'user' || healed(d) },
-          { text: 'Veja o status das portas.', help: ['show-int'], done: (d, ran) => ran.has('show-int') },
-          { text: 'Entre no modo de configuração.', help: ['conf-t'], done: (d) => d.sw.mode === 'conf' || d.sw.mode === 'if' || healed(d) },
-          { text: 'Selecione a porta com problema.', help: ['interface'], cmd: 'interface ' + port, done: (d) => (d.sw.mode === 'if' && d.sw.cur === port) || healed(d) },
-          { text: 'Desligue a porta.', help: ['shutdown'], done: (d) => healed(d) || d.sw.ports[port] === 'disabled' },
-          { text: 'Ligue a porta novamente.', help: ['no-shutdown'], done: healed },
-          // a show taken while this port is connected again (one taken between shutdown and no shutdown doesn't count)
-          { text: 'Volte (end) e confira o status das portas.', help: ['end', 'show-int'], done: (d, ran) => ran.has('show-int-ok:' + port) },
-        ],
-      };
-    },
-  };
+  const LESSONS = {};
   DL.LESSONS = LESSONS;
 
   /* ------------------------------------------------------------------ */
@@ -139,8 +84,86 @@
   const ipOnly = (cidr) => cidr.split('/')[0];
   const sameNet = (a, b) => a.split('.').slice(0, 3).join('.') === b.split('.').slice(0, 3).join('.');
 
+  /* ------------------------------------------------------------------ */
+  /* Logs (/var/log/auth.log, /var/log/syslog)                           */
+  /* ------------------------------------------------------------------ */
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  // a syslog timestamp `ago` minutes before now
+  const stamp = (ago) => { const t = new Date(Date.now() - ago * 60000); return MON[t.getMonth()] + ' ' + String(t.getDate()).padStart(2, ' ') + ' ' + t.toTimeString().slice(0, 8); };
+  const rint = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const sshd = (d, ago, text) => ({ ago, text: d.os.hostname + ' sshd[' + rint(1200, 9800) + ']: ' + text });
+  const accepted = (d, ago) => [sshd(d, ago, 'Accepted publickey for admin from 10.0.1.' + rint(50, 60) + ' port ' + rint(40000, 60000) + ' ssh2: ED25519 SHA256:q3Vx' + rint(1000, 9999)),
+    { ago, text: d.os.hostname + ' sshd[' + rint(1200, 9800) + ']: pam_unix(sshd:session): session opened for user admin(uid=1000) by (uid=0)' }];
+  const toLines = (list) => list.sort((x, y) => y.ago - x.ago).map((e) => stamp(e.ago) + ' ' + e.text);
+  // the routine lines of any auth.log: the hourly cron and the admin using sudo
+  const routine = (d) => [
+    { ago: 360, text: d.os.hostname + ' CRON[' + rint(1200, 9800) + ']: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)' },
+    { ago: 300, text: d.os.hostname + ' CRON[' + rint(1200, 9800) + ']: pam_unix(cron:session): session closed for user root' },
+    { ago: 185, text: d.os.hostname + ' sudo:    admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/apt update' },
+    { ago: 66, text: d.os.hostname + ' sudo:    admin : TTY=pts/1 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/systemctl status nginx' },
+    { ago: 60, text: d.os.hostname + ' CRON[' + rint(1200, 9800) + ']: pam_unix(cron:session): session opened for user root(uid=0) by (uid=0)' },
+  ];
+  // a quiet day: the team logging in from the office network
+  function authLog(d) {
+    if (!d.os.authlog) d.os.authlog = toLines([].concat(routine(d), accepted(d, 320), accepted(d, 190), accepted(d, 70), accepted(d, 12)));
+    return d.os.authlog;
+  }
+  // someone guessing passwords over SSH from `ip` (most of the failures), plus a couple of stray scanners
+  DL.authAttack = function (d, ip) {
+    ip = ip || '203.0.113.' + rint(10, 250);
+    const users = ['root', 'admin', 'ubuntu', 'test', 'oracle', 'postgres', 'git', 'user', 'deploy'];
+    const list = [].concat(routine(d), accepted(d, 240), accepted(d, 95));
+    for (let i = 0; i < 9; i++) {
+      const u = users[i % users.length], invalid = u !== 'root' && u !== 'admin';
+      list.push(sshd(d, 40 - i * 4, 'Failed password for ' + (invalid ? 'invalid user ' : '') + u + ' from ' + ip + ' port ' + rint(30000, 65000) + ' ssh2'));
+    }
+    list.push(sshd(d, 150, 'Failed password for root from 198.51.100.' + rint(10, 250) + ' port ' + rint(30000, 65000) + ' ssh2'));
+    list.push(sshd(d, 27, 'Failed password for invalid user pi from 192.0.2.' + rint(10, 250) + ' port ' + rint(30000, 65000) + ' ssh2'));
+    list.push(sshd(d, 6, 'Connection closed by authenticating user root ' + ip + ' port ' + rint(30000, 65000) + ' [preauth]'));
+    d.os.authlog = toLines(list);
+    d.os.attacker = ip;
+    return ip;
+  };
+  function syslog(d) {
+    const h = d.os.hostname;
+    return toLines([{ ago: 400, text: h + ' systemd[1]: Started nginx.service - A high performance web server.' }, { ago: 300, text: h + ' CRON[2210]: (root) CMD (run-parts /etc/cron.hourly)' },
+      { ago: 120, text: h + ' systemd[1]: Starting apt-daily.service - Daily apt download activities...' }, { ago: 20, text: h + ' systemd-resolved[511]: Clock change detected. Flushing caches.' }]);
+  }
+  const LOGS = { '/var/log/auth.log': authLog, '/var/log/syslog': syslog };
+  // the lines of a file (null: no such file)
+  const fileLines = (d, f) => (LOGS[f] ? LOGS[f](d) : f === '/etc/hostname' ? [d.os.hostname] : f === 'notas.txt' ? ['gateway da rede: 10.0.1.1', 'meu IP planejado: ' + d.ip + '/24'] : null);
+  // words, keeping "quoted text" together
+  const words = (s) => (s.match(/"[^"]*"|'[^']*'|\S+/g) || []).map((w) => w.replace(/^(["'])(.*)\1$/, '$2'));
+  const unesc = (s) => s.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  // grep over lines: -i ignores case, -c counts; events grep:<src>, grep-hit:<src>, grep-failed:<src> (a "fail" search with results)
+  function grepIn(lines, args, src, out, ran) {
+    const flags = args.filter((x) => /^-\w+$/.test(x)).join(''), rest = args.filter((x) => !/^-\w+$/.test(x));
+    const pat = rest[0];
+    if (pat == null || pat === '') { out.push('uso: grep "<texto>" <arquivo>   (ou: comando | grep "<texto>")'); ran.push('error'); return; }
+    const ci = flags.indexOf('i') >= 0, want = ci ? pat.toLowerCase() : pat;
+    const hits = lines.filter((l) => (ci ? l.toLowerCase() : l).indexOf(want) >= 0);
+    if (flags.indexOf('c') >= 0) out.push(String(hits.length));
+    else for (const h of hits) out.push(esc(h));
+    ran.push('grep:' + src);
+    if (hits.length) { ran.push('grep-hit:' + src); if (/fail/i.test(pat)) ran.push('grep-failed:' + src); }
+  }
+  // "comando | grep texto": only grep reads from a pipe here
+  function pipe(d, left, right, ctx) {
+    const r = linux(d, left, ctx);
+    if (r.ran.indexOf('error') >= 0 || r.ran.indexOf('unknown') >= 0) return r;
+    const w = words(right.trim());
+    if (w[0] === 'sudo') w.shift();
+    if (w[0] !== 'grep') return { out: ['<span class="m">aqui o | só funciona com grep depois: comando | grep "texto"</span>'], ran: r.ran.concat('error') };
+    const src = (r.ran.find((e) => /^(tail|cat):/.test(e)) || 'pipe:' + left.trim().split(/\s+/)[0]).replace(/^(tail|cat):/, '');
+    const out = [], ran = r.ran.slice();
+    grepIn(r.out.map(unesc), w.slice(1), src, out, ran);
+    return { out, ran };
+  }
+
   // Linux shell. Returns { out: [lines], ran: [events] }.
   function linux(d, line, ctx) {
+    const bar = line.indexOf('|');
+    if (bar >= 0) return pipe(d, line.slice(0, bar), line.slice(bar + 1), ctx);
     const os = d.os, out = [], ran = [];
     let t = line.trim().split(/\s+/).filter(Boolean);
     if (!t.length) return { out, ran };
@@ -156,20 +179,20 @@
           if (k) { const h = HELP[k]; out.push('<b>' + esc(h.cmd) + '</b>', h.what, 'exemplo: ' + esc(h.ex)); }
           else out.push('sem ajuda para "' + esc(a[0]) + '". Use o botão Precisa de ajuda?');
         } else {
-          out.push('comandos disponíveis:', '  ip addr | ip link | ip route     ping -c 3 <destino>', '  systemctl status|restart <serviço>   curl localhost', '  df -h   du -sh <pasta>   journalctl --vacuum-size=200M', '  hostname   hostnamectl set-hostname <nome>', '  uptime  whoami  uname -a  date  history  clear  exit', '  lscpu  nproc  free -h   (hardware do servidor)', '  sudo <comando> executa como administrador', 'detalhes: help <comando>  ·  ou o botão Precisa de ajuda?');
+          out.push('comandos disponíveis:', '  ip addr | ip link | ip route     ping -c 3 <destino>', '  systemctl status|restart <serviço>   curl localhost', '  df -h   du -sh <pasta>   journalctl --vacuum-size=200M', '  hostname   hostnamectl set-hostname <nome>', '  uptime  whoami  uname -a  date  history  clear  exit', '  lscpu  nproc  free -h   (hardware do servidor)', '  tail -n 20 <arquivo>   grep "<texto>" <arquivo>   cat <arquivo>   (logs em /var/log)', '  ss -tlnp   (portas em escuta)', '  sudo <comando> executa como administrador', 'detalhes: help <comando>  ·  ou o botão Precisa de ajuda?');
         }
         break;
       case 'clear': ctx.clear(); break;
       case 'exit': case 'logout': ctx.close(); break;
       case 'history': ctx.history.forEach((h, i) => out.push(String(i + 1).padStart(4) + '  ' + esc(h))); break;
       case 'whoami': out.push(root ? 'root' : 'admin'); break;
-      case 'hostname': out.push(os.hostname); break;
+      case 'hostname': out.push(os.hostname); ran.push('hostname-show:' + os.hostname); break;
       case 'hostnamectl':
         if (a[0] === 'set-hostname' && a[1]) {
           if (!root) { deny('Could not set hostname: Access denied'); break; }
           os.hostname = a[1];
           ran.push('hostname');
-        } else out.push('   Static hostname: ' + os.hostname, '  Operating System: Ubuntu 24.04 LTS', '            Kernel: Linux 6.8.0-45-generic');
+        } else { out.push('   Static hostname: ' + os.hostname, '  Operating System: Ubuntu 24.04 LTS', '            Kernel: Linux 6.8.0-45-generic'); ran.push('hostname-show:' + os.hostname); }
         break;
       case 'lscpu': case 'nproc': case 'free': {
         // the hardware of this server's model (hardware.js)
@@ -187,11 +210,61 @@
       case 'uptime': out.push(' ' + new Date().toTimeString().slice(0, 8) + ' up ' + Math.max(1, Math.round((Date.now() - os.boot) / 60000)) + ' min,  1 user,  load average: 0.08, 0.12, 0.10'); break;
       case 'pwd': out.push('/home/admin'); break;
       case 'ls': out.push(a[0] === '/var/log' ? 'apt  journal  nginx  syslog  auth.log' : 'notas.txt  scripts'); break;
-      case 'cat':
-        if (a[0] === '/etc/hostname') out.push(os.hostname);
-        else if (a[0] === 'notas.txt') out.push('gateway da rede: 10.0.1.1', 'meu IP planejado: ' + d.ip + '/24');
-        else out.push('cat: ' + esc(a[0] || '') + ': Arquivo ou diretório inexistente');
+      case 'cat': {
+        const lines = a[0] ? fileLines(d, a[0]) : null;
+        if (!lines) { out.push('cat: ' + esc(a[0] || '') + ': Arquivo ou diretório inexistente'); ran.push('error'); break; }
+        for (const l of lines) out.push(esc(l));
+        ran.push('cat:' + a[0]);
         break;
+      }
+      case 'tail': {
+        // tail [-n N | -N] <arquivo>
+        const f = a.filter((x, i) => !/^-/.test(x) && a[i - 1] !== '-n').pop();
+        const ni = a.indexOf('-n'), short = a.find((x) => /^-\d+$/.test(x));
+        const n = Math.max(1, Math.min(200, ni >= 0 ? parseInt(a[ni + 1], 10) || 10 : short ? parseInt(short.slice(1), 10) : 10));
+        if (a.indexOf('-f') >= 0) out.push('<span class="m">(-f fica seguindo o arquivo sem parar; aqui ele mostra só o fim)</span>');
+        const lines = f ? fileLines(d, f) : null;
+        if (!lines) { out.push(f ? "tail: cannot open '" + esc(f) + "' for reading: No such file or directory" : 'uso: tail -n 20 <arquivo>'); ran.push('error'); break; }
+        for (const l of lines.slice(-n)) out.push(esc(l));
+        ran.push('tail:' + f);
+        break;
+      }
+      case 'grep': {
+        // grep [-i] [-c] "<texto>" <arquivo> (the text may have spaces when quoted)
+        const w = words(line.trim().replace(/^sudo\s+/, '')).slice(1);
+        const f = w.filter((x) => !/^-\w+$/.test(x))[1];
+        const lines = f ? fileLines(d, f) : null;
+        if (!f) { out.push('uso: grep "<texto>" <arquivo>   (ou: comando | grep "<texto>")'); ran.push('error'); break; }
+        if (!lines) { out.push('grep: ' + esc(f) + ': Arquivo ou diretório inexistente'); ran.push('error'); break; }
+        grepIn(lines, w.filter((x) => x !== f), f, out, ran);
+        break;
+      }
+      case 'ss': case 'netstat': {
+        // ss -tlnp: TCP ports listening (-t TCP · -l listening · -n numbers · -p process, which needs root)
+        const flags = a.filter((x) => /^-/.test(x)).join('').replace(/-/g, '');
+        if (flags.indexOf('l') < 0) {
+          out.push('<span class="m">sem -l aparecem só as conexões abertas; para as portas em escuta: ss -tlnp</span>');
+          out.push('ESTAB  0  0  ' + ipOnly(e0.ips[0] || '10.0.1.10/24') + ':22  10.0.1.' + rint(50, 60) + ':' + rint(40000, 60000));
+          ran.push('ss-conn');
+          break;
+        }
+        const procs = flags.indexOf('p') >= 0 && root;
+        const rows = [];
+        if (os.services.ssh === 'active') rows.push(['0.0.0.0:22', 'sshd', 640, 3, 128]);
+        if (os.services.nginx === 'active') rows.push(['0.0.0.0:80', 'nginx', 812, 6, 511]);
+        rows.push(['127.0.0.53%lo:53', 'systemd-resolve', 511, 14, 4096]);
+        if (c === 'ss') {
+          out.push('State   Recv-Q  Send-Q  Local Address:Port      Peer Address:Port  Process');
+          for (const [addr, name, pid, fd, q] of rows) out.push('LISTEN  0       ' + String(q).padEnd(8) + addr.padEnd(24) + '0.0.0.0:*          ' + (procs ? esc('users:(("' + name + '",pid=' + pid + ',fd=' + fd + '))') : ''));
+        } else {
+          out.push('Proto Recv-Q Send-Q Local Address           Foreign Address         State       PID/Program name');
+          for (const [addr, name, pid] of rows) out.push('tcp        0      0 ' + addr.replace('%lo', '').padEnd(24) + '0.0.0.0:*               LISTEN      ' + (procs ? pid + '/' + name : '-'));
+        }
+        if (flags.indexOf('p') >= 0 && !root) out.push('<span class="m">(sem sudo, o ' + c + ' não mostra o processo de cada porta: sudo ' + esc(line.trim()) + ')</span>');
+        ran.push('ss');
+        if (procs) ran.push('ss-procs');
+        break;
+      }
       case 'ip': {
         const sub = a[0] || '';
         const isAddr = /^a(d(d(r(e(s(s)?)?)?)?)?)?$/.test(sub), isLink = /^l(i(n(k)?)?)?$/.test(sub), isRoute = /^r(o(u(t(e)?)?)?)?$/.test(sub);
@@ -328,6 +401,19 @@
     return { out, ran };
   }
 
+  // The switch configuration as "show running-config" prints it (one description per port with a cable).
+  // saved: the startup-config — without the change made after the last save (d.sw.unsaved / unsavedPort)
+  function swConfig(d, ctx, saved) {
+    const s = d.sw, body = ['!', 'hostname ' + d.name, '!'];
+    for (const p of Object.keys(s.ports)) {
+      const peer = ctx.peer(d, p);
+      if (peer && !(saved && s.unsaved && p === s.unsavedPort)) body.push('interface GigabitEthernet' + p.slice(2), ' description ' + peer, '!');
+    }
+    body.push('interface Vlan10', ' ip address ' + d.ip + ' 255.255.255.0', '!', 'end');
+    const size = body.join('\n').length + 600;
+    return (saved ? ['Using ' + size + ' out of 65536 bytes'] : ['Building configuration...', '', 'Current configuration : ' + size + ' bytes']).concat(body);
+  }
+
   // Switch CLI with abbreviations (sh int status, conf t, int gi0/3, no shut).
   const kw = (tok, word, min) => !!tok && tok.length >= (min || 2) && word.indexOf(tok.toLowerCase()) === 0;
   // gi0/13, Gi0/13, GigabitEthernet0/13, gig0/13, g0/13 and "gi 0/13" all name the same port
@@ -340,7 +426,8 @@
     const c = t[0].toLowerCase();
     if (c === 'help' || c === '?') {
       out.push('modo atual: ' + { user: 'usuário (>)', priv: 'privilegiado (#)', conf: 'configuração (config)', if: 'interface (config-if)' }[s.mode]);
-      out.push('  enable · show interfaces status · configure terminal', '  interface gi0/N · shutdown · no shutdown · end · exit');
+      out.push('  enable · show interfaces status · configure terminal', '  interface gi0/N · shutdown · no shutdown · end · exit',
+        '  show running-config · show startup-config · copy running-config startup-config (write memory)');
       return { out, ran };
     }
     if (c === 'clear') { ctx.clear(); return { out, ran }; }
@@ -369,12 +456,26 @@
         for (const [p, st] of Object.entries(s.ports)) if (st === 'connected') ran.push('show-int-ok:' + p);
         return { out, ran };
       }
-      if (kw(t[1], 'running-config')) {
+      if (kw(t[1], 'running-config') || kw(t[1], 'startup-config', 3)) {
         if (s.mode === 'user') { bad('Use "enable" antes.'); return { out, ran }; }
-        out.push('hostname ' + d.name, '!', 'interface vlan10', ' ip address ' + d.ip + ' 255.255.255.0', '!', 'end');
+        const start = kw(t[1], 'startup-config', 3);
+        out.push.apply(out, swConfig(d, ctx, start).map(esc));
+        ran.push(start ? 'show-start' : 'show-run');
         return { out, ran };
       }
       bad('Comando incompleto. Tente: show interfaces status');
+      return { out, ran };
+    }
+    // copy running-config startup-config · write memory: what is in use becomes what the switch loads when it boots
+    if (kw(c, 'copy', 3) || kw(c, 'write', 2)) {
+      if (s.mode === 'user') { bad('Use "enable" antes.'); return { out, ran }; }
+      if (s.mode === 'conf' || s.mode === 'if') { bad('Comando inválido neste modo. Use "end" primeiro.'); return { out, ran }; }
+      const copy = kw(c, 'copy', 3);
+      if (copy ? !(kw(t[1], 'running-config', 3) && kw(t[2], 'startup-config', 3)) : t[1] && !kw(t[1], 'memory', 3)) { bad(copy ? 'Uso: copy running-config startup-config' : 'Uso: write memory'); return { out, ran }; }
+      if (copy) out.push('Destination filename [startup-config]? ');
+      out.push('Building configuration...', '<span class="ok">[OK]</span>');
+      s.unsaved = false;
+      ran.push('config-saved');
       return { out, ran };
     }
     if (kw(c, 'configure')) {
@@ -482,9 +583,12 @@
     }
     // the command a step expects, as a hint (Iniciante shows it right in the step)
     // (a step may carry its exact command — with this server's IP / name — instead of the generic example)
-    const stepCmd = (s) => s.cmd || (s.help && HELP[s.help[0]] ? HELP[s.help[0]].ex.split('\n')[0] : '');
+    // (a question never shows its answer: the hint is how to reply)
+    const stepCmd = (s) => (s.answer ? 'responder <sua resposta>' : s.cmd || (s.help && HELP[s.help[0]] ? HELP[s.help[0]].ex.split('\n')[0] : ''));
+    // the text of a step in Experiente (hidden until done) — a question is always shown: it is what is asked
+    const stepText = (s, hidden) => (hidden && !s.answer ? 'Descubra o próximo passo.' : s.text);
     // why a command failed, in plain words (Iniciante)
-    const FIRST = ['ip', 'ping', 'sudo', 'systemctl', 'curl', 'df', 'du', 'journalctl', 'hostnamectl', 'hostname', 'help', 'clear', 'exit', 'enable', 'show', 'configure', 'interface', 'shutdown', 'no', 'end', 'lscpu', 'free', 'uptime', 'whoami'];
+    const FIRST = ['ip', 'ping', 'sudo', 'systemctl', 'curl', 'df', 'du', 'journalctl', 'hostnamectl', 'hostname', 'help', 'clear', 'exit', 'enable', 'show', 'configure', 'interface', 'shutdown', 'no', 'end', 'lscpu', 'free', 'uptime', 'whoami', 'uname', 'responder', 'tail', 'grep', 'cat', 'ss', 'netstat', 'copy', 'write'];
     function closest(w) {
       let best = null, bd = 3;
       for (const c of X.dev && isWin(X.dev) && DL.WIN_FIRST ? DL.WIN_FIRST : FIRST) {
@@ -554,10 +658,16 @@
       // Experiente: only the goal; each step is revealed once it is done
       const hidden = m.stepText === 'hidden';
       const html = X.lesson.steps.map((s, k) => {
-        const txt = hidden && k >= i ? (k === i ? 'Descubra o próximo passo.' : '?') : s.text;
+        const txt = hidden && k >= i ? (k === i ? stepText(s, true) : '?') : s.text;
         const hint = m.id === 'iniciante' && k === i && stepCmd(s) ? '<code class="term__try">' + esc(stepCmd(s)) + '</code>' : '';
-        return '<li class="' + (k < i ? 'is-done' : k === i ? 'is-current' : '') + '"><span class="term__chk">' + (k < i ? '✓' : k + 1) + '</span><span>' + esc(txt) + hint +
-          (k === i && s.action === 'cabling' ? '<button type="button" class="btn btn--sm btn--primary term__act" data-term-act="cabling">Abrir cabeamento do rack</button>' : '') + '</span></li>';
+        // a lesson on two devices (problems.js: step.on): which console each step happens on
+        const on = s.on ? '<em class="term__on' + (s.on === X.dev ? ' is-here' : '') + '">' + esc(s.on.name) + '</em> ' : '';
+        const away = k === i && s.on && s.on !== X.dev;
+        return '<li class="' + (k < i ? 'is-done' : k === i ? 'is-current' : '') + (s.answer ? ' is-question' : '') + '"><span class="term__chk">' + (k < i ? '✓' : k === i && s.answer ? '?' : k + 1) + '</span><span>' + on + esc(txt) + (away ? '' : hint) +
+          (away ? '<small class="term__away">Este passo é no ' + esc(s.on.name) + '.</small><button type="button" class="btn btn--sm btn--primary term__act" data-term-act="hop">Abrir o console do ' + esc(s.on.name) + '</button>' : '') +
+          (k === i && s.action === 'cabling' ? '<button type="button" class="btn btn--sm btn--primary term__act" data-term-act="cabling">Abrir cabeamento do rack</button>' : '') +
+          // a question: the answer goes here (or "responder <valor>" in the console)
+          (k === i && s.answer ? '<form class="term__answer" data-term-answer autocomplete="off"><input class="input" name="a" maxlength="60" placeholder="Sua resposta" aria-label="Resposta: ' + esc(s.text) + '"><button type="submit" class="btn btn--sm btn--primary">Responder</button></form>' : '') + '</span></li>';
       }).join('');
       // rebuild only when something changed, so the side panel never jumps while the player scrolls it
       if (el.steps.dataset.k !== html) { el.steps.dataset.k = html; el.steps.innerHTML = html; revealStep(); }
@@ -582,13 +692,13 @@
       const win = isWin(X.dev);
       const step = X.lesson && i < X.lesson.steps.length ? X.lesson.steps[i] : null;
       const keys = step ? step.help : X.dev.kind === 'switch' ? ['enable', 'show-int', 'conf-t'] : win ? ['win-ipconfig', 'win-features', 'win-service'] : ['ip-addr', 'ping', 'sudo'];
-      const stepLabel = step ? (m.stepText === 'hidden' ? 'o próximo passo' : step.text) : '';
+      const stepLabel = step ? (m.stepText === 'hidden' && !step.answer ? 'o próximo passo' : step.text) : '';
       // the step's exact command (same source as the hint in the terminal) is the example of its first card
       const ex = step && step.cmd ? { [step.help[0]]: step.cmd } : null;
       let h = '<p class="term__hint">' + (stepLabel ? 'Para ' + (m.stepText === 'hidden' ? '' : 'este passo: ') + '<b>' + esc(stepLabel) + '</b>' : 'Comandos mais usados aqui:') +
         ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth, ex);
-      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'no-shutdown', 'end'];
-      const forDev = (k) => (X.dev.kind === 'switch' ? SWITCH_KEYS.includes(k) : win ? HELP[k].os === 'win' || k === 'cabling' : !HELP[k].os && !SWITCH_KEYS.includes(k));
+      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'no-shutdown', 'end', 'show-run', 'show-start', 'copy-run-start'];
+      const forDev = (k) => (X.dev.kind === 'switch' ? SWITCH_KEYS.includes(k) || k === 'responder' : win ? HELP[k].os === 'win' || k === 'cabling' : !HELP[k].os && !SWITCH_KEYS.includes(k));
       h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter(forDev)
         .map((k) => '<button type="button" class="chip" data-help="' + k + '">' + esc(HELP[k].cmd.split(' <')[0]) + '</button>').join('') + '<div data-help-out></div></details>';
       el.help.innerHTML = h;
@@ -616,33 +726,72 @@
       if (line.trim()) X.history.push(line);
       if (X.history.length > 100) X.history.shift();
       const before = curStep();
+      // "responder <valor>": the answer to the question of the current step (not a shell command)
+      const said = X.lesson && /^\s*respo(?:nder|sta)\b\s*(.*)$/i.exec(line);
+      if (said) {
+        const s = X.lesson.steps[before];
+        if (s && s.answer) answer(said[1]);
+        else { print(['<span class="m">Nenhuma pergunta agora: este passo pede um comando. Veja o passo atual ao lado.</span>'], null, true); renderSide(); }
+        return;
+      }
       const r = shellOf(d)(d, line, ctx);
+      // every command that ran without an error also reports its own name (cmd:whoami), so a step can ask for any command
+      if (line.trim() && r.ran.indexOf('error') < 0 && r.ran.indexOf('unknown') < 0) {
+        const w = line.trim().split(/\s+/).find((x) => x !== 'sudo');
+        if (w) r.ran.push('cmd:' + w.toLowerCase());
+      }
       if (r.out.length) print(r.out, null, true);
       for (const e of r.ran) X.ran.add(e);
       game.onCommand && game.onCommand(d, r.ran);
       // Iniciante: every error comes with a plain explanation
       if (m.explainErrors && line.trim()) { const why = explain(line, r); if (why) print(['<span class="term__why">💡 ' + why + '</span>'], null, true); }
-      if (X.lesson) {
-        const after = curStep();
-        if (after > before) {
-          X.misses = 0;
-          if (X.helpOpen) renderHelp();
-          if (after >= X.lesson.steps.length) finish();
-          else {
-            const next = X.lesson.steps[after];
-            const tell = m.stepText === 'hidden' ? 'Descubra o próximo passo.' : esc(next.text) + (m.id === 'iniciante' && stepCmd(next) ? ' · experimente <code>' + esc(stepCmd(next)) + '</code>' : '');
-            print(['<span class="ok">✓ passo concluído.</span> <span class="m">Próximo: ' + tell + '</span>'], null, true);
-          }
-        } else if (line.trim()) {
-          X.misses++;
-          if (m.helpAfter && X.misses === m.helpAfter && !X.helpOpen) {
-            if (m.autoHelp) toggleHelp(true);
-            else print(['<span class="m">Travou? Clique em <b>Precisa de ajuda?</b> para ver o comando' + (m.helpDepth === 'syntax' ? '' : ', um exemplo') + ' e o que ele faz.</span>'], null, true);
-          }
-        }
-      }
+      if (X.lesson) progress(before, !!line.trim());
       el.prompt.textContent = promptOf(d);
       renderSide();
+    }
+
+    // after a command or an answer: the next step (or the end), or one more miss towards "Precisa de ajuda?"
+    function progress(before, tried) {
+      const m = L(), after = curStep();
+      if (after > before) {
+        X.misses = 0;
+        if (X.helpOpen) renderHelp();
+        if (after >= X.lesson.steps.length) finish();
+        else {
+          const next = X.lesson.steps[after];
+          // the next step on another device's console: say so (the side panel has the button)
+          if (next.on && next.on !== X.dev) print(['<span class="ok">✓ passo concluído.</span> <span class="m">O próximo passo é no <b>' + esc(next.on.name) + '</b>: use o botão ao lado (Abrir o console do ' + esc(next.on.name) + ').</span>'], null, true);
+          else {
+            const tell = m.stepText === 'hidden' ? esc(stepText(next, true)) : esc(next.text) + (m.id === 'iniciante' && stepCmd(next) ? ' · experimente <code>' + esc(stepCmd(next)) + '</code>' : '');
+            print(['<span class="ok">✓ passo concluído.</span> <span class="m">Próximo: ' + tell + '</span>'], null, true);
+          }
+        }
+      } else if (tried) {
+        X.misses++;
+        if (m.helpAfter && X.misses === m.helpAfter && !X.helpOpen) {
+          if (m.autoHelp) toggleHelp(true);
+          else print(['<span class="m">Travou? Clique em <b>Precisa de ajuda?</b> para ver o comando' + (m.helpDepth === 'syntax' ? '' : ', um exemplo') + ' e o que ele faz.</span>'], null, true);
+        }
+      }
+    }
+
+    // The answer to the question of the current step (typed "responder <valor>" or sent from the side panel).
+    // Right: the step is done. Wrong: one more miss, and the player reads the output again.
+    function answer(value, fromPanel) {
+      const i = curStep(), s = X.lesson && X.lesson.steps[i];
+      if (!s || !s.answer) return false;
+      const v = String(value == null ? '' : value).trim().slice(0, 60);
+      if (fromPanel) print(['<span class="term__p">resposta:</span> ' + esc(v)], null, true);
+      if (!v) { print(['<span class="m">Escreva a resposta depois do comando: responder &lt;valor&gt;</span>'], null, true); renderSide(); return false; }
+      const ok = !!(DL.checkAnswer && DL.checkAnswer(s.answer, v));
+      game.emit && game.emit('answer', { d: X.dev, ok, value: v });
+      if (ok) {
+        X.ran.add('answer:' + i);
+        print(['<span class="ok">✓ Resposta certa: ' + esc(v) + '</span>'], null, true);
+      } else print(['<span class="w">✗ "' + esc(v) + '" não confere.</span> <span class="m">Leia de novo a saída do comando e tente outra vez.</span>'], null, true);
+      progress(i, true);
+      renderSide();
+      return ok;
     }
 
     function finish() {
@@ -661,6 +810,7 @@
       }
       X.dev = dev;
       X.lesson = lessonType && LESSONS[lessonType] ? LESSONS[lessonType](dev) : null;
+      X.lessonType = X.lesson ? lessonType : null;
       X.onDone = onDone || null;
       // progress lives on the device, so closing the console to fix a cable doesn't lose it
       if (!dev.ran || dev.lessonKey !== lessonType) { dev.ran = new Set(); dev.lessonKey = lessonType; }
@@ -676,9 +826,10 @@
         : ['<span class="m">Ubuntu 24.04 LTS · ' + esc(dev.name) + ' · conectado pelo console do rack</span>', '<span class="m">Digite help para ver os comandos. ↑ repete comandos anteriores.</span>', '']);
       const m = L();
       if (X.lesson) {
-        const first = X.lesson.steps[0];
+        // (a lesson already under way — reopened, or continued on another device — starts from its current step)
+        const k = Math.min(curStep(), X.lesson.steps.length - 1), first = X.lesson.steps[k];
         print(['<span class="ok">Tarefa:</span> ' + esc(X.lesson.goal),
-          '<span class="m">' + (m.stepText === 'hidden' ? 'Modo Experiente: descubra os passos. A ajuda mostra só a sintaxe.' : 'Primeiro passo: ' + esc(first.text) + (m.id === 'iniciante' && stepCmd(first) ? ' · experimente <code>' + esc(stepCmd(first)) + '</code>' : '')) + '</span>', '']);
+          '<span class="m">' + (m.stepText === 'hidden' ? 'Modo Experiente: descubra os passos. A ajuda mostra só a sintaxe.' : (k ? 'Passo atual: ' : 'Primeiro passo: ') + esc(first.text) + (m.id === 'iniciante' && stepCmd(first) && (!first.on || first.on === dev) ? ' · experimente <code>' + esc(stepCmd(first)) + '</code>' : '')) + '</span>', '']);
       }
       el.prompt.textContent = promptOf(dev);
       el.steps.dataset.k = '';
@@ -701,7 +852,7 @@
       game.onTerminalClose && game.onTerminalClose();
     }
 
-    const COMPLETE = ['ip addr', 'ip link', 'ip route', 'ip link set eth0 up', 'ip addr add ', 'ip route add default via ', 'ping -c 3 ', 'systemctl status ', 'systemctl restart ', 'curl localhost', 'df -h', 'du -sh /var/log', 'journalctl --vacuum-size=200M', 'hostnamectl set-hostname ', 'enable', 'show interfaces status', 'configure terminal', 'interface gi0/', 'shutdown', 'no shutdown', 'end'];
+    const COMPLETE = ['ip addr', 'ip link', 'ip route', 'ip link set eth0 up', 'ip addr add ', 'ip route add default via ', 'ping -c 3 ', 'systemctl status ', 'systemctl restart ', 'curl localhost', 'df -h', 'du -sh /var/log', 'journalctl --vacuum-size=200M', 'hostnamectl set-hostname ', 'hostname', 'whoami', 'uname -a', 'uptime', 'lscpu', 'free -h', 'responder ', 'tail -n 20 /var/log/auth.log', 'grep "Failed password" /var/log/auth.log', 'ss -tlnp', 'show running-config', 'show startup-config', 'copy running-config startup-config', 'enable', 'show interfaces status', 'configure terminal', 'interface gi0/', 'shutdown', 'no shutdown', 'end'];
     el.input.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         const v = el.input.value;
@@ -748,9 +899,35 @@
       if (curStep() >= X.lesson.steps.length) finish();
       el.input.focus({ preventScroll: true });
     }
+    // the answer field of a question step
+    el.steps.addEventListener('submit', (ev) => {
+      const f = ev.target.closest('[data-term-answer]');
+      if (!f) return;
+      ev.preventDefault();
+      const v = f.elements.a.value;
+      if (!answer(v, true)) { const inp = el.steps.querySelector('[data-term-answer] input'); if (inp) { inp.value = v; inp.select(); inp.focus({ preventScroll: true }); } }
+      else el.input.focus({ preventScroll: true });
+    });
+    // keys typed in the answer field stay there (no game hotkeys); Esc closes the console as usual
+    el.steps.addEventListener('keydown', (ev) => {
+      if (!ev.target.closest('[data-term-answer]')) return;
+      if (ev.key === 'Escape') { ev.preventDefault(); close(); }
+      ev.stopPropagation();
+    });
+    // a lesson on two devices: leave this console and open the other one, on the same lesson (its progress stays)
+    function hop(dev) {
+      const s = X.lesson && X.lesson.steps[curStep()];
+      dev = dev || (s && s.on);
+      if (!dev || dev === X.dev || !X.lessonType) return false;
+      const type = X.lessonType, done = X.onDone;
+      close();
+      open(dev, type, done);
+      return true;
+    }
     el.steps.addEventListener('click', (ev) => {
       const ms = ev.target.closest('[data-term-mission]');
       if (ms) { startMission(ms.dataset.termMission); return; }
+      if (ev.target.closest('[data-term-act="hop"]')) { hop(); return; }
       if (!ev.target.closest('[data-term-act="cabling"]')) return;
       const d = X.dev;
       close();
@@ -774,7 +951,7 @@
       get lesson() { return X.lesson; },
       get step() { return curStep(); },
       refresh() { if (X.open) { renderSide(); if (X.lesson && curStep() >= X.lesson.steps.length) finish(); } },
-      run, startMission,
+      run, startMission, answer, hop,
     };
   };
 })();

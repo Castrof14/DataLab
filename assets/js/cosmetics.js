@@ -100,10 +100,25 @@
   add({ id: 'shirt_jersey', cat: 'char', slot: 'shirt', value: 'jersey', name: 'Camisa de Time', rarity: 'rare', price: 45, desc: 'Camisa de time com número 7 e faixas nos ombros.' });
   add({ id: 'shirt_launch', cat: 'char', slot: 'shirt', value: 'launch', name: 'Camiseta do Lançamento', rarity: 'rare', price: 40, event: 'lancamento', desc: 'Com a marca do DataLab no peito. Edição limitada.' });
   // full-body costumes: worn in the shirt slot, they also recolour the legs, hands and boots and cover the
-  // head (DL.charCostume + charOutfit + charTop below). All three are original designs.
+  // head (DL.charCostume + charOutfit + charTop below). All of them are original designs.
   add({ id: 'costume_hero', cat: 'char', slot: 'shirt', value: 'hero', name: 'Capitão Debug', rarity: 'epic', price: 120, desc: 'Traje de super-herói do DataLab: máscara com visor, um bug dourado no peito, luvas e botas amarelas.' });
   add({ id: 'costume_ceo', cat: 'char', slot: 'shirt', value: 'ceo', name: 'Terno de Magnata', rarity: 'rare', price: 70, desc: 'Terno azul-marinho, camisa branca e gravata dourada. Para quem é dono do datacenter.' });
   add({ id: 'costume_hacker', cat: 'char', slot: 'shirt', value: 'hacker', name: 'Hacker Anônimo', rarity: 'epic', price: 100, desc: 'Moletom preto com capuz e máscara branca. Ninguém sabe quem está no terminal.' });
+  add({ id: 'costume_tech', cat: 'char', slot: 'shirt', value: 'tech', name: 'Técnico de TI', rarity: 'rare', price: 70, desc: 'Colete laranja refletivo, crachá e fone com microfone. O técnico que mantém tudo funcionando no corredor quente.' });
+  add({ id: 'costume_astronaut', cat: 'char', slot: 'shirt', value: 'astronaut', name: 'Astronauta', rarity: 'epic', price: 120, desc: 'Traje branco pressurizado com capacete de vidro e painel neon. Pronto para o próximo deploy fora do planeta.' });
+  add({ id: 'costume_ninja', cat: 'char', slot: 'shirt', value: 'ninja', name: 'Ninja do Código', rarity: 'epic', price: 100, desc: 'Roupa preta de infiltração com faixa verde neon e máscara. Ninguém vê o código passar.' });
+  add({ id: 'costume_robot', cat: 'char', slot: 'shirt', value: 'robot', name: 'Robô', rarity: 'epic', price: 130, desc: 'Corpo de metal com juntas, chassi iluminado e olhos verdes que piscam. Mais máquina que pessoa.' });
+  add({ id: 'costume_scientist', cat: 'char', slot: 'shirt', value: 'scientist', name: 'Cientista de Dados', rarity: 'rare', price: 80, desc: 'Jaleco branco, óculos grandes e caneta neon no bolso. Transforma dados em decisões.' });
+  add({ id: 'costume_samurai', cat: 'char', slot: 'shirt', value: 'samurai', name: 'Samurai Digital', rarity: 'epic', price: 160, desc: 'Armadura preta com frisos verdes, máscara e katana de luz. Disciplina de outro nível.' });
+  add({ id: 'costume_mage', cat: 'char', slot: 'shirt', value: 'mage', name: 'Mago dos Servidores', rarity: 'epic', price: 150, desc: 'Capa roxa, chapéu pontudo e cajado com cristal. Mantém os servidores no ar com magia.' });
+  add({ id: 'costume_knight', cat: 'char', slot: 'shirt', value: 'knight', name: 'Cavaleiro do Firewall', rarity: 'epic', price: 170, desc: 'Armadura de metal, elmo e escudo com chamas azuis. Protege o firewall corpo a corpo.' });
+  add({ id: 'costume_detective', cat: 'char', slot: 'shirt', value: 'detective', name: 'Detetive Cibernético', rarity: 'rare', price: 110, desc: 'Casaco longo, chapéu e lupa brilhante. Investiga cada pacote suspeito.' });
+  add({ id: 'costume_pilot', cat: 'char', slot: 'shirt', value: 'pilot', name: 'Piloto Espacial', rarity: 'rare', price: 90, desc: 'Macacão laranja, capacete com visor e painel no peito. Pilota até o rack mais distante.' });
+  add({ id: 'costume_backup', cat: 'char', slot: 'shirt', value: 'backup', name: 'Super-Herói do Backup', rarity: 'epic', price: 140, desc: 'Capa vermelha com símbolo de disco no peito. Salva seus dados antes que o pior aconteça.' });
+  add({ id: 'costume_cowboy', cat: 'char', slot: 'shirt', value: 'cowboy', name: 'Cowboy do Código', rarity: 'rare', price: 80, desc: 'Chapéu, colete e botas com esporas neon. Domando servidores como um rebanho.' });
+  add({ id: 'costume_vampire', cat: 'char', slot: 'shirt', value: 'vampire', name: 'Vampiro da Madrugada', rarity: 'epic', price: 150, desc: 'Capa preta, gola alta e olhos vermelhos. Só trabalha depois da meia-noite.' });
+  add({ id: 'costume_chef', cat: 'char', slot: 'shirt', value: 'chef', name: 'Chef do Datacenter', rarity: 'uncommon', price: 60, desc: 'Chapéu de cozinheiro e avental. Prepara cada deploy com receita própria.' });
+  add({ id: 'costume_king', cat: 'char', slot: 'shirt', value: 'king', name: 'Rei do Datacenter', rarity: 'legendary', price: 300, desc: 'Coroa dourada, manto de arminho e joias. O trono do datacenter é seu.' });
   // pants (profile.pantsStyle)
   add({ id: 'pants_jeans', cat: 'char', slot: 'pants', value: 'jeans', name: 'Calça Jeans', rarity: 'common', price: 12, desc: 'Costura clara e barra dobrada.' });
   add({ id: 'pants_cargo', cat: 'char', slot: 'pants', value: 'cargo', name: 'Calça Cargo', rarity: 'uncommon', price: 22, desc: 'Bolsos laterais para levar o alicate de crimpar.' });
@@ -409,6 +424,22 @@
   const HERO = { suit: '#5b2bd1', dark: '#3a1a8c', light: '#7d55e8', gold: '#ffd23f', band: '#14102e' };
   const HOOD = { cloth: '#1b1d24', dark: '#0e0f14', light: '#2b2f3a', mask: '#e9e9e6', maskD: '#b9bcc4', ink: '#0b0d12', code: '#39ff14' };
   const CEO = { suit: '#1b2236', tie: '#c9a227', tieL: '#f2c14e' };
+  const NEON = { green: '#39ff14', glow: '#b6ff9a', dim: '#1f8f0f', ink: '#0b0d12' };
+  const TECH = { vest: '#ff7a17', vestD: '#b34a0a', vestL: '#ffb36b', shirt: '#242832', pants: '#1b2028', badge: '#f1f1ee' };
+  const ASTRO = { suit: '#eef1f4', suitD: '#c3ccd4', suitL: '#ffffff', panel: '#1b2230', glass: 'rgba(140,255,170,0.16)' };
+  const NINJA = { cloth: '#14161c', clothD: '#0a0b0f', clothL: '#262a33', band: '#39ff14', bandD: '#1f8f0f' };
+  const ROBOT = { metal: '#6f7a86', metalD: '#3d4650', metalL: '#aab4bf', joint: '#2b323a' };
+  const SCI = { coat: '#eef1f4', coatD: '#c3ccd4', shirt: '#1b2230', frame: '#0b0d12', lens: 'rgba(57,255,20,0.22)' };
+  const SAM = { armor: '#1a1f2b', dark: '#0b0e14', light: '#303849', green: NEON.green, glow: NEON.glow };
+  const MAGE = { robe: '#5b2bd1', dark: '#35167e', light: '#8f6bff', trim: '#b6ff9a', staff: '#6b4a2f', gem: NEON.green };
+  const KNIGHT = { metal: '#8b96a6', dark: '#4a5565', light: '#c3ccd9', joint: '#2b323a', flame: '#3aa0ff', flameL: '#8fd3ff' };
+  const DET = { coat: '#3b3540', dark: '#221f29', light: '#5a5264', hat: '#2b2630', band: '#39ff14', lens: 'rgba(57,255,20,0.28)', glass: NEON.glow };
+  const PILOT = { suit: '#ff7a17', dark: '#b34a0a', light: '#ffb36b', shell: '#eef1f4', shellD: '#c3ccd4', visor: '#1b2230', glass: 'rgba(57,255,20,0.22)', strap: '#2b2f38' };
+  const BK = { suit: '#d92b3a', dark: '#8f1622', light: '#ff6b78', cape: '#b01d2b', capeD: '#6e101a', white: '#f1f1ee', ring: NEON.green };
+  const COW = { hat: '#7a5230', hatD: '#4a2f1d', hatL: '#a97a4a', shirt: '#d9c7a3', vest: '#3b2b22', vestD: '#241a14', denim: '#2e4a6b', boots: '#4a2f1d', neon: NEON.green };
+  const VAMP = { cape: '#141018', capeD: '#08060b', lining: '#7a1220', shirt: '#1b1620', skin: '#e2dcd6', red: '#ff2b3a', redD: '#8f1622' };
+  const CHEF = { white: '#eef1f4', whiteD: '#c3ccd4', whiteL: '#ffffff', apron: '#d8dde4', apronD: '#aab3bd', neck: '#39ff14', pants: '#2b313b' };
+  const KING = { robe: '#4a1050', robeD: '#2b082f', robeL: '#7a1a82', gold: '#f2c14e', goldD: '#b8892f', goldL: '#fff1b8', fur: '#f1f1ee', furD: '#c3ccd4', jewel: '#ff2bd6' };
   const BARE = { hat: '', glasses: false, headset: false, beard: false, earrings: false, shades: false, visor: false, scarf: false, hairStyle: 'buzz' };
   // role: null drops the job's gear (cable coil, tie, tool belt…), which would sit on top of the costume
   const SUIT = { lanyard: null, badge: null, vest: null, role: null };
@@ -417,6 +448,21 @@
       case 'hero': return Object.assign({}, BARE, SUIT, { shirt: HERO.suit, pants: HERO.suit, shoes: HERO.gold, skin: HERO.gold });
       case 'hacker': return Object.assign({}, BARE, SUIT, { shirt: HOOD.cloth, pants: '#22252d', shoes: '#e9e9e6', skin: HOOD.light });
       case 'ceo': return Object.assign({}, SUIT, { shirt: CEO.suit, pants: CEO.suit, shoes: '#0b0d12' });
+      case 'tech': return Object.assign({}, BARE, SUIT, { shirt: TECH.shirt, pants: TECH.pants, shoes: '#0b0d12', hairStyle: 'short' });
+      case 'astronaut': return Object.assign({}, BARE, SUIT, { shirt: ASTRO.suit, pants: ASTRO.suit, shoes: ASTRO.suitD, skin: ASTRO.suitD });
+      case 'ninja': return Object.assign({}, BARE, SUIT, { shirt: NINJA.cloth, pants: NINJA.clothD, shoes: NINJA.clothD });
+      case 'robot': return Object.assign({}, BARE, SUIT, { shirt: ROBOT.metal, pants: ROBOT.metalD, shoes: ROBOT.joint, skin: ROBOT.metal });
+      case 'scientist': return Object.assign({}, BARE, SUIT, { shirt: SCI.coat, pants: '#2a3340', shoes: '#1a1f27', hairStyle: 'undercut' });
+      case 'samurai': return Object.assign({}, BARE, SUIT, { shirt: SAM.armor, pants: SAM.dark, shoes: SAM.dark, skin: SAM.light });
+      case 'mage': return Object.assign({}, BARE, SUIT, { shirt: MAGE.robe, pants: MAGE.dark, shoes: MAGE.dark });
+      case 'knight': return Object.assign({}, BARE, SUIT, { shirt: KNIGHT.metal, pants: KNIGHT.dark, shoes: KNIGHT.joint, skin: KNIGHT.light });
+      case 'detective': return Object.assign({}, BARE, SUIT, { shirt: DET.coat, pants: DET.dark, shoes: '#121318', hairStyle: 'short' });
+      case 'pilot': return Object.assign({}, BARE, SUIT, { shirt: PILOT.suit, pants: PILOT.suit, shoes: PILOT.strap, skin: PILOT.strap });
+      case 'backup': return Object.assign({}, BARE, SUIT, { shirt: BK.suit, pants: BK.suit, shoes: BK.dark });
+      case 'cowboy': return Object.assign({}, BARE, SUIT, { shirt: COW.shirt, pants: COW.denim, shoes: COW.boots, hairStyle: 'short' });
+      case 'vampire': return Object.assign({}, BARE, SUIT, { shirt: VAMP.shirt, pants: VAMP.cape, shoes: VAMP.capeD, skin: VAMP.skin });
+      case 'chef': return Object.assign({}, BARE, SUIT, { shirt: CHEF.white, pants: CHEF.pants, shoes: '#121318', hairStyle: 'short' });
+      case 'king': return Object.assign({}, BARE, SUIT, { shirt: KING.robe, pants: KING.robeD, shoes: KING.goldD });
     }
     return null;
   };
@@ -484,6 +530,283 @@
         } else if (dir === 'up') { R(g, ax - 3, ty, 6, 3, HOOD.light); R(g, ax - 2, ty + 3, 4, 1, HOOD.dark); }
         else { R(g, ax, ty + 3, 2, 1, HOOD.code); R(g, ax - 1, ty + 5, 4, 2, HOOD.light); }
         return true;
+      case 'tech': {
+        // orange high-visibility vest over a dark shirt, reflective neon stripe and a chest badge
+        const v = TECH;
+        if (dir === 'down') {
+          R(g, ax - 4, ty, 2, 7, v.vest); R(g, ax + 2, ty, 2, 7, v.vest);
+          R(g, ax - 4, ty, 2, 1, v.vestL); R(g, ax + 2, ty, 2, 1, v.vestL);
+          R(g, ax - 2, ty, 1, 7, v.vestD); R(g, ax + 1, ty, 1, 7, v.vestD);
+          R(g, ax - 4, ty + 4, 2, 1, NEON.green); R(g, ax + 2, ty + 4, 2, 1, NEON.green);
+          R(g, ax - 3, ty + 2, 2, 2, v.badge); R(g, ax - 3, ty + 2, 2, 1, NEON.green); R(g, ax - 3, ty + 3, 1, 1, '#7d8187');
+          R(g, ax - 3, ty, 1, 2, NEON.green);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 5, v.vest); R(g, ax - 4, ty, 8, 1, v.vestL);
+          R(g, ax - 1, ty, 1, 5, v.vestD); R(g, ax - 4, ty + 4, 8, 1, NEON.green);
+          R(g, ax - 3, ty + 2, 6, 1, v.vestD);
+        } else {
+          R(g, ax - 3, ty, 2, 7, v.vest); R(g, ax + 1, ty, 2, 7, v.vest);
+          R(g, ax - 3, ty, 2, 1, v.vestL); R(g, ax + 1, ty, 2, 1, v.vestL);
+          R(g, ax - 1, ty, 1, 7, v.vestD);
+          R(g, ax - 3, ty + 4, 2, 1, NEON.green); R(g, ax + 1, ty + 4, 2, 1, NEON.green);
+          R(g, ax + 1, ty + 2, 1, 2, v.badge);
+        }
+        return true;
+      }
+      case 'astronaut': {
+        // white pressure suit, grey joints and a neon life-support panel on the chest
+        const a = ASTRO;
+        if (dir === 'down') {
+          R(g, ax - 2, ty + 1, 4, 4, a.panel); R(g, ax - 2, ty + 1, 4, 1, NEON.green);
+          R(g, ax - 1, ty + 2, 1, 1, NEON.glow); R(g, ax, ty + 3, 1, 1, a.suitD);
+          R(g, ax - 4, ty + 6, 8, 1, a.suitD); R(g, ax - 1, ty + 6, 2, 1, '#9aa3b0'); R(g, ax, ty + 6, 1, 1, NEON.green);
+          R(g, ax - 4, ty, 1, 7, a.suitL); R(g, ax + 3, ty, 1, 7, a.suitD);
+          R(g, ax - 4, ty + 4, 1, 2, NEON.dim); R(g, ax + 3, ty + 4, 1, 2, NEON.dim);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 6, a.suitD); R(g, ax - 3, ty + 1, 6, 4, '#9aa3b0');
+          R(g, ax - 2, ty + 2, 4, 2, a.panel); R(g, ax - 1, ty + 2, 2, 1, NEON.green);
+          R(g, ax - 4, ty + 6, 8, 1, '#9aa3b0'); R(g, ax, ty + 6, 1, 1, NEON.green);
+        } else {
+          R(g, ax + 1, ty + 1, 2, 4, a.panel); R(g, ax + 1, ty + 1, 2, 1, NEON.green);
+          R(g, ax + 2, ty + 2, 1, 1, NEON.glow);
+          R(g, ax - 3, ty + 6, 6, 1, a.suitD); R(g, ax + 1, ty + 6, 1, 1, NEON.green);
+          R(g, ax - 3, ty, 1, 7, a.suitL); R(g, ax + 2, ty, 1, 7, a.suitD);
+        }
+        return true;
+      }
+      case 'ninja': {
+        // black infiltration garb with a neon green chest seam and belt
+        const n = NINJA;
+        if (dir === 'down') {
+          R(g, ax - 2, ty, 4, 1, n.clothD);
+          R(g, ax - 3, ty + 1, 1, 1, NEON.green); R(g, ax - 2, ty + 2, 1, 1, NEON.green);
+          R(g, ax - 1, ty + 3, 2, 1, NEON.green); R(g, ax + 1, ty + 4, 1, 1, NEON.green);
+          R(g, ax - 4, ty + 6, 8, 1, n.bandD); R(g, ax - 3, ty + 6, 6, 1, n.band);
+          R(g, ax + 3, ty + 7, 2, 1, n.band); R(g, ax + 4, ty + 6, 1, 1, NEON.glow);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty + 1, 8, 1, n.clothD);
+          R(g, ax - 3, ty + 2, 1, 4, NEON.dim); R(g, ax + 2, ty + 2, 1, 4, NEON.dim);
+          R(g, ax - 4, ty + 6, 8, 1, n.bandD); R(g, ax - 3, ty + 6, 6, 1, n.band);
+          R(g, ax - 1, ty, 2, 6, n.clothD);
+        } else {
+          R(g, ax - 2, ty, 1, 4, NEON.dim);
+          R(g, ax - 3, ty + 6, 6, 1, n.bandD); R(g, ax - 2, ty + 6, 5, 1, n.band);
+          R(g, ax + 2, ty + 2, 1, 4, n.clothD);
+        }
+        return true;
+      }
+      case 'robot': {
+        // metal chest plate, rivets and a glowing green power core
+        const r = ROBOT;
+        if (dir === 'down') {
+          R(g, ax - 3, ty + 1, 6, 5, r.metalL); R(g, ax - 3, ty + 1, 6, 1, '#c7d0d9');
+          R(g, ax - 2, ty + 2, 4, 3, r.joint); R(g, ax - 1, ty + 3, 2, 1, NEON.green); R(g, ax - 1, ty + 2, 2, 1, NEON.dim);
+          R(g, ax - 3, ty + 5, 1, 1, NEON.green); R(g, ax + 2, ty + 5, 1, 1, NEON.dim);
+          R(g, ax - 4, ty + 6, 8, 1, r.metalD); R(g, ax - 1, ty + 6, 2, 1, r.metalL);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 6, r.metalD); R(g, ax - 3, ty + 1, 6, 4, r.metal);
+          R(g, ax - 2, ty + 2, 4, 1, r.joint); R(g, ax - 1, ty + 2, 2, 1, NEON.green);
+          R(g, ax - 4, ty + 6, 8, 1, r.metalD);
+          R(g, ax - 2, ty + 4, 1, 1, NEON.dim); R(g, ax + 1, ty + 4, 1, 1, NEON.dim);
+        } else {
+          R(g, ax - 1, ty + 1, 3, 5, r.metalL); R(g, ax, ty + 2, 2, 3, r.joint);
+          R(g, ax + 1, ty + 3, 1, 1, NEON.green);
+          R(g, ax - 3, ty + 6, 6, 1, r.metalD);
+        }
+        return true;
+      }
+      case 'scientist': {
+        // open white lab coat, dark shirt, lapels and a neon pen in the pocket
+        const s = SCI;
+        if (dir === 'down') {
+          R(g, ax - 2, ty, 4, 2, s.shirt); R(g, ax - 1, ty + 2, 2, 5, s.shirt);
+          R(g, ax - 3, ty, 1, 5, s.coatD); R(g, ax + 2, ty, 1, 5, s.coatD);
+          R(g, ax - 3, ty, 1, 1, s.coat); R(g, ax + 2, ty, 1, 1, s.coat);
+          R(g, ax + 1, ty + 3, 2, 3, s.coatD); R(g, ax + 1, ty + 3, 1, 1, NEON.green); R(g, ax + 2, ty + 4, 1, 2, NEON.dim);
+          R(g, ax - 1, ty + 6, 2, 1, s.coatD);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 1, s.coatD); R(g, ax, ty + 1, 1, 6, s.coatD);
+          R(g, ax - 4, ty + 6, 8, 1, s.coatD); R(g, ax - 3, ty + 2, 1, 3, '#9aa3b0');
+        } else {
+          R(g, ax + 1, ty, 2, 4, s.shirt); R(g, ax + 1, ty, 1, 4, s.coatD); R(g, ax + 2, ty + 2, 1, 2, s.coat);
+          R(g, ax - 1, ty + 2, 1, 2, NEON.green);
+          R(g, ax - 3, ty + 6, 6, 1, s.coatD);
+        }
+        return true;
+      }
+      case 'samurai': {
+        if (dir === 'down') {
+          R(g, ax - 6, ty, 2, 2, SAM.light); R(g, ax + 4, ty, 2, 2, SAM.light);
+          R(g, ax - 6, ty + 1, 2, 1, SAM.dark); R(g, ax + 4, ty + 1, 2, 1, SAM.dark);
+          R(g, ax - 4, ty + 1, 8, 1, SAM.light); R(g, ax - 4, ty + 2, 8, 1, SAM.dark); R(g, ax - 4, ty + 4, 8, 1, SAM.dark);
+          R(g, ax - 4, ty + 1, 1, 1, SAM.green); R(g, ax + 3, ty + 1, 1, 1, SAM.green);
+          R(g, ax - 1, ty + 2, 2, 3, SAM.light); R(g, ax - 1, ty + 3, 2, 1, SAM.dark);
+          R(g, ax - 4, ty + 6, 8, 1, NEON.dim); R(g, ax - 1, ty + 6, 2, 1, SAM.green);
+        } else if (dir === 'up') {
+          R(g, ax - 6, ty, 2, 2, SAM.light); R(g, ax + 4, ty, 2, 2, SAM.light);
+          R(g, ax - 4, ty + 1, 8, 5, SAM.light); R(g, ax, ty + 1, 1, 5, SAM.green);
+          R(g, ax - 4, ty + 5, 8, 1, SAM.dark); R(g, ax - 4, ty + 6, 8, 1, NEON.dim); R(g, ax - 1, ty + 6, 2, 1, SAM.green);
+        } else {
+          R(g, ax - 3, ty, 2, 2, SAM.light); R(g, ax + 2, ty, 1, 2, SAM.dark);
+          R(g, ax - 1, ty + 1, 3, 4, SAM.light); R(g, ax + 1, ty + 2, 1, 3, SAM.dark);
+          R(g, ax, ty + 3, 1, 1, SAM.green);
+          R(g, ax - 3, ty + 6, 6, 1, NEON.dim); R(g, ax + 1, ty + 6, 2, 1, SAM.green);
+        }
+        return true;
+      }
+      case 'mage': {
+        if (dir === 'down') {
+          R(g, ax - 5, ty + 1, 1, 7, MAGE.dark); R(g, ax + 4, ty + 1, 1, 7, MAGE.dark);
+          R(g, ax - 1, ty, 1, 7, MAGE.trim); R(g, ax - 2, ty, 1, 2, MAGE.light); R(g, ax + 1, ty, 1, 2, MAGE.light);
+          R(g, ax - 3, ty + 2, 1, 1, MAGE.trim); R(g, ax + 2, ty + 4, 1, 1, MAGE.trim);
+          R(g, ax - 4, ty + 6, 8, 1, MAGE.dark); R(g, ax - 1, ty + 6, 2, 1, MAGE.gem);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 1, MAGE.light); R(g, ax - 1, ty + 1, 2, 6, MAGE.dark);
+          R(g, ax - 2, ty + 2, 4, 1, MAGE.trim); R(g, ax - 4, ty + 6, 8, 1, MAGE.dark); R(g, ax - 1, ty + 6, 2, 1, MAGE.gem);
+        } else {
+          R(g, ax - 5, ty, 2, 7, MAGE.dark); R(g, ax - 1, ty, 1, 7, MAGE.trim); R(g, ax + 2, ty + 2, 1, 2, MAGE.light);
+          R(g, ax - 3, ty + 6, 6, 1, MAGE.dark); R(g, ax, ty + 6, 2, 1, MAGE.gem);
+        }
+        return true;
+      }
+      case 'knight': {
+        if (dir === 'down') {
+          R(g, ax - 6, ty, 2, 2, KNIGHT.light); R(g, ax + 4, ty, 2, 2, KNIGHT.light);
+          R(g, ax - 6, ty + 1, 2, 1, KNIGHT.dark); R(g, ax + 4, ty + 1, 2, 1, KNIGHT.dark);
+          R(g, ax - 4, ty + 1, 8, 4, KNIGHT.metal); R(g, ax - 4, ty + 1, 8, 1, KNIGHT.light); R(g, ax - 4, ty + 5, 8, 1, KNIGHT.dark);
+          R(g, ax, ty + 1, 1, 4, KNIGHT.dark); R(g, ax - 2, ty + 2, 4, 2, KNIGHT.joint);
+          R(g, ax - 1, ty + 2, 2, 1, KNIGHT.flame); R(g, ax, ty + 3, 1, 1, KNIGHT.flameL);
+          R(g, ax - 4, ty + 6, 8, 1, KNIGHT.dark); R(g, ax - 1, ty + 6, 2, 1, KNIGHT.light);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 6, KNIGHT.dark); R(g, ax - 3, ty + 1, 6, 4, KNIGHT.metal);
+          R(g, ax, ty + 1, 1, 5, KNIGHT.joint); R(g, ax - 2, ty + 2, 4, 1, KNIGHT.flame);
+          R(g, ax - 4, ty + 6, 8, 1, KNIGHT.dark); R(g, ax - 1, ty + 6, 2, 1, KNIGHT.light);
+        } else {
+          R(g, ax - 3, ty, 2, 2, KNIGHT.light); R(g, ax + 2, ty, 1, 2, KNIGHT.dark);
+          R(g, ax - 1, ty + 1, 3, 5, KNIGHT.metal); R(g, ax + 1, ty + 2, 1, 3, KNIGHT.joint);
+          R(g, ax, ty + 3, 1, 1, KNIGHT.flame);
+          R(g, ax - 3, ty + 6, 6, 1, KNIGHT.dark); R(g, ax - 1, ty + 6, 2, 1, KNIGHT.light);
+        }
+        return true;
+      }
+      case 'detective': {
+        if (dir === 'down') {
+          R(g, ax - 5, ty + 3, 1, 6, DET.dark); R(g, ax + 4, ty + 3, 1, 6, DET.dark);
+          R(g, ax - 2, ty, 4, 2, WHITE); R(g, ax - 1, ty + 2, 1, 4, DET.band); R(g, ax, ty + 2, 1, 4, DET.dark);
+          R(g, ax - 3, ty, 1, 5, DET.light); R(g, ax + 2, ty, 1, 5, DET.light);
+          R(g, ax + 1, ty + 2, 1, 1, DET.band); R(g, ax + 1, ty + 4, 1, 1, DET.band);
+          R(g, ax - 4, ty + 6, 8, 1, DET.dark); R(g, ax - 1, ty + 6, 2, 1, DET.light);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 1, DET.light); R(g, ax, ty + 1, 1, 6, DET.dark);
+          R(g, ax - 5, ty + 4, 1, 4, DET.dark); R(g, ax + 4, ty + 4, 1, 4, DET.dark);
+          R(g, ax - 4, ty + 6, 8, 1, DET.dark); R(g, ax - 1, ty + 6, 2, 1, DET.light);
+        } else {
+          R(g, ax - 3, ty, 2, 1, DET.light); R(g, ax - 5, ty + 3, 2, 6, DET.dark);
+          R(g, ax + 2, ty, 1, 5, DET.light); R(g, ax + 1, ty + 2, 1, 1, DET.band);
+          R(g, ax - 3, ty + 6, 6, 1, DET.dark); R(g, ax, ty + 6, 2, 1, DET.light);
+        }
+        return true;
+      }
+      case 'pilot': {
+        if (dir === 'down') {
+          R(g, ax - 4, ty + 1, 1, 6, PILOT.strap); R(g, ax + 3, ty + 1, 1, 6, PILOT.strap); R(g, ax - 4, ty + 3, 8, 1, PILOT.strap);
+          R(g, ax - 2, ty + 1, 4, 4, PILOT.dark); R(g, ax - 1, ty + 2, 2, 1, NEON.green); R(g, ax - 2, ty + 3, 1, 1, NEON.glow);
+          R(g, ax - 4, ty, 8, 1, PILOT.light); R(g, ax - 4, ty + 6, 8, 1, PILOT.strap); R(g, ax - 1, ty + 6, 2, 1, PILOT.light);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 1, PILOT.light); R(g, ax - 3, ty + 1, 2, 5, PILOT.strap); R(g, ax + 1, ty + 1, 2, 5, PILOT.strap);
+          R(g, ax - 1, ty + 1, 2, 4, PILOT.dark); R(g, ax, ty + 2, 1, 1, NEON.green);
+          R(g, ax - 4, ty + 6, 8, 1, PILOT.strap); R(g, ax - 1, ty + 6, 2, 1, PILOT.light);
+        } else {
+          R(g, ax - 3, ty, 1, 6, PILOT.strap); R(g, ax + 1, ty, 2, 2, PILOT.dark); R(g, ax + 1, ty + 2, 1, 1, NEON.green);
+          R(g, ax - 3, ty + 6, 6, 1, PILOT.strap); R(g, ax + 1, ty + 6, 2, 1, PILOT.light);
+        }
+        return true;
+      }
+      case 'backup': {
+        if (dir === 'down') {
+          R(g, ax - 5, ty, 1, 8, BK.capeD); R(g, ax + 4, ty, 1, 8, BK.capeD);
+          R(g, ax - 2, ty + 2, 4, 1, BK.white); R(g, ax - 2, ty + 5, 4, 1, BK.white);
+          R(g, ax - 2, ty + 2, 1, 4, BK.white); R(g, ax + 1, ty + 2, 1, 4, BK.white);
+          R(g, ax - 1, ty + 3, 2, 2, BK.ring); R(g, ax, ty + 3, 1, 1, BK.suit);
+          R(g, ax - 4, ty + 6, 8, 1, BK.dark); R(g, ax - 1, ty + 6, 2, 1, BK.white);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 8, BK.cape); R(g, ax - 4, ty, 8, 1, BK.capeD); R(g, ax - 4, ty + 7, 8, 1, BK.capeD);
+          R(g, ax - 2, ty, 4, 1, BK.white); R(g, ax - 1, ty + 1, 2, 1, BK.ring);
+        } else {
+          R(g, ax - 5, ty, 2, 8, BK.cape); R(g, ax - 5, ty, 2, 1, BK.capeD); R(g, ax - 5, ty + 7, 2, 1, BK.capeD);
+          R(g, ax + 1, ty + 2, 2, 1, BK.white); R(g, ax + 1, ty + 2, 1, 3, BK.white); R(g, ax + 1, ty + 3, 1, 1, BK.ring);
+          R(g, ax - 3, ty + 6, 6, 1, BK.dark);
+        }
+        return true;
+      }
+      case 'cowboy': {
+        if (dir === 'down') {
+          R(g, ax - 4, ty, 2, 6, COW.vest); R(g, ax + 2, ty, 2, 6, COW.vest);
+          R(g, ax - 3, ty, 1, 6, COW.vestD); R(g, ax + 3, ty, 1, 6, COW.vestD);
+          R(g, ax - 1, ty, 2, 1, COW.neon); R(g, ax - 1, ty + 1, 2, 1, COW.hatD);
+          R(g, ax + 2, ty + 2, 1, 1, COW.neon); R(g, ax - 3, ty + 2, 1, 1, COW.neon);
+          R(g, ax - 4, ty + 6, 8, 1, COW.hatD); R(g, ax - 1, ty + 6, 2, 1, GOLD);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 6, COW.vest); R(g, ax - 4, ty, 8, 1, COW.hatL); R(g, ax, ty, 1, 6, COW.vestD);
+          R(g, ax - 4, ty + 6, 8, 1, COW.hatD); R(g, ax - 2, ty + 6, 4, 1, COW.neon);
+        } else {
+          R(g, ax - 3, ty, 2, 6, COW.vest); R(g, ax - 3, ty, 1, 6, COW.vestD); R(g, ax + 2, ty, 1, 6, COW.vestD);
+          R(g, ax + 1, ty, 1, 1, COW.neon); R(g, ax - 3, ty + 6, 6, 1, COW.hatD); R(g, ax, ty + 6, 2, 1, COW.neon);
+        }
+        return true;
+      }
+      case 'vampire': {
+        if (dir === 'down') {
+          R(g, ax - 4, ty, 8, 1, VAMP.capeD); R(g, ax - 4, ty + 1, 2, 6, VAMP.cape); R(g, ax + 2, ty + 1, 2, 6, VAMP.cape);
+          R(g, ax - 1, ty + 1, 2, 5, VAMP.lining); R(g, ax, ty + 2, 1, 1, VAMP.red);
+          R(g, ax - 4, ty + 6, 8, 1, VAMP.capeD); R(g, ax - 1, ty + 6, 2, 1, VAMP.redD);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 8, VAMP.cape); R(g, ax - 4, ty, 8, 1, VAMP.capeD); R(g, ax - 4, ty + 7, 8, 1, VAMP.lining);
+          R(g, ax - 1, ty + 1, 2, 1, VAMP.red);
+        } else {
+          R(g, ax - 5, ty, 2, 8, VAMP.cape); R(g, ax - 5, ty + 7, 2, 1, VAMP.lining);
+          R(g, ax + 2, ty + 1, 1, 5, VAMP.lining); R(g, ax + 1, ty + 2, 1, 1, VAMP.red);
+          R(g, ax - 3, ty + 6, 6, 1, VAMP.capeD);
+        }
+        return true;
+      }
+      case 'chef': {
+        if (dir === 'down') {
+          R(g, ax - 4, ty, 1, 7, CHEF.whiteD); R(g, ax + 3, ty, 1, 7, CHEF.whiteD);
+          R(g, ax - 3, ty, 6, 1, CHEF.apron); R(g, ax - 3, ty, 1, 3, CHEF.apronD); R(g, ax + 2, ty, 1, 3, CHEF.apronD);
+          R(g, ax - 2, ty, 4, 1, CHEF.neck); R(g, ax - 1, ty + 1, 2, 1, NEON.dim);
+          R(g, ax - 1, ty + 2, 1, 1, CHEF.whiteD); R(g, ax + 1, ty + 3, 1, 1, CHEF.whiteD);
+          R(g, ax - 2, ty + 4, 4, 3, CHEF.apron); R(g, ax - 2, ty + 4, 4, 1, CHEF.whiteL);
+          R(g, ax - 4, ty + 6, 8, 1, CHEF.apronD);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 1, CHEF.whiteD); R(g, ax, ty + 1, 1, 6, CHEF.whiteD); R(g, ax - 2, ty + 3, 4, 1, CHEF.apron);
+          R(g, ax - 4, ty + 6, 8, 1, CHEF.apronD); R(g, ax - 1, ty + 6, 2, 1, CHEF.whiteL);
+        } else {
+          R(g, ax - 3, ty, 2, 1, CHEF.neck); R(g, ax - 3, ty + 1, 6, 1, CHEF.apron); R(g, ax - 1, ty + 2, 4, 3, CHEF.apron);
+          R(g, ax - 3, ty, 1, 6, CHEF.whiteD); R(g, ax - 3, ty + 6, 6, 1, CHEF.apronD); R(g, ax - 1, ty + 6, 2, 1, CHEF.whiteL);
+        }
+        return true;
+      }
+      case 'king': {
+        if (dir === 'down') {
+          R(g, ax - 4, ty, 8, 1, KING.fur); R(g, ax - 4, ty + 1, 8, 1, KING.furD);
+          R(g, ax - 5, ty + 2, 1, 6, KING.robeL); R(g, ax + 4, ty + 2, 1, 6, KING.robeL);
+          R(g, ax - 4, ty + 1, 1, 6, KING.gold); R(g, ax + 3, ty + 1, 1, 6, KING.gold);
+          R(g, ax - 4, ty + 1, 1, 1, KING.goldL); R(g, ax + 3, ty + 1, 1, 1, KING.goldL);
+          R(g, ax - 1, ty + 1, 2, 5, KING.robeD); R(g, ax - 1, ty + 1, 2, 1, KING.jewel); R(g, ax, ty + 2, 1, 1, KING.goldL);
+          R(g, ax - 4, ty + 6, 8, 1, KING.goldD); R(g, ax - 1, ty + 6, 2, 1, KING.goldL);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 1, KING.fur); R(g, ax - 4, ty + 1, 8, 7, KING.robe);
+          R(g, ax - 4, ty + 1, 1, 6, KING.gold); R(g, ax + 3, ty + 1, 1, 6, KING.gold); R(g, ax, ty + 1, 1, 6, KING.robeD);
+          R(g, ax - 4, ty + 7, 8, 1, KING.goldD); R(g, ax - 1, ty, 2, 1, KING.jewel);
+        } else {
+          R(g, ax - 3, ty, 6, 1, KING.fur); R(g, ax - 3, ty + 1, 6, 6, KING.robe);
+          R(g, ax - 3, ty + 1, 1, 6, KING.gold); R(g, ax + 2, ty + 1, 1, 6, KING.gold);
+          R(g, ax - 1, ty + 2, 2, 2, KING.robeD); R(g, ax, ty + 3, 1, 1, KING.jewel);
+          R(g, ax - 3, ty + 6, 6, 1, KING.goldD); R(g, ax, ty + 6, 2, 1, KING.goldL);
+        }
+        return true;
+      }
       case 'ceo':
         // white shirt in the V, lapels, a gold tie and a pocket square
         if (dir === 'down') {
@@ -618,6 +941,301 @@
         R(g, hx + 3, hy + 4, 2, 1, HOOD.ink); R(g, hx + 3, hy + 7, 2, 1, HOOD.ink); R(g, hx + 5, hy + 6, 1, 1, HOOD.ink);
       } else {
         R(g, hx - 1, hy - 1, 2, 11, HOOD.dark); R(g, hx - 6, hy, 1, 10, HOOD.light);
+      }
+    } else if (L.outfit === 'tech') {
+      // headset over the hair, with a neon status light and a boom microphone
+      const hs = '#2b2f38';
+      if (dir === 'down') {
+        R(g, hx - 5, hy - 1, 10, 1, hs);
+        R(g, hx - 6, hy + 3, 2, 4, hs); R(g, hx + 4, hy + 3, 2, 4, hs);
+        R(g, hx - 5, hy + 4, 1, 2, NEON.green); R(g, hx + 4, hy + 4, 2, 2, NEON.green);
+        R(g, hx + 2, hy + 7, 3, 1, hs); R(g, hx + 1, hy + 7, 1, 1, NEON.green);
+      } else if (side) {
+        R(g, hx - 5, hy - 1, 8, 1, hs); R(g, hx - 4, hy + 3, 2, 4, hs); R(g, hx - 4, hy + 4, 1, 2, NEON.green);
+        R(g, hx - 1, hy + 7, 4, 1, hs); R(g, hx + 2, hy + 7, 1, 1, NEON.green);
+      } else {
+        R(g, hx - 5, hy - 1, 10, 1, hs);
+        R(g, hx - 6, hy + 3, 2, 4, hs); R(g, hx + 4, hy + 3, 2, 4, hs);
+        R(g, hx - 2, hy + 5, 4, 1, '#1b1f27');
+      }
+    } else if (L.outfit === 'astronaut') {
+      // glass dome helmet: a white shell, a green-tinted visor and a neon rim
+      const shell = '#dfe7ed', shellD = '#b6c1ca', shellL = '#ffffff';
+      if (dir === 'down') {
+        R(g, hx - 4, hy - 3, 8, 1, shellL); R(g, hx - 5, hy - 2, 10, 1, shell);
+        R(g, hx - 6, hy, 1, 9, shellD); R(g, hx + 5, hy, 1, 9, shellD);
+        R(g, hx - 5, hy + 9, 10, 2, shell); R(g, hx - 5, hy + 9, 10, 1, shellL);
+        R(g, hx - 4, hy, 8, 8, ASTRO.glass);
+        R(g, hx - 5, hy + 1, 1, 6, NEON.green); R(g, hx + 4, hy + 1, 1, 6, NEON.green);
+        R(g, hx - 3, hy + 1, 1, 2, 'rgba(255,255,255,0.55)'); R(g, hx - 2, hy + 1, 1, 1, 'rgba(255,255,255,0.35)');
+        R(g, hx - 1, hy + 10, 2, 1, NEON.green);
+      } else if (side) {
+        R(g, hx - 4, hy - 3, 9, 1, shellL); R(g, hx - 5, hy - 2, 10, 1, shell);
+        R(g, hx - 5, hy, 1, 9, shellD); R(g, hx + 4, hy, 1, 9, shellD);
+        R(g, hx - 4, hy + 9, 9, 2, shell); R(g, hx - 4, hy + 9, 9, 1, shellL);
+        R(g, hx - 3, hy, 7, 8, ASTRO.glass); R(g, hx + 3, hy + 1, 1, 6, NEON.green);
+        R(g, hx - 2, hy + 1, 1, 2, 'rgba(255,255,255,0.55)');
+        R(g, hx, hy + 10, 2, 1, NEON.green);
+      } else {
+        R(g, hx - 4, hy - 3, 8, 1, shellL); R(g, hx - 5, hy - 2, 10, 10, shell);
+        R(g, hx - 5, hy + 8, 10, 1, shellD); R(g, hx - 3, hy + 2, 6, 5, shellD);
+        R(g, hx - 2, hy + 3, 4, 1, NEON.dim); R(g, hx - 2, hy + 5, 4, 1, NEON.dim);
+        R(g, hx - 1, hy + 3, 2, 1, NEON.green);
+        R(g, hx - 5, hy + 9, 10, 2, shell); R(g, hx - 1, hy + 10, 2, 1, NEON.green);
+      }
+    } else if (L.outfit === 'ninja') {
+      // black hood and mask leaving an eye slit, with a long neon headband
+      if (dir === 'down') {
+        R(g, hx - 5, hy - 2, 10, 2, NINJA.cloth); R(g, hx - 6, hy, 12, 9, NINJA.cloth);
+        R(g, hx - 5, hy - 2, 5, 1, NINJA.clothL); R(g, hx - 6, hy, 1, 9, NINJA.clothL); R(g, hx + 5, hy, 1, 9, NINJA.clothD);
+        R(g, hx - 4, hy + 4, 8, 3, L.skin);
+        R(g, hx - 3, hy + 5, 2, 1, NEON.ink); R(g, hx + 1, hy + 5, 2, 1, NEON.ink);
+        R(g, hx - 1, hy + 5, 1, 1, NEON.green); R(g, hx + 2, hy + 5, 1, 1, NEON.green);
+        R(g, hx - 4, hy + 7, 8, 2, NINJA.clothD);
+        R(g, hx - 6, hy + 1, 12, 2, NINJA.band); R(g, hx - 6, hy + 2, 12, 1, NINJA.bandD);
+        R(g, hx - 8, hy + 2, 2, 1, NINJA.band); R(g, hx - 9, hy + 3, 1, 3, NINJA.band); R(g, hx - 8, hy + 5, 1, 2, NINJA.bandD);
+      } else if (side) {
+        R(g, hx - 5, hy - 2, 9, 2, NINJA.cloth); R(g, hx - 6, hy, 11, 9, NINJA.cloth);
+        R(g, hx - 5, hy - 2, 4, 1, NINJA.clothL); R(g, hx - 6, hy, 1, 9, NINJA.clothL);
+        R(g, hx + 1, hy + 4, 4, 3, L.skin);
+        R(g, hx + 3, hy + 4, 1, 1, NEON.ink); R(g, hx + 4, hy + 4, 1, 1, NEON.green);
+        R(g, hx + 1, hy + 7, 4, 2, NINJA.clothD);
+        R(g, hx - 6, hy + 1, 11, 2, NINJA.band); R(g, hx - 6, hy + 2, 11, 1, NINJA.bandD);
+        R(g, hx - 8, hy + 2, 2, 1, NINJA.band); R(g, hx - 9, hy + 3, 1, 4, NINJA.bandD);
+      } else {
+        R(g, hx - 5, hy - 2, 10, 2, NINJA.cloth); R(g, hx - 6, hy, 12, 10, NINJA.cloth);
+        R(g, hx - 5, hy - 2, 5, 1, NINJA.clothL); R(g, hx - 6, hy, 1, 10, NINJA.clothL); R(g, hx + 5, hy, 1, 10, NINJA.clothD);
+        R(g, hx - 6, hy + 2, 12, 2, NINJA.band); R(g, hx - 6, hy + 3, 12, 1, NINJA.bandD);
+        R(g, hx - 1, hy + 4, 2, 5, NINJA.clothD);
+        R(g, hx - 8, hy + 2, 2, 1, NINJA.band); R(g, hx - 9, hy + 3, 1, 3, NINJA.band);
+      }
+    } else if (L.outfit === 'robot') {
+      // metal head, blinking neon eyes (the blink frame comes from sprites.js) and an antenna
+      const r = ROBOT, eyeOn = !o.closed;
+      if (dir === 'down') {
+        R(g, hx - 5, hy - 1, 10, 10, r.metal); R(g, hx - 5, hy - 1, 10, 1, r.metalL);
+        R(g, hx - 5, hy, 1, 9, r.metalD); R(g, hx + 4, hy, 1, 9, r.metalD);
+        R(g, hx - 1, hy - 4, 2, 3, r.metalD); R(g, hx, hy - 5, 1, 1, NEON.green);
+        R(g, hx - 4, hy + 2, 8, 6, r.joint); R(g, hx - 4, hy + 4, 8, 2, '#0a1410');
+        if (eyeOn) {
+          R(g, hx - 3, hy + 4, 2, 2, NEON.green); R(g, hx + 1, hy + 4, 2, 2, NEON.green);
+          R(g, hx - 3, hy + 4, 1, 1, NEON.glow); R(g, hx + 1, hy + 4, 1, 1, NEON.glow);
+        } else {
+          R(g, hx - 3, hy + 5, 2, 1, NEON.dim); R(g, hx + 1, hy + 5, 2, 1, NEON.dim);
+        }
+        R(g, hx - 3, hy + 7, 6, 1, r.metalD);
+        R(g, hx - 6, hy + 3, 1, 3, r.metalL); R(g, hx + 5, hy + 3, 1, 3, r.metalL);
+        R(g, hx + 4, hy + 1, 1, 1, NEON.green);
+      } else if (side) {
+        R(g, hx - 5, hy - 1, 10, 10, r.metal); R(g, hx - 5, hy - 1, 10, 1, r.metalL);
+        R(g, hx - 5, hy, 1, 9, r.metalD); R(g, hx + 4, hy, 1, 9, r.metalD);
+        R(g, hx, hy - 4, 2, 3, r.metalD); R(g, hx + 1, hy - 5, 1, 1, NEON.green);
+        R(g, hx + 1, hy + 2, 4, 6, r.joint); R(g, hx + 2, hy + 4, 3, 2, '#0a1410');
+        if (eyeOn) { R(g, hx + 3, hy + 4, 2, 2, NEON.green); R(g, hx + 3, hy + 4, 1, 1, NEON.glow); }
+        else R(g, hx + 2, hy + 5, 3, 1, NEON.dim);
+        R(g, hx + 2, hy + 7, 3, 1, r.metalD);
+        R(g, hx - 5, hy + 3, 1, 3, r.metalL);
+      } else {
+        R(g, hx - 5, hy - 1, 10, 10, r.metalD); R(g, hx - 4, hy, 8, 8, r.metal);
+        R(g, hx - 4, hy, 8, 1, r.metalL);
+        R(g, hx - 1, hy - 4, 2, 3, r.metalD); R(g, hx, hy - 5, 1, 1, NEON.green);
+        for (let i = 0; i < 3; i++) R(g, hx - 3, hy + 2 + i * 2, 6, 1, r.joint);
+        R(g, hx - 2, hy + 3, 4, 1, NEON.dim); R(g, hx - 2, hy + 6, 4, 1, NEON.green);
+        R(g, hx - 6, hy + 3, 1, 3, r.metalL); R(g, hx + 5, hy + 3, 1, 3, r.metalL);
+      }
+    } else if (L.outfit === 'scientist') {
+      // oversized lab glasses with neon-tinted lenses
+      const f = SCI.frame, l = SCI.lens;
+      if (dir === 'down') {
+        R(g, hx - 5, hy + 3, 4, 1, f); R(g, hx - 5, hy + 6, 4, 1, f);
+        R(g, hx - 5, hy + 4, 1, 2, f); R(g, hx - 2, hy + 4, 1, 2, f);
+        R(g, hx + 1, hy + 3, 4, 1, f); R(g, hx + 1, hy + 6, 4, 1, f);
+        R(g, hx + 1, hy + 4, 1, 2, f); R(g, hx + 4, hy + 4, 1, 2, f);
+        R(g, hx - 1, hy + 4, 2, 1, f);
+        R(g, hx - 4, hy + 4, 2, 2, l); R(g, hx + 2, hy + 4, 2, 2, l);
+        R(g, hx - 4, hy + 4, 1, 1, NEON.glow); R(g, hx + 2, hy + 4, 1, 1, NEON.glow);
+        R(g, hx - 6, hy + 4, 1, 1, f); R(g, hx + 5, hy + 4, 1, 1, f);
+      } else if (side) {
+        R(g, hx + 1, hy + 3, 4, 1, f); R(g, hx + 1, hy + 6, 4, 1, f);
+        R(g, hx + 1, hy + 4, 1, 2, f); R(g, hx + 4, hy + 4, 1, 2, f);
+        R(g, hx + 2, hy + 4, 2, 2, l); R(g, hx + 2, hy + 4, 1, 1, NEON.glow);
+        R(g, hx - 3, hy + 4, 4, 1, f);
+      } else {
+        R(g, hx - 5, hy + 4, 10, 1, f); R(g, hx - 1, hy + 4, 2, 1, SCI.coatD);
+      }
+    } else if (L.outfit === 'samurai') {
+      if (dir === 'down') {
+        R(g, hx - 5, hy - 2, 10, 2, SAM.dark); R(g, hx - 6, hy, 12, 2, SAM.armor); R(g, hx - 6, hy, 12, 1, SAM.light);
+        R(g, hx - 6, hy + 2, 2, 5, SAM.dark); R(g, hx + 4, hy + 2, 2, 5, SAM.dark);
+        R(g, hx - 6, hy + 2, 1, 5, SAM.light); R(g, hx + 5, hy + 2, 1, 5, SAM.light);
+        R(g, hx - 4, hy + 2, 8, 7, SAM.dark); R(g, hx - 4, hy + 4, 8, 4, SAM.armor);
+        R(g, hx - 3, hy + 5, 6, 1, NEON.ink); R(g, hx - 2, hy + 5, 1, 1, SAM.green); R(g, hx + 1, hy + 5, 1, 1, SAM.green);
+        R(g, hx - 1, hy + 8, 2, 1, SAM.light);
+        R(g, hx - 4, hy - 5, 1, 3, SAM.green); R(g, hx + 3, hy - 5, 1, 3, SAM.green);
+        R(g, hx - 5, hy - 4, 1, 1, SAM.glow); R(g, hx + 4, hy - 4, 1, 1, SAM.glow);
+      } else if (side) {
+        R(g, hx - 5, hy - 2, 10, 2, SAM.dark); R(g, hx - 6, hy, 12, 2, SAM.armor); R(g, hx - 6, hy, 12, 1, SAM.light);
+        R(g, hx - 6, hy + 2, 2, 5, SAM.dark); R(g, hx + 4, hy + 2, 2, 5, SAM.dark);
+        R(g, hx - 4, hy + 2, 8, 7, SAM.dark); R(g, hx - 4, hy + 4, 8, 4, SAM.armor);
+        R(g, hx + 2, hy + 5, 3, 1, NEON.ink); R(g, hx + 3, hy + 5, 1, 1, SAM.green);
+        R(g, hx - 4, hy - 5, 1, 3, SAM.green); R(g, hx + 3, hy - 5, 1, 3, SAM.green);
+      } else {
+        R(g, hx - 5, hy - 2, 10, 2, SAM.dark); R(g, hx - 6, hy, 12, 2, SAM.armor); R(g, hx - 6, hy, 12, 1, SAM.light);
+        R(g, hx - 5, hy + 2, 10, 7, SAM.armor); R(g, hx - 5, hy + 2, 10, 1, SAM.dark); R(g, hx - 1, hy + 3, 2, 5, SAM.green);
+        R(g, hx - 4, hy + 6, 8, 1, SAM.dark); R(g, hx - 4, hy - 5, 1, 3, SAM.green); R(g, hx + 3, hy - 5, 1, 3, SAM.green);
+      }
+      const kx = hx + 6;
+      R(g, kx, hy + 3, 1, 11, NEON.green); R(g, kx + 1, hy + 4, 1, 9, NEON.dim);
+      R(g, kx - 1, hy + 2, 3, 2, SAM.dark); R(g, kx - 1, hy + 2, 1, 2, SAM.light);
+    } else if (L.outfit === 'mage') {
+      if (dir === 'down') {
+        R(g, hx - 6, hy - 1, 12, 2, MAGE.dark); R(g, hx - 6, hy - 1, 12, 1, MAGE.light);
+        R(g, hx - 4, hy - 4, 8, 3, MAGE.robe); R(g, hx - 3, hy - 5, 6, 1, MAGE.robe); R(g, hx - 2, hy - 6, 4, 1, MAGE.light);
+        R(g, hx - 4, hy - 2, 8, 1, MAGE.trim); R(g, hx - 2, hy - 3, 3, 1, MAGE.trim); R(g, hx + 1, hy - 4, 1, 1, MAGE.gem);
+      } else if (side) {
+        R(g, hx - 6, hy - 1, 12, 2, MAGE.dark); R(g, hx - 6, hy - 1, 12, 1, MAGE.light);
+        R(g, hx - 3, hy - 4, 8, 3, MAGE.robe); R(g, hx - 2, hy - 5, 5, 1, MAGE.robe); R(g, hx - 1, hy - 6, 3, 1, MAGE.light);
+        R(g, hx - 3, hy - 2, 8, 1, MAGE.trim); R(g, hx + 1, hy - 3, 2, 1, MAGE.trim);
+      } else {
+        R(g, hx - 6, hy - 1, 12, 2, MAGE.dark); R(g, hx - 6, hy - 1, 12, 1, MAGE.light);
+        R(g, hx - 4, hy - 4, 8, 3, MAGE.dark); R(g, hx - 3, hy - 5, 6, 1, MAGE.robe); R(g, hx - 2, hy - 6, 4, 1, MAGE.light);
+        R(g, hx - 4, hy - 2, 8, 1, MAGE.trim); R(g, hx - 1, hy - 3, 3, 1, MAGE.trim);
+      }
+      const sx = hx + 6;
+      R(g, sx, hy + 4, 1, 13, MAGE.staff); R(g, sx + 1, hy + 5, 1, 10, MAGE.dark);
+      R(g, sx - 1, hy + 1, 3, 3, MAGE.gem); R(g, sx, hy + 2, 1, 1, NEON.glow); R(g, sx - 1, hy + 1, 1, 1, '#ffffff');
+    } else if (L.outfit === 'knight') {
+      if (dir === 'down') {
+        R(g, hx - 5, hy - 1, 10, 9, KNIGHT.metal); R(g, hx - 5, hy - 1, 10, 1, KNIGHT.light);
+        R(g, hx - 5, hy, 1, 8, KNIGHT.dark); R(g, hx + 4, hy, 1, 8, KNIGHT.dark);
+        R(g, hx - 4, hy + 4, 8, 2, KNIGHT.joint); R(g, hx - 3, hy + 5, 6, 1, KNIGHT.flameL);
+        R(g, hx - 1, hy - 5, 2, 4, KNIGHT.flame); R(g, hx - 2, hy - 3, 1, 2, KNIGHT.flameL); R(g, hx + 1, hy - 3, 1, 2, KNIGHT.flameL);
+        R(g, hx - 5, hy + 7, 10, 1, KNIGHT.dark);
+      } else if (side) {
+        R(g, hx - 5, hy - 1, 10, 9, KNIGHT.metal); R(g, hx - 5, hy - 1, 10, 1, KNIGHT.light);
+        R(g, hx - 5, hy, 1, 8, KNIGHT.dark); R(g, hx + 4, hy, 1, 8, KNIGHT.dark);
+        R(g, hx + 1, hy + 4, 4, 2, KNIGHT.joint); R(g, hx + 3, hy + 5, 2, 1, KNIGHT.flameL);
+        R(g, hx + 1, hy - 5, 2, 4, KNIGHT.flame); R(g, hx + 2, hy - 3, 1, 2, KNIGHT.flameL);
+        R(g, hx - 5, hy + 7, 10, 1, KNIGHT.dark);
+      } else {
+        R(g, hx - 5, hy - 1, 10, 9, KNIGHT.dark); R(g, hx - 4, hy, 8, 8, KNIGHT.metal);
+        R(g, hx - 4, hy, 8, 1, KNIGHT.light); R(g, hx, hy + 1, 1, 7, KNIGHT.joint);
+        R(g, hx - 1, hy - 5, 2, 4, KNIGHT.flame); R(g, hx - 5, hy + 7, 10, 1, KNIGHT.dark);
+      }
+      const shx = side ? ax + 2 : dir === 'up' ? ax - 4 : ax - 8;
+      R(g, shx, ty + 1, 4, 5, KNIGHT.metal); R(g, shx + 1, ty + 6, 2, 1, KNIGHT.metal);
+      R(g, shx, ty + 1, 4, 1, KNIGHT.light); R(g, shx, ty + 1, 1, 5, KNIGHT.dark); R(g, shx + 3, ty + 1, 1, 5, KNIGHT.dark);
+      R(g, shx + 1, ty + 2, 2, 1, KNIGHT.flame); R(g, shx + 1, ty + 3, 1, 2, KNIGHT.flameL); R(g, shx + 2, ty + 4, 1, 1, KNIGHT.flame);
+    } else if (L.outfit === 'detective') {
+      if (dir === 'down') {
+        R(g, hx - 6, hy - 1, 12, 2, DET.hat); R(g, hx - 6, hy, 12, 1, DET.dark);
+        R(g, hx - 4, hy - 5, 8, 4, DET.hat); R(g, hx - 3, hy - 5, 4, 1, DET.light);
+        R(g, hx - 4, hy - 2, 8, 1, DET.band); R(g, hx - 1, hy - 5, 2, 1, DET.dark);
+      } else if (side) {
+        R(g, hx - 6, hy - 1, 12, 2, DET.hat); R(g, hx - 6, hy, 12, 1, DET.dark);
+        R(g, hx - 3, hy - 5, 8, 4, DET.hat); R(g, hx - 2, hy - 5, 4, 1, DET.light);
+        R(g, hx - 3, hy - 2, 8, 1, DET.band); R(g, hx, hy - 5, 2, 1, DET.dark);
+      } else {
+        R(g, hx - 6, hy - 1, 12, 2, DET.hat); R(g, hx - 6, hy, 12, 1, DET.dark);
+        R(g, hx - 4, hy - 5, 8, 4, DET.hat); R(g, hx - 3, hy - 5, 4, 1, DET.light);
+        R(g, hx - 4, hy - 2, 8, 1, DET.band);
+      }
+      if (dir !== 'up') {
+        const mx = side ? ax + 3 : ax + 5, my = ty + 4;
+        R(g, mx, my, 4, 1, DET.band); R(g, mx, my + 3, 4, 1, DET.band);
+        R(g, mx, my + 1, 1, 2, DET.band); R(g, mx + 3, my + 1, 1, 2, DET.band);
+        R(g, mx + 1, my + 1, 2, 2, DET.lens); R(g, mx + 1, my + 1, 1, 1, DET.glass);
+        R(g, mx + 3, my + 4, 1, 3, DET.hat); R(g, mx + 4, my + 5, 1, 2, DET.hat);
+      }
+    } else if (L.outfit === 'pilot') {
+      if (dir === 'down') {
+        R(g, hx - 5, hy - 2, 10, 2, PILOT.shell); R(g, hx - 5, hy, 10, 10, PILOT.shell); R(g, hx - 5, hy - 2, 10, 1, '#ffffff');
+        R(g, hx - 5, hy, 1, 9, PILOT.shellD); R(g, hx + 4, hy, 1, 9, PILOT.shellD);
+        R(g, hx - 4, hy + 2, 8, 5, PILOT.visor); R(g, hx - 3, hy + 3, 3, 1, PILOT.glass);
+        R(g, hx - 4, hy + 2, 1, 5, NEON.green); R(g, hx + 3, hy + 2, 1, 5, NEON.dim);
+        R(g, hx - 5, hy + 8, 10, 2, PILOT.suit); R(g, hx - 5, hy + 8, 10, 1, PILOT.light); R(g, hx - 1, hy + 9, 2, 1, NEON.green);
+        R(g, hx - 6, hy + 3, 1, 3, PILOT.strap); R(g, hx + 5, hy + 3, 1, 3, PILOT.strap);
+        R(g, hx + 1, hy - 4, 1, 2, PILOT.strap); R(g, hx + 1, hy - 5, 1, 1, NEON.green);
+      } else if (side) {
+        R(g, hx - 5, hy - 2, 10, 2, PILOT.shell); R(g, hx - 5, hy, 10, 10, PILOT.shell); R(g, hx - 5, hy - 2, 10, 1, '#ffffff');
+        R(g, hx - 5, hy, 1, 9, PILOT.shellD); R(g, hx + 4, hy, 1, 9, PILOT.shellD);
+        R(g, hx - 2, hy + 2, 7, 5, PILOT.visor); R(g, hx - 1, hy + 3, 3, 1, PILOT.glass);
+        R(g, hx + 2, hy + 2, 1, 5, NEON.green);
+        R(g, hx - 5, hy + 8, 10, 2, PILOT.suit); R(g, hx - 5, hy + 8, 10, 1, PILOT.light);
+        R(g, hx - 5, hy + 3, 2, 3, PILOT.strap); R(g, hx + 1, hy - 4, 1, 2, PILOT.strap);
+      } else {
+        R(g, hx - 5, hy - 2, 10, 10, PILOT.shell); R(g, hx - 5, hy - 2, 10, 1, '#ffffff');
+        R(g, hx - 4, hy, 8, 7, PILOT.shellD); R(g, hx - 4, hy + 1, 8, 1, PILOT.dark); R(g, hx - 4, hy + 6, 8, 1, PILOT.dark);
+        R(g, hx - 2, hy + 2, 4, 1, NEON.dim); R(g, hx - 1, hy + 3, 2, 1, NEON.green); R(g, hx - 2, hy + 4, 4, 1, NEON.dim);
+        R(g, hx - 5, hy + 8, 10, 2, PILOT.suit); R(g, hx - 5, hy + 8, 10, 1, PILOT.light); R(g, hx - 1, hy + 9, 2, 1, NEON.green);
+      }
+    } else if (L.outfit === 'backup') {
+      if (dir === 'down') {
+        R(g, hx - 4, hy + 4, 8, 2, BK.dark); R(g, hx - 3, hy + 5, 2, 1, NEON.glow); R(g, hx + 1, hy + 5, 2, 1, NEON.glow);
+      } else if (side) {
+        R(g, hx + 1, hy + 4, 5, 2, BK.dark); R(g, hx + 3, hy + 5, 2, 1, NEON.glow);
+      } else {
+        R(g, hx - 5, hy + 5, 10, 1, BK.dark); R(g, hx - 3, hy + 6, 6, 1, BK.cape);
+      }
+    } else if (L.outfit === 'cowboy') {
+      if (dir === 'down') {
+        R(g, hx - 7, hy - 1, 14, 2, COW.hat); R(g, hx - 6, hy, 12, 1, COW.hatD);
+        R(g, hx - 4, hy - 5, 8, 4, COW.hat); R(g, hx - 3, hy - 5, 3, 1, COW.hatL);
+        R(g, hx - 4, hy - 2, 8, 1, COW.neon); R(g, hx - 1, hy - 5, 2, 1, COW.hatD);
+      } else if (side) {
+        R(g, hx - 7, hy - 1, 14, 2, COW.hat); R(g, hx - 6, hy, 12, 1, COW.hatD);
+        R(g, hx - 4, hy - 5, 9, 4, COW.hat); R(g, hx - 3, hy - 5, 3, 1, COW.hatL);
+        R(g, hx - 4, hy - 2, 9, 1, COW.neon);
+      } else {
+        R(g, hx - 7, hy - 1, 14, 2, COW.hat); R(g, hx - 6, hy, 12, 1, COW.hatD);
+        R(g, hx - 4, hy - 5, 8, 4, COW.hat); R(g, hx - 3, hy - 5, 3, 1, COW.hatL); R(g, hx - 4, hy - 2, 8, 1, COW.neon);
+      }
+      R(g, ax - 5, AY - 2, 1, 1, COW.hatL); R(g, ax + 4, AY - 2, 1, 1, COW.hatL);
+      R(g, ax - 4, AY - 1, 1, 1, COW.neon); R(g, ax + 3, AY - 1, 1, 1, COW.neon);
+    } else if (L.outfit === 'vampire') {
+      if (dir === 'down') {
+        R(g, hx - 6, hy + 5, 2, 6, VAMP.cape); R(g, hx + 4, hy + 5, 2, 6, VAMP.cape);
+        R(g, hx - 5, hy + 6, 1, 4, VAMP.lining); R(g, hx + 4, hy + 6, 1, 4, VAMP.lining);
+        R(g, hx - 5, hy - 2, 10, 2, VAMP.cape); R(g, hx - 5, hy, 10, 2, VAMP.cape); R(g, hx - 1, hy + 1, 2, 1, VAMP.cape);
+        R(g, hx - 5, hy - 2, 4, 1, '#2a2530');
+        R(g, hx - 3, hy + 5, 2, 1, VAMP.red); R(g, hx + 1, hy + 5, 2, 1, VAMP.red); R(g, hx - 1, hy + 8, 2, 1, WHITE);
+      } else if (side) {
+        R(g, hx - 6, hy + 5, 2, 6, VAMP.cape); R(g, hx + 4, hy + 5, 1, 6, VAMP.lining);
+        R(g, hx - 5, hy - 2, 10, 2, VAMP.cape); R(g, hx - 5, hy, 10, 2, VAMP.cape); R(g, hx + 2, hy + 1, 2, 1, VAMP.cape);
+        R(g, hx + 2, hy + 5, 2, 1, VAMP.red);
+      } else {
+        R(g, hx - 5, hy - 2, 10, 3, VAMP.cape); R(g, hx - 5, hy + 1, 10, 8, VAMP.cape);
+        R(g, hx - 5, hy + 6, 10, 3, VAMP.capeD); R(g, hx - 1, hy + 8, 2, 1, VAMP.red);
+      }
+    } else if (L.outfit === 'chef') {
+      if (dir === 'down') {
+        R(g, hx - 5, hy - 2, 10, 2, CHEF.white); R(g, hx - 4, hy - 5, 8, 3, CHEF.white);
+        R(g, hx - 6, hy - 4, 2, 2, CHEF.white); R(g, hx + 4, hy - 4, 2, 2, CHEF.white);
+        R(g, hx - 5, hy - 1, 10, 1, CHEF.neck); R(g, hx - 4, hy - 5, 4, 1, CHEF.whiteL);
+        R(g, hx - 5, hy - 3, 1, 1, CHEF.whiteD); R(g, hx + 4, hy - 3, 1, 1, CHEF.whiteD);
+      } else if (side) {
+        R(g, hx - 5, hy - 2, 10, 2, CHEF.white); R(g, hx - 3, hy - 5, 8, 3, CHEF.white);
+        R(g, hx - 5, hy - 4, 2, 2, CHEF.white); R(g, hx + 4, hy - 4, 2, 2, CHEF.white);
+        R(g, hx - 5, hy - 1, 10, 1, CHEF.neck); R(g, hx - 2, hy - 5, 4, 1, CHEF.whiteL);
+      } else {
+        R(g, hx - 5, hy - 2, 10, 2, CHEF.white); R(g, hx - 4, hy - 5, 8, 3, CHEF.white);
+        R(g, hx - 6, hy - 4, 2, 2, CHEF.whiteD); R(g, hx + 4, hy - 4, 2, 2, CHEF.whiteD);
+        R(g, hx - 5, hy - 1, 10, 1, CHEF.neck); R(g, hx - 4, hy - 5, 4, 1, CHEF.whiteL);
+      }
+    } else if (L.outfit === 'king') {
+      if (dir === 'down') {
+        R(g, hx - 4, hy - 3, 8, 2, KING.gold); R(g, hx - 4, hy - 5, 1, 2, KING.gold); R(g, hx - 1, hy - 5, 2, 2, KING.gold); R(g, hx + 3, hy - 5, 1, 2, KING.gold);
+        R(g, hx - 4, hy - 3, 8, 1, KING.goldL); R(g, hx - 1, hy - 2, 2, 1, KING.jewel); R(g, hx - 3, hy - 2, 1, 1, NEON.green); R(g, hx + 2, hy - 2, 1, 1, NEON.green);
+        R(g, hx - 6, hy + 7, 12, 3, KING.fur); R(g, hx - 6, hy + 9, 12, 1, KING.furD);
+        R(g, hx - 5, hy + 7, 2, 1, KING.furD); R(g, hx + 3, hy + 7, 2, 1, KING.furD);
+      } else if (side) {
+        R(g, hx - 3, hy - 3, 8, 2, KING.gold); R(g, hx - 3, hy - 5, 1, 2, KING.gold); R(g, hx, hy - 5, 2, 2, KING.gold); R(g, hx + 4, hy - 5, 1, 2, KING.gold);
+        R(g, hx - 3, hy - 3, 8, 1, KING.goldL); R(g, hx, hy - 2, 2, 1, KING.jewel);
+        R(g, hx - 6, hy + 7, 12, 3, KING.fur); R(g, hx - 6, hy + 9, 12, 1, KING.furD);
+      } else {
+        R(g, hx - 4, hy - 3, 8, 2, KING.gold); R(g, hx - 4, hy - 5, 1, 2, KING.gold); R(g, hx - 1, hy - 5, 2, 2, KING.gold); R(g, hx + 3, hy - 5, 1, 2, KING.gold);
+        R(g, hx - 4, hy - 3, 8, 1, KING.goldL); R(g, hx - 1, hy - 2, 2, 1, KING.jewel);
+        R(g, hx - 6, hy + 7, 12, 3, KING.furD); R(g, hx - 6, hy + 9, 12, 1, KING.fur);
       }
     }
     if (L.visor) {

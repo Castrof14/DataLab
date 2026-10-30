@@ -1,7 +1,8 @@
 /* DataLab — career: the player's own level. Every level hands the player ONE mission (a real thing
-   to do in the datacenter); finishing it is the promotion to the next level. The crew learns from
-   the boss: on their own, bots only pick tasks of a level BELOW the player's (what the player has
-   already mastered). Orders given by the player ("Atribuir tarefa") are never blocked.
+   to do in the datacenter); finishing it is the promotion to the next level. Ranks that have problems
+   of their own (problems.js) also ask for XP from solving them. The crew learns from the boss: on
+   their own, bots only pick tasks of a level BELOW the player's (what the player has already
+   mastered). Orders given by the player ("Atribuir tarefa") are never blocked.
    The tier of each crew task lives here (TASK_TIER), so jobs.js stays a plain catalog. */
 (function () {
   'use strict';
@@ -9,19 +10,20 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   // tier of every crew task: bots do it alone once the player's level is above it
-  // (tier 0 = always: breaks, getting to know the place, reception, the basic chores; tier 1 is the
-  // hiring level, so nothing new opens there)
+  // (tier 0 = always: breaks, getting to know the place, reception, the basic chores)
   const TASK_TIER = {
     chat: 0, break: 0, rest: 0, tv: 0, arcade: 0, explore: 0, coffee: 0, frontdesk: 0, visitors: 0, round: 0, support: 0, bench: 0,
-    inv: 2, tickets: 2, cams: 2, access: 2, docs: 2, walk: 2, meeting: 2, seals: 2, pcmaint: 2, benchtest: 2, repair: 2, cool: 2,
-    hw: 3, switch: 3, install: 3, swmaint: 3, cables: 3,
-    ping: 4, topo: 4,
-    svc: 5, sys: 5, patch: 5, runbook: 5,
-    fixnet: 6, fixhw: 6, fixinc: 6, fixtec: 6, alerts: 6,
-    backup: 7, kpi: 7, needs: 7, follow: 7, board: 7,
-    capacity: 8,
-    expand: 9,
+    inv: 1, tickets: 1, cams: 1, access: 1, docs: 1, walk: 1, meeting: 1, seals: 1, pcmaint: 1, benchtest: 1, repair: 1, cool: 1,
+    hw: 2, switch: 2, install: 2, swmaint: 2, cables: 2,
+    ping: 3, topo: 3,
+    svc: 4, sys: 4, patch: 4, runbook: 4,
+    fixnet: 5, fixhw: 5, fixinc: 5, fixtec: 5, alerts: 5,
+    backup: 6, kpi: 6, needs: 6, follow: 6, board: 6,
+    capacity: 7,
+    expand: 8,
   };
+  // XP of a problem solved again: the first time is worth it all, then half, then a quarter
+  const REPEAT = [1, 0.5, 0.25];
   const tierOf = (def) => (def && TASK_TIER[def.id]) || 0;
 
 
@@ -138,7 +140,7 @@
     // snapshot of these counters), so a level never passes by itself and promotions don't chain.
     // (hired: people on the team — legendary bots come from the inventory, not from hiring)
     const counters = () => ({
-      v: 3, rack: count('rack'), desk: count('desk'), hired: sys.crew.members.filter((m) => !m.legend).length,
+      v: 4, rack: count('rack'), desk: count('desk'), hired: sys.crew.members.filter((m) => !m.legend).length,
       linked: mine().filter((d) => sys.ops.switchesNear(d).length).length,
       cabled: mine().filter((d) => d.state !== 'new').length,
       online: online(mine()), fixed: K.fixed, orders: K.orders, area: lotArea(), pays: K.pays,
@@ -147,12 +149,9 @@
 
     // one rank and one mission per level: progress() → [done so far, goal]
     const LEVELS = [
-      { rank: R('Estagiário(a)', 'EST', 'est', 0), mission: 'Monte dois postos: dois racks e dois computadores novos',
-        how: 'Construir (B) → Equipamentos → Rack e Computador.',
-        progress: () => [since('rack', 2) + since('desk', 2), 4] },
-      { rank: R('Trainee', 'TRN', 'est', 1), mission: 'Contrate seu primeiro funcionário',
-        how: 'Equipe (C) → Contratar (N): escolha nome, aparência e função. Cada função tem sua rotina no datacenter.',
-        progress: () => [since('hired', 1), 1] },
+      { rank: R('Estagiário(a)', 'EST', 'est', 0), mission: 'Monte dois postos (dois racks e dois computadores novos) e contrate seu primeiro funcionário',
+        how: 'Construir (B) → Equipamentos → Rack e Computador · Equipe (C) → Contratar (N). Os problemas aparecem em Tarefas (T): resolva para ganhar XP.',
+        progress: () => [since('rack', 2) + since('desk', 2) + since('hired', 1), 5] },
       { rank: R('Júnior I', 'JR I', 'jr', 1), mission: 'Instale mais 2 servidores numa sala com switch',
         how: 'Construir (B) → Equipamentos → Servidor e Switch, clicando no rack.',
         progress: () => [since('linked', 2), 2] },
@@ -182,17 +181,42 @@
         progress: () => [Math.min(15, online(mine())), 15] },
     ];
     const MAX = LEVELS.length;
+    // the XP a level asks for besides its mission (problems-data.js ranks — or the database's: only levels with
+    // problems of their own); read each time, the data may arrive from the server after the game started
+    const reqOf = (level) => {
+      const r = ((DL.SCENARIO_DATA && DL.SCENARIO_DATA.ranks) || []).find((x) => x.level === level && x.xp_to_next);
+      return r ? { xp: r.xp_to_next, distinct: r.distinct_to_next || 0 } : null;
+    };
 
     // level · mission complete at max · counters that missions measure from a baseline
-    const K = { level: 1, done: false, fixed: 0, orders: 0, pays: 0, base: {}, seenOrders: 0, acc: 0, key: '' };
+    // xp: all the XP of this save · lvlXp / lvlSolved: XP and distinct problems since this level started
+    // solved: how many times each problem was solved (repeats are worth less)
+    const K = { level: 1, done: false, fixed: 0, orders: 0, pays: 0, base: {}, seenOrders: 0, acc: 0, key: '', xp: 0, lvlXp: 0, lvlSolved: [], solved: {} };
 
     // what the missions measure from, taken when each mission starts
     const baseFor = () => counters();
     const cur = () => LEVELS[K.level - 1];
+    const req = () => reqOf(K.level);
+    const xpDone = () => { const r = req(); return !r || (K.lvlXp >= r.xp && K.lvlSolved.length >= r.distinct); };
+    function xpFor(def, share) {
+      const n = K.solved[def.id] || 0;
+      return Math.max(1, Math.round(def.xp * REPEAT[Math.min(n, REPEAT.length - 1)] * (share == null ? 1 : share)));
+    }
+    // a problem solved: share 1 = by the player, less when someone on the team did it for them
+    function solve(def, share) {
+      share = share == null ? 1 : share;
+      const xp = xpFor(def, share);
+      K.solved[def.id] = (K.solved[def.id] || 0) + 1;
+      K.xp += xp;
+      K.lvlXp += xp;
+      if (share >= 1 && K.lvlSolved.indexOf(def.id) < 0) K.lvlSolved.push(def.id);
+      render(true);
+      return xp;
+    }
     // the insignia: band colour, short name and one chevron per step inside the band
     const rankHtml = (L, cls) => '<span class="rank' + (cls ? ' ' + cls : '') + '" style="--c:' + L.rank.color + '" title="Patente: ' + esc(L.rank.name) + '">' +
       '<i class="rank__chev" aria-hidden="true">' + '<b></b>'.repeat(L.rank.step) + '</i>' + esc(L.rank.short) + '</span>';
-    const isDone = () => { const [n, goal] = cur().progress(); return n >= goal; };
+    const isDone = () => { const [n, goal] = cur().progress(); return n >= goal && xpDone(); };
 
     // the tasks that the crew starts doing alone at a given level
     function unlocksAt(level) {
@@ -205,6 +229,8 @@
       if (K.level >= MAX) { K.done = true; if (!silent) game.toast('ok', 'Carreira completa', 'Você chegou ao topo: ' + LEVELS[MAX - 1].rank.name + '. A equipe faz de tudo sozinha.'); return; }
       K.level++;
       K.base = baseFor(K.level);
+      K.lvlXp = 0;
+      K.lvlSolved = [];
       if (silent) return;
       const un = unlocksAt(K.level);
       const items = DL.unlockLevel ? (DL.CATALOG || []).filter((d) => DL.unlockLevel(d) === K.level).length : 0;
@@ -261,8 +287,8 @@
     }
 
     function render(force) {
-      const L = cur(), [n, goal] = L.progress();
-      const key = K.level + ':' + K.done + ':' + n;
+      const L = cur(), [n, goal] = L.progress(), r = req();
+      const key = K.level + ':' + K.done + ':' + n + ':' + K.xp + ':' + K.lvlSolved.length;
       if (!force && key === K.key) return;
       K.key = key;
       badge.textContent = L.rank.short;
@@ -275,12 +301,14 @@
       box.innerHTML =
         '<div class="career__head">' + DL.rankEmblem(L.rank, 64) + '<div><span class="eyebrow-sm">Patente · nível ' + K.level + '/' + MAX + '</span>' +
         '<p class="career__name" style="--c:' + L.rank.color + '">' + esc(L.rank.name) + '</p>' +
-        '<p class="career__rank">' + (K.level < MAX ? 'Próxima: <b>' + esc(LEVELS[K.level].rank.name) + '</b>' : 'Topo da carreira') + '</p></div></div>' +
+        '<p class="career__rank">' + (K.level < MAX ? 'Próxima: <b>' + esc(LEVELS[K.level].rank.name) + '</b>' : 'Topo da carreira') + ' · <span class="mono">' + K.xp + ' XP</span></p></div></div>' +
         '<ol class="career__ladder" aria-hidden="true">' + LEVELS.map((x, i) => '<li class="' + (i < K.level - 1 ? 'is-done' : i === K.level - 1 ? 'is-cur' : '') + '" style="--c:' + x.rank.color + '" title="' + esc(x.rank.name) + '"></li>').join('') + '</ol>' +
         (K.done
           ? '<p class="career__mission">Carreira completa. Toda a rotina do datacenter está nas mãos da equipe.</p>'
           : '<p class="career__mission"><span class="eyebrow-sm">Missão</span>' + esc(L.mission) + '</p>' +
-            '<div class="career__bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + goal + '" aria-valuenow="' + n + '"><i style="transform:scaleX(' + (n / goal).toFixed(3) + ')"></i><span class="mono">' + n + '/' + goal + '</span></div>' +
+            '<div class="career__bar" role="progressbar" aria-label="Missão" aria-valuemin="0" aria-valuemax="' + goal + '" aria-valuenow="' + n + '"><i style="transform:scaleX(' + (n / goal).toFixed(3) + ')"></i><span class="mono">' + n + '/' + goal + '</span></div>' +
+            (r ? '<p class="career__mission career__xp"><span class="eyebrow-sm">XP da patente · problemas resolvidos</span></p>' +
+              '<div class="career__bar career__bar--xp" role="progressbar" aria-label="XP da patente" aria-valuemin="0" aria-valuemax="' + r.xp + '" aria-valuenow="' + Math.min(K.lvlXp, r.xp) + '"><i style="transform:scaleX(' + Math.min(1, K.lvlXp / r.xp).toFixed(3) + ')"></i><span class="mono">' + Math.min(K.lvlXp, r.xp) + '/' + r.xp + ' XP · ' + Math.min(K.lvlSolved.length, r.distinct) + '/' + r.distinct + ' problemas diferentes</span></div>' : '') +
             '<p class="career__how">' + esc(L.how) + '</p>') +
         '<p class="career__crew">' + (crewTop < 1 ? 'A equipe ainda só faz o básico sozinha (recepção, rondas, café).' : 'A equipe faz sozinha as tarefas até o nível ' + crewTop + '.') +
         (next && next.length ? ' No nível ' + (K.level + 1) + ' ela passa a fazer: ' + esc(next.join(', ').toLowerCase()) + '.' : '') + '</p>';
@@ -299,38 +327,56 @@
     }
 
     function reset() {
-      Object.assign(K, { level: 1, done: false, fixed: 0, orders: 0, pays: 0, base: {}, seenOrders: sys.crew.assignedCount || 0, key: '' });
+      Object.assign(K, { level: 1, done: false, fixed: 0, orders: 0, pays: 0, base: {}, seenOrders: sys.crew.assignedCount || 0, key: '', xp: 0, lvlXp: 0, lvlSolved: [], solved: {} });
       K.base = baseFor(1);
       render(true);
     }
 
     reset();
     return {
-      update, reset, render, LEVELS, TASK_TIER, tierOf,
+      update, reset, render, LEVELS, TASK_TIER, tierOf, xpFor, solve,
       // a new game: presets that already have servers online skip the levels they already meet
       start() { reset(); settle(true); game.emit('career', { level: K.level }); },
       // may a bot pick this task on its own?
       botCan: (def) => K.done || tierOf(def) < K.level,
       // the player level a task needs before bots do it alone
       levelFor: (def) => tierOf(def) + 1,
-      snapshot: () => ({ level: K.level, done: K.done, fixed: K.fixed, orders: K.orders, pays: K.pays, base: K.base }),
+      solvedCount: (id) => K.solved[id] || 0,
+      // the cloud save's answer (game_save_career): the server never allows more XP than it saw solved,
+      // nor a promotion past a rank whose XP isn't there — its numbers win
+      applyServer(c) {
+        if (!c || typeof c !== 'object') return;
+        const xp = Math.max(0, c.xp | 0), level = Math.max(1, Math.min(MAX, c.level | 0 || K.level));
+        if (xp < K.xp) { K.xp = xp; K.lvlXp = Math.min(K.lvlXp, xp); }
+        if (level < K.level) { K.level = level; K.done = false; K.base = baseFor(K.level); K.lvlXp = Math.min(K.lvlXp, K.xp); }
+        render(true);
+      },
+      snapshot: () => ({ level: K.level, done: K.done, fixed: K.fixed, orders: K.orders, pays: K.pays, base: K.base, xp: K.xp, lvlXp: K.lvlXp, lvlSolved: K.lvlSolved.slice(), solved: Object.assign({}, K.solved) }),
       restore(s) {
         reset();
         if (s) {
-          // saves from before the hiring level (nível 2) was added: from level 2 on, every level moved up one
-          const old = !s.base || s.base.v !== 3;
-          const lvl = (s.level | 0) || 1;
-          K.level = Math.max(1, Math.min(MAX, old && lvl >= 2 ? lvl + 1 : lvl));
+          const v = s.base && s.base.v;
+          let lvl = (s.level | 0) || 1;
+          // v3 saves had Trainee as level 2; it is part of Estagiário now, so from level 2 on every level moves down one.
+          // Saves older than v3 came before Trainee existed and already use today's numbering.
+          if (v === 3 && lvl >= 2) lvl--;
+          K.level = Math.max(1, Math.min(MAX, lvl));
           K.done = !!s.done && K.level === MAX;
           K.fixed = s.fixed | 0; K.orders = s.orders | 0; K.pays = s.pays | 0;
           // older saves: the mission then starts counting from now
-          K.base = old ? baseFor(K.level) : s.base;
+          K.base = v === 4 ? s.base : baseFor(K.level);
+          K.xp = Math.max(0, s.xp | 0);
+          K.lvlXp = v === 4 ? Math.max(0, s.lvlXp | 0) : 0;
+          K.lvlSolved = v === 4 && Array.isArray(s.lvlSolved) ? s.lvlSolved.filter((x) => typeof x === 'string').slice(0, 100) : [];
+          if (s.solved && typeof s.solved === 'object') for (const k of Object.keys(s.solved).slice(0, 200)) K.solved[k] = Math.max(0, s.solved[k] | 0);
         }
         settle(true);
         game.emit('career', { level: K.level });
       },
       get done() { return K.done; },
       get level() { return K.level; },
+      get xp() { return K.xp; },
+      get levelXp() { return { xp: K.lvlXp, solved: K.lvlSolved.slice(), need: req() }; },
       get title() { return cur().rank.name; },
       get rank() { return cur().rank; },
     };

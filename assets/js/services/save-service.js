@@ -69,6 +69,7 @@
       walls: Array.from(W.wallSet || []), gaps: Array.from(W.gapsSeen || []), perf: Array.from(W.perf || []),
       rooms: W.rooms.map((r) => ({ id: r.id, name: r.name, type: r.type || null, theme: r.theme || null, style: r.style || null, floor: r.floor, x: r.x, y: r.y, w: r.w, h: r.h, n: r.n })),
       items, crew, devices, links, vms, econ: D.economy.snapshot(), career: D.career ? D.career.snapshot() : null,
+      problems: D.problems ? D.problems.snapshot() : null,
     };
   }
 
@@ -162,6 +163,7 @@
     D.economy.restore(data.econ);
     if (opts.company) D.economy.applyServer(opts.company);
     if (D.career) D.career.restore(data.career);
+    if (D.problems) D.problems.restore(data.problems);
     const pl = D.player;
     pl.x = W.spawn.x; pl.y = W.spawn.y; pl.vx = pl.vy = 0;
     scene.cam.x = pl.x; scene.cam.y = pl.y;
@@ -215,6 +217,7 @@
         if (r.ok) {
           D.economy.resetClaim();
           D.economy.applyServer(r.data);
+          if (D.career && r.data.career) D.career.applyServer(r.data.career);
           // what the server removed (skins / legendary bots the player doesn't own) goes away here too
           for (const c of r.data.changes || []) {
             if (c.type === 'skin_removed') { const e = D.scene.world.items.find((x) => x.uid === c.uid); if (e) delete e.skin; }

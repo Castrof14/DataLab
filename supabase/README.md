@@ -42,8 +42,13 @@ services/admin-service ┘                       ▼
 | `datalab_full.sql` | tudo acima concatenado, para colar no SQL Editor |
 | `migrations/20261005000800_payments.sql` | `gold_packs`, `payment_orders`, crédito de Gold por pagamento confirmado |
 | `migrations/20261025000200_titles.sql` | `user_titles` (títulos do jogador: Fundador, Beta Tester, VIP…), concedidos por admin/dev |
+| `migrations/20261025000600_problems.sql` | problemas de carreira: `career_ranks`, `command_help`, `scenario_lessons`, `problems`, `scenario_steps`, `scenario_step_help` (catálogo), `problem_runs` (por save), `game_saves.career_xp/career_level`, `private.career_settle` e `private.game_save_career` |
+| `migrations/20261025000700_problem_devices.sql` | problemas em mais de um equipamento: `problems.devices` (ex.: `{"sw": "switch.of"}`), `problems.bot_action`, `scenario_steps.device_role` |
+| `seed_scenarios.sql` | lições do terminal, problemas, passos, ajudas e patentes (gerado de `assets/js/problems-data.js` + `terminal.js`) |
 | `functions/{shop,inventory,economy,game,admin,payments,payments-webhook}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |
+| `scripts/build-scenarios.mjs` | regera o `seed_scenarios.sql` direto dos arquivos do jogo (sem navegador) |
+| `scripts/build-full.mjs` | regera o `datalab_full.sql`: migrations da 1ª versão (20261005…), `seed.sql`, as migrations seguintes (algumas precisam das linhas do seed) e `seed_scenarios.sql` |
 | `config.toml` | configuração da CLI (`verify_jwt = true` em todas as funções) |
 
 ## Configuração passo a passo
@@ -56,7 +61,8 @@ services/admin-service ┘                       ▼
    supabase login
    supabase link --project-ref SEU_PROJECT_REF
    supabase db push           # aplica supabase/migrations
-   psql "$SUPABASE_DB_URL" -f supabase/seed.sql   # ou cole seed.sql no SQL Editor
+   psql "$SUPABASE_DB_URL" -f supabase/seed.sql             # ou cole seed.sql no SQL Editor
+   psql "$SUPABASE_DB_URL" -f supabase/seed_scenarios.sql   # problemas e lições do terminal
    ```
 3. **Auth** (*Authentication*):
    - *Providers → Email*: habilite. Deixe *Confirm email* ligado em produção.
@@ -131,6 +137,34 @@ jogo ──status──▶ payments ──────────────�
 6. Novo pacote: insira em `gold_packs` (sku, name, coins, price_cents) e acrescente o mesmo sku em `DL.ECON.store` (`assets/js/economy.js`).
 
 **Testar** (chave dev): compre na Loja → pague o Pix de teste na aba aberta → o toast "Pagamento confirmado" aparece e o Gold sobe. No banco: `select * from payment_orders;` e `select * from transactions where kind = 'payment';`.
+
+## Problemas de carreira (patentes, XP)
+
+```
+assets/js/problems-data.js ──build-scenarios.mjs──▶ seed_scenarios.sql ──▶ tabelas do catálogo (leitura pública)
+        │ (cópia embutida: jogo offline)                                         │
+        ▼                                                                         ▼
+jogo (problems.js) ◀──────────── services/scenario-service.js (lê as tabelas; o que vier inválido fica de fora)
+        │ problema resolvido → claim.problems no próximo save
+        ▼
+Edge Function game ──▶ private.game_save_career = game_save (economia) + career_settle (carreira), numa transação
+```
+
+- **O servidor recalcula o XP** de cada problema pela tabela `problems`: repetido no mesmo save vale 50% e depois 25%; feito pela equipe (ordem do jogador), 15%. No máximo 1 problema a cada 20 min de jogo (+1) conta em cada save. Problema desconhecido ou desativado não vale nada.
+- O XP do save (`data.career.xp`) nunca passa do que o servidor viu resolvido (`game_saves.career_xp`).
+- Promoção que passa por uma patente com meta de XP (`career_ranks.xp_to_next` / `distinct_to_next`) só vale se o XP e os problemas diferentes estiverem lá; senão o nível volta, e o jogo aplica a resposta (`career.applyServer`).
+- Saves de antes desta migration mantêm o nível que tinham.
+
+**Editar ou criar problemas**
+1. Edite `assets/js/problems-data.js` (o formato está explicado no topo do arquivo; os checks são JSON e nunca são executados).
+2. `node supabase/scripts/build-scenarios.mjs` (grava `supabase/seed_scenarios.sql`) e rode o arquivo no SQL Editor. Ele atualiza as linhas, reescreve os passos e desativa (`active = false`) os problemas que saíram do jogo: o histórico em `problem_runs` continua apontando para eles.
+3. `node supabase/scripts/build-full.mjs` para atualizar o `datalab_full.sql`.
+
+**Ordem do deploy** (a Edge Function `game` passa a chamar `private.game_save_career`):
+1. migrations `20261025000600_problems.sql` e `20261025000700_problem_devices.sql` + `seed_scenarios.sql`;
+2. depois `supabase functions deploy game`.
+
+Sem a migration, o jogo continua usando a cópia embutida dos problemas, mas o save na nuvem falharia com a função nova.
 
 ## Primeiro administrador
 

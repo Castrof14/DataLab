@@ -197,7 +197,7 @@
         const sw = ops.switchesNear(d).find((s) => !s.broken && DL.portsOf(s).some((p) => p !== 'te1' && !ops.linkAt(s.key, p)));
         if (!sw) return { say: 'Não tem switch com porta livre perto do ' + d.name + '. Precisamos de outro switch.', tone: 'warn', error: 'Sem switch com porta livre' };
         const port = DL.portsOf(sw).find((p) => p !== 'te1' && !ops.linkAt(sw.key, p));
-        ops.addLink({ dev: d.key, port: 'eth0' }, { dev: sw.key, port });
+        ops.addLink({ dev: d.key, port: 'eth0' }, { dev: sw.key, port }, { who: ctx.a.crew.name });
         return { say: 'Cabo do ' + d.name + ' ligado no ' + sw.name + ' ' + port + '. ' + playerName() + ', agora é configurar no terminal.', tone: 'ok' };
       },
     };
@@ -452,12 +452,12 @@
       for (const rec of M.broken) if (!rec.taken && !hasOrder('repair', rec)) add('repair', rec);
       // 2. faults found a while ago that nobody is handling
       for (const d of ops.devices()) {
-        if (!d.fault || !d.fault.found || t - (d.fault.foundAt || t) < 15 || api().busyWith(d) || hasOrder('fix', d)) continue;
+        if (!d.fault || !d.fault.found || d.hold || t - (d.fault.foundAt || t) < 15 || api().busyWith(d) || hasOrder('fix', d)) continue;
         if (crew.members.some((m) => api().fixDefFor(m, d))) add('fix', d);
       }
       // 3. servers waiting for a cable for over a minute
       for (const d of ops.devices()) {
-        if (d.kind !== 'server' || d.state !== 'new' || hasOrder('cable', d) || (d.newAt != null && t - d.newAt < 60)) continue;
+        if (d.kind !== 'server' || d.state !== 'new' || d.hold || hasOrder('cable', d) || (d.newAt != null && t - d.newAt < 60)) continue;
         if (d.newAt == null) { d.newAt = t; continue; }
         if (crew.members.some((m) => eligible({ type: 'cable', target: d }, m))) add('cable', d);
       }

@@ -1193,7 +1193,7 @@
       const c = a.crew, t = scene.t, grace = DL.learn ? DL.learn().crewGrace : FIX_GRACE;
       if (game.ops) for (const d of game.ops.devices()) {
         const f = d.fault;
-        if (f && f.found && !busyWith(d) && fixDefFor(a, d) && botCan(fixDefFor(a, d)) && (f.help || t - (f.foundAt || t) >= grace)) return true;
+        if (f && f.found && !d.hold && !busyWith(d) && fixDefFor(a, d) && botCan(fixDefFor(a, d)) && (f.help || t - (f.foundAt || t) >= grace)) return true;
       }
       if (game.staff && tasksOf(a).some((x) => x.kind === 'repair' && botCan(x)) && game.staff.broken().some((b) => !b.taken && !game.staff.claimed(b))) return true;
       if (game.staff && game.staff.clientWaitingFor && game.staff.clientWaitingFor(a)) return true;
@@ -2149,7 +2149,7 @@
     el.form.addEventListener('click', (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;
-      if (b.hasAttribute('data-cr-shop')) { closeCreator(); if (game.store) game.store.open('char'); return; }
+      if (b.hasAttribute('data-cr-shop')) { closeCreator(); if (game.store) game.store.open('clothes'); return; }
       const p = CR.profile;
       if (b.dataset.k) {
         p[b.dataset.k] = b.dataset.v;

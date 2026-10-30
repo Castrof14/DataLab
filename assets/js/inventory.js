@@ -446,15 +446,27 @@
 
     /* ---------- the shop ---------- */
     const SHOP_TABS = [
-      ['featured', 'Destaques'], ['infra', 'Infraestrutura'], ['char', 'Personagem'], ['legend', 'Bots lendários'], ['special', 'Especiais'], ['event', 'Evento'], ['gold', 'Gold'],
+      ['featured', 'Destaques'], ['infra', 'Infraestrutura'], ['costumes', 'Trajes'], ['clothes', 'Roupas'],
+      ['accessories', 'Acessórios'], ['hair', 'Cabelos'], ['palette', 'Paletas'], ['legend', 'Bots lendários'],
+      ['special', 'Especiais'], ['event', 'Evento'], ['gold', 'Gold'],
     ];
+    const SHOP_ACC = ['hat', 'shades', 'scarf', 'backpack', 'chain'];
+    const shopOrder = (a, b) => b.price - a.price || a.name.localeCompare(b.name);
     function shopList(tab) {
       const all = DL.COSMETICS.filter((it) => forSale(it) || (it.gift && it.event && DL.eventActive(it.event)));
-      if (tab === 'featured') return all.filter((it) => it.event || it.rarity === 'legendary' || it.rarity === 'epic').sort((a, b) => (b.event ? 1 : 0) - (a.event ? 1 : 0) || DL.RARITY[b.rarity].rank - DL.RARITY[a.rarity].rank);
-      if (tab === 'event') return all.filter((it) => it.event);
-      if (tab === 'infra') return all.filter((it) => it.cat === 'infra' && !it.event);
-      if (tab === 'char') return all.filter((it) => it.cat === 'char' && !it.event);
-      return all.filter((it) => it.cat === tab);
+      let list;
+      if (tab === 'featured') list = all.filter((it) => it.event || it.rarity === 'legendary' || it.rarity === 'epic');
+      else if (tab === 'event') list = all.filter((it) => it.event);
+      else if (tab === 'infra') list = all.filter((it) => it.cat === 'infra' && !it.event);
+      else if (tab === 'costumes') list = all.filter((it) => it.cat === 'char' && !it.event && it.id.startsWith('costume_'));
+      else if (tab === 'clothes') list = all.filter((it) => it.cat === 'char' && !it.event && !it.id.startsWith('costume_') && (it.slot === 'shirt' || it.slot === 'pants'));
+      else if (tab === 'accessories') list = all.filter((it) => it.cat === 'char' && !it.event && SHOP_ACC.indexOf(it.slot) >= 0);
+      else if (tab === 'hair') list = all.filter((it) => it.cat === 'char' && !it.event && it.slot === 'hair');
+      else if (tab === 'palette') list = all.filter((it) => it.cat === 'char' && !it.event && it.slot === 'palette');
+      else if (tab === 'legend') list = all.filter((it) => it.cat === 'legend' && !it.event);
+      else if (tab === 'special') list = all.filter((it) => it.cat === 'special' && !it.event);
+      else list = [];
+      return list.sort(shopOrder);
     }
     function goldTabHtml() {
       const E = DL.ECON, W = wallet();

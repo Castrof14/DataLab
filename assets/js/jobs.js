@@ -77,7 +77,8 @@
   const devsOf = (ctx, rack) => (ctx.ops ? ctx.ops.devices().filter((d) => d.rack === rack) : []);
   const racks = (ctx, pred) => items(ctx, 'rack').filter((e) => e.units && (!pred || pred(e, devsOf(ctx, e))));
   const tempOf = (e) => (e.temp != null ? e.temp : e.tel ? e.tel.temp : 24);
-  const faults = (ctx, types) => (ctx.ops ? ctx.ops.devices().filter((d) => d.fault && d.fault.found && types.indexOf(d.fault.type) >= 0) : []);
+  // d.hold: a career problem the crew leaves to the player (problems.js)
+  const faults = (ctx, types) => (ctx.ops ? ctx.ops.devices().filter((d) => d.fault && d.fault.found && !d.hold && types.indexOf(d.fault.type) >= 0) : []);
   const servers = (ctx) => (ctx.ops ? ctx.ops.devices().filter((d) => d.kind === 'server') : []);
   const online = (ctx) => servers(ctx).filter((d) => d.state === 'online');
   const up = (ctx, d) => ctx.ops.health(d).up && !d.fault;
@@ -145,11 +146,11 @@
       {
         id: 'cables', name: 'Organizar cabos', verb: 'Organizando cabos', kind: 'equip', skill: 'redes', xp: 16, dur: [10, 16], auto: 2,
         desc: 'Passa os cabos pelos organizadores e bandejas.', none: 'Nenhum rack com cabos',
-        targets: (ctx) => racks(ctx, (e) => !!e.cableLook),
+        targets: (ctx) => racks(ctx, (e) => !!e.cableLook && !e.hold),
         weight: (e) => (e.cableLook === 'messy' ? 10 : 1),
         finish(ctx, rack) {
           if (rack.cableLook === 'messy') {
-            ctx.ops.tidy([rack]);
+            ctx.ops.tidy([rack], ctx.a.crew.name);
             return { say: 'Organizei os cabos do ' + rack.id + '. Bem melhor para o fluxo de ar.', tone: 'ok' };
           }
           return { say: pick(['Revisei as etiquetas dos cabos do ' + rack.id + '. Tudo nos conformes.', 'Cabos do ' + rack.id + ' arrumados, só apertei umas abraçadeiras.']) };

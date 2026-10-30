@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#0a0a0a">
   <!-- Scripts only from this site + the pinned Supabase SDK (with SRI); network only to Supabase.
        A custom Supabase domain must be added to connect-src. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -27,6 +27,7 @@
   <link rel="stylesheet" href="assets/css/store.css">
   <link rel="stylesheet" href="assets/css/account.css">
   <link rel="stylesheet" href="assets/css/auth.css">
+  <link rel="stylesheet" href="assets/css/spotify.css">
   <!-- The CSP <meta> above turns off Chrome's preload scanner, so the scripts at the end of <body> would
        download one after another (~45 round trips). Listing them here fetches them all at once; they
        still run in the same order. Keep this list in step with the <script> tags below. -->
@@ -49,6 +50,8 @@
   <link rel="preload" href="assets/js/crew.js" as="script">
   <link rel="preload" href="assets/js/roles.js" as="script">
   <link rel="preload" href="assets/js/terminal.js" as="script">
+  <link rel="preload" href="assets/js/problems-data.js" as="script">
+  <link rel="preload" href="assets/js/problems.js" as="script">
   <link rel="preload" href="assets/js/ops.js" as="script">
   <link rel="preload" href="assets/js/winserver.js" as="script">
   <link rel="preload" href="assets/js/cabling.js" as="script">
@@ -70,15 +73,18 @@
   <link rel="preload" href="assets/js/services/cloud.js" as="script">
   <link rel="preload" href="assets/js/services/auth-service.js" as="script">
   <link rel="preload" href="assets/js/services/save-service.js" as="script">
+  <link rel="preload" href="assets/js/services/scenario-service.js" as="script">
   <link rel="preload" href="assets/js/services/economy-service.js" as="script">
   <link rel="preload" href="assets/js/services/inventory-service.js" as="script">
   <link rel="preload" href="assets/js/services/payment-service.js" as="script">
   <link rel="preload" href="assets/js/services/admin-service.js" as="script">
+  <link rel="preload" href="assets/js/services/spotify-service.js" as="script">
   <link rel="preload" href="assets/js/auth-gate.js" as="script">
   <link rel="preload" href="assets/js/demo.js" as="script">
   <link rel="preload" href="assets/js/menu.js" as="script">
   <link rel="preload" href="assets/js/cloud-sync.js" as="script">
   <link rel="preload" href="assets/js/account.js" as="script">
+  <link rel="preload" href="assets/js/spotify-player.js" as="script">
   <style>
     /* loading cover: the landing's last frame (index.html: CARREGANDO + a full bar) stays on screen until
        auth-gate.js shows the login or the menu; it hides itself after 15 s in case something failed */
@@ -175,6 +181,7 @@
           <button class="btn btn--sm ops-btn ops-btn--gold" id="storeBtn" type="button" title="Loja: skins, roupas, itens especiais e bots lendários (O)"><span class="cur cur--dc" aria-hidden="true"></span>Loja <kbd>O</kbd></button>
           <button class="btn btn--sm ops-btn ops-btn--inv" id="invBtn" type="button" title="Inventário: equipar, desequipar, vender (U)" aria-label="Inventário"><span class="inv-ico" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="hud-lbl">Inventário</span> <kbd>U</kbd></button>
         </span>
+        <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
         <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
         <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
         <button class="btn btn--sm" id="saveBtn" type="button" title="Salvar o jogo na sua conta (Ctrl+S)">Salvar</button>
@@ -209,6 +216,9 @@
       <span class="econ__row"><span class="cur cur--dc" aria-hidden="true">⬢</span><b id="econCoins" class="is-gold">0</b><span class="eyebrow-sm">Gold</span></span>
       <span class="econ-float" id="econFloat" aria-live="polite"></span>
     </button>
+
+    <!-- compact Spotify player (spotify-player.js); stays hidden without spotifyClientId in config.js -->
+    <section class="spot" id="spot" hidden aria-label="Spotify"></section>
 
     <div class="minimap" aria-hidden="true">
       <canvas id="minimap"></canvas>
@@ -641,6 +651,8 @@
   <script src="assets/js/crew.js"></script>
   <script src="assets/js/roles.js"></script>
   <script src="assets/js/terminal.js"></script>
+  <script src="assets/js/problems-data.js"></script>
+  <script src="assets/js/problems.js"></script>
   <script src="assets/js/ops.js"></script>
   <script src="assets/js/winserver.js"></script>
   <script src="assets/js/cabling.js"></script>
@@ -663,14 +675,17 @@
   <script src="assets/js/services/cloud.js"></script>
   <script src="assets/js/services/auth-service.js"></script>
   <script src="assets/js/services/save-service.js"></script>
+  <script src="assets/js/services/scenario-service.js"></script>
   <script src="assets/js/services/economy-service.js"></script>
   <script src="assets/js/services/inventory-service.js"></script>
   <script src="assets/js/services/payment-service.js"></script>
   <script src="assets/js/services/admin-service.js"></script>
+  <script src="assets/js/services/spotify-service.js"></script>
   <script src="assets/js/auth-gate.js"></script>
   <script src="assets/js/demo.js"></script>
   <script src="assets/js/menu.js"></script>
   <script src="assets/js/cloud-sync.js"></script>
   <script src="assets/js/account.js"></script>
+  <script src="assets/js/spotify-player.js"></script>
 </body>
 </html>

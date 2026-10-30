@@ -136,8 +136,8 @@
     // this browser's storage; what the session earns is reported in the next save (CLAIM) and the
     // server decides how much of it counts.
     const CLOUD = { on: false, local: null };
-    const CLAIM = { revenue: 0, opex: 0, credits: 0, incidents: [], dc_done: false, since: 0 };
-    function resetClaim() { CLAIM.revenue = 0; CLAIM.opex = 0; CLAIM.credits = 0; CLAIM.incidents = []; CLAIM.dc_done = false; CLAIM.since = game.time ? game.time() : 0; }
+    const CLAIM = { revenue: 0, opex: 0, credits: 0, incidents: [], problems: [], dc_done: false, since: 0 };
+    function resetClaim() { CLAIM.revenue = 0; CLAIM.opex = 0; CLAIM.credits = 0; CLAIM.incidents = []; CLAIM.problems = []; CLAIM.dc_done = false; CLAIM.since = game.time ? game.time() : 0; }
     const save = () => { if (CLOUD.on) return; try { localStorage.setItem(WALLET_KEY, JSON.stringify(W)); } catch (e) { /* private mode */ } };
     // DataCoins became Gold (the same premium coin): carry the old balance over once, plus the welcome gift
     if (!W.goldSince) {
@@ -569,6 +569,10 @@
       count('incidents');
       if (CLAIM.incidents.length < 20) CLAIM.incidents.push({ device: info.d.key, type: info.type || (info.d.fault && info.d.fault.type) || 'fault', open: Math.round(open), by: info.by ? 'crew' : 'player' });
     });
+    // career problems that gave XP (problems.js): the server prices them with its own catalog
+    game.on('problem-done', (info) => {
+      if (info.xp > 0 && CLAIM.problems.length < 30) CLAIM.problems.push({ id: info.id, by: info.by === 'player' ? 'player' : 'crew', wrong: info.wrong | 0 });
+    });
 
     /* ---------- "datacenter concluído" ---------- */
     function checklist() {
@@ -848,7 +852,7 @@
       // what this session earned / spent since the last save (the server validates and caps it)
       takeClaim() {
         const c = { elapsed_min: Math.max(0, Math.round(nowMin() - CLAIM.since)), revenue: Math.round(CLAIM.revenue), opex: Math.round(CLAIM.opex),
-          credits: Math.round(CLAIM.credits), incidents: CLAIM.incidents.slice(0, 20), dc_done: CLAIM.dc_done || !!world().dcDone, phase: CO.phase };
+          credits: Math.round(CLAIM.credits), incidents: CLAIM.incidents.slice(0, 20), problems: CLAIM.problems.slice(0, 30), dc_done: CLAIM.dc_done || !!world().dcDone, phase: CO.phase };
         return c;
       },
       resetClaim,
