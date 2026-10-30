@@ -32,6 +32,51 @@
     disk: { kinds: ['server'], short: 'Disco cheio', msg: (d) => 'Disco do ' + d.name + ' está 96% cheio', apply: (d) => (d.os.disk = 96), fixed: (d) => d.os.disk < 80 },
     port: { kinds: ['switch'], short: 'Porta em erro', msg: (d) => 'Porta ' + String(d.sw.bad).replace('gi', 'Gi') + ' do ' + d.name + ' em erro (err-disabled)', apply: null, fixed: (d) => !d.sw.bad || d.sw.fixed },
   };
+  // Faults that only career problems set up (problems.js: setup.fault): the random incidents never pick them.
+  // apply(d, opts, api) · loss: how economy.js counts the lost revenue
+  const GW = '10.0.1.1';
+  const linux = (d) => !!d.os && !(DL.isWin && DL.isWin(d));
+  const e0 = (d) => d.os.ifaces.eth0;
+  const hasIp = (d, ip) => e0(d).ips.indexOf(ip + '/24') >= 0;
+  Object.assign(FAULTS, {
+    wrongip: { problem: true, loss: 'offline', kinds: ['server'], when: linux, short: 'IP errado', msg: (d) => 'Servidor ' + d.name + ' não responde no IP ' + d.ip,
+      // opts.ip: a given address (another server's); otherwise a free one in the same network
+      apply: (d, o, api) => { const bad = (o && o.ip) || api.freeIp(); e0(d).ips = [bad + '/24']; d.os.badIp = bad; },
+      fixed: (d) => hasIp(d, d.ip) && !hasIp(d, d.os.badIp), fix: (d) => { e0(d).ips = [d.ip + '/24']; } },
+    badroute: { problem: true, kinds: ['server'], when: linux, short: 'Rota errada', msg: (d) => 'Servidor ' + d.name + ' sem acesso à internet',
+      apply: (d) => { d.os.route = '10.0.1.254'; }, fixed: (d) => d.os.route === GW, fix: (d) => { d.os.route = GW; } },
+    sshstop: { problem: true, kinds: ['server'], when: linux, short: 'SSH parado', msg: (d) => 'Acesso remoto (SSH) do ' + d.name + ' não responde',
+      apply: (d) => { d.os.services.ssh = 'inactive'; }, fixed: (d) => d.os.services.ssh === 'active', fix: (d) => { d.os.services.ssh = 'active'; } },
+    // someone stopped nginx by hand: inactive, not failed (auth.log says who)
+    nginxstop: { problem: true, loss: 'service', kinds: ['server'], when: linux, short: 'Site parado', msg: (d) => 'Site hospedado no ' + d.name + ' fora do ar',
+      apply: (d, o) => { d.os.services.nginx = 'inactive'; if (DL.authStop) DL.authStop(d, (o && o.user) || ['carlos', 'deploy', 'marina', 'rafael'][Math.floor(rand() * 4)], 'nginx'); },
+      fixed: (d) => d.os.services.nginx === 'active', fix: (d) => { d.os.services.nginx = 'active'; } },
+    linksvc: { problem: true, loss: 'offline', kinds: ['server'], when: linux, short: 'Interface e serviço', msg: (d) => 'Servidor ' + d.name + ' apresenta falha de conexão',
+      apply: (d) => { e0(d).up = false; d.os.services.nginx = 'failed'; }, fixed: (d) => e0(d).up && d.os.services.nginx === 'active', fix: (d) => { e0(d).up = true; d.os.services.nginx = 'active'; } },
+    disksvc: { problem: true, loss: 'disk', kinds: ['server'], when: linux, short: 'Disco cheio derrubou o site', msg: (d) => 'Site do ' + d.name + ' fora do ar e disco 97% cheio',
+      apply: (d) => { d.os.disk = 97; d.os.services.nginx = 'failed'; }, fixed: (d) => d.os.disk < 80 && d.os.services.nginx === 'active', fix: (d) => { d.os.disk = 61; d.os.services.nginx = 'active'; } },
+    noip3: { problem: true, loss: 'offline', kinds: ['server'], when: linux, short: 'Rede desconfigurada', msg: (d) => 'Servidor ' + d.name + ' voltou da manutenção sem rede',
+      apply: (d) => { e0(d).up = false; e0(d).ips = []; d.os.route = null; },
+      fixed: (d) => e0(d).up && hasIp(d, d.ip) && d.os.route === GW, fix: (d) => { e0(d).up = true; e0(d).ips = [d.ip + '/24']; d.os.route = GW; } },
+    reinstall: { problem: true, loss: 'offline', kinds: ['server'], when: linux, short: 'Reinstalado sem configuração', msg: (d) => 'Servidor ' + d.name + ' voltou da reinstalação sem IP',
+      apply: (d) => { d.os.hostname = 'localhost'; e0(d).ips = []; d.os.route = null; },
+      fixed: (d) => hasIp(d, d.ip) && d.os.route === GW && d.os.hostname === d.name.toLowerCase(),
+      fix: (d) => { e0(d).ips = [d.ip + '/24']; d.os.route = GW; d.os.hostname = d.name.toLowerCase(); } },
+    extraip: { problem: true, kinds: ['server'], when: linux, short: 'IP a mais', msg: (d) => 'Conflito de IP: o ' + d.name + ' responde num endereço que não é dele',
+      apply: (d, o, api) => { const ip = api.freeIp(); e0(d).ips.push(ip + '/24'); d.os.extraIp = ip; },
+      fixed: (d) => hasIp(d, d.ip) && !hasIp(d, d.os.extraIp), fix: (d) => { e0(d).ips = [d.ip + '/24']; } },
+    // the cable went to the switch's uplink port (te1): wrong connection, red in the cabling view
+    cablewrong: { problem: true, loss: 'offline', kinds: ['server'], short: 'Cabo na porta errada', msg: (d) => 'Servidor ' + d.name + ' apresenta falha de conexão', apply: null, fixed: (d, ops) => ops.trace(d).ok },
+    // the cable keeps coming loose: syslog shows the link going down and up, until it drops for good
+    flap: { problem: true, loss: 'offline', kinds: ['server'], short: 'Link instável', msg: (d) => 'Servidor ' + d.name + ' caindo e voltando (link instável)', apply: null, fixed: (d, ops) => ops.trace(d).ok },
+    // someone shut a port down and forgot it (administratively down, not err-disabled)
+    portoff: { problem: true, loss: 'port', kinds: ['switch'], short: 'Porta desligada', msg: (d) => 'Porta ' + String(d.sw.off).replace('gi', 'Gi') + ' do ' + d.name + ' desligada (administratively down)', apply: null,
+      fixed: (d) => !d.sw.off || d.sw.ports[d.sw.off] !== 'disabled', fix: (d) => { if (d.sw.off) d.sw.ports[d.sw.off] = d.sw.linked.has(d.sw.off) ? 'connected' : 'notconnect'; } },
+    // two ports down at once: one err-disabled, one shut down by hand
+    port2: { problem: true, loss: 'port', kinds: ['switch'], short: 'Duas portas fora', msg: (d) => 'Duas portas do ' + d.name + ' fora do ar', apply: null,
+      fixed: (d) => (!d.sw.bad || d.sw.fixed) && (!d.sw.off || d.sw.ports[d.sw.off] !== 'disabled'),
+      fix: (d) => { d.sw.fixed = true; if (d.sw.off) d.sw.ports[d.sw.off] = d.sw.linked.has(d.sw.off) ? 'connected' : 'notconnect'; } },
+  });
   DL.FAULTS = FAULTS;
   // a fault applies to a device when its kind matches and its optional `when(d)` agrees
   // (winserver.js: Windows-only faults, and Linux-only ones skip Windows servers)
@@ -296,12 +341,19 @@
       else if (t.sw.broken) why = 'switch';
       else if (!e0.up) why = 'iface';
       else if (e0.ips.indexOf(d.ip + '/24') < 0) why = 'ip';
-      else if (t.sw.sw.bad === t.port && !t.sw.sw.fixed) why = 'port';
+      else if (portDown(t)) why = 'port';
       return { up: !why, why, http: !why && os.services.nginx === 'active', disk: os.disk };
     }
+    // the switch port at the end of the cable is err-disabled, or shut down by hand
+    const portDown = (t) => (t.sw.sw.bad === t.port && !t.sw.sw.fixed) || t.sw.sw.ports[t.port] === 'disabled';
 
     function reach(d, host) {
-      if (d.kind === 'switch') return { ok: true };
+      // from a switch (its own ping): the gateway, or a device that is up
+      if (d.kind === 'switch') {
+        if (host === GW || host === d.ip) return { ok: true };
+        const o = devices().find((x) => x.ip === host && x.kind !== 'patch');
+        return { ok: !!o && (o.kind === 'switch' || (o.state === 'online' && health(o).up)) };
+      }
       const os = d.os, e0 = os.ifaces.eth0;
       if (host === '127.0.0.1' || host === 'localhost') return { ok: true };
       if (!e0.up) return { ok: false, msg: 'connect: Network is unreachable', hint: 'a eth0 está DOWN — veja ip link' };
@@ -309,10 +361,14 @@
       if (!t.ok) return { ok: false, msg: 'connect: Network is unreachable', hint: 'sem sinal no cabo (NO-CARRIER). ' + t.reason + ' — confira o cabeamento do rack' };
       if (t.sw.broken) return { ok: false, msg: 'connect: Network is unreachable', hint: 'o ' + t.sw.name + ' está com defeito de hardware — chame o técnico de TI' };
       if (!e0.ips.length) return { ok: false, msg: 'connect: Network is unreachable', hint: 'a eth0 não tem endereço IP — veja ip addr' };
-      if (t.sw.sw.bad === t.port && !t.sw.sw.fixed) return { ok: false, msg: 'From ' + e0.ips[0].split('/')[0] + ' icmp_seq=1 Destination Host Unreachable', hint: 'a porta ' + t.port + ' do ' + t.sw.name + ' está err-disabled — o problema está no switch' };
+      if (portDown(t)) return { ok: false, msg: 'From ' + e0.ips[0].split('/')[0] + ' icmp_seq=1 Destination Host Unreachable', hint: 'a porta ' + t.port + ' do ' + t.sw.name + ' está ' + (t.sw.sw.ports[t.port] === 'disabled' ? 'desligada (disabled)' : 'err-disabled') + ' — o problema está no switch' };
       const local = e0.ips.some((ip) => ip.split('.').slice(0, 3).join('.') === host.split('.').slice(0, 3).join('.'));
       if (!local && !os.route) return { ok: false, msg: 'connect: Network is unreachable', hint: 'destino fora da rede local e sem rota padrão — veja ip route' };
-      if (host === '10.0.1.1' || host === '8.8.8.8' || host === '1.1.1.1') return { ok: true };
+      // outside the network everything goes through the default route: a gateway that doesn't exist answers nothing
+      if (!local && os.route !== GW && !devices().some((x) => x.ip === os.route)) return { ok: false, msg: 'From ' + e0.ips[0].split('/')[0] + ' icmp_seq=1 Destination Host Unreachable', hint: 'a rota padrão aponta para ' + os.route + ', que não responde — veja ip route' };
+      // the address the server answers on has to be its own (a wrong IP can't reach the gateway's network)
+      if (!e0.ips.some((ip) => ip.split('.').slice(0, 3).join('.') === '10.0.1')) return { ok: false, msg: 'connect: Network is unreachable', hint: 'o IP da eth0 não é da rede 10.0.1.0/24 — veja ip addr' };
+      if (host === GW || host === '8.8.8.8' || host === '1.1.1.1') return { ok: true };
       const o = devices().find((x) => x.ip === host);
       if (o) return { ok: o.state === 'online' && health(o).up, hint: !health(o).up ? o.name + ' está fora do ar' : null };
       return { ok: false, msg: 'From ' + e0.ips[0].split('/')[0] + ' icmp_seq=1 Destination Host Unreachable' };
@@ -325,21 +381,44 @@
     function injectFault(d, type, opts) {
       // err-disabled is a feature of managed switches: the simple ones never shut a port down
       if (d.kind === 'switch' && d.model && d.model.managed === false) return null;
-      const types = Object.keys(FAULTS).filter((k) => faultFits(k, d));
+      // (a fault only a problem sets up is never picked at random)
+      const types = Object.keys(FAULTS).filter((k) => faultFits(k, d) && (type === k || !FAULTS[k].problem));
       if (!types.length || (type && types.indexOf(type) < 0)) return null;
       const t = type || pick(types);
-      if (t === 'cable') {
+      const used = d.kind === 'switch' ? Array.from(d.sw.linked || []).filter((p) => p !== 'te1') : [];
+      if (t === 'cable' || t === 'flap') {
         const tr = trace(d);
         if (!tr.ok) return null;
         const l = tr.links[0];
-        l.loose = l.a.dev === d.key ? 'a' : 'b';
-      } else if (t === 'port') {
-        const used = Array.from(d.sw.linked || []).filter((p) => p !== 'te1');
-        if (!used.length) return null;
+        // opts.far: the plug comes out at the switch end (the port shows notconnect)
+        const near = l.a.dev === d.key ? 'a' : 'b';
+        l.loose = opts && opts.far && tr.links.length === 1 ? (near === 'a' ? 'b' : 'a') : near;
+        if (t === 'flap') {
+          const n = 3 + Math.floor(rand() * 4);
+          d.os.flaps = n;
+          for (let i = 0; i < n; i++) {
+            DL.syslogAdd(d, 50 - i * 9, 'kernel: [' + (90000 + i * 777) + '.1] e1000e: eth0 NIC Link is Down');
+            if (i < n - 1) DL.syslogAdd(d, 49 - i * 9, 'kernel: [' + (90060 + i * 777) + '.4] e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex');
+          }
+        }
+      } else if (t === 'cablewrong') {
+        // the switch end moves to the uplink port te1 (when it is free)
+        const tr = trace(d);
+        if (!tr.ok || tr.links.length !== 1 || linkAt(tr.sw.key, 'te1')) return null;
+        const l = tr.links[0], end = l.a.dev === tr.sw.key ? 'a' : 'b';
+        l[end] = { dev: tr.sw.key, port: 'te1' };
+        markMessy(l);
+      } else if (t === 'port' || t === 'port2') {
+        if (!used.length || (t === 'port2' && used.length < 2)) return null;
         d.sw.bad = opts && used.indexOf(opts.port) >= 0 ? opts.port : pick(used);
         d.sw.fixed = false;
         if (d.sw.shut === d.sw.bad) d.sw.shut = null;
-      } else FAULTS[t].apply(d);
+        if (t === 'port2') { d.sw.off = pick(used.filter((p) => p !== d.sw.bad)); d.sw.ports[d.sw.off] = 'disabled'; }
+      } else if (t === 'portoff') {
+        if (!used.length) return null;
+        d.sw.off = opts && used.indexOf(opts.port) >= 0 ? opts.port : pick(used);
+        d.sw.ports[d.sw.off] = 'disabled';
+      } else FAULTS[t].apply(d, opts, api);
       d.fault = { type: t, found: false, at: scene.t };
       d.ran = new Set();
       d.lessonKey = null;
@@ -408,7 +487,7 @@
         if (!d.fault || !FAULTS[d.fault.type].fixed(d, api)) continue;
         const f = d.fault;
         d.fault = null;
-        if (d.kind === 'switch') { d.sw.bad = null; d.sw.fixed = false; }
+        if (d.kind === 'switch') { d.sw.bad = null; d.sw.fixed = false; d.sw.off = null; }
         O.faultCd = 50;
         logEvent('ok', 'Resolvido: ' + FAULTS[f.type].short.toLowerCase() + ' no ' + d.name + (f.fixedBy ? ' · por ' + f.fixedBy : ''));
         if (f.found || f.player) game.toast('ok', 'Problema resolvido', d.name + ' de volta ao normal' + (f.fixedBy ? ' · ' + f.fixedBy : '') + ' · o monitor volta ao verde');
@@ -426,7 +505,13 @@
       else if (f.type === 'service') d.os.services.nginx = 'active';
       else if (f.type === 'disk') d.os.disk = 61;
       else if (f.type === 'port') d.sw.fixed = true;
-      else if (f.type === 'cable') {
+      else if (f.type === 'cablewrong') {
+        // back to a free access port of the same switch
+        const l = O.links.find((x) => (x.a.dev === d.key && x.a.port === 'eth0') || (x.b.dev === d.key && x.b.port === 'eth0'));
+        const end = l && (l.a.port === 'te1' ? 'a' : l.b.port === 'te1' ? 'b' : null), sw = end && get(l[end].dev);
+        const port = sw && portsOf(sw).find((p) => p !== 'te1' && !linkAt(sw.key, p));
+        if (port) l[end] = { dev: sw.key, port };
+      } else if (f.type === 'cable' || f.type === 'flap') {
         const l = linkNear(d.key, 'eth0');
         if (l && l.loose) l.loose = null;
         else if (!l) {
@@ -467,7 +552,7 @@
       const prefer = (!L || L.id !== 'experiente') && fixable.size && rand() < 0.8;
       for (let n = 0; n < 4; n++) {
         const pickD = total > 0 ? pickW() : pick(ok);
-        const kinds = Object.keys(FAULTS).filter((k) => faultFits(k, pickD) && (!prefer || fixable.has(k)));
+        const kinds = Object.keys(FAULTS).filter((k) => !FAULTS[k].problem && faultFits(k, pickD) && (!prefer || fixable.has(k)));
         if (!kinds.length) continue;
         const d = injectFault(pickD, pick(kinds));
         if (d) { if (dir) dir.started('fault', d.name); break; }
@@ -487,7 +572,8 @@
       }
       if (d.state === 'new') { game.toast('info', 'Falta o cabo', 'Ligue o ' + d.name + ' a um switch antes de configurar'); sys.cabling.open(d.rack, d); return; }
       const win = DL.isWin && DL.isWin(d);
-      let lesson = d.fault && d.fault.found ? d.fault.type : d.state === 'link' ? (win ? 'winsetup' : 'setup') : null;
+      // a new server: the setup lesson — or the one of the career problem about it (problems.js: a harder version)
+      let lesson = d.fault && d.fault.found ? d.fault.type : d.state === 'link' ? (game.problems && game.problems.setupLesson(d)) || (win ? 'winsetup' : 'setup') : null;
       if (win && lesson && DL.winLessonFor) lesson = DL.winLessonFor(d, lesson);
       // a career problem on this device opens its own lesson (problems.js): when nothing else is urgent here,
       // or when the problem itself is about this fault
@@ -508,7 +594,8 @@
     }
 
     function complete(d, lesson) {
-      if (lesson === 'setup' || lesson === 'winsetup') {
+      // setup, winsetup and the problems' own setup lessons (setup_jr1…)
+      if (/^(win)?setup/.test(lesson || '') && d.state === 'link') {
         d.state = 'online';
         if (d.os.hostname === 'localhost') d.os.hostname = d.name.toLowerCase();
         logEvent('ok', d.name + ' online · ' + d.ip + ' · já aparece no monitoramento');
@@ -653,6 +740,12 @@
       netOf, poeStatus, portsOf,
       reset, sync, update, devices, get, reach, health, trace, classify, openTerminal, inspect, monitor, report, announce, injectFault, toggle, tasks, fix, configure, render,
       addLink, removeLink, moveEnd, linkAt, linkNear, tidy, prewire, roomOf, logEvent, recompute,
+      // an address in 10.0.1.0/24 that no device uses (wrong / extra IPs that problems set up)
+      freeIp() {
+        const used = new Set(devices().map((d) => d.ip));
+        for (let n = 0; n < 40; n++) { const ip = '10.0.1.' + (120 + Math.floor(rand() * 70)); if (!used.has(ip)) return ip; }
+        return '10.0.1.199';
+      },
       get links() { return O.links; },
       switchesNear(d) {
         const r = roomOf(d.rack);

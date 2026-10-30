@@ -232,7 +232,8 @@
       const out = [];
       for (const d of ops.devices()) {
         if (d.kind === 'patch') continue;
-        let kind = d.fault ? KIND[d.fault.type] : null;
+        // (the faults only problems set up say how they count: ops.js FAULTS[type].loss)
+        let kind = d.fault ? KIND[d.fault.type] || (DL.FAULTS[d.fault.type] && DL.FAULTS[d.fault.type].loss) || null : null;
         if (!kind && d.kind === 'server' && d.state === 'online' && !ops.health(d).up) kind = 'offline';
         if (!kind) { d.loss = null; continue; }
         if (!d.loss || d.loss.kind !== kind) d.loss = { kind, since: scene.t, label: LABEL[kind] };

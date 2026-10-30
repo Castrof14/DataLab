@@ -13,6 +13,10 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const GW = '10.0.1.1';
   let OPS = null; // the running game's ops (switch.near needs it)
+  let WORLD = null; // () → the running game's world (what was built)
+  const low = (s) => String(s == null ? '' : s).toLowerCase();
+  const win = (d) => (d && d.os && d.os.win) || null;
+  const ipCmp = (a, b) => +a.split('.').pop() - +b.split('.').pop();
 
   /* ------------------------------------------------------------------ */
   /* Templates: {{dev.ip}} · {{rack.id}} · {{gw}} · lesson vars          */
@@ -35,6 +39,8 @@
     env.rack = { id: x.rack ? x.rack.id : '' };
     return env;
   }
+  // another device of the problem ({{peer.name}}, {{sw.ip}}, {{r2.id}}…)
+  const envOfOther = (e) => (e.kind === 'rack' ? { id: e.id, name: e.id } : { name: e.name, ip: e.ip, host: String(e.name).toLowerCase() });
 
   /* ------------------------------------------------------------------ */
   /* Checks                                                              */
@@ -60,12 +66,69 @@
     'switch.near': (d) => !!OPS && OPS.switchesNear(d).some((s) => !s.model || s.model.managed !== false),
     // a server plugged straight into this switch (no patch panel: show interfaces status names it) → { name, port }
     'sw.direct': (sw) => {
-      if (!OPS || sw.kind !== 'switch') return null;
-      const list = OPS.devices().filter((d) => d.kind === 'server').map((d) => [d, d.path || OPS.trace(d)]).filter(([, t]) => t.ok && t.sw === sw && t.links.length === 1);
+      const list = direct(sw);
       if (!list.length) return null;
       const [d, t] = pick(list);
-      return { name: d.name, port: t.port };
+      return { name: d.name, port: t.port, ip: d.ip };
     },
+    // the switch port at the other end of the eth0 cable — even with a plug out (the port it belongs in)
+    'cable.port': (d) => {
+      if (!OPS || d.kind !== 'server') return null;
+      const l = OPS.linkNear(d.key, 'eth0');
+      return l ? (l.a.dev === d.key ? l.b.port : l.a.port) : null;
+    },
+    // two different ones → { a: { name, port }, b: { name, port } }
+    'sw.pair': (sw) => {
+      const list = direct(sw);
+      if (list.length < 2) return null;
+      const i = Math.floor(rand() * list.length), j = (i + 1 + Math.floor(rand() * (list.length - 1))) % list.length;
+      return { a: { name: list[i][0].name, port: list[i][1].port }, b: { name: list[j][0].name, port: list[j][1].port } };
+    },
+    // how many ports are in a state (connected, notconnect…) · the port shut down by hand · the one changed without saving
+    'sw.count': (d, st) => (d.sw ? Object.values(d.sw.ports).filter((s) => s === st).length : null),
+    'sw.off': (d) => (d.sw ? d.sw.off || null : null),
+    'sw.unsavedPort': (d) => (d.sw ? d.sw.unsavedPort || null : null),
+    'hw.ram': (d) => { const m = DL.hwOf ? DL.hwOf(d) : null; return m && m.ram != null ? m.ram : null; },
+    // the addresses of eth0: has this one (10.0.1.12 or 10.0.1.12/24) · how many · the wrong / extra one a fault put there
+    'eth0.has': (d, ip) => !!(d.os && ip && d.os.ifaces.eth0.ips.indexOf(String(ip).indexOf('/') < 0 ? ip + '/24' : String(ip)) >= 0),
+    'eth0.n': (d) => (d.os ? d.os.ifaces.eth0.ips.length : null),
+    'os.badIp': (d) => (d.os && d.os.badIp) || null,
+    'os.extraIp': (d) => (d.os && d.os.extraIp) || null,
+    // what the logs show (terminal.js): failed SSH passwords · the last login's IP · who stopped a service
+    'auth.failed': (d) => (d.os && d.os.authlog ? d.os.authlog.filter((l) => l.indexOf('Failed password') >= 0).length : null),
+    'auth.last': (d) => (d.os && d.os.lastLogin) || null,
+    'auth.stopper': (d) => (d.os && d.os.stopper) || null,
+    'uptime.h': (d) => (d.os ? Math.round((Date.now() - d.os.boot) / 3600000) : null),
+    'flap.n': (d) => (d.os && d.os.flaps) || null,
+    // the layer of a fault, in the player's words (cabo / interface) — and the other way of saying it
+    'fault.layer': (d) => (d.fault ? { cable: 'cabo', link: 'interface' }[d.fault.type] || null : null),
+    'fault.layer2': (d) => (d.fault ? { cable: 'fisica', link: 'configuracao' }[d.fault.type] || null : null),
+    // the server whose name this one took
+    'hostname.dup': (d) => (d.os && d.os.dupOf) || null,
+    // what was built (world items by catalog id, comma-separated; wall devices only when PoE powers them)
+    items: (x, ids) => {
+      if (!WORLD) return null;
+      const want = String(ids || '').split(',');
+      return WORLD().items.filter((e) => want.indexOf(e.defId || e.kind) >= 0 && e.powered !== false).length;
+    },
+    // devices of a kind (server, switch) or a model (sw_48, srv_adv…)
+    devs: (x, what) => (OPS ? OPS.devices().filter((d) => d.kind === what || (d.model && d.model.id === what)).length : null),
+    // servers on the network through a switch of this model
+    'on.model': (x, model) => (OPS ? OPS.devices().filter((d) => { if (d.kind !== 'server') return false; const t = d.path || OPS.trace(d); return t.ok && t.sw.model && t.sw.model.id === model; }).length : null),
+    // an address to check before using it: half the time one a server already has → { ip, used: 'sim' | 'nao' }
+    'ip.cand': () => {
+      if (!OPS) return null;
+      const on = OPS.devices().filter((d) => d.kind === 'server' && d.state === 'online' && OPS.health(d).up);
+      if (on.length && rand() < 0.5) return { ip: pick(on).ip, used: 'sim' };
+      return { ip: OPS.freeIp(), used: 'nao' };
+    },
+    // Windows Server (winserver.js keeps it in d.os.win)
+    'win.named': (d) => !!win(d) && low(win(d).host) === low(d.name) && !win(d).pending.name,
+    'win.has': (d, f) => !!win(d) && win(d).features.indexOf(f) >= 0,
+    'win.iis': (d) => (win(d) ? (win(d).features.indexOf('Web-Server') >= 0 ? 'sim' : 'nao') : null),
+    'win.dnsself': (d) => !!win(d) && win(d).dnsClient.some((ip) => ip === '127.0.0.1' || ip === d.ip),
+    'win.rebootBy': (d) => (win(d) && win(d).rebootBy) || null,
+    'win.domain': (d) => (win(d) && win(d).domain ? win(d).domain.name : null),
     'rack.tidy': (e) => e.tidy !== false && e.cableLook === 'tidy',
     'sw.saved': (d) => !!d.sw && !d.sw.unsaved,
     // the switch port at the other end of a server's cable
@@ -81,7 +144,13 @@
       return list.length ? pick(list) : null;
     },
   };
-  // the other devices a problem may involve (data: devices: { role: resolver }), found from its main one
+  // the servers plugged straight into a switch → [server, trace]
+  function direct(sw) {
+    if (!OPS || !sw || sw.kind !== 'switch') return [];
+    return OPS.devices().filter((d) => d.kind === 'server').map((d) => [d, d.path || OPS.trace(d)]).filter(([, t]) => t.ok && t.sw === sw && t.links.length === 1);
+  }
+  // the other devices a problem may involve (data: devices: { role: resolver }), found from its main one;
+  // taken: the ones the problem already has (two "server.peer" are two different servers)
   const RESOLVE = {
     // the switch at the other end of the server's cable (managed — it has a console — and working)
     'switch.of': (x) => {
@@ -89,12 +158,47 @@
       const t = x.path || OPS.trace(x);
       return t.ok && t.sw && !t.sw.broken && !(t.sw.model && t.sw.model.managed === false) ? t.sw : null;
     },
+    // another Linux server that is online and fine
+    'server.peer': (x, taken) => {
+      if (!OPS) return null;
+      const list = OPS.devices().filter((d) => d.kind === 'server' && (taken || []).indexOf(d) < 0 && d.state === 'online' && !(DL.isWin && DL.isWin(d)) &&
+        !d.hold && !d.fault && !d.broken && !d.out && OPS.health(d).up);
+      return list.length ? pick(list) : null;
+    },
+    // another rack with cables
+    'rack.other': (x, taken) => {
+      if (!WORLD) return null;
+      const list = WORLD().items.filter((e) => e.kind === 'rack' && e.units && e.cableLook && !e.hold && (taken || []).indexOf(e) < 0);
+      return list.length ? pick(list) : null;
+    },
   };
-  // values read once (lesson vars / problem vars)
-  function readVars(vars, x) {
+  // values read once (lesson vars / problem vars). A var is 'probe' · 'probe:arg' · 'probe@role' (another device
+  // of the problem) · 'max:probe' (the name of the device with the highest value) · 'sum:probe' · 'ips:role,role'
+  // (their IPs, sorted) · 'faulty:type' / 'faultyRole:type' (the device with that fault: its name / its role).
+  // devs: { dev, ...the others }
+  function readVars(vars, x, devs) {
     const out = {};
-    for (const k of Object.keys(vars || {})) { const p = PROBES[vars[k]]; out[k] = p && x ? p(x) : null; }
+    for (const k of Object.keys(vars || {})) out[k] = readVar(String(vars[k]), x, devs);
     return out;
+  }
+  function readVar(spec, x, devs) {
+    const all = (devs ? Object.values(devs) : [x]).filter((d) => d && d.kind !== 'rack');
+    let m = /^(max|sum):([\w.]+)$/.exec(spec);
+    if (m) {
+      const p = PROBES[m[2]], vals = p ? all.map((d) => [d, p(d)]).filter(([, v]) => typeof v === 'number') : [];
+      if (!vals.length) return null;
+      return m[1] === 'sum' ? vals.reduce((a, [, v]) => a + v, 0) : vals.sort((a, b) => b[1] - a[1])[0][0].name;
+    }
+    if ((m = /^ips:([\w,]+)$/.exec(spec))) return m[1].split(',').map((r) => devs && devs[r]).filter(Boolean).map((d) => d.ip).sort(ipCmp).join(', ');
+    if ((m = /^faulty(Role)?:(\w+)$/.exec(spec))) {
+      // the name of the device with that fault · faultyRole: its role in the problem (for check.at)
+      const d = all.find((q) => q.fault && q.fault.type === m[2]);
+      return !d ? null : m[1] ? Object.keys(devs || { dev: x }).find((r) => (devs || { dev: x })[r] === d) || null : d.name;
+    }
+    m = /^([\w.]+)(?::([^@]+))?(?:@(\w+))?$/.exec(spec);
+    if (!m || !PROBES[m[1]]) return null;
+    const on = m[3] ? devs && devs[m[3]] : x;
+    return on ? PROBES[m[1]](on, m[2]) : null;
   }
 
   /* ------------------------------------------------------------------ */
@@ -118,11 +222,14 @@
     });
   };
   const warned = new Set();
-  function test(c, x, ran) {
+  // devs: the devices of the problem by role ({ dev, peer… }) — { at: 'peer', state: … } checks the state of another
+  // one (the role often comes from a var: the server that got the fault)
+  function test(c, x, ran, devs) {
     if (!c) return false;
-    if (c.any) return c.any.some((k) => test(k, x, ran));
-    if (c.all) return c.all.every((k) => test(k, x, ran));
-    if (c.not) return !test(c.not, x, ran);
+    if (c.any) return c.any.some((k) => test(k, x, ran, devs));
+    if (c.all) return c.all.every((k) => test(k, x, ran, devs));
+    if (c.not) return !test(c.not, x, ran, devs);
+    if (c.at) return !!devs && !!devs[c.at] && test(Object.assign({}, c, { at: null }), devs[c.at], null, devs);
     if (c.ran != null) return !!ran && ran.has(c.ran);
     if (c.bound != null) return !!x === !!c.bound;
     if (c.state) {
@@ -147,27 +254,34 @@
   // devs: a problem on more than one device ({ dev, sw }) — each step happens on its own (step.device, default
   // dev) and is checked there, with what was typed on that device's console ('on' tells the terminal where)
   function compileLesson(def, x, vars, devs) {
-    const main = devs && devs.dev ? devs.dev : x, key = 'p:' + def.id;
+    const main = devs && devs.dev ? devs.dev : x, key = 'p:' + def.id, list = devs ? Object.values(devs).filter(Boolean) : [];
     const env = Object.assign(envOf(main), vars || readVars(def.vars, main));
-    for (const r of Object.keys(devs || {})) if (r !== 'dev' && devs[r]) env[r] = { name: devs[r].name, ip: devs[r].ip };
+    for (const r of Object.keys(devs || {})) if (r !== 'dev' && devs[r]) env[r] = envOfOther(devs[r]);
     return {
       title: tpl(def.title, env),
       goal: tpl(def.goal || def.summary || '', env),
       steps: (def.steps || []).map((s, k) => {
-        const on = devs ? devs[s.device || 'dev'] : undefined;
-        const base = { text: tpl(s.text, env), help: s.help || [], cmd: s.cmd ? tpl(s.cmd, env) : undefined, action: s.action, on };
+        // device 'any': the step is done from whichever console the player is on
+        const on = devs && s.device !== 'any' ? devs[s.device || 'dev'] : undefined;
+        // auto: what the dev auto-play types for this step (never shown to the player)
+        const base = { text: tpl(s.text, env), help: s.help || [], cmd: s.cmd ? tpl(s.cmd, env) : undefined, auto: s.auto ? tpl(s.auto, env) : undefined, action: s.action, on };
         if (s.type === 'answer') {
           const a = fill(s.answer || {}, env);
-          return Object.assign(base, { answer: { accept: (a.accept || []).map(String), normalize: a.normalize || 'text', tol: a.tol || 0 }, done: (d, ran) => !!ran && ran.has('answer:' + k) });
+          // (answered on any console of the problem: it stays answered on the others)
+          const said = (d, ran) => (!!ran && ran.has('answer:' + k)) || list.some((q) => q !== d && q.lessonKey === key && q.ran && q.ran.has('answer:' + k));
+          return Object.assign(base, { answer: { accept: (a.accept || []).map(String).filter((v) => v !== ''), normalize: a.normalize || 'text', tol: a.tol || 0 }, done: said });
         }
         const check = fill(s.check, env);
         // on another device: its state, and what was typed on its console for this same lesson
-        const done = on ? (d, ran) => test(check, on, on === d ? ran : on.lessonKey === key ? on.ran : null) : (d, ran) => test(check, d, ran);
+        const done = on ? (d, ran) => test(check, on, on === d ? ran : on.lessonKey === key ? on.ran : null, devs) : (d, ran) => test(check, d, ran, devs);
         return Object.assign(base, { done });
       }),
     };
   }
   DL.compileLesson = compileLesson;
+  // (for automated checks of the data: which states / resolvers exist)
+  DL.SCENARIO_PROBES = PROBES;
+  DL.SCENARIO_RESOLVE = RESOLVE;
 
   // the vars / devices of the open problem on a device (set by the running game)
   let varsOf = () => null, devsOf = () => null;
@@ -187,12 +301,12 @@
   /* ------------------------------------------------------------------ */
   const KINDS = ['server', 'switch', 'rack'], COMPLETE = ['lesson', 'fixed', 'online', 'steps'], NORMS = ['ip', 'port', 'int', 'text'];
   const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
-  const okStep = (s) => isObj(s) && typeof s.text === 'string' && (!s.help || (Array.isArray(s.help) && s.help.every((k) => DL.CMD_HELP[k]))) && (!s.device || /^[a-z]{2,8}$/.test(s.device)) &&
+  const okStep = (s) => isObj(s) && typeof s.text === 'string' && (!s.help || (Array.isArray(s.help) && s.help.every((k) => DL.CMD_HELP[k]))) && (!s.device || /^[a-z0-9]{2,8}$/.test(s.device)) && (!s.auto || typeof s.auto === 'string') &&
     (s.type === 'answer' ? isObj(s.answer) && Array.isArray(s.answer.accept) && s.answer.accept.length && (!s.answer.normalize || NORMS.indexOf(s.answer.normalize) >= 0) : isObj(s.check));
   const okLesson = (l) => isObj(l) && typeof l.title === 'string' && Array.isArray(l.steps) && l.steps.length > 0 && l.steps.every(okStep);
   const okProblem = (p) => isObj(p) && /^[a-z0-9_]{2,40}$/.test(p.id) && typeof p.title === 'string' && typeof p.rank === 'string' && p.xp > 0 &&
     COMPLETE.indexOf(p.complete) >= 0 && isObj(p.target) && KINDS.indexOf(p.target.kind) >= 0 &&
-    (!p.devices || (isObj(p.devices) && Object.keys(p.devices).every((r) => /^[a-z]{2,8}$/.test(r) && r !== 'dev' && RESOLVE[p.devices[r]]))) &&
+    (!p.devices || (isObj(p.devices) && Object.keys(p.devices).every((r) => /^[a-z0-9]{2,8}$/.test(r) && r !== 'dev' && RESOLVE[p.devices[r]]))) &&
     (p.complete === 'lesson' || p.complete === 'steps' ? Array.isArray(p.steps) && p.steps.length > 0 && p.steps.every(okStep) : true);
   DL.applyScenarioData = function (next, source) {
     if (!isObj(next)) return false;
@@ -235,6 +349,7 @@
   DL.createProblems = function (game, sys) {
     const ops = sys.ops, scene = game.scene;
     OPS = ops;
+    WORLD = () => scene.world;
     // looked up each time: the data may come from the database after the game started (scenario-service.js)
     const byId = (id) => DATA.problems.find((p) => p.id === id);
     const levelOf = (def) => { const r = DATA.ranks.find((x) => x.id === def.rank); return r ? r.level : 1; };
@@ -254,27 +369,40 @@
       if (x.hold) return false;
       if (t.state && [].concat(t.state).indexOf(x.state) < 0) return false;
       if (t.os === 'linux' && DL.isWin && DL.isWin(x)) return false;
+      if (t.os === 'windows' && !(DL.isWin && DL.isWin(x))) return false;
+      // Windows: installed and logged in · a domain controller or not · a role it doesn't have yet
+      if (t.win === 'ready' && !(win(x) && win(x).stage === 'ready')) return false;
+      if (t.domain != null && !!(win(x) && win(x).domain) !== t.domain) return false;
+      if (t.lacks && (!win(x) || win(x).features.indexOf(t.lacks) >= 0)) return false;
       if (t.own && x.pre) return false;
       if (t.healthy && (x.fault || x.broken || x.out || x.state !== 'online' || !ops.health(x).up)) return false;
       if (t.web && !(x.os && x.os.services.nginx === 'active')) return false;
       if (t.managed && x.model && x.model.managed === false) return false;
       if (t.direct && !PROBES['sw.direct'](x)) return false;
+      if (t.direct2 && !PROBES['sw.pair'](x)) return false;
       if (t.linked && !(x.sw && Array.from(x.sw.linked || []).some((p) => p !== 'te1'))) return false;
+      if (t.linkedMin && !(x.sw && Array.from(x.sw.linked || []).filter((p) => p !== 'te1').length >= t.linkedMin)) return false;
+      // a server cabled straight to its switch, whose uplink port (te1) is free (the cable can go there by mistake)
+      if (t.te1free) { const tr = x.path || ops.trace(x); if (!tr.ok || tr.links.length !== 1 || ops.linkAt(tr.sw.key, 'te1')) return false; }
+      // cabled straight to the switch (no patch panel): show interfaces status names it
+      if (t.directLink) { const tr = x.path || ops.trace(x); if (!tr.ok || tr.links.length !== 1) return false; }
       return true;
     }
-    // the other devices of a problem on this one ({ sw }), each free and without a fault of its own — or null
-    function extrasFor(def, x) {
-      const out = {};
+    // the other devices of a problem on this one ({ sw }), each free and without a fault of its own — or null.
+    // keep: the ones it had before a save (restore), when they still exist
+    function extrasFor(def, x, keep) {
+      const out = {}, taken = [x];
       for (const r of Object.keys(def.devices || {})) {
-        const e = RESOLVE[def.devices[r]] && RESOLVE[def.devices[r]](x);
+        const e = (keep && keep[r]) || (RESOLVE[def.devices[r]] && RESOLVE[def.devices[r]](x, taken));
         if (!e || e.hold || e.fault || e.broken || e.out) return null;
         out[r] = e;
+        taken.push(e);
       }
       return out;
     }
     function candidates(def) {
       const t = def.target;
-      if (t.kind === 'rack') return scene.world.items.filter((e) => e.kind === 'rack' && e.units && !e.hold && (!t.cabled || e.cableLook));
+      if (t.kind === 'rack') return scene.world.items.filter((e) => e.kind === 'rack' && e.units && !e.hold && (!t.cabled || e.cableLook) && (!def.devices || extrasFor(def, e)));
       return ops.devices().filter((d) => d.kind === t.kind && fits(d, t) && (!def.devices || extrasFor(def, d)));
     }
     // the preferred name (SRV-01) half of the time, so the same server doesn't get every problem
@@ -289,9 +417,10 @@
     /* ---------- texts ---------- */
     const envP = (p) => {
       const env = Object.assign(envOf(p.x), p.vars || {});
-      for (const r of Object.keys(p.extra || {})) env[r] = { name: p.extra[r].name, ip: p.extra[r].ip };
+      for (const r of Object.keys(p.extra || {})) env[r] = envOfOther(p.extra[r]);
       return env;
     };
+    const devsP = (p) => Object.assign({ dev: p.x }, p.extra || {});
     const titleOf = (p) => tpl(p.def.title, envP(p));
     const summaryOf = (p) => tpl(p.def.summary || '', envP(p));
     const openOn = (id, d) => P.open.find((x) => x.def.id === id && devicesOf(x).indexOf(d) >= 0);
@@ -300,44 +429,96 @@
     const xpFor = (p) => (sys.career ? sys.career.xpFor(p.def) : p.def.xp);
 
     /* ---------- start / bind / set up ---------- */
-    function bind(p, x) {
+    function bind(p, x, keep) {
       p.x = x;
-      if (x && p.def.devices && !p.extra) p.extra = extrasFor(p.def, x) || {};
+      if (x && p.def.devices && !p.extra) p.extra = extrasFor(p.def, x, keep) || {};
       // the crew leaves it to the player (above the problem's rank only for a while: see update)
       for (const d of devicesOf(p)) d.hold = p.uid;
     }
     function release(p) { for (const d of devicesOf(p)) if (d.hold === p.uid) delete d.hold; }
 
-    // what went wrong when the problem starts (false: it doesn't fit this device after all)
+    // what went wrong when the problem starts (false: it doesn't fit this device after all).
+    // p.vars: the values a save kept (a restored problem sets the same thing up again)
     function setUp(p, quiet) {
       const s = p.def.setup, x = p.x;
       if (!s || !x) return true;
-      if (s.fault) {
-        // setup.on: the fault goes on another device of the problem (the switch port at the end of the server's cable)
-        const fx = s.on ? p.extra && p.extra[s.on] : x;
-        if (quiet || !fx || !ops.injectFault(fx, s.fault, s.on && s.fault === 'port' ? { port: PROBES['srv.port'](x) } : null)) return false;
-        // setup.quiet: no alert (it would give away the answer, e.g. the port in err-disabled); the problem tells it
-        if (s.quiet) Object.assign(fx.fault, { found: true, foundAt: now(), by: null });
-        else ops.report(fx, null, 'chamado');
-        if (fx.fault) fx.fault.problem = p.uid;
-        return true;
+      const devs = devsP(p), v = p.vars || {};
+      const servers = () => Object.values(devs).filter((d) => d && d.kind === 'server' && d.os);
+      // --- what changes without being a fault (it comes back with a save) ---
+      // the name: a fixed one (localhost after a reinstall) or 'dup', the name of another server
+      if (s.hostname === 'dup' && x.os) {
+        const others = ops.devices().filter((d) => d.kind === 'server' && d !== x && d.state === 'online' && d.os && !(DL.isWin && DL.isWin(d)));
+        const o = (v.dup && others.find((d) => d.name === v.dup)) || pick(others);
+        if (!o) return false;
+        x.os.hostname = o.os.hostname === 'localhost' ? o.name.toLowerCase() : o.os.hostname;
+        x.os.dupOf = o.name;
+      } else if (s.hostname && x.os) x.os.hostname = s.hostname;
+      // messy: this rack · messy2: this one and the other racks of the problem
+      if (s.rack === 'messy' || s.rack === 'messy2') {
+        for (const r of s.rack === 'messy2' ? Object.values(devs) : [x]) if (r && r.kind === 'rack') { r.tidy = false; r.messyNoted = true; }
+        ops.recompute();
       }
-      if (s.hostname && x.os) x.os.hostname = s.hostname;
-      if (s.rack === 'messy') { x.tidy = false; x.messyNoted = true; ops.recompute(); }
-      // someone guessing SSH passwords (the same IP when a save brings the problem back)
-      if (s.authlog === 'bruteforce' && x.os && DL.authAttack) DL.authAttack(x, p.vars && p.vars.attacker);
+      // someone guessing SSH passwords (the same IP when a save brings the problem back) · on every server of the problem
+      if ((s.authlog === 'bruteforce' || s.authlog === 'bruteforce2') && x.os && DL.authAttack) {
+        const ip = DL.authAttack(x, v.attacker);
+        if (s.authlog === 'bruteforce2') for (const d of servers()) if (d !== x) DL.authAttack(d, ip);
+      }
+      // a quiet log with a known last login
+      if (s.authlog === 'logins' && x.os && DL.authLogins) DL.authLogins(x, v.last);
       // a port description changed after the last save of the switch configuration
-      if (s.swconfig === 'unsaved' && x.sw) { x.sw.unsaved = true; x.sw.unsavedPort = pick(Array.from(x.sw.linked || []).filter((q) => q !== 'te1')) || null; }
+      if (s.swconfig === 'unsaved' && x.sw) { x.sw.unsaved = true; x.sw.unsavedPort = v.port || pick(Array.from(x.sw.linked || []).filter((q) => q !== 'te1')) || null; }
+      // one server of the problem with its disk fuller than the others (still below the 80% alert)
+      if (s.diskpct) {
+        const pool = servers(), d = (v.top && pool.find((q) => q.name === v.top)) || pick(pool);
+        if (d) d.os.disk = Math.round(between(s.diskpct[0], s.diskpct[1]));
+      }
+      // switched on some hours ago (minutes [min, max])
+      if (s.uptime && x.os) x.os.boot = Date.now() - (v.h != null ? v.h * 60 + 10 : Math.round(between(s.uptime[0], s.uptime[1]))) * 60000;
+      // Windows Server: the default name back (after a reinstall) · DNS pointing outside · a restart someone made
+      if (s.win && win(x)) {
+        const w = win(x);
+        if (s.win === 'host') { w.host = 'WIN-' + Array.from({ length: 7 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(rand() * 32)]).join(''); w.pending.name = null; x.os.hostname = w.host; }
+        if (s.win === 'dns') w.dnsClient = ['8.8.8.8'];
+        if (s.win === 'reboot' && DL.winEvent) {
+          w.rebootBy = v.by || pick(['carla.mendes', 'bruno.alves', 'tiago.rocha', 'paula.lima']);
+          DL.winEvent(x, 'System', 1074, 'Information', 'Reinício solicitado pelo usuário ' + w.rebootBy + ' (atualização do sistema).');
+          DL.winEvent(x, 'System', 6005, 'Information', 'O serviço de log de eventos foi iniciado.');
+        }
+      }
+      // --- a fault (not saved: the problem isn't either) ---
+      if (s.fault) {
+        // on: the device(s) it goes on (roles of the problem; default the main one) · pick: only one of them, at random
+        // fault: a type, or a list (one of them, at random)
+        let on = [].concat(s.on || 'dev').map((r) => devs[r]).filter(Boolean);
+        if (s.pick) on = [pick(on)];
+        if (quiet || !on.length) return false;
+        for (const fx of on) {
+          const opts = Object.assign({}, s.opts || {});
+          // a switch fault for a server's problem: the port at the end of its cable
+          if (fx.kind === 'switch' && x.kind === 'server') opts.port = PROBES['srv.port'](x);
+          // ipOf: the address of another device of the problem (two servers with the same IP)
+          if (s.ipOf && devs[s.ipOf]) opts.ip = devs[s.ipOf].ip;
+          let ok = null;
+          for (const ty of [].concat(s.fault).sort(() => rand() - 0.5)) if ((ok = ops.injectFault(fx, ty, opts))) break;
+          if (!ok) return false;
+          // setup.quiet: no alert (it would give away the answer, e.g. the port in err-disabled); the problem tells it
+          if (s.quiet) Object.assign(fx.fault, { found: true, foundAt: now(), by: null });
+          else ops.report(fx, null, 'chamado');
+          if (fx.fault) fx.fault.problem = p.uid;
+        }
+      }
       return true;
     }
 
     function start(def, x, opts) {
       opts = opts || {};
       const p = { uid: ++P.seq, def, x: null, at: now() - (opts.age || 0), by: null, wrong: 0, vars: opts.vars || null };
-      bind(p, x || null);
+      bind(p, x || null, opts.extra);
+      // the other servers / racks it needs aren't there (or aren't free) right now
+      if (x && def.devices && Object.keys(p.extra || {}).length < Object.keys(def.devices).length) { release(p); return null; }
       if (!setUp(p, opts.quiet)) { release(p); return null; }
       // what the problem is about stays fixed from now on (the port that broke, the server to find…)
-      p.vars = opts.vars || (x ? readVars(def.vars, x) : {});
+      p.vars = opts.vars || (x ? readVars(def.vars, x, devsP(p)) : {});
       // a console problem starts from clean consoles: what was typed for the last one doesn't count again
       if (x && def.complete === 'lesson') for (const d of devicesOf(p)) { d.ran = new Set(); d.lessonKey = null; }
       P.open.push(p);
@@ -403,7 +584,8 @@
     // wrong answers in the console (kept for the problem's history)
     game.on('answer', (info) => { if (!info.ok) for (const p of P.open) if (p.x === info.d && p.def.complete === 'lesson') p.wrong++; });
 
-    const stepsDone = (p) => (p.def.steps || []).map((s) => test(fill(s.check, envP(p)), p.x, null));
+    // (a step on another device of the problem is checked there: the second rack, the peer server…)
+    const stepsDone = (p) => (p.def.steps || []).map((s) => test(fill(s.check, envP(p)), s.device ? (p.extra || {})[s.device] : p.x, null, devsP(p)));
     const stepOf = (p) => { const k = stepsDone(p).indexOf(false); return k < 0 ? (p.def.steps || []).length : k; };
 
     /* ---------- the timer ---------- */
@@ -475,6 +657,13 @@
     // the console lesson of a problem on this device, if any (ops.openTerminal asks). When the device already has
     // a lesson of its own (a fault), only a problem that caused that fault goes first (identify the broken port).
     const consoleFor = (d, busy) => P.open.find((p) => devicesOf(p).indexOf(d) >= 0 && p.def.complete === 'lesson' && (!busy || (p.def.setup && p.def.setup.fault))) || null;
+    // a new server whose career problem has a setup lesson of its own (setup_jr1…: fewer hints than the classic one)
+    function setupLesson(d) {
+      // (a Windows server only takes a Windows lesson, and a Linux one only a Linux lesson)
+      const w = !!(DL.isWin && DL.isWin(d));
+      const p = P.open.find((x) => x.x === d && x.def.complete === 'online' && x.def.lesson && DL.LESSONS[x.def.lesson] && /^win/.test(x.def.lesson) === w);
+      return p ? p.def.lesson : null;
+    }
     // at: the device whose console the player asked for; without it, the device of the step the problem is on
     function openConsole(p, at) {
       let d = at || p.x;
@@ -536,15 +725,17 @@
     function resolveFor(p, a) {
       const x = p.x, def = p.def, name = a.crew.name;
       if (def.complete === 'fixed') return !!x.fault && ops.fix(x, a);
-      // bot_action 'fix': a console problem whose fault the crew member also fixes (the port of the server's switch)
+      // bot_action 'fix': a console problem whose faults the crew member also fixes (the port of the server's switch…)
       if (def.bot === 'fix' && def.setup && def.setup.fault) {
-        const fx = def.setup.on ? p.extra && p.extra[def.setup.on] : x;
-        if (fx && fx.fault && !ops.fix(fx, a)) return false;
+        for (const fx of devicesOf(p)) if (fx.fault && fx.fault.problem === p.uid && !ops.fix(fx, a)) return false;
       }
       if (def.complete === 'online') return ops.configure(x);
-      if (def.setup && def.setup.rack === 'messy') ops.tidy([x], name);
-      if (def.setup && def.setup.hostname && x.os) x.os.hostname = String(x.name).toLowerCase();
-      if (def.setup && def.setup.swconfig && x.sw) x.sw.unsaved = false;
+      const s = def.setup || {};
+      if (s.rack === 'messy' || s.rack === 'messy2') ops.tidy(devicesOf(p).filter((r) => r.kind === 'rack'), name);
+      if (s.hostname && x.os) x.os.hostname = String(x.name).toLowerCase();
+      if (s.swconfig && x.sw) x.sw.unsaved = false;
+      if (s.win === 'host' && win(x)) { win(x).host = String(x.name).toUpperCase(); win(x).pending.name = null; x.os.hostname = win(x).host; }
+      if (s.win === 'dns' && win(x)) win(x).dnsClient = ['127.0.0.1'];
       if (!p.closed) finish(p, name);
       return true;
     }
@@ -585,7 +776,12 @@
       if (what === 'unassign') { unassign(p); return; }
       if (what === 'term' && x) { if (p.extra) openConsole(p); else if (ops.openTerminal) ops.openTerminal(x); return; }
       if (what === 'build') { ops.toggle(false); game.setMode('build'); game.toast('info', 'Construir', 'Equipamentos → Servidor ou Switch, depois clique num rack'); return; }
-      if (what === 'cabling' && x) { sys.cabling.open(x.kind === 'rack' ? x : x.rack, x.kind === 'rack' ? null : x); return; }
+      if (what === 'cabling' && x) {
+        // the rack of the current step (a problem on two racks: the second one when it's its turn)
+        const s = p.def.complete === 'steps' ? p.def.steps[stepOf(p)] : null, t = (s && s.device && p.extra && p.extra[s.device]) || x;
+        sys.cabling.open(t.kind === 'rack' ? t : t.rack, t.kind === 'rack' ? null : t);
+        return;
+      }
       if (what === 'show' && x) { const r = x.kind === 'rack' ? x : x.rack; game.focus(r.px + 8, r.py); if (game.flash) game.flash(r); }
     }
 
@@ -640,6 +836,8 @@
         open: P.open.filter((p) => p.def.complete !== 'fixed' && !(p.def.setup && p.def.setup.fault)).map((p) => ({
           id: p.def.id, age: Math.round(now() - p.at), vars: p.vars || {},
           dev: p.x && p.x.kind !== 'rack' ? p.x.key : null, rack: p.x && p.x.kind === 'rack' ? p.x.uid || p.x.id : null,
+          // the other devices (the peer server, the second rack…), so the texts and answers stay the same
+          extra: p.extra ? Object.fromEntries(Object.entries(p.extra).map(([r, e]) => [r, e.kind === 'rack' ? 'rack:' + (e.uid || e.id) : e.key])) : null,
         })),
       };
     }
@@ -656,9 +854,17 @@
         if (!x && !def.target.lazy) continue;
         if (x && x.hold) continue;
         const vars = o.vars && typeof o.vars === 'object' && !Array.isArray(o.vars) ? o.vars : null;
-        const p = start(def, x, { quiet: true, age: o.age | 0, vars });
-        // the device came back from the save with its own name: set the rename up again
-        if (p && def.setup && def.setup.hostname && x && x.os) x.os.hostname = def.setup.hostname;
+        let extra = null;
+        if (o.extra && typeof o.extra === 'object') {
+          extra = {};
+          for (const r of Object.keys(o.extra)) {
+            const k = String(o.extra[r]);
+            const e = k.indexOf('rack:') === 0 ? scene.world.items.find((i) => i.kind === 'rack' && (i.uid === k.slice(5) || i.id === k.slice(5))) : ops.get(k);
+            if (e) extra[r] = e;
+          }
+        }
+        // (the setup runs again — the same name, log, disk… from the saved vars)
+        start(def, x, { quiet: true, age: o.age | 0, vars, extra });
       }
     }
     function reset() {
@@ -668,7 +874,7 @@
     }
 
     return {
-      update, reset, snapshot, restore, act, itemHtml, consoleFor, openConsole, devicesOf,
+      update, reset, snapshot, restore, act, itemHtml, consoleFor, openConsole, devicesOf, setupLesson,
       list: () => P.open.slice(),
       // a short key of everything the Tarefas panel shows (it redraws when this changes)
       key: () => P.open.map((p) => p.uid + ':' + (p.x ? p.x.key || p.x.id : '-') + ':' + (p.def.complete === 'steps' ? stepOf(p) : '') + ':' + (p.x && p.x.state) + ':' + xpFor(p) +

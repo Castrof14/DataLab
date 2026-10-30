@@ -1,6 +1,6 @@
 // DataLab — build supabase/seed_scenarios.sql from the game's own files (no browser needed):
 //   assets/js/problems-data.js  → career_ranks, scenario_lessons, problems, scenario_steps
-//   assets/js/terminal.js (HELP) → command_help, scenario_step_help
+//   assets/js/terminal.js + winserver.js (HELP) → command_help, scenario_step_help
 // usage: node supabase/scripts/build-scenarios.mjs   (writes supabase/seed_scenarios.sql, UTF-8)
 // The game keeps the same data bundled (offline play); online it reads these tables (scenario-service.js).
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -9,12 +9,17 @@ import path from 'node:path';
 import vm from 'node:vm';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-// run the two browser scripts in a sandbox: they only fill window.DL
+// run the browser scripts in a sandbox: they only fill window.DL (ops.js + winserver.js: the Windows help cards
+// and lessons, which steps on a Windows Server use)
 const sandbox = { window: { DL: {} }, console };
 vm.createContext(sandbox);
-for (const f of ['assets/js/terminal.js', 'assets/js/problems-data.js']) vm.runInContext(readFileSync(path.join(root, f), 'utf8'), sandbox, { filename: f });
+for (const f of ['assets/js/terminal.js', 'assets/js/problems-data.js', 'assets/js/ops.js', 'assets/js/winserver.js']) vm.runInContext(readFileSync(path.join(root, f), 'utf8'), sandbox, { filename: f });
 const { lessons, problems, ranks } = sandbox.window.DL.SCENARIO_DATA;
 const HELP = sandbox.window.DL.CMD_HELP;
+// lessons a problem names that live in code (winserver.js: winsetup, win-link, winsvc…): a row each, so the
+// foreign key holds — without steps the game ignores the row and keeps the lesson from the code
+const inCode = [...new Set(problems.map((x) => x.lesson).filter((l) => l && !lessons[l]))];
+for (const l of inCode) if (!sandbox.window.DL.LESSONS[l]) throw new Error('lição desconhecida "' + l + '"');
 
 const q = (v) => (v === null || v === undefined ? 'null' : typeof v === 'number' ? String(v) : typeof v === 'boolean' ? String(v) : "'" + String(v).replace(/'/g, "''") + "'");
 const j = (v) => (v === null || v === undefined ? 'null' : q(JSON.stringify(v)) + '::jsonb');
@@ -34,15 +39,17 @@ p('\n-- career ranks (only the ones with problems of their own)');
 for (const r of ranks)
   p(`insert into public.career_ranks (id, level, name, xp_to_next, distinct_to_next) values (${q(r.id)}, ${r.level}, ${q(r.name || r.id)}, ${q(r.xp_to_next || null)}, ${r.distinct_to_next || 0}) on conflict (id) do update set level = excluded.level, name = excluded.name, xp_to_next = excluded.xp_to_next, distinct_to_next = excluded.distinct_to_next;`);
 
-p('\n-- command help (Linux / switch; the Windows Server cards stay in winserver.js)');
-Object.keys(HELP).filter((k) => !HELP[k].os).forEach((k, i) => {
+p('\n-- command help (Linux / switch; os = win: the Windows Server cards, kept for the steps — the game reads them from winserver.js)');
+Object.keys(HELP).forEach((k, i) => {
   const h = HELP[k];
-  p(`insert into public.command_help (key, cmd, example, what, when_to_use, os, sort) values (${q(k)}, ${q(h.cmd)}, ${q(h.ex)}, ${q(h.what)}, ${q(h.when)}, null, ${i}) on conflict (key) do update set cmd = excluded.cmd, example = excluded.example, what = excluded.what, when_to_use = excluded.when_to_use, os = excluded.os, sort = excluded.sort;`);
+  p(`insert into public.command_help (key, cmd, example, what, when_to_use, os, sort) values (${q(k)}, ${q(h.cmd)}, ${q(h.ex)}, ${q(h.what)}, ${q(h.when)}, ${q(h.os || null)}, ${i}) on conflict (key) do update set cmd = excluded.cmd, example = excluded.example, what = excluded.what, when_to_use = excluded.when_to_use, os = excluded.os, sort = excluded.sort;`);
 });
 
 p('\n-- lessons');
 for (const [id, l] of Object.entries(lessons))
   p(`insert into public.scenario_lessons (id, title, goal, vars) values (${q(id)}, ${q(l.title)}, ${q(l.goal)}, ${j(l.vars || {})}) on conflict (id) do update set title = excluded.title, goal = excluded.goal, vars = excluded.vars;`);
+for (const id of inCode)
+  p(`insert into public.scenario_lessons (id, title, goal, vars) values (${q(id)}, ${q('(no código: winserver.js)')}, ${q('Lição definida no jogo; esta linha só referencia.')}, '{}'::jsonb) on conflict (id) do nothing;`);
 
 p('\n-- problems');
 for (const x of problems)
@@ -56,8 +63,8 @@ p(`update public.problems set active = false, updated_at = now() where active an
 p('\n-- steps (rewritten) + their help cards');
 p(`delete from public.scenario_steps where lesson_id = any (${arr(Object.keys(lessons))}) or problem_id = any (${arr(problems.map((x) => x.id))});`);
 const step = (owner, id, s, k) => {
-  const cols = `${owner === 'lesson' ? q(id) : 'null'}, ${owner === 'problem' ? q(id) : 'null'}, ${k}, ${q(s.type === 'answer' ? 'answer' : 'command')}, ${q(s.text)}, ${q(s.cmd || null)}, ${q(s.action || null)}, ${j(s.type === 'answer' ? null : s.check)}, ${j(s.type === 'answer' ? s.answer : null)}, ${q(s.device || null)}`;
-  const ins = `insert into public.scenario_steps (lesson_id, problem_id, ord, step_type, text, expected_cmd, action, check_rule, answer, device_role) values (${cols})`;
+  const cols = `${owner === 'lesson' ? q(id) : 'null'}, ${owner === 'problem' ? q(id) : 'null'}, ${k}, ${q(s.type === 'answer' ? 'answer' : 'command')}, ${q(s.text)}, ${q(s.cmd || null)}, ${q(s.action || null)}, ${j(s.type === 'answer' ? null : s.check)}, ${j(s.type === 'answer' ? s.answer : null)}, ${q(s.device || null)}, ${q(s.auto || null)}`;
+  const ins = `insert into public.scenario_steps (lesson_id, problem_id, ord, step_type, text, expected_cmd, action, check_rule, answer, device_role, auto_cmd) values (${cols})`;
   if (!(s.help || []).length) return p(ins + ';');
   p(`with s as (${ins} returning id) insert into public.scenario_step_help (step_id, help_key, sort) select s.id, h.key, h.n - 1 from s, unnest(${arr(s.help)}) with ordinality as h(key, n);`);
 };

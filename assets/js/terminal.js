@@ -43,6 +43,11 @@
     'show-run': { cmd: 'show running-config', ex: 'show running-config', what: 'Mostra a configuração em uso agora, na memória do switch (abreviação: sh run). Ela se perde se o switch reiniciar sem salvar.', when: 'Antes e depois de mudar qualquer coisa no switch.' },
     'show-start': { cmd: 'show startup-config', ex: 'show startup-config', what: 'Mostra a configuração salva: a que o switch carrega quando liga (abreviação: sh start).', when: 'Para conferir se o que está em uso já foi salvo.' },
     'copy-run-start': { cmd: 'copy running-config startup-config', ex: 'copy running-config startup-config', what: 'Salva a configuração em uso como a de inicialização (abreviação: copy run start; write memory faz o mesmo).', when: 'Sempre que terminar uma mudança no switch: sem isso, um reinício desfaz tudo.' },
+    'ip-addr-del': { cmd: 'sudo ip addr del <ip>/<máscara> dev <interface>', ex: 'sudo ip addr del 10.0.1.150/24 dev eth0', what: 'Remove um endereço IP da interface (o contrário de ip addr add).', when: 'Quando a interface ficou com um IP errado ou sobrando: veja com ip addr e remova o que não devia estar lá.' },
+    'ip-route-del': { cmd: 'sudo ip route del default', ex: 'sudo ip route del default', what: 'Apaga a rota padrão (default via …). Só existe uma: para trocar o gateway, apague e crie de novo.', when: 'Quando ip route mostra a rota padrão apontando para o gateway errado.' },
+    'systemctl-start': { cmd: 'sudo systemctl start <serviço>', ex: 'sudo systemctl start ssh', what: 'Inicia um serviço que está parado (inactive). restart também serve: para e inicia.', when: 'Quando o status mostra "inactive (dead)": alguém ou algo parou o serviço.' },
+    cat: { cmd: 'cat <arquivo>', ex: 'cat notas.txt', what: 'Mostra o conteúdo inteiro de um arquivo.', when: 'Para ler arquivos curtos: anotações, configurações, o /etc/hostname.' },
+    'sw-ping': { cmd: 'ping <ip>', ex: 'ping 10.0.1.11', what: 'No switch, testa se um endereço responde (!!!!! = respondeu, ..... = não).', when: 'Para testar a rede a partir do próprio switch, sem depender de um servidor.' },
     responder: { cmd: 'responder <valor>', ex: 'responder 10.0.1.25', what: 'Responde a pergunta do passo atual (um IP, uma porta, um número). O campo no painel ao lado faz o mesmo.', when: 'Quando o passo é uma pergunta: rode o comando que mostra a informação, leia a saída e responda.' },
     cabling: { cmd: 'Cabeamento do rack', ex: 'Tarefas → Cabeamento  (ou o botão abaixo)', what: 'Mostra os cabos do rack: azul = ligado e correto, amarelo = incompleto, vermelho = conexão errada, laranja = cabo solto.', when: 'Quando ip link mostra NO-CARRIER: não é configuração, é a camada física (cabo).' },
     end: { cmd: 'end', ex: 'end', what: 'Sai do modo de configuração e volta ao modo privilegiado (#).', when: 'Ao terminar de configurar, para voltar a usar comandos show.' },
@@ -124,11 +129,28 @@
     d.os.attacker = ip;
     return ip;
   };
+  // the routine lines, plus what happened to this server (d.os.sysextra: { at, text }, added by problems)
   function syslog(d) {
     const h = d.os.hostname;
+    const extra = (d.os.sysextra || []).map((e) => ({ ago: (Date.now() - e.at) / 60000, text: h + ' ' + e.text }));
     return toLines([{ ago: 400, text: h + ' systemd[1]: Started nginx.service - A high performance web server.' }, { ago: 300, text: h + ' CRON[2210]: (root) CMD (run-parts /etc/cron.hourly)' },
-      { ago: 120, text: h + ' systemd[1]: Starting apt-daily.service - Daily apt download activities...' }, { ago: 20, text: h + ' systemd-resolved[511]: Clock change detected. Flushing caches.' }]);
+      { ago: 120, text: h + ' systemd[1]: Starting apt-daily.service - Daily apt download activities...' }, { ago: 20, text: h + ' systemd-resolved[511]: Clock change detected. Flushing caches.' }].concat(extra));
   }
+  DL.syslogAdd = function (d, ago, text) { (d.os.sysextra = d.os.sysextra || []).push({ at: Date.now() - ago * 60000, text }); };
+  // a quiet day with a known last login: the IP the admin came from most recently
+  DL.authLogins = function (d, ip) {
+    ip = ip || '10.0.1.' + rint(50, 60);
+    const last = [sshd(d, 9, 'Accepted publickey for admin from ' + ip + ' port ' + rint(40000, 60000) + ' ssh2: ED25519 SHA256:q3Vx' + rint(1000, 9999)),
+      { ago: 9, text: d.os.hostname + ' sshd[' + rint(1200, 9800) + ']: pam_unix(sshd:session): session opened for user admin(uid=1000) by (uid=0)' }];
+    d.os.authlog = toLines([].concat(routine(d), accepted(d, 320), accepted(d, 190), accepted(d, 70), last));
+    d.os.lastLogin = ip;
+    return ip;
+  };
+  // someone stopped a service with sudo a few minutes ago (auth.log tells who)
+  DL.authStop = function (d, user, svc) {
+    authLog(d).push(stamp(8) + ' ' + d.os.hostname + ' sudo:   ' + user + ' : TTY=pts/2 ; PWD=/home/' + user + ' ; USER=root ; COMMAND=/usr/bin/systemctl stop ' + svc);
+    d.os.stopper = user;
+  };
   const LOGS = { '/var/log/auth.log': authLog, '/var/log/syslog': syslog };
   // the lines of a file (null: no such file)
   const fileLines = (d, f) => (LOGS[f] ? LOGS[f](d) : f === '/etc/hostname' ? [d.os.hostname] : f === 'notas.txt' ? ['gateway da rede: 10.0.1.1', 'meu IP planejado: ' + d.ip + '/24'] : null);
@@ -207,7 +229,13 @@
       }
       case 'uname': out.push(a[0] === '-a' ? 'Linux ' + os.hostname + ' 6.8.0-45-generic #45-Ubuntu SMP x86_64 GNU/Linux' : 'Linux'); break;
       case 'date': out.push(new Date().toString().split(' (')[0]); break;
-      case 'uptime': out.push(' ' + new Date().toTimeString().slice(0, 8) + ' up ' + Math.max(1, Math.round((Date.now() - os.boot) / 60000)) + ' min,  1 user,  load average: 0.08, 0.12, 0.10'); break;
+      case 'uptime': {
+        // like the real one: "up 42 min", "up 3:25", "up 2 days, 3:25"
+        const m = Math.max(1, Math.round((Date.now() - os.boot) / 60000)), days = Math.floor(m / 1440), hm = Math.floor((m % 1440) / 60) + ':' + String(m % 60).padStart(2, '0');
+        const up = m < 60 ? m + ' min' : (days ? days + (days > 1 ? ' days, ' : ' day, ') : '') + (m % 1440 < 60 ? (m % 60) + ' min' : hm);
+        out.push(' ' + new Date().toTimeString().slice(0, 8) + ' up ' + up + ',  1 user,  load average: 0.08, 0.12, 0.10');
+        break;
+      }
       case 'pwd': out.push('/home/admin'); break;
       case 'ls': out.push(a[0] === '/var/log' ? 'apt  journal  nginx  syslog  auth.log' : 'notas.txt  scripts'); break;
       case 'cat': {
@@ -351,10 +379,17 @@
           out.push('● ' + svc + '.service - ' + (svc === 'nginx' ? 'A high performance web server' : 'OpenBSD Secure Shell server'));
           out.push('     Loaded: loaded (/lib/systemd/system/' + svc + '.service; enabled)');
           out.push('     Active: <span class="' + (st === 'active' ? 'ok' : 'w') + '">' + (st === 'active' ? 'active (running)' : st === 'failed' ? 'failed (Result: exit-code)' : 'inactive (dead)') + '</span>');
-          if (st === 'failed') out.push('<span class="m">     ' + svc + '[812]: worker process exited on signal 9</span>');
+          if (st === 'failed') out.push('<span class="m">     ' + svc + '[812]: ' + (svc === 'nginx' && os.disk >= 95 ? '[emerg] write() to "/var/log/nginx/access.log" failed (28: No space left on device)' : 'worker process exited on signal 9') + '</span>');
           ran.push('status:' + svc);
         } else if (verb === 'restart' || verb === 'start' || verb === 'stop') {
           if (!root) { deny('Failed to ' + verb + ' ' + svc + '.service: Access denied'); break; }
+          // nginx can't open its logs on a full disk: it only comes back after space is freed
+          if (verb !== 'stop' && svc === 'nginx' && os.disk >= 95) {
+            os.services.nginx = 'failed';
+            out.push('<span class="w">Job for nginx.service failed because the control process exited with error code.</span>', '<span class="m">See "systemctl status nginx.service" and "df -h" for details.</span>');
+            ran.push('error');
+            break;
+          }
           os.services[svc] = verb === 'stop' ? 'inactive' : 'active';
           ran.push('svc-' + verb + ':' + svc);
         } else { out.push('Unknown command verb ' + esc(verb) + '.'); ran.push('error'); }
@@ -427,7 +462,7 @@
     if (c === 'help' || c === '?') {
       out.push('modo atual: ' + { user: 'usuário (>)', priv: 'privilegiado (#)', conf: 'configuração (config)', if: 'interface (config-if)' }[s.mode]);
       out.push('  enable · show interfaces status · configure terminal', '  interface gi0/N · shutdown · no shutdown · end · exit',
-        '  show running-config · show startup-config · copy running-config startup-config (write memory)');
+        '  show running-config · show startup-config · copy running-config startup-config (write memory)', '  ping <ip>');
       return { out, ran };
     }
     if (c === 'clear') { ctx.clear(); return { out, ran }; }
@@ -492,7 +527,8 @@
       s.cur = p;
       ran.push('if:' + p);
       // like a real switch the port is selected anyway, but the player learns it isn't the broken one
-      if (s.bad && !s.fixed && p !== s.bad) out.push('<span class="m">Essa porta está OK. Veja no show interfaces status qual está err-disabled.</span>');
+      // (a port shut down by hand isn't OK either: it just isn't the err-disabled one)
+      if (s.bad && !s.fixed && p !== s.bad && s.ports[p] !== 'disabled') out.push('<span class="m">Essa porta está OK. Veja no show interfaces status qual está err-disabled.</span>');
       return { out, ran };
     }
     if (kw(c, 'shutdown', 4) || (c === 'no' && kw(t[1], 'shutdown', 4))) {
@@ -500,7 +536,7 @@
       const broken = s.bad && !s.fixed;
       if (s.mode === 'user' || s.mode === 'priv') { bad('Esse comando vale dentro da porta: configure terminal → interface ' + (broken ? '&lt;porta com problema&gt;' : 'gi0/N') + '.'); return { out, ran }; }
       if (s.mode !== 'if') { bad('Selecione a porta antes: interface gi0/N.'); return { out, ran }; }
-      const no = c === 'no', p = s.cur, full = 'GigabitEthernet' + p.slice(2);
+      const no = c === 'no', p = s.cur, full = 'GigabitEthernet' + p.slice(2), wasOff = s.ports[p] === 'disabled';
       // the err-disabled port only recovers with shutdown first
       if (no && p === s.bad && !s.fixed && s.ports[p] !== 'disabled') { out.push('<span class="w">Primeiro desligue a porta com shutdown.</span>'); ran.push('error'); return { out, ran }; }
       if (!no) { s.ports[p] = 'disabled'; s.shut = p; out.push('%LINK-5-CHANGED: Interface ' + full + ', changed state to administratively down'); }
@@ -511,18 +547,24 @@
         if (p === s.bad) s.fixed = true;
       }
       // like a real switch it ran, but this is not the port the task is about
-      if (broken && p !== s.bad) out.push('<span class="m">Você está na ' + p + ', que está OK. A porta com problema está err-disabled no show interfaces status.</span>');
+      if (broken && p !== s.bad && !(no && wasOff)) out.push('<span class="m">Você está na ' + p + ', que está OK. A porta com problema está err-disabled no show interfaces status.</span>');
       ran.push(no ? 'noshut' : 'shut');
       return { out, ran };
     }
     if (kw(c, 'ping')) {
-      out.push(ctx.reach(d, t[1] || '').ok ? '!!!!!\nSuccess rate is 100 percent (5/5)' : '.....\nSuccess rate is 0 percent (0/5)');
+      if (!t[1]) { bad('Uso: ping <ip>'); return { out, ran }; }
+      const ok = ctx.reach(d, t[1]).ok;
+      out.push('Sending 5, 100-byte ICMP Echos to ' + esc(t[1]) + ', timeout is 2 seconds:', ok ? '!!!!!' : '.....', 'Success rate is ' + (ok ? '100 percent (5/5)' : '0 percent (0/5)'));
+      ran.push(ok ? 'ping-ok:' + t[1] : 'ping-fail');
       return { out, ran };
     }
     bad('Comando desconhecido: "' + c + '". Digite help ou use Precisa de ajuda?');
     ran.push('unknown');
     return { out, ran };
   }
+
+  // the two shells, for automated checks of the scenarios (no UI)
+  DL.termShells = { linux, swcli };
 
   /* ------------------------------------------------------------------ */
   /* Terminal UI                                                         */
@@ -660,8 +702,9 @@
       const html = X.lesson.steps.map((s, k) => {
         const txt = hidden && k >= i ? (k === i ? stepText(s, true) : '?') : s.text;
         const hint = m.id === 'iniciante' && k === i && stepCmd(s) ? '<code class="term__try">' + esc(stepCmd(s)) + '</code>' : '';
-        // a lesson on two devices (problems.js: step.on): which console each step happens on
-        const on = s.on ? '<em class="term__on' + (s.on === X.dev ? ' is-here' : '') + '">' + esc(s.on.name) + '</em> ' : '';
+        // a lesson on two devices (problems.js: step.on): which console each step happens on — shown from the
+        // current step on only, so a later step never gives away which server the problem is about
+        const on = s.on && k <= i ? '<em class="term__on' + (s.on === X.dev ? ' is-here' : '') + '">' + esc(s.on.name) + '</em> ' : '';
         const away = k === i && s.on && s.on !== X.dev;
         return '<li class="' + (k < i ? 'is-done' : k === i ? 'is-current' : '') + (s.answer ? ' is-question' : '') + '"><span class="term__chk">' + (k < i ? '✓' : k === i && s.answer ? '?' : k + 1) + '</span><span>' + on + esc(txt) + (away ? '' : hint) +
           (away ? '<small class="term__away">Este passo é no ' + esc(s.on.name) + '.</small><button type="button" class="btn btn--sm btn--primary term__act" data-term-act="hop">Abrir o console do ' + esc(s.on.name) + '</button>' : '') +
@@ -697,7 +740,7 @@
       const ex = step && step.cmd ? { [step.help[0]]: step.cmd } : null;
       let h = '<p class="term__hint">' + (stepLabel ? 'Para ' + (m.stepText === 'hidden' ? '' : 'este passo: ') + '<b>' + esc(stepLabel) + '</b>' : 'Comandos mais usados aqui:') +
         ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth, ex);
-      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'no-shutdown', 'end', 'show-run', 'show-start', 'copy-run-start'];
+      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'no-shutdown', 'end', 'show-run', 'show-start', 'copy-run-start', 'sw-ping'];
       const forDev = (k) => (X.dev.kind === 'switch' ? SWITCH_KEYS.includes(k) || k === 'responder' : win ? HELP[k].os === 'win' || k === 'cabling' : !HELP[k].os && !SWITCH_KEYS.includes(k));
       h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter(forDev)
         .map((k) => '<button type="button" class="chip" data-help="' + k + '">' + esc(HELP[k].cmd.split(' <')[0]) + '</button>').join('') + '<div data-help-out></div></details>';
@@ -852,7 +895,7 @@
       game.onTerminalClose && game.onTerminalClose();
     }
 
-    const COMPLETE = ['ip addr', 'ip link', 'ip route', 'ip link set eth0 up', 'ip addr add ', 'ip route add default via ', 'ping -c 3 ', 'systemctl status ', 'systemctl restart ', 'curl localhost', 'df -h', 'du -sh /var/log', 'journalctl --vacuum-size=200M', 'hostnamectl set-hostname ', 'hostname', 'whoami', 'uname -a', 'uptime', 'lscpu', 'free -h', 'responder ', 'tail -n 20 /var/log/auth.log', 'grep "Failed password" /var/log/auth.log', 'ss -tlnp', 'show running-config', 'show startup-config', 'copy running-config startup-config', 'enable', 'show interfaces status', 'configure terminal', 'interface gi0/', 'shutdown', 'no shutdown', 'end'];
+    const COMPLETE = ['ip addr', 'ip link', 'ip route', 'ip link set eth0 up', 'ip addr add ', 'ip addr del ', 'ip route add default via ', 'ip route del default', 'ping -c 3 ', 'systemctl status ', 'systemctl restart ', 'systemctl start ', 'cat notas.txt', 'tail -n 20 /var/log/syslog', 'grep -c ', 'curl localhost', 'df -h', 'du -sh /var/log', 'journalctl --vacuum-size=200M', 'hostnamectl set-hostname ', 'hostname', 'whoami', 'uname -a', 'uptime', 'lscpu', 'free -h', 'responder ', 'tail -n 20 /var/log/auth.log', 'grep "Failed password" /var/log/auth.log', 'ss -tlnp', 'show running-config', 'show startup-config', 'copy running-config startup-config', 'enable', 'show interfaces status', 'configure terminal', 'interface gi0/', 'shutdown', 'no shutdown', 'end'];
     el.input.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         const v = el.input.value;

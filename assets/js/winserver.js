@@ -1443,10 +1443,10 @@
       title: 'Serviço parado · ' + d.name,
       goal: 'Uma função do ' + d.name + ' parou de responder. Investigue os serviços e o log antes de agir.',
       steps: [
-        { text: 'Liste os serviços e ache o que está Stopped.', help: ['win-service'], done: (d, ran) => ran.has('win-svc:' + low(s)) },
-        { text: 'Veja no log System quando ele parou.', help: ['win-event'], done: (d, ran) => ran.has('win-events:system') },
+        { text: 'Liste os serviços e ache o que está Stopped.', help: ['win-service'], cmd: 'Get-Service', done: (d, ran) => ran.has('win-svc:' + low(s)) },
+        { text: 'Veja no log System quando ele parou.', help: ['win-event'], cmd: 'Get-WinEvent -LogName System -MaxEvents 5', done: (d, ran) => ran.has('win-events:system') },
         { text: 'Inicie o serviço ' + s + '.', help: ['win-start'], cmd: 'Start-Service ' + s, done: (d) => running(W(d), s) },
-        { text: 'Confirme que ' + s + ' está Running.', help: ['win-service'], done: (d, ran) => ran.has('win-svc-ok:' + low(s)) },
+        { text: 'Confirme que ' + s + ' está Running.', help: ['win-service'], cmd: 'Get-Service ' + s, done: (d, ran) => ran.has('win-svc-ok:' + low(s)) },
       ],
     };
   };
@@ -1572,6 +1572,16 @@
     fixed: (d) => !isWin(d) || !Object.values(W(d).users).some((u) => u.locked),
     fix: (d) => { for (const u of Object.values(W(d).users)) u.locked = false; },
   };
+  // (career problems only) the static IP is gone: the adapter falls back to APIPA (169.254.x.x)
+  DL.FAULTS.winnoip = {
+    problem: true, loss: 'offline', kinds: ['server'], short: 'Windows sem IP', when: (d) => ready(d),
+    msg: (d) => 'Servidor ' + d.name + ' (Windows) sem IP: pegou um endereço 169.254',
+    apply: (d) => { eth(d).ips = []; d.os.route = null; event(W(d), 'System', 4199, 'Warning', 'O sistema não obteve um endereço IP para o adaptador Ethernet e usará um endereço APIPA.'); },
+    fixed: (d) => !isWin(d) || (eth(d).ips.indexOf(d.ip + '/24') >= 0 && d.os.route === '10.0.1.1'),
+    fix: (d) => { eth(d).ips = [d.ip + '/24']; d.os.route = '10.0.1.1'; },
+  };
+  // an event in a Windows log (problems.js: "who restarted the server?")
+  DL.winEvent = (d, log, id, lvl, msg) => { if (isWin(d)) event(W(d), log, id, lvl, msg); };
   // Linux-only faults never hit a Windows server
   for (const k of ['service', 'disk']) { const f = DL.FAULTS[k], was = f.when; f.when = (d) => !isWin(d) && (!was || was(d)); }
 

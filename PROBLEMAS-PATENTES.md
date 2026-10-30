@@ -1,7 +1,11 @@
-# Problemas por patente — proposta para aprovação
+# Problemas por patente
 
 Os 180 problemas novos: 20 para cada patente, de Júnior I a Tech Lead. Eles seguem o formato dos 20 do Estagiário (`assets/js/problems-data.js`).
-Nada aqui foi programado ainda. Aprove, corte ou troque o que quiser, e eu implemento por fases.
+
+**Situação (30/10/2026):** a proposta foi aprovada.
+- **Fase 1 (Júnior I a III) está implementada.** Os 60 problemas estão em `problems-data.js` e no `seed_scenarios.sql`.
+- As tabelas abaixo mostram a versão implementada. Onde ela mudou em relação à proposta, a linha diz **(mudou)** e explica o motivo.
+- Fases 2 a 4: só a proposta, ainda não programadas.
 
 Decisões que valem para este documento:
 - O jogo continua com **10 níveis**: a Trainee segue dentro do Estagiário.
@@ -51,7 +55,7 @@ Tema: sair de 1 servidor para vários. Comparar, documentar e consertar configur
 | # | Problema | Dif | XP | Onde | O que o jogador faz |
 |---|---|---|---|---|---|
 | 1 | Configurar o segundo servidor | 3 | 80 | Linux | *Automático* ao instalar o servidor. Mesmo roteiro do Estagiário, mas sem o comando pronto no passo do IP e da rota. |
-| 2 | Quem tem mais memória? | 2 | 60 | 2 consoles | `free -h` nos dois servidores e responde qual tem mais RAM. |
+| 2 | Qual disco está mais cheio? **(mudou)** | 2 | 60 | 2 consoles | `df -h` nos dois e responde o nome. Antes era "quem tem mais memória", mas dois servidores do mesmo modelo têm a mesma RAM e a pergunta não teria resposta. |
 | 3 | IP trocado no servidor | 3 | 80 | Linux | O servidor ficou com um IP errado. Remove com `ip addr del`, põe o certo e testa com ping. |
 | 4 | Gateway errado | 3 | 80 | Linux | A rota padrão aponta para .254. `ip route` mostra o erro: apaga a rota, cria a certa e testa com ping. |
 | 5 | Os dois servidores se enxergam? | 2 | 50 | 2 consoles | Vê o IP do vizinho e faz ping nele a partir do primeiro servidor. |
@@ -59,7 +63,7 @@ Tema: sair de 1 servidor para vários. Comparar, documentar e consertar configur
 | 7 | Quantas portas do switch estão em uso? | 2 | 50 | Switch | `show interfaces status` e responde quantas estão como connected. |
 | 8 | Site fora: parado ou travado? | 3 | 80 | Linux | O nginx está *inactive*, não *failed*: alguém parou. Acha no syslog com `grep nginx` e responde a hora; depois inicia o serviço. |
 | 9 | O servidor reiniciou? | 2 | 50 | Linux | Usa `uptime` e o syslog e responde há quantos minutos o servidor está ligado. |
-| 10 | Qual disco está mais cheio? | 2 | 60 | 2 consoles | `df -h` nos dois e responde o nome do servidor. |
+| 10 | Quanta memória tem o servidor? **(mudou)** | 2 | 50 | Linux | `free -h` e responde os GB de RAM. Ocupa o lugar do nº 2, que foi para cima. |
 | 11 | Em que portas estão os dois servidores? | 2 | 60 | Switch | Responde as duas portas: são duas perguntas no mesmo problema. |
 | 12 | Duas falhas no mesmo servidor | 3 | 90 | Linux | A interface está desligada e o nginx caiu. Liga a eth0, testa com ping, reinicia o nginx e testa com curl. |
 | 13 | Monte o posto de atendimento | 2 | 50 | Construir | Instala a estação de atendimento e uma cadeira. |
@@ -81,16 +85,16 @@ Tema: cabo, porta e link. Ensina a separar problema físico de problema de confi
 | 2 | NO-CARRIER ou DOWN? | 3 | 90 | Linux | O defeito é sorteado entre cabo e interface. Diagnostica, responde "cabo" ou "interface" e corrige. |
 | 3 | Porta notconnect | 3 | 90 | 2 consoles | No servidor tudo parece certo, mas a porta dele no switch está notconnect. Refaz o cabo e confere de novo. |
 | 4 | Dois racks bagunçados | 2 | 60 | Construir | Organiza os cabos de 2 racks. |
-| 5 | Câmera no corredor | 2 | 60 | Construir | Instala uma câmera IP ligada num switch PoE. ⚠ preciso confirmar se a câmera usa porta do switch no jogo. |
-| 6 | Wi-Fi do escritório | 2 | 60 | Construir | Instala um access point ligado no switch PoE (mesma ressalva do nº 5). |
-| 7 | Duas portas em erro | 3 | 100 | Switch | Duas portas em err-disabled ao mesmo tempo: reativa as duas e salva. |
+| 5 | Câmera na sala | 2 | 60 | Construir | Instala uma câmera IP. Só conta quando ela tem energia: precisa de um switch PoE na mesma sala (o jogo já calcula isso). |
+| 6 | Wi-Fi para os visitantes | 2 | 60 | Construir | Instala um access point, com a mesma regra de PoE. |
+| 7 | Duas portas fora **(mudou)** | 3 | 100 | Switch | Uma porta em err-disabled e outra desligada à mão (disabled). Reativa as duas e salva. |
 | 8 | Quem está na porta gi0/N? | 2 | 60 | Switch | A pergunta ao contrário: dada a porta, responde qual servidor está ligado nela. |
 | 9 | Cabo na porta errada | 2 | 60 | Construir | O cabeamento mostra um cabo vermelho (conexão errada). Corrige e testa com ping. |
 | 10 | Rack esquentando | 2 | 60 | Construir | Instala placa perfurada na frente do rack. |
 | 11 | Link instável | 3 | 90 | Linux | O syslog mostra a eth0 caindo e voltando. Conta as quedas com `grep`, responde o número e troca o cabo. |
 | 12 | Configurar o terceiro servidor | 3 | 90 | Linux | *Automático*. Roteiro de configuração com comando pronto só no 1º passo. |
-| 13 | Switch sem portas livres | 3 | 80 | Switch + Construir | Conta as portas livres e responde. Depois instala um switch maior. |
-| 14 | Ping a partir do switch | 2 | 60 | Switch | Usa o `ping` do switch para testar um servidor e responde se ele alcança. |
+| 13 | Quantas portas livres? **(mudou)** | 2 | 60 | Switch | Conta as portas livres e responde. A compra do switch maior ficou no Júnior III, nº 14. |
+| 14 | IP de gerência do switch **(mudou)** | 2 | 60 | Switch | Acha o IP do switch no `show running-config` e faz `ping` do switch até um servidor. Antes a pergunta era só "o ping funcionou?", que sempre teria a mesma resposta. |
 | 15 | Servidor sumiu do monitor | 3 | 90 | 2 consoles | O ping do vizinho falha. No servidor, a interface está desligada: liga e testa. |
 | 16 | Porta desligada e esquecida | 3 | 90 | Switch | A porta está *disabled* (alguém deu `shutdown`): `no shutdown` e salva. |
 | 17 | Qual servidor não tem SSH? | 3 | 80 | 2 consoles | `ss -tlnp` nos dois, responde qual não escuta na 22 e inicia o ssh nele. |
@@ -105,21 +109,21 @@ Tema: configurar do zero sem comando pronto. O Windows Server entra aqui, só in
 | # | Problema | Dif | XP | Onde | O que o jogador faz |
 |---|---|---|---|---|---|
 | 1 | Servidor novo, sem roteiro | 3 | 100 | Linux | *Automático*. Configurar com só os cartões de ajuda. |
-| 2 | IP já em uso | 3 | 110 | Linux | O IP pedido responde ao ping. Escolhe o próximo livre, responde qual escolheu e configura. |
-| 3 | O chamado veio com gateway errado | 3 | 110 | 2 consoles | O ping no gateway do chamado falha. Descobre o certo pelo `ip route` do vizinho. |
-| 4 | Instalar o Windows Server | 3 | 110 | Windows | `dism` para ver as edições, `setup.exe /index:3` e a senha do Administrator. |
-| 5 | IP fixo e nome no Windows | 3 | 110 | Windows | `New-NetIPAddress`, `Rename-Computer` e reinicia. |
+| 2 | Pegou o IP de outro servidor **(mudou)** | 3 | 110 | Linux | O servidor ficou com o IP de outro. Responde de quem é o IP, remove e põe o certo. No jogo o IP de cada servidor é fixo, então "escolher o próximo livre" não funcionaria. |
+| 3 | O chamado veio com gateway errado **(mudou)** | 3 | 110 | Linux | *Automático* num servidor novo. O gateway do chamado (.254) não responde, e o certo está anotado em `notas.txt`. |
+| 4 | Instalar o Windows Server | 3 | 110 | Windows | *Automático* ao especializar um servidor como Windows: instalação completa (mídia, senha, IP, nome). |
+| 5 | Windows com nome padrão **(mudou)** | 3 | 100 | Windows | Voltou da reinstalação como WIN-…: renomeia e reinicia. O IP fixo já faz parte do nº 4. |
 | 6 | Windows com 169.254 | 3 | 100 | Windows | `ipconfig /all` mostra APIPA: dá o IP fixo e testa. |
 | 7 | Adaptador desabilitado | 2 | 80 | Windows | `Get-NetAdapter` mostra Disabled: `Enable-NetAdapter` e ping. |
-| 8 | DNS do servidor membro | 3 | 100 | Windows | Aponta o DNS do servidor para o controlador de domínio (DC) com `Set-DnsClientServerAddress`. |
+| 8 | DNS do DC apontando para fora **(mudou)** | 3 | 100 | Windows | O controlador de domínio consulta 8.8.8.8 e não acha o próprio domínio: aponta para ele mesmo (127.0.0.1). É o mesmo comando da proposta, mas só precisa de um Windows, não de dois. |
 | 9 | Três falhas de rede de uma vez | 3 | 110 | Linux | Interface desligada, sem IP e sem rota. Corrige as três. |
 | 10 | Voltou da reinstalação | 3 | 100 | Linux | O nome voltou a ser localhost e o servidor está sem IP: arruma os dois. |
 | 11 | Teste de malha | 3 | 120 | 3 consoles | Faz ping de um servidor em outros três, responde qual falha e conserta ele. |
-| 12 | NAS para os arquivos | 2 | 80 | Construir | Instala um NAS 4 baias e liga o cabo. |
+| 12 | NAS para os arquivos | 2 | 80 | Construir | Instala um NAS 4 baias. No jogo o NAS não usa cabo. |
 | 13 | Energia do rack | 2 | 80 | Construir | Instala o quadro PDU no rack. |
-| 14 | Trocar o switch lotado | 3 | 100 | Construir | Instala um switch 48p e passa os cabos para ele. |
+| 14 | Trocar o switch lotado | 3 | 100 | Construir | Instala um switch 48p e passa pelo menos um servidor para ele. |
 | 15 | O IIS já está instalado? | 3 | 100 | Windows | `Get-WindowsFeature`: responde se o Web-Server está instalado e instala. |
-| 16 | Quem reiniciou o Windows? | 3 | 100 | Windows | `Get-WinEvent -LogName System` e responde o horário do reinício. |
+| 16 | Quem reiniciou o Windows? **(mudou)** | 3 | 100 | Windows | `Get-WinEvent -LogName System`: responde o **usuário** do evento 1074. Antes era o horário, que muda com o fuso de quem joga. |
 | 17 | DNS do Windows parado | 3 | 100 | Windows | `Get-Service DNS` mostra Stopped: `Start-Service` e testa com `Resolve-DnsName`. |
 | 18 | nginx não sobe com o disco cheio | 3 | 120 | Linux | O restart falha enquanto o disco está cheio. Tem que limpar antes e só depois reiniciar. |
 | 19 | IP a mais na interface | 3 | 90 | Linux | A eth0 tem um segundo IP que não devia: remove o IP sobrando. |

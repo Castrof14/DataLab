@@ -16,6 +16,7 @@
     const step = (s) => {
       const o = { text: s.text, help: cards[s.id] || [] };
       if (s.expected_cmd) o.cmd = s.expected_cmd;
+      if (s.auto_cmd) o.auto = s.auto_cmd;
       if (s.action) o.action = s.action;
       if (s.device_role) o.device = s.device_role;
       if (s.step_type === 'answer') { o.type = 'answer'; o.answer = s.answer; } else o.check = s.check_rule;
@@ -61,7 +62,7 @@
         get('command_help', 'key, cmd, example, what, when_to_use, os, sort'),
         get('scenario_lessons', 'id, title, goal, vars'),
         get('problems', 'id, n, rank_id, title, summary, handoff, difficulty, xp, credits, skill, roles, bot_minutes, weight, trigger_kind, complete, lesson_id, when_rule, target, setup, vars, devices, bot_action', (q) => q.eq('active', true)),
-        get('scenario_steps', 'id, lesson_id, problem_id, ord, step_type, text, expected_cmd, action, check_rule, answer, device_role'),
+        get('scenario_steps', 'id, lesson_id, problem_id, ord, step_type, text, expected_cmd, action, check_rule, answer, device_role, auto_cmd'),
         get('scenario_step_help', 'step_id, help_key, sort'),
       ]);
       // an empty catalog (seed not run yet) keeps the bundled data

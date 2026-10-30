@@ -23,10 +23,12 @@
   let gen = 0; // each start/stop bumps it, so an old loop never keeps going
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-  // what a step expects, in order: its own cmd replaces the example of its first help card (as in the help panel);
+  // what a step expects, in order: its own auto commands (problems-data.js: the steps that show no command),
+  // else its cmd in place of the example of its first help card (as in the help panel);
   // a question is answered with what it accepts
   function commandsOf(s) {
     if (s.answer) return s.answer.accept.length ? ['responder ' + s.answer.accept[0]] : [];
+    if (s.auto) return s.auto.split('\n').map((l) => l.trim()).filter(Boolean);
     const list = s.cmd ? [s.cmd] : [];
     for (const k of (s.help || []).slice(s.cmd ? 1 : 0)) {
       if (!HELP[k]) continue;
@@ -84,7 +86,7 @@
         continue;
       }
       if (!A.queue) {
-        if (s.action) return halt('[auto] parou no passo ' + (i + 1) + ': requer ação fora do console (' + s.action + ')');
+        if (s.action && !s.auto) return halt('[auto] parou no passo ' + (i + 1) + ': requer ação fora do console (' + s.action + ')');
         A.queue = commandsOf(s);
         if (!A.queue.length) return halt('[auto] parou no passo ' + (i + 1) + ': o passo não define comando');
       }
