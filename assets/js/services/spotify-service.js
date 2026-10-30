@@ -161,8 +161,19 @@
   async function nowPlaying() {
     const r = await api('GET', '/me/player?additional_types=track,episode');
     if (!r.ok) return r;
-    const p = r.data;
-    if (!p || !p.item) return { ok: true, data: p && p.device ? { idle: true, device: p.device.name } : null };
+    let p = r.data;
+    // /me/player sometimes answers 204 or leaves out the item while something IS playing (some Connect
+    // devices, right after play): currently-playing is more reliable for the track itself
+    if (!p || !p.item) {
+      const c = await api('GET', '/me/player/currently-playing?additional_types=track,episode');
+      if (c.ok && c.data && (c.data.item || !p)) p = Object.assign({}, c.data, { device: p && p.device });
+    }
+    if (!p || !p.item) {
+      const dev = p && p.device;
+      // private session hides the track from the API; ads have no item either
+      const why = dev && dev.is_private_session ? 'private' : p && p.currently_playing_type === 'ad' ? 'ad' : '';
+      return { ok: true, data: dev || why ? { idle: true, why, device: dev ? dev.name : '' } : null };
+    }
     const it = p.item, ep = it.type === 'episode';
     const dis = (p.actions && p.actions.disallows) || {};
     return {
