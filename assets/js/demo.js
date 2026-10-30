@@ -424,7 +424,7 @@
     const dur = af.type === 'drink' ? af.fill || 1.4 : af.dur[0] + Math.random() * (af.dur[1] - af.dur[0]);
     if (af.type !== 'drink') DL.Interact.claim(e, 'use', player);
     P.use = { e, af, left: dur, total: dur };
-    if (af.type === 'drink') e.busy = true;
+    if (af.type === 'drink') { e.busy = true; DL.audio.fill(e.kind); }
     if (af.anim === 'reach' || af.type === 'drink') gesture('reach', dur);
     player.bubble = { text: af.type === 'watch' ? '📺' : af.type === 'drink' ? '…' : '✍️', left: Math.min(2.5, dur), tone: 'chat' };
   }
@@ -455,7 +455,9 @@
   function updateUse(dt, moving) {
     if (P.held) {
       P.held.left -= dt;
+      const was = P.held.sipT;
       P.held.sipT -= dt;
+      if (was > 0 && P.held.sipT <= 0) DL.audio.sip(P.held.what); // the cup reaches the mouth
       if (P.held.sipT <= -0.9) P.held.sipT = 1.6 + Math.random();
       if (P.held.left <= 0) P.held = null;
     }
@@ -1090,7 +1092,7 @@
   // The ears are on the player while exploring, on the camera while building / managing the team.
   // Coworkers' footsteps and the racks' fans get quieter with distance and come from their side of the
   // screen (isometric: screen x follows x − y).
-  const stepOf = new WeakMap();
+  const stepOf = new WeakMap(), drinkOf = new WeakMap();
   let earAcc = 0, stepIds = 0;
   function listen(dt) {
     const L = S.mode === 'explore' ? player : scene.cam;
@@ -1106,6 +1108,19 @@
       }
       st.n = n;
       stepOf.set(a, st);
+    }
+    // the crew on a break: the machine filling their cup, then a sip now and then
+    for (const a of crew.members) {
+      const c = a.crew;
+      if (!c || a.hidden) continue;
+      const was = drinkOf.get(a) || { id: ++stepIds };
+      const d = Math.hypot(a.x - L.x, a.y - L.y);
+      if (d < 160) {
+        const o = { vol: 0.7 * fade(d, 48), pan: panTo(a.x, a.y), key: was.id };
+        if (c.state === 'fetching' && was.state !== 'fetching' && c.job && c.job.place) DL.audio.fill(c.job.place.kind, o);
+        if (c.state === 'sipping' && was.sipT > 0 && c.sipT <= 0) DL.audio.sip(c.cup, o);
+      }
+      drinkOf.set(a, { id: was.id, state: c.state, sipT: c.sipT });
     }
     earAcc += dt;
     if (earAcc < 0.1) return;

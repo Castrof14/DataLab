@@ -71,6 +71,50 @@
     src.stop(t + dur + 0.02);
   }
   const notes = (t, list, step, dur, o) => list.forEach((f, i) => tone(t + i * step, f, dur, o));
+  // a steady sound for a while (motors, the microwave): fades in, holds, fades out
+  function drone(t, freq, dur, o) {
+    o = o || {};
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = o.type || 'triangle';
+    osc.frequency.setValueAtTime(freq, t);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(o.vol || 0.06, t + 0.06);
+    g.gain.setValueAtTime(o.vol || 0.06, t + dur - 0.1);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(dest || fx);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  }
+  // liquid running into a cup: noise through a narrow band that climbs as the cup fills
+  function stream(t, dur, from, to, vol, q) {
+    const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+    src.buffer = noiseBuf;
+    src.loop = true;
+    f.type = 'bandpass';
+    f.Q.value = q || 4;
+    f.frequency.setValueAtTime(from, t);
+    f.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.08);
+    g.gain.setValueAtTime(vol, t + dur - 0.12);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(dest || fx);
+    src.start(t, Math.random() * 0.5);
+    src.stop(t + dur + 0.02);
+  }
+  // little bubbles popping at random: sine blips that jump up in pitch
+  function bubbles(t, dur, n, lo, hi, vol) {
+    for (let i = 0; i < n; i++) {
+      const f = lo + Math.random() * (hi - lo);
+      tone(t + Math.random() * dur, f, 0.03 + Math.random() * 0.03, { type: 'sine', to: f * 1.7, vol });
+    }
+  }
+  // one swallow: a low "glug" that bends up, a little different every time
+  function gulp(t, vol) {
+    const k = 0.85 + Math.random() * 0.3;
+    noise(t, 0.09, { filter: 'bandpass', freq: 2200 * k, vol: 0.05 }); // the slurp at the rim
+    tone(t + 0.12, 210 * k, 0.09, { type: 'sine', to: 420 * k, vol });
+  }
 
   /* ---------------- the sound bank ---------------- */
   const BANK = {
@@ -104,11 +148,64 @@
       tone(t, 110 * k, 0.06, { type: 'sine', to: 55, vol: 0.22 });
       noise(t + 0.005, 0.045, { filter: 'bandpass', freq: 1800 * k, rate: 0.8, vol: 0.09 });
     },
+    // the break room: filling a cup at each machine…
+    pour: (t) => { // water cooler: the tap clicks, water runs, the jug burps big bubbles
+      tone(t, 1500, 0.02, { vol: 0.06 });
+      stream(t + 0.03, 1.3, 520, 1700, 0.14);
+      bubbles(t + 0.1, 1.1, 9, 650, 1300, 0.05);
+      [0.35, 0.8].forEach((d) => tone(t + d, 150 + Math.random() * 40, 0.12, { type: 'sine', to: 320, vol: 0.16 }));
+    },
+    brew: (t) => { // coffee machine: button, pump buzz, steam, then the coffee dripping into the cup
+      tone(t, 1200, 0.03, { vol: 0.06 });
+      drone(t + 0.05, 65, 0.75, { type: 'square', vol: 0.05 });
+      noise(t + 0.15, 0.6, { filter: 'highpass', freq: 3500, vol: 0.05 });
+      stream(t + 0.7, 0.65, 700, 1300, 0.09, 6);
+      bubbles(t + 0.7, 0.6, 5, 500, 900, 0.04);
+    },
+    kettle: (t) => { // tea: the kettle hisses up, then hot water into the mug
+      noise(t, 0.6, { filter: 'bandpass', freq: 3000, vol: 0.06 });
+      tone(t + 0.1, 1800, 0.5, { type: 'sine', to: 2400, vol: 0.03 });
+      stream(t + 0.6, 0.75, 600, 1500, 0.12);
+    },
+    fridge: (t) => { // soda: the door thunks, a can clinks, "pssht" and fizz
+      tone(t, 95, 0.12, { type: 'sine', to: 55, vol: 0.2 });
+      noise(t, 0.08, { freq: 600, vol: 0.1 });
+      tone(t + 0.35, 2600, 0.08, { type: 'sine', vol: 0.05 });
+      noise(t + 0.75, 0.3, { filter: 'highpass', freq: 4000, vol: 0.16 });
+      bubbles(t + 0.8, 0.5, 14, 3000, 5000, 0.015);
+    },
+    vend: (t) => { // vending machine: beep, the spiral motor turns, the can drops
+      notes(t, [1319, 1568], 0.06, 0.05, { type: 'triangle', vol: 0.06 });
+      drone(t + 0.15, 110, 0.6, { type: 'sawtooth', vol: 0.025 });
+      tone(t + 0.8, 140, 0.12, { type: 'sine', to: 60, vol: 0.22 });
+      noise(t + 0.8, 0.07, { freq: 900, vol: 0.12 });
+    },
+    micro: (t) => { // microwave: door, the hum while it spins, then the ding
+      tone(t, 110, 0.08, { type: 'sine', to: 70, vol: 0.14 });
+      drone(t + 0.1, 120, 2.1, { vol: 0.05 });
+      drone(t + 0.1, 60, 2.1, { type: 'sine', vol: 0.07 });
+      tone(t + 2.25, 1760, 0.7, { type: 'sine', vol: 0.12 });
+      tone(t + 2.25, 2637, 0.5, { type: 'sine', vol: 0.04 });
+    },
+    rustle: (t) => { // a snack bag crinkling open
+      for (let i = 0; i < 6; i++) noise(t + i * 0.07 + Math.random() * 0.04, 0.04, { filter: 'highpass', freq: 2500 + Math.random() * 2500, vol: 0.07 });
+    },
+    // …and drinking / eating it
+    sip: (t) => { gulp(t, 0.16); if (Math.random() < 0.4) gulp(t + 0.28, 0.12); },
+    sipHot: (t) => { noise(t, 0.18, { filter: 'bandpass', freq: 3200, vol: 0.06 }); gulp(t + 0.1, 0.13); }, // blows, then a careful sip
+    sipFizz: (t) => { gulp(t, 0.15); bubbles(t + 0.05, 0.35, 8, 3000, 5000, 0.012); },
+    munch: (t) => {
+      for (let i = 0; i < 3; i++) noise(t + i * 0.16 + Math.random() * 0.03, 0.06, { filter: 'bandpass', freq: 1800 + Math.random() * 1200, vol: 0.11 });
+    },
   };
+  // which sound each machine makes while filling, and each cup while drinking it
+  const FILL = { water: 'pour', coffee: 'brew', espresso: 'brew', coffeebar: 'brew', kettle: 'kettle', fridge: 'fridge', vending: 'vend', microwave: 'micro', snacks: 'rustle' };
+  const SIP = { water: 'sip', coffee: 'sipHot', tea: 'sipHot', soda: 'sipFizz', snack: 'munch', food: 'munch' };
   // soft sounds (toasts, coins) step aside when a main sound plays at the same moment: an alert already
   // says "warning", the toast that comes with it stays quiet. light ones (click, steps) never collide.
   const SOFT = { tick: 1, ok: 1, warn: 1, coin: 1 };
   const LIGHT = { click: 1, foot: 1 };
+  for (const k of Object.values(FILL).concat(Object.values(SIP))) LIGHT[k] = 1;
 
   // o (optional): { vol: 0…1, pan: -1 left … 1 right, key } — a sound placed in the room, like a
   // coworker's footsteps. key keeps the 60 ms repeat guard per source instead of per sound.
@@ -204,6 +301,9 @@
 
   DL.audio = {
     play,
+    // filling at a machine (by the object's kind) / one sip of a cup (by what is in it); o as in play
+    fill: (kind, o) => FILL[kind] && play(FILL[kind], o),
+    sip: (cup, o) => SIP[cup] && play(SIP[cup], o),
     // 0…1 each
     setVolume(effects, ambient) {
       fxVol = effects;
