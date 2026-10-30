@@ -2625,7 +2625,7 @@ update public.items set active = false, purchasable = false where id in (select 
 commit;
 
 -- ===================================================================
--- 20261030000200_problem_difficulty.sql
+-- 20261030000300_problem_difficulty.sql
 -- ===================================================================
 -- DataLab · 017 · harder career problems
 -- The Pleno ranks and above have problems of difficulty 4 (muito difícil) and 5 (especialista).
