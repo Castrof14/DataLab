@@ -158,6 +158,12 @@ function act(env, s, d, p) {
   if (/node\.alloc/.test(chk)) { settle(); for (const v of infra.vms.filter((q) => q.node === d.key && /^carga/.test(q.name))) infra.act(v, 'shutdown'); settle(); return 'desligou as VMs de carga'; }
   // Equipe: orders
   if (arg('ordersSince')) { sys.crew.assignedCount += 2; return 'deu ordens à equipe'; }
+  // a VLAN on the newest switch, through its console
+  if (arg('vlan.any')) {
+    const [id, nm] = arg('vlan.any').split(':'), sw = ops.devices().filter((q) => q.kind === 'switch').pop();
+    for (const l of ['enable', 'configure terminal', 'vlan ' + id, 'name ' + nm, 'end']) DL.termShells.swcli(sw, l, ctxOf(ops));
+    return 'criou a VLAN ' + id + ' no ' + sw.name;
+  }
   if (s.action === 'build') {
     const m = /"state":"(items|devs)","arg":"([^"]+)"/.exec(chk);
     if (m && m[1] === 'items') { const id = m[2].split(',')[0]; world.items.push({ kind: id, defId: id, powered: true }); return 'construiu ' + id; }

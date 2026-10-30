@@ -75,6 +75,17 @@
     // someone shut a port down and forgot it (administratively down, not err-disabled)
     portoff: { problem: true, loss: 'port', kinds: ['switch'], short: 'Porta desligada', msg: (d) => 'Porta ' + String(d.sw.off).replace('gi', 'Gi') + ' do ' + d.name + ' desligada (administratively down)', apply: null,
       fixed: (d) => !d.sw.off || d.sw.ports[d.sw.off] !== 'disabled', fix: (d) => { if (d.sw.off) d.sw.ports[d.sw.off] = d.sw.linked.has(d.sw.off) ? 'connected' : 'notconnect'; } },
+    // a server's port moved to another VLAN (quarantine) · set to trunk mode by mistake (opts.port: the server's)
+    vlanwrong: { problem: true, loss: 'port', kinds: ['switch'], short: 'Porta na VLAN errada', msg: (d) => 'Servidor ligado no ' + d.name + ' fora da rede (porta ' + String(d.sw.vport).replace('gi', 'Gi') + ')',
+      apply: (d, o) => { const s = DL.swVlans(d.sw), p = o && o.port; if (!p) return; s.vlans[99] = 'QUARENTENA'; s.pvlan[p] = 99; s.vport = p; },
+      fixed: (d) => !d.sw.vport || !d.sw.pvlan || (d.sw.pvlan[d.sw.vport] || 10) === 10, fix: (d) => { if (d.sw.vport) delete d.sw.pvlan[d.sw.vport]; } },
+    porttrunk: { problem: true, loss: 'port', kinds: ['switch'], short: 'Porta de servidor em trunk', msg: (d) => 'Servidor ligado no ' + d.name + ' fora da rede (porta ' + String(d.sw.vport).replace('gi', 'Gi') + ')',
+      apply: (d, o) => { const s = DL.swVlans(d.sw), p = o && o.port; if (!p) return; s.pmode[p] = 'trunk'; s.trunk[p] = [10, 99]; s.vport = p; },
+      fixed: (d) => !d.sw.vport || !d.sw.pmode || d.sw.pmode[d.sw.vport] !== 'trunk', fix: (d) => { if (d.sw.vport) { d.sw.pmode[d.sw.vport] = 'access'; delete d.sw.trunk[d.sw.vport]; } } },
+    // the firewall turned on letting only SSH in: the site is unreachable from outside
+    fwblock: { problem: true, loss: 'service', kinds: ['server'], when: linux, short: 'Firewall bloqueando o site', msg: (d) => 'Site do ' + d.name + ' fora do ar para os clientes',
+      apply: (d) => { DL.linuxSys(d).fw = { on: true, rules: [{ act: 'allow', port: '22' }] }; },
+      fixed: (d) => DL.fwAllows(d.os, 80), fix: (d) => { DL.linuxSys(d).fw.rules.push({ act: 'allow', port: '80' }); } },
     // two ports down at once: one err-disabled, one shut down by hand
     port2: { problem: true, loss: 'port', kinds: ['switch'], short: 'Duas portas fora', msg: (d) => 'Duas portas do ' + d.name + ' fora do ar', apply: null,
       fixed: (d) => (!d.sw.bad || d.sw.fixed) && (!d.sw.off || d.sw.ports[d.sw.off] !== 'disabled'),
@@ -345,10 +356,13 @@
       else if (!e0.up) why = 'iface';
       else if (e0.ips.indexOf(d.ip + '/24') < 0) why = 'ip';
       else if (portDown(t)) why = 'port';
-      return { up: !why, why, http: !why && os.services.nginx === 'active', disk: os.disk };
+      // (the site: nginx running and, with the firewall on, port 80 let in)
+      return { up: !why, why, http: !why && os.services.nginx === 'active' && (!DL.fwAllows || DL.fwAllows(os, 80)), disk: os.disk };
     }
-    // the switch port at the end of the cable is err-disabled, or shut down by hand
-    const portDown = (t) => (t.sw.sw.bad === t.port && !t.sw.sw.fixed) || t.sw.sw.ports[t.port] === 'disabled';
+    // the switch port at the end of the cable is err-disabled, shut down by hand, in trunk mode or in a VLAN other
+    // than the datacenter's (10, where the gateway is)
+    const portDown = (t) => { const s = t.sw.sw; return (s.bad === t.port && !s.fixed) || s.ports[t.port] === 'disabled' || portVlanBad(s, t.port); };
+    const portVlanBad = (s, p) => (s.pmode && s.pmode[p] === 'trunk') || ((s.pvlan && s.pvlan[p]) || 10) !== 10;
 
     function reach(d, host) {
       // from a switch (its own ping): the gateway, or a device that is up
@@ -364,7 +378,10 @@
       if (!t.ok) return { ok: false, msg: 'connect: Network is unreachable', hint: 'sem sinal no cabo (NO-CARRIER). ' + t.reason + ' — confira o cabeamento do rack' };
       if (t.sw.broken) return { ok: false, msg: 'connect: Network is unreachable', hint: 'o ' + t.sw.name + ' está com defeito de hardware — chame o técnico de TI' };
       if (!e0.ips.length) return { ok: false, msg: 'connect: Network is unreachable', hint: 'a eth0 não tem endereço IP — veja ip addr' };
-      if (portDown(t)) return { ok: false, msg: 'From ' + e0.ips[0].split('/')[0] + ' icmp_seq=1 Destination Host Unreachable', hint: 'a porta ' + t.port + ' do ' + t.sw.name + ' está ' + (t.sw.sw.ports[t.port] === 'disabled' ? 'desligada (disabled)' : 'err-disabled') + ' — o problema está no switch' };
+      if (portDown(t)) {
+        const s = t.sw.sw, how = portVlanBad(s, t.port) ? (s.pmode && s.pmode[t.port] === 'trunk' ? 'em modo trunk (servidor pede access)' : 'na VLAN ' + s.pvlan[t.port] + ' (o gateway está na VLAN 10)') : s.ports[t.port] === 'disabled' ? 'desligada (disabled)' : 'err-disabled';
+        return { ok: false, msg: 'From ' + e0.ips[0].split('/')[0] + ' icmp_seq=1 Destination Host Unreachable', hint: 'a porta ' + t.port + ' do ' + t.sw.name + ' está ' + how + ' — o problema está no switch' };
+      }
       const local = e0.ips.some((ip) => ip.split('.').slice(0, 3).join('.') === host.split('.').slice(0, 3).join('.'));
       if (!local && !os.route) return { ok: false, msg: 'connect: Network is unreachable', hint: 'destino fora da rede local e sem rota padrão — veja ip route' };
       // outside the network everything goes through the default route: a gateway that doesn't exist answers nothing

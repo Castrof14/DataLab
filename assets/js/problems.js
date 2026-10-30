@@ -18,6 +18,8 @@
   // the server specialisations and VMs (infra.js, created after the problems)
   const INFRA = () => (window.DataLabDemo && window.DataLabDemo.infra) || null;
   const upNow = (d) => !!OPS && d.kind === 'server' && d.state === 'online' && !d.fault && OPS.health(d).up;
+  // the Linux parts of a server (terminal.js), null on Windows / switches
+  const lx = (d) => (d && d.kind === 'server' && d.os && !(DL.isWin && DL.isWin(d)) && DL.linuxSys ? DL.linuxSys(d) : null);
   const low = (s) => String(s == null ? '' : s).toLowerCase();
   const win = (d) => (d && d.os && d.os.win) || null;
   const ipCmp = (a, b) => +a.split('.').pop() - +b.split('.').pop();
@@ -76,7 +78,7 @@
       const list = direct(sw);
       if (!list.length) return null;
       const [d, t] = pick(list);
-      return { name: d.name, port: t.port, ip: d.ip };
+      return { name: d.name, port: t.port, ip: d.ip, mac: d.os ? d.os.ifaces.eth0.mac : '' };
     },
     // the switch port at the other end of the eth0 cable — even with a plug out (the port it belongs in)
     'cable.port': (d) => {
@@ -131,7 +133,39 @@
     },
     // a server online and answering (right now: the fault record clears a moment later) · with its site up and room on the disk
     up: (d) => !!OPS && d.kind === 'server' && d.state === 'online' && OPS.health(d).up,
-    'ok.web': (d) => !!OPS && d.kind === 'server' && d.state === 'online' && OPS.health(d).up && d.os.services.nginx === 'active' && d.os.disk < 80,
+    // (health().http: nginx running and, with the firewall on, port 80 let in)
+    'ok.web': (d) => !!OPS && d.kind === 'server' && d.state === 'online' && OPS.health(d).http && d.os.disk < 80,
+    // Linux (terminal.js DL.linuxSys): firewall · accounts · files · packages · backups · cron
+    'fw.on': (d) => !!lx(d) && lx(d).fw.on,
+    'fw.allows': (d, port) => !!lx(d) && lx(d).fw.on && DL.fwAllows(d.os, port),
+    'fw.denies': (d, ip) => !!lx(d) && lx(d).fw.on && lx(d).fw.rules.some((r) => r.act === 'deny' && r.from && r.from.split('/')[0] === ip),
+    'user.exists': (d, u) => !!lx(d) && !!lx(d).users[u],
+    // 'usuário:grupo'
+    'user.in': (d, a) => { const [u, g] = String(a).split(':'), x = lx(d) && lx(d).users[u]; return !!x && x.groups.indexOf(g) >= 0; },
+    'user.locked': (d, u) => !!lx(d) && !!lx(d).users[u] && !!lx(d).users[u].locked,
+    'file.mode': (d, p) => (lx(d) && lx(d).files[p] ? lx(d).files[p].mode : null),
+    'file.owner': (d, p) => (lx(d) && lx(d).files[p] ? lx(d).files[p].owner : null),
+    'file.group': (d, p) => (lx(d) && lx(d).files[p] ? lx(d).files[p].group : null),
+    'apt.pending': (d) => (lx(d) ? lx(d).updates.length : null),
+    pkg: (d, name) => (lx(d) && lx(d).pkgs[name]) || null,
+    // the updated nginx is the one running (restarted after apt upgrade)
+    'nginx.fresh': (d) => !!d.os && !d.os.nginxStale,
+    // an archive made from this folder (tar czf … <pasta>)
+    'backup.of': (d, src) => !!lx(d) && Object.values(lx(d).files).some((f) => f.from === src),
+    // the cron line that runs a script: its minute and hour ("0 2") · it is there at all
+    'cron.at': (d, script) => { const l = lx(d) && lx(d).cron.find((x) => x.split(/\s+/).slice(5).join(' ').indexOf(script) >= 0); return l ? l.split(/\s+/).slice(0, 2).join(' ') : null; },
+    'cron.has': (d, script) => !!lx(d) && lx(d).cron.some((x) => x.indexOf(script) >= 0),
+    // the IP a leaked account logged in from
+    'auth.leak': (d) => (d.os && d.os.leakIp) || null,
+    // switch VLANs (terminal.js DL.swVlans): a VLAN's name · a port's access VLAN · its mode · a trunk carries a VLAN ('porta:vlan')
+    'sw.vlan': (d, id) => (d.sw && d.sw.vlans ? d.sw.vlans[id] || null : null),
+    'sw.portVlan': (d, p) => (d.sw ? (d.sw.pvlan && d.sw.pvlan[p]) || 10 : null),
+    'sw.portMode': (d, p) => (d.sw ? (d.sw.pmode && d.sw.pmode[p]) || 'access' : null),
+    'sw.trunkHas': (d, a) => { const [p, v] = String(a).split(':'); return !!d.sw && !!d.sw.pmode && d.sw.pmode[p] === 'trunk' && (!d.sw.trunk[p] || d.sw.trunk[p].indexOf(+v) >= 0); },
+    // a free port (no cable, in VLAN 10), counting down from the last one: 0 = the last free port
+    'sw.free': (d, i) => { if (!d.sw) return null; const free = Object.keys(d.sw.ports).filter((p) => d.sw.ports[p] === 'notconnect' && (!d.sw.pvlan || !d.sw.pvlan[p]) && (!d.sw.pmode || d.sw.pmode[p] !== 'trunk')); return free[free.length - 1 - (+i || 0)] || null; },
+    // some switch has this VLAN with this name ('id:NOME')
+    'vlan.any': (x, a) => { const [id, nm] = String(a).split(':'); return !!OPS && OPS.devices().some((d) => d.sw && d.sw.vlans && low(d.sw.vlans[id]) === low(nm)); },
     // the whole datacenter: servers up · alerts open
     'up.count': () => (OPS ? OPS.devices().filter(upNow).length : null),
     'faults.count': () => (OPS ? OPS.devices().filter((d) => d.fault && d.fault.found).length : null),
@@ -534,6 +568,8 @@
       }
       // a quiet log with a known last login
       if (s.authlog === 'logins' && x.os && DL.authLogins) DL.authLogins(x, v.last);
+      // the Linux server's accounts, files, packages, cron, firewall (terminal.js DL.linuxSetup)
+      if (s.linux && !(DL.linuxSetup && DL.linuxSetup(x, s.linux, { vars: v }))) return false;
       // a port description changed after the last save of the switch configuration
       // unsaved2: on every switch of the problem
       if ((s.swconfig === 'unsaved' || s.swconfig === 'unsaved2') && x.sw) {
@@ -589,7 +625,7 @@
             if (!d) continue;
             const opts = Object.assign({}, s.opts || {}, j.opts || {});
             // a switch fault for a server's problem: the port at the end of its cable (port2: and the peer's)
-            if (d.kind === 'switch' && x.kind === 'server') {
+            if (d.kind === 'switch' && x.kind === 'server' && !opts.port) {
               opts.port = PROBES['srv.port'](x);
               if (devs.peer && devs.peer.kind === 'server') opts.port2 = PROBES['srv.port'](devs.peer);
             }

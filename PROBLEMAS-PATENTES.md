@@ -5,8 +5,9 @@ Os 180 problemas novos: 20 para cada patente, de Júnior I a Tech Lead. Eles seg
 **Situação (30/10/2026):** a proposta foi aprovada.
 - **Fase 1 (Júnior I a III) está implementada.** Os 60 problemas estão em `problems-data.js` e no `seed_scenarios.sql`.
 - **Fase 2 (Pleno I a III) está implementada** (31/10/2026). São mais 60 problemas, testados de ponta a ponta com `node tests/sim-problems.js`.
+- **Fase 3 (Sênior) está implementada** (31/10/2026): 20 problemas e os comandos novos de switch e Linux.
 - As tabelas abaixo mostram a versão implementada. Onde ela mudou em relação à proposta, a linha diz **(mudou)** e explica o motivo.
-- Fases 3 e 4: só a proposta, ainda não programadas.
+- Fase 4 (Especialista e Tech Lead): só a proposta, ainda não programada.
 
 Decisões que valem para este documento:
 - O jogo continua com **10 níveis**: a Trainee segue dentro do Estagiário.
@@ -216,31 +217,32 @@ Tema: triar, delegar e montar acessos para pessoas. Parte da solução é atribu
 ## 8 · Sênior — comandos novos: VLAN, firewall, usuários, pacotes, backup
 Missão: *expandir o terreno e resolver mais 5 problemas* · Libera: switch 25G, biblioteca de fitas, setups gamer e de streaming.
 
-**Comandos novos**
-- **Switch**: `vlan N` / `name`, `switchport mode access|trunk`, `switchport access vlan N`, `show vlan brief`, `show mac address-table`, `show interfaces trunk`.
-- **Linux**: `useradd`, `usermod -aG`, `passwd -l`, `id`, `ls -l`, `chmod`, `chown`, `apt update/upgrade/install`, `apt list --upgradable`, `ufw status/allow/deny/enable`, `tar`, `rsync`, `crontab -l/-e` (simplificado).
+**Comandos novos (implementados)**
+- **Switch**: `vlan N` / `name`, `switchport mode access|trunk`, `switchport access vlan N`, `switchport trunk allowed vlan`, `show vlan brief`, `show mac address-table` e `show interfaces trunk`. A coluna Vlan do `show interfaces status` agora é real.
+- **Linux**: `useradd`, `usermod -aG`, `passwd -l/-S`, `id`, `ls -l`, `chmod`, `chown`, `apt update/upgrade/install`, `apt list --upgradable`, `ufw status/allow/deny/enable/delete`, `tar czf/tzf`, `rsync -a` e `crontab -l`. Para gravar no cron é `echo "linha" | crontab -`: o `crontab -e` não abre editor no jogo.
+- **Regras novas da rede**: o gateway está na VLAN 10. Um servidor numa porta de outra VLAN, ou numa porta trunk, sai da rede. Com o firewall ligado, o site só responde se a porta 80 estiver liberada.
 
 | # | Problema | Dif | XP | Onde | O que o jogador faz |
 |---|---|---|---|---|---|
-| 1 | VLAN dos servidores | 4 | 180 | Switch | Cria a VLAN 20, põe 2 portas nela e confere. |
-| 2 | Servidor na VLAN errada | 4 | 170 | 2 consoles | O ping falha: `show vlan brief` mostra a porta na VLAN errada. Corrige. |
-| 3 | Trunk entre switches | 5 | 210 | 2 consoles | Liga dois switches em trunk, levando as VLANs. |
-| 4 | De quem é esse MAC? | 4 | 160 | 2 consoles | `ip link` no servidor e `show mac address-table` no switch: responde a porta. |
-| 5 | Ligar o firewall sem se trancar | 5 | 200 | Linux | Libera 22 e 80 **antes** do `ufw enable`. Se ligar primeiro, perde o acesso e o problema ensina por quê. |
+| 1 | Uma VLAN para as câmeras **(mudou)** | 4 | 180 | Switch | Cria a VLAN 30 CAMERAS, põe 2 portas livres nela e salva. Antes era uma VLAN 20 para servidores, mas servidor fora da VLAN 10 perde o gateway. Por isso o nº 19 (câmeras) virou este. |
+| 2 | Servidor na VLAN errada | 4 | 170 | 2 consoles | O ping falha: `show vlan brief` mostra a porta na VLAN de quarentena. Corrige e salva. |
+| 3 | Trunk entre switches **(mudou)** | 5 | 210 | 2 consoles | Configura uma porta livre de cada switch como trunk levando as VLANs 10 e 30 e salva os dois. O cabo entre switches não existe no jogo, então o problema é só a configuração. |
+| 4 | De quem é esse MAC? | 4 | 160 | Switch | O alerta traz o MAC no formato do Linux (52:54:…). O `show mac address-table` mostra no formato Cisco (5254.…): responde a porta. |
+| 5 | Ligar o firewall sem se trancar | 5 | 200 | Linux | Libera 22 e 80 **antes** do `ufw enable`. Se ligar primeiro, o terminal avisa que numa sessão SSH o acesso teria sido perdido. Pelo console do rack ainda dá para corrigir. |
 | 6 | Bloquear o atacante | 4 | 170 | Linux | Acha o IP no auth.log e bloqueia com `ufw deny from`. |
 | 7 | Conta para o desenvolvedor | 4 | 160 | Linux | `useradd`, grupo deploy e confere com `id`. |
-| 8 | Senha num arquivo aberto | 4 | 180 | Linux | `ls -l` mostra o arquivo legível por todos: corrige com `chmod 640` e `chown`. |
+| 8 | Senha num arquivo aberto | 4 | 180 | Linux | `ls -l` mostra o arquivo legível por todos: responde o modo atual (644) e corrige com `chmod 640` e `chown root:app`. |
 | 9 | Conta vazada | 4 | 170 | Linux | Bloqueia com `passwd -l` e responde de onde veio o login. |
 | 10 | Atualizações de segurança | 4 | 170 | Linux | `apt update`, vê o que tem para atualizar, atualiza e reinicia o nginx. |
 | 11 | Instalar o fail2ban | 4 | 160 | Linux | `apt install` e confere o serviço. |
 | 12 | Backup do /etc | 4 | 170 | Linux | `tar czf` para /backup e confere o arquivo. |
-| 13 | Site copiado para o NAS | 4 | 180 | Linux | `rsync -a` para o NAS. |
-| 14 | Backup todo dia | 5 | 200 | Linux | Agenda no crontab e responde o horário que ficou. |
-| 15 | O backup não roda | 5 | 210 | Linux | A linha do cron aponta para um script que não existe: corrige. |
-| 16 | Fitas fora do prédio | 4 | 170 | Construir + Infra | Instala a biblioteca de fitas e ativa o backup semanal. |
-| 17 | Rede de storage 25G | 4 | 180 | Construir | Instala o switch 25G e liga a storage e os nós de VMs nele. |
-| 18 | Sala nova depois da expansão | 5 | 220 | Construir + Switch | Switch novo, VLAN e 2 servidores cabeados. |
-| 19 | Câmeras na VLAN delas | 5 | 200 | Switch | Separa as portas das câmeras numa VLAN própria. |
+| 13 | Cópia do site em outro servidor **(mudou)** | 4 | 180 | Linux | `rsync -a` para outro servidor da rede. No jogo o NAS não tem IP para receber a cópia. |
+| 14 | Backup todo dia às 2h | 5 | 200 | Linux | Agenda com `echo "0 2 * * * …" \| crontab -`. |
+| 15 | O backup não roda | 5 | 210 | Linux | O syslog mostra "bkp.sh: not found". Compara o cron com o `ls /usr/local/bin`, responde o nome certo e corrige. |
+| 16 | Fitas fora do prédio **(mudou)** | 4 | 170 | Construir | Instala a biblioteca de fitas. Não existe backup semanal para ativar no jogo. |
+| 17 | Rede de storage 25G **(mudou)** | 4 | 180 | Construir | Instala o switch 25G e passa um servidor para ele. A storage não usa cabo no jogo. |
+| 18 | Switch novo com a VLAN dos servidores **(mudou)** | 5 | 220 | Construir + Switch | Switch novo e a VLAN 20 SERVIDORES nele. Cabear servidores já é a missão do Júnior II. |
+| 19 | Servidor numa porta trunk **(mudou)** | 4 | 170 | 2 consoles | A porta do servidor virou trunk por engano: `show interfaces trunk`, volta para access e salva. As câmeras viraram o nº 1. |
 | 20 | Duas causas: VLAN e firewall | 5 | 220 | 2 consoles | O servidor está inacessível por dois motivos ao mesmo tempo: a porta na VLAN errada e o ufw bloqueando a 80. |
 
 ## 9 · Especialista — desempenho, confiabilidade e custo

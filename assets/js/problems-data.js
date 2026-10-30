@@ -1707,6 +1707,232 @@
         { text: 'O escopo tem 50 endereços ou mais, com gateway e DNS.', help: ['win-scope'], auto: 'Remove-DhcpServerv4Scope -ScopeId 10.0.1.0\nAdd-DhcpServerv4Scope -Name LAN -StartRange 10.0.1.100 -EndRange 10.0.1.199 -SubnetMask 255.255.255.0\nSet-DhcpServerv4OptionValue -ScopeId 10.0.1.0 -Router {{gw}} -DnsServer {{dev.ip}}', check: { all: [{ state: 'win.scopeSize', gt: 49 }, { state: 'win.scopeRouter', eq: '{{gw}}' }] } },
       ],
     },
+
+    /* ---------------- Sênior: comandos novos — VLAN, firewall, contas, permissões, pacotes, backup, cron ---------------- */
+    {
+      id: 'sr_vlan_cameras', n: 1, rank: 'sr', title: 'Uma VLAN para as câmeras · {{dev.name}}', difficulty: 4, xp: 180, credits: 27,
+      skill: 'redes', roles: ['redes'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'As câmeras vão para o {{dev.name}}, mas não podem conversar com os servidores. Crie a VLAN 30 (CAMERAS) e reserve as portas {{a}} e {{b}} para elas.',
+      target: T(MSW, { linked: true }), vars: { a: 'sw.free:0', b: 'sw.free:1' },
+      steps: [
+        { text: 'Veja as VLANs que o {{dev.name}} já tem.', help: ['show-vlan'], auto: 'enable\nshow vlan brief', check: { ran: 'show-vlan' } },
+        { text: 'Existe a VLAN 30, chamada CAMERAS.', help: ['sw-vlan'], auto: 'configure terminal\nvlan 30\nname CAMERAS\nexit', check: { state: 'sw.vlan', arg: '30', eq: 'CAMERAS' } },
+        { text: 'As portas {{a}} e {{b}} são de acesso na VLAN 30.', help: ['sw-access'], auto: 'interface {{a}}\nswitchport mode access\nswitchport access vlan 30\ninterface {{b}}\nswitchport mode access\nswitchport access vlan 30\nend', check: { all: [{ state: 'sw.portVlan', arg: '{{a}}', eq: 30 }, { state: 'sw.portVlan', arg: '{{b}}', eq: 30 }] } },
+        { text: 'A configuração está salva.', help: ['copy-run-start'], auto: 'end\ncopy running-config startup-config', check: { state: 'sw.saved' } },
+      ],
+    },
+    {
+      id: 'sr_vlan_errada', n: 2, rank: 'sr', title: '{{dev.name}} na VLAN errada', difficulty: 4, xp: 170, credits: 25,
+      skill: 'redes', roles: ['redes'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Numa limpeza de portas, o {{dev.name}} foi parar na VLAN de quarentena do {{sw.name}}. No servidor tudo parece certo.',
+      target: T(LNX, { directLink: true }), devices: { sw: 'switch.of' }, setup: { fault: 'vlanwrong', on: 'sw' }, vars: { port: 'srv.port' },
+      steps: [
+        { text: 'No {{dev.name}}: IP certo, interface no ar, e mesmo assim o gateway não responde?', help: ['ip-addr'], auto: 'ip addr\nping -c 3 {{gw}}', check: { any: [{ ran: 'ping-fail' }, { at: 'dev', state: 'up' }] } },
+        { device: 'sw', text: 'No {{sw.name}}, veja em que VLAN está cada porta.', help: ['show-vlan'], auto: 'enable\nshow vlan brief', check: { ran: 'show-vlan' } },
+        { device: 'sw', text: 'A porta do {{dev.name}} volta para a VLAN 10.', help: ['sw-access'], auto: 'configure terminal\ninterface {{port}}\nswitchport access vlan 10\nend', check: { state: 'sw.portVlan', arg: '{{port}}', eq: 10 } },
+        { device: 'sw', text: 'A configuração está salva.', help: ['copy-run-start'], auto: 'end\ncopy running-config startup-config', check: { ran: 'config-saved' } },
+        { text: 'O {{dev.name}} alcança o gateway.', help: ['ping'], auto: 'ping -c 3 {{gw}}', check: pingGw },
+      ],
+    },
+    {
+      id: 'sr_trunk', n: 3, rank: 'sr', title: 'Trunk entre o {{dev.name}} e o {{sw.name}}', difficulty: 5, xp: 210, credits: 31,
+      skill: 'redes', roles: ['redes'], bot_minutes: 30, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Os dois switches vão ser ligados pelas portas {{a}} ({{dev.name}}) e {{b}} ({{sw.name}}). A ligação precisa levar as VLANs 10 (datacenter) e 30 (câmeras).',
+      target: T(MSW, { linked: true }), devices: { sw: 'switch.other' }, vars: { a: 'sw.free:0', b: 'sw.free:0@sw' },
+      steps: [
+        { text: 'No {{dev.name}}, a {{a}} é trunk e leva as VLANs 10 e 30.', help: ['sw-trunk'], auto: 'enable\nconfigure terminal\ninterface {{a}}\nswitchport mode trunk\nswitchport trunk allowed vlan 10,30\nend', check: { all: [{ state: 'sw.trunkHas', arg: '{{a}}:10' }, { state: 'sw.trunkHas', arg: '{{a}}:30' }] } },
+        { text: 'A configuração do {{dev.name}} está salva.', help: ['copy-run-start'], auto: 'end\ncopy running-config startup-config', check: { state: 'sw.saved' } },
+        { device: 'sw', text: 'No {{sw.name}}, a {{b}} é trunk e leva as mesmas VLANs.', help: ['sw-trunk'], auto: 'enable\nconfigure terminal\ninterface {{b}}\nswitchport mode trunk\nswitchport trunk allowed vlan 10,30\nend', check: { all: [{ state: 'sw.trunkHas', arg: '{{b}}:10' }, { state: 'sw.trunkHas', arg: '{{b}}:30' }] } },
+        { device: 'sw', text: 'Confira os trunks e salve.', help: ['show-trunk', 'copy-run-start'], auto: 'end\nshow interfaces trunk\ncopy running-config startup-config', check: { all: [{ ran: 'show-trunk' }, { state: 'sw.saved' }] } },
+      ],
+    },
+    {
+      id: 'sr_mac', n: 4, rank: 'sr', title: 'De quem é esse MAC? · {{dev.name}}', difficulty: 4, xp: 160, credits: 24,
+      skill: 'redes', roles: ['redes', 'tecnico'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Um alerta de segurança traz só o endereço físico de uma placa: {{srv.mac}}. Descubra em que porta do {{dev.name}} ela está.',
+      target: T(MSW, { direct: true }), vars: { srv: 'sw.direct' },
+      steps: [
+        { text: 'Veja a tabela de MACs do switch (ele escreve o MAC em grupos de 4: 5254.0001.1100).', help: ['show-mac'], auto: 'enable\nshow mac address-table', check: { ran: 'show-mac' } },
+        { type: 'answer', text: 'Em que porta está a placa {{srv.mac}}?', help: ['responder'], answer: { accept: ['{{srv.port}}'], normalize: 'port' } },
+      ],
+    },
+    {
+      id: 'sr_ufw_ativar', n: 5, rank: 'sr', title: 'Ligar o firewall sem se trancar · {{dev.name}}', difficulty: 5, xp: 200, credits: 30,
+      skill: 'seguranca', roles: ['seguranca', 'sysadmin'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O {{dev.name}} está sem firewall. Ligue, deixando entrar só o SSH (22) e o site (80). A ordem importa: quem liga antes de liberar a 22 se tranca para fora.',
+      target: T(LNX, { web: true }), setup: { linux: 'fwoff' },
+      steps: [
+        { text: 'Veja o estado do firewall.', help: ['ufw-status'], auto: 'sudo ufw status', check: { ran: 'ufw-status' } },
+        { text: 'O firewall está ligado, com o SSH (22) e o site (80) liberados.', help: ['ufw-allow', 'ufw-enable'], auto: 'sudo ufw allow 22\nsudo ufw allow 80\nsudo ufw enable', check: { all: [{ state: 'fw.on' }, { state: 'fw.allows', arg: '22' }, { state: 'fw.allows', arg: '80' }] } },
+        { text: 'O site continua respondendo.', help: ['curl'], auto: 'curl localhost', check: { all: [{ state: 'ok.web' }, { ran: 'curl-ok' }] } },
+      ],
+    },
+    {
+      id: 'sr_ufw_bloquear', n: 6, rank: 'sr', title: 'Bloquear o atacante no {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'seguranca', roles: ['seguranca'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O {{dev.name}} está sendo atacado por SSH. Desta vez não é para passar adiante: ache o IP e bloqueie você mesmo(a) no firewall.',
+      target: LNX, setup: { authlog: 'bruteforce', linux: 'fwweb' }, vars: { attacker: 'auth.attacker' },
+      steps: [
+        { text: 'Ache de onde vêm as senhas erradas.', help: ['grep'], auto: 'grep "Failed password" /var/log/auth.log', check: { ran: 'grep-failed:/var/log/auth.log' } },
+        { text: 'O IP do atacante está bloqueado no firewall.', help: ['ufw-deny'], auto: 'sudo ufw deny from {{attacker}}', check: { state: 'fw.denies', arg: '{{attacker}}' } },
+        { text: 'Confira as regras.', help: ['ufw-status'], auto: 'sudo ufw status', check: { ran: 'ufw-status' } },
+      ],
+    },
+    {
+      id: 'sr_conta_dev', n: 7, rank: 'sr', title: 'Conta para o desenvolvedor · {{dev.name}}', difficulty: 4, xp: 160, credits: 24,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Rafael entrou no time de desenvolvimento. Ele precisa de uma conta no {{dev.name}} e de estar no grupo deploy (que publica o site).',
+      target: LNX, setup: { linux: 'nouser' },
+      steps: [
+        { text: 'Existe a conta rafael, com pasta pessoal e shell bash.', help: ['useradd'], auto: 'sudo useradd -m -s /bin/bash rafael', check: { state: 'user.exists', arg: 'rafael' } },
+        { text: 'rafael está no grupo deploy.', help: ['usermod'], auto: 'sudo usermod -aG deploy rafael', check: { state: 'user.in', arg: 'rafael:deploy' } },
+        { text: 'Confira os grupos da conta.', help: ['id'], auto: 'id rafael', check: { ran: 'id:rafael' } },
+      ],
+    },
+    {
+      id: 'sr_permissao', n: 8, rank: 'sr', title: 'Senha num arquivo aberto · {{dev.name}}', difficulty: 4, xp: 180, credits: 27,
+      skill: 'seguranca', roles: ['seguranca', 'sysadmin'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Uma auditoria achou o /etc/app/config.env (com a senha do banco) legível por qualquer conta do {{dev.name}}. Só a aplicação (grupo app) pode ler.',
+      target: LNX, setup: { linux: 'openfile' },
+      steps: [
+        { text: 'Veja as permissões dos arquivos da aplicação.', help: ['ls-l'], auto: 'ls -l /etc/app', check: { ran: 'ls-l:/etc/app' } },
+        { type: 'answer', text: 'Quais são as permissões dele hoje, em número (ex.: 755)?', help: ['ls-l', 'responder'], answer: { accept: ['644'], normalize: 'text' } },
+        { text: 'O dono é root, o grupo é app, e o modo é 640 (outros não leem).', help: ['chmod', 'chown'], auto: 'sudo chmod 640 /etc/app/config.env\nsudo chown root:app /etc/app/config.env', check: { all: [{ state: 'file.mode', arg: '/etc/app/config.env', eq: '640' }, { state: 'file.group', arg: '/etc/app/config.env', eq: 'app' }, { state: 'file.owner', arg: '/etc/app/config.env', eq: 'root' }] } },
+      ],
+    },
+    {
+      id: 'sr_conta_vazada', n: 9, rank: 'sr', title: 'Conta vazada no {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'seguranca', roles: ['seguranca'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      handoff: 'o IP vai para a segurança investigar',
+      summary: 'A conta "estagio" entrou no {{dev.name}} com senha, de um IP de fora da empresa. Bloqueie a conta e descubra de onde veio.',
+      target: LNX, setup: { linux: 'leak' }, vars: { leak: 'auth.leak' },
+      steps: [
+        { text: 'Ache os logins com senha aceitos.', help: ['grep'], auto: 'grep "Accepted password" /var/log/auth.log', check: { ran: 'grep-hit:/var/log/auth.log' } },
+        { type: 'answer', text: 'De qual IP a conta estagio entrou?', help: ['responder'], answer: { accept: ['{{leak}}'], normalize: 'ip' } },
+        { text: 'A conta estagio está bloqueada.', help: ['passwd-l'], auto: 'sudo passwd -l estagio', check: { state: 'user.locked', arg: 'estagio' } },
+        { text: 'Confira o estado da conta.', help: ['passwd-l'], auto: 'sudo passwd -S estagio', check: { ran: 'passwd-status:estagio' } },
+      ],
+    },
+    {
+      id: 'sr_atualizacoes', n: 10, rank: 'sr', title: 'Atualizações de segurança · {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Saíram correções de segurança para pacotes do {{dev.name}}, entre eles o nginx. Atualize sem deixar o site com a versão velha rodando.',
+      target: T(LNX, { web: true }), setup: { linux: 'updates' }, vars: { n: 'apt.pending' },
+      steps: [
+        { text: 'A lista de pacotes está atualizada.', help: ['apt-update'], auto: 'sudo apt update', check: { ran: 'apt-update' } },
+        { text: 'Veja o que pode ser atualizado.', help: ['apt-update'], auto: 'apt list --upgradable', check: { ran: 'apt-list' } },
+        { type: 'answer', text: 'Quantos pacotes têm atualização?', help: ['responder'], answer: { accept: ['{{n}}'], normalize: 'int' } },
+        { text: 'Os pacotes estão atualizados.', help: ['apt-upgrade'], auto: 'sudo apt upgrade -y', check: { state: 'apt.pending', eq: 0 } },
+        { text: 'O nginx novo é o que está rodando, e o site responde.', help: ['systemctl-restart'], auto: 'sudo systemctl restart nginx\ncurl localhost', check: { all: [{ state: 'nginx.fresh' }, { ran: 'curl-ok' }] } },
+      ],
+    },
+    {
+      id: 'sr_fail2ban', n: 11, rank: 'sr', title: 'Instalar o fail2ban · {{dev.name}}', difficulty: 4, xp: 160, credits: 24,
+      skill: 'seguranca', roles: ['seguranca', 'sysadmin'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Bloquear atacante à mão não escala. O fail2ban lê o auth.log e bloqueia sozinho quem erra muitas senhas.',
+      target: LNX, setup: { linux: 'nofail2ban' },
+      steps: [
+        { text: 'A lista de pacotes está atualizada.', help: ['apt-update'], auto: 'sudo apt update', check: { ran: 'apt-update' } },
+        { text: 'O fail2ban está instalado.', help: ['apt-install'], auto: 'sudo apt install -y fail2ban', check: { state: 'pkg', arg: 'fail2ban' } },
+        { text: 'O serviço fail2ban está rodando.', help: ['systemctl-status'], auto: 'systemctl status fail2ban', check: { all: [{ state: 'service', arg: 'fail2ban', eq: 'active' }, { ran: 'status:fail2ban' }] } },
+      ],
+    },
+    {
+      id: 'sr_backup_etc', n: 12, rank: 'sr', title: 'Backup do /etc antes da mudança · {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'servidores', roles: ['sysadmin', 'servidores'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Amanhã tem mudança grande nas configurações do {{dev.name}}. Antes, guarde uma cópia do /etc em /backup/etc.tar.gz.',
+      target: LNX, setup: { linux: 'nobackup' },
+      steps: [
+        { text: 'Veja o que já existe em /backup.', help: ['ls-l'], auto: 'ls -l /backup', check: { ran: 'ls:/backup' } },
+        { text: 'Existe o /backup/etc.tar.gz com o /etc dentro.', help: ['tar'], auto: 'sudo tar czf /backup/etc.tar.gz /etc', check: { state: 'backup.of', arg: '/etc' } },
+        { text: 'Confira o que tem dentro do arquivo.', help: ['tar'], auto: 'tar tzf /backup/etc.tar.gz', check: { ran: 'tar-list:/backup/etc.tar.gz' } },
+      ],
+    },
+    {
+      id: 'sr_rsync', n: 13, rank: 'sr', title: 'Cópia do site no {{peer.name}}', difficulty: 4, xp: 180, credits: 27,
+      skill: 'servidores', roles: ['sysadmin', 'servidores'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Se o disco do {{dev.name}} morrer, o site some junto. Mantenha uma cópia do /var/www no {{peer.name}} ({{peer.ip}}), na pasta /srv/backup/www.',
+      target: T(LNX, { web: true }), devices: { peer: 'server.peer' },
+      steps: [
+        { text: 'Veja o que tem em /var/www.', help: ['ls-l'], auto: 'ls -l /var/www', check: { ran: 'ls:/var/www' } },
+        { text: 'O /var/www foi copiado para o {{peer.name}} (usuário backup).', help: ['rsync'], auto: 'rsync -a /var/www/ backup@{{peer.ip}}:/srv/backup/www/', check: { ran: 'rsync-ok:{{peer.ip}}' } },
+      ],
+    },
+    {
+      id: 'sr_cron_backup', n: 14, rank: 'sr', title: 'Backup todo dia às 2h · {{dev.name}}', difficulty: 5, xp: 200, credits: 30,
+      skill: 'servidores', roles: ['sysadmin'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O script /usr/local/bin/backup.sh existe, mas só roda quando alguém lembra. Agende para todo dia às 2h da manhã.',
+      target: LNX, setup: { linux: 'nocron' },
+      steps: [
+        { text: 'Veja o que já está agendado.', help: ['crontab'], auto: 'crontab -l', check: { ran: 'cron-list' } },
+        { text: 'O backup.sh roda todo dia às 2h (minuto 0, hora 2).', help: ['crontab'], auto: 'echo "0 2 * * * /usr/local/bin/backup.sh" | crontab -', check: { state: 'cron.at', arg: '/usr/local/bin/backup.sh', eq: '0 2' } },
+      ],
+    },
+    {
+      id: 'sr_cron_quebrado', n: 15, rank: 'sr', title: 'O backup não roda · {{dev.name}}', difficulty: 5, xp: 210, credits: 31,
+      skill: 'servidores', roles: ['sysadmin'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Faz dias que nenhum backup aparece em /backup, mesmo com o agendamento das 3h. O syslog guarda o motivo.',
+      target: LNX, setup: { linux: 'cronbroken' },
+      steps: [
+        { text: 'Veja o que o cron registrou no syslog.', help: ['grep'], auto: 'grep CRON /var/log/syslog', check: { ran: 'grep-hit:/var/log/syslog' } },
+        { text: 'Veja o agendamento e o que existe em /usr/local/bin.', help: ['crontab', 'ls-l'], auto: 'crontab -l\nls /usr/local/bin', check: { all: [{ ran: 'cron-list' }, { ran: 'ls:/usr/local/bin' }] } },
+        { type: 'answer', text: 'Qual é o nome certo do script?', help: ['responder'], answer: { accept: ['backup.sh', '/usr/local/bin/backup.sh'], normalize: 'text' } },
+        { text: 'O agendamento das 3h roda o script certo.', help: ['crontab'], auto: 'echo "0 3 * * * /usr/local/bin/backup.sh" | crontab -', check: { all: [{ state: 'cron.at', arg: '/usr/local/bin/backup.sh', eq: '0 3' }, { not: { state: 'cron.has', arg: 'bkp.sh' } }] } },
+      ],
+    },
+    {
+      id: 'sr_fitas', n: 16, rank: 'sr', title: 'Backup fora do prédio', difficulty: 4, xp: 170, credits: 25,
+      skill: 'servidores', roles: [], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Backup que fica no mesmo prédio pega fogo junto. Uma biblioteca de fitas grava cópias que saem do datacenter toda semana.',
+      target: { kind: 'rack' }, vars: { n: 'items:tapelib' },
+      steps: [
+        { text: 'Instale uma Biblioteca de fitas (Construir → Racks).', action: 'build', check: { state: 'items', arg: 'tapelib', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'sr_rede_25g', n: 17, rank: 'sr', title: 'Rede de storage em 25G', difficulty: 4, xp: 180, credits: 27,
+      skill: 'redes', roles: [], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Os nós de VMs leem os discos pela rede, e 1 Gb/s virou gargalo. Instale um switch 25G e passe um servidor para ele.',
+      target: { kind: 'rack' }, vars: { sw: 'devs:sw_25g', on: 'on.model:sw_25g' },
+      steps: [
+        { text: 'Instale um Switch 25G num rack.', action: 'build', check: { state: 'devs', arg: 'sw_25g', gt: '{{sw}}' } },
+        { text: 'Passe o cabo de um servidor para ele (Cabeamento).', action: 'cabling', check: { state: 'on.model', arg: 'sw_25g', gt: '{{on}}' } },
+      ],
+    },
+    {
+      id: 'sr_sala_nova', n: 18, rank: 'sr', title: 'Switch novo com a VLAN dos servidores', difficulty: 5, xp: 220, credits: 33,
+      skill: 'redes', roles: [], bot_minutes: 30, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'A expansão vai ganhar um switch próprio. Instale um switch gerenciável e já crie nele a VLAN 20, chamada SERVIDORES.',
+      target: { kind: 'rack' }, vars: { n: 'devs:switch' },
+      steps: [
+        { text: 'Instale um switch gerenciável num rack.', action: 'build', check: { state: 'devs', arg: 'switch', gt: '{{n}}' } },
+        { text: 'Num switch, existe a VLAN 20 chamada SERVIDORES (console do switch: vlan 20 → name SERVIDORES).', check: { state: 'vlan.any', arg: '20:SERVIDORES' } },
+      ],
+    },
+    {
+      id: 'sr_porta_trunk', n: 19, rank: 'sr', title: '{{dev.name}} numa porta trunk', difficulty: 4, xp: 170, credits: 25,
+      skill: 'redes', roles: ['redes'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Alguém configurou a porta do {{dev.name}} no {{sw.name}} como trunk, achando que era a ligação com outro switch. O servidor saiu da rede.',
+      target: T(LNX, { directLink: true }), devices: { sw: 'switch.of' }, setup: { fault: 'porttrunk', on: 'sw' }, vars: { port: 'srv.port' },
+      steps: [
+        { device: 'sw', text: 'No {{sw.name}}, veja os trunks.', help: ['show-trunk'], auto: 'enable\nshow interfaces trunk', check: { ran: 'show-trunk' } },
+        { device: 'sw', text: 'A porta do {{dev.name}} volta a ser de acesso, na VLAN 10.', help: ['sw-mode'], auto: 'configure terminal\ninterface {{port}}\nswitchport mode access\nend', check: { all: [{ state: 'sw.portMode', arg: '{{port}}', eq: 'access' }, { state: 'sw.portVlan', arg: '{{port}}', eq: 10 }] } },
+        { device: 'sw', text: 'A configuração está salva.', help: ['copy-run-start'], auto: 'end\ncopy running-config startup-config', check: { ran: 'config-saved' } },
+        { text: 'O {{dev.name}} alcança o gateway.', help: ['ping'], auto: 'ping -c 3 {{gw}}', check: pingGw },
+      ],
+    },
+    {
+      id: 'sr_vlan_firewall', n: 20, rank: 'sr', title: 'O site do {{dev.name}} sumiu: duas causas', difficulty: 5, xp: 220, credits: 33,
+      skill: 'redes', roles: ['redes', 'sysadmin'], bot_minutes: 30, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Depois de uma janela de mudanças, o site do {{dev.name}} sumiu. Foram duas mudanças erradas: uma no {{sw.name}} e outra no próprio servidor.',
+      target: T(LNX, { web: true, directLink: true }), devices: { sw: 'switch.of' }, setup: { faults: [{ fault: 'vlanwrong', on: 'sw' }, { fault: 'fwblock', on: 'dev' }] }, vars: { port: 'srv.port' },
+      steps: [
+        { text: 'Comece pela rede do {{dev.name}}.', help: ['ping'], auto: 'ip addr\nping -c 3 {{gw}}', check: { any: [{ ran: 'ping-fail' }, { at: 'dev', state: 'up' }] } },
+        { device: 'sw', text: 'O {{dev.name}} volta para a rede.', help: ['show-vlan', 'sw-access'], auto: 'enable\nshow vlan brief\nconfigure terminal\ninterface {{port}}\nswitchport access vlan 10\nend', check: { at: 'dev', state: 'up' } },
+        { text: 'Os clientes voltam a ver o site (o firewall deixa a porta 80 entrar).', help: ['ufw-status', 'ufw-allow'], auto: 'sudo ufw status\nsudo ufw allow 80', check: { state: 'ok.web' } },
+        { text: 'O site responde.', help: ['curl'], auto: 'curl localhost', check: { ran: 'curl-ok' } },
+      ],
+    },
   ];
 
   // what each rank requires besides its mission (the levels with problems of their own)
@@ -1718,6 +1944,7 @@
     { id: 'pl1', level: 5, name: 'Pleno I', xp_to_next: 1000, distinct_to_next: 10 },
     { id: 'pl2', level: 6, name: 'Pleno II', xp_to_next: 1300, distinct_to_next: 10 },
     { id: 'pl3', level: 7, name: 'Pleno III', xp_to_next: 1600, distinct_to_next: 11 },
+    { id: 'sr', level: 8, name: 'Sênior', xp_to_next: 2000, distinct_to_next: 12 },
   ];
 
   DL.SCENARIO_DATA = { lessons, problems, ranks };

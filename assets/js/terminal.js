@@ -48,6 +48,32 @@
     'systemctl-start': { cmd: 'sudo systemctl start <serviço>', ex: 'sudo systemctl start ssh', what: 'Inicia um serviço que está parado (inactive). restart também serve: para e inicia.', when: 'Quando o status mostra "inactive (dead)": alguém ou algo parou o serviço.' },
     cat: { cmd: 'cat <arquivo>', ex: 'cat notas.txt', what: 'Mostra o conteúdo inteiro de um arquivo.', when: 'Para ler arquivos curtos: anotações, configurações, o /etc/hostname.' },
     'sw-ping': { cmd: 'ping <ip>', ex: 'ping 10.0.1.11', what: 'No switch, testa se um endereço responde (!!!!! = respondeu, ..... = não).', when: 'Para testar a rede a partir do próprio switch, sem depender de um servidor.' },
+    // switch: VLANs (Sênior)
+    'show-vlan': { cmd: 'show vlan brief', ex: 'show vlan brief', what: 'Lista as VLANs do switch e as portas de acesso de cada uma. A VLAN 10 é a do datacenter (gateway e servidores).', when: 'Para ver em que VLAN cada porta está, ou se uma VLAN existe.' },
+    'sw-vlan': { cmd: 'vlan <N>  →  name <NOME>', ex: 'vlan 30\nname CAMERAS', what: 'Cria a VLAN N (no modo config) e entra nela (config-vlan); name dá o nome. exit volta.', when: 'Para separar a rede em pedaços isolados: câmeras, visitantes, gerência…' },
+    'sw-access': { cmd: 'switchport access vlan <N>', ex: 'interface gi0/20\nswitchport access vlan 30', what: 'Na porta (config-if), coloca a porta de acesso na VLAN N. O aparelho ligado nela passa a falar só com essa VLAN.', when: 'Ao dedicar portas a uma VLAN, ou para devolver um servidor à VLAN 10.' },
+    'sw-mode': { cmd: 'switchport mode access|trunk', ex: 'switchport mode access', what: 'access: a porta leva uma VLAN só (servidores, PCs, câmeras). trunk: leva várias VLANs marcadas (ligação entre switches).', when: 'Servidor ligado em porta trunk perde a rede: porta de servidor é access.' },
+    'sw-trunk': { cmd: 'switchport trunk allowed vlan <lista>', ex: 'interface gi0/24\nswitchport mode trunk\nswitchport trunk allowed vlan 10,30', what: 'Na porta trunk, escolhe quais VLANs passam por ela (add <N> acrescenta uma).', when: 'Na ligação entre dois switches, para levar só as VLANs que o outro lado precisa.' },
+    'show-trunk': { cmd: 'show interfaces trunk', ex: 'show interfaces trunk', what: 'Mostra as portas em modo trunk e as VLANs que cada uma leva.', when: 'Para conferir uma ligação entre switches.' },
+    'show-mac': { cmd: 'show mac address-table', ex: 'show mac address-table', what: 'A tabela de MACs: qual endereço físico (MAC) o switch aprendeu em cada porta. O MAC aparece como 5254.0001.1100.', when: 'Para achar em que porta está um aparelho quando só se sabe o MAC dele (ip link mostra o MAC no servidor).' },
+    // Linux: firewall, accounts, files, packages, backup (Sênior)
+    'ufw-status': { cmd: 'sudo ufw status', ex: 'sudo ufw status', what: 'Mostra se o firewall está ativo e as regras (o que entra e o que é bloqueado).', when: 'Antes e depois de mexer no firewall.' },
+    'ufw-allow': { cmd: 'sudo ufw allow <porta>', ex: 'sudo ufw allow 22\nsudo ufw allow 80', what: 'Libera a entrada numa porta (22 SSH, 80 HTTP, 443 HTTPS; ou os nomes ssh, http, https).', when: 'Antes de ligar o firewall, libere a 22: senão quem está no SSH perde o acesso.' },
+    'ufw-enable': { cmd: 'sudo ufw enable', ex: 'sudo ufw enable', what: 'Liga o firewall: tudo que entra é bloqueado, menos o que tiver regra allow.', when: 'Depois de liberar as portas que o servidor precisa.' },
+    'ufw-deny': { cmd: 'sudo ufw deny from <ip>', ex: 'sudo ufw deny from 203.0.113.7', what: 'Bloqueia tudo que vem de um IP.', when: 'Para cortar um atacante que você achou nos logs.' },
+    'ls-l': { cmd: 'ls -l <pasta ou arquivo>', ex: 'ls -l /etc/app', what: 'Lista com detalhes: permissões (rwx de dono, grupo e outros), dono, grupo e tamanho.', when: 'Para ver quem pode ler ou alterar um arquivo.' },
+    chmod: { cmd: 'sudo chmod <modo> <arquivo>', ex: 'sudo chmod 640 /etc/app/config.env', what: 'Troca as permissões. Cada dígito é dono/grupo/outros: 4 ler + 2 escrever + 1 executar. 640 = dono lê e escreve, grupo lê, outros nada.', when: 'Arquivo com senha nunca fica legível para "outros".' },
+    chown: { cmd: 'sudo chown <usuário>:<grupo> <arquivo>', ex: 'sudo chown root:app /etc/app/config.env', what: 'Troca o dono e o grupo de um arquivo.', when: 'Para que só o grupo da aplicação leia o arquivo dela.' },
+    useradd: { cmd: 'sudo useradd -m -s /bin/bash [-G grupo] <nome>', ex: 'sudo useradd -m -s /bin/bash rafael', what: 'Cria uma conta: -m cria a pasta pessoal, -s escolhe o shell, -G já põe em grupos.', when: 'Quando alguém novo precisa entrar no servidor.' },
+    usermod: { cmd: 'sudo usermod -aG <grupo> <usuário>', ex: 'sudo usermod -aG deploy rafael', what: 'Acrescenta a pessoa a um grupo (-a junto com -G: sem o -a, ela sai dos outros grupos).', when: 'Para dar acesso por grupo, nunca arquivo a arquivo.' },
+    'passwd-l': { cmd: 'sudo passwd -l <usuário>', ex: 'sudo passwd -l estagio', what: 'Bloqueia a senha da conta (ninguém entra com ela). passwd -S mostra o estado: L = bloqueada.', when: 'Conta vazada ou de quem saiu: bloqueie na hora.' },
+    id: { cmd: 'id <usuário>', ex: 'id rafael', what: 'Mostra o número (uid) e os grupos de uma conta.', when: 'Para conferir se a pessoa está nos grupos certos.' },
+    'apt-update': { cmd: 'sudo apt update', ex: 'sudo apt update\napt list --upgradable', what: 'Baixa a lista de versões novas dos pacotes. apt list --upgradable mostra o que pode ser atualizado.', when: 'Sempre antes de atualizar ou instalar.' },
+    'apt-upgrade': { cmd: 'sudo apt upgrade -y', ex: 'sudo apt upgrade -y', what: 'Instala as versões novas dos pacotes. Serviços atualizados (como o nginx) só usam a versão nova depois de reiniciar.', when: 'Para aplicar correções de segurança.' },
+    'apt-install': { cmd: 'sudo apt install -y <pacote>', ex: 'sudo apt install -y fail2ban', what: 'Instala um pacote (e o serviço dele, se tiver).', when: 'Para acrescentar uma ferramenta ao servidor.' },
+    tar: { cmd: 'sudo tar czf <arquivo.tar.gz> <pasta>', ex: 'sudo tar czf /backup/etc.tar.gz /etc', what: 'Junta e comprime uma pasta num arquivo só (c criar, z comprimir, f arquivo). tar tzf lista o que tem dentro.', when: 'Para fazer backup de configurações antes de mexer.' },
+    rsync: { cmd: 'rsync -a <origem>/ <usuário>@<ip>:<pasta>/', ex: 'rsync -a /var/www/ backup@10.0.1.12:/srv/backup/www/', what: 'Copia uma pasta para outro servidor pela rede, mandando só o que mudou (-a mantém permissões e datas).', when: 'Para manter uma cópia do site ou dos dados em outro servidor.' },
+    crontab: { cmd: 'crontab -l  ·  echo "<linha>" | crontab -', ex: 'crontab -l\necho "0 2 * * * /usr/local/bin/backup.sh" | crontab -', what: 'O agendador: cada linha é minuto, hora, dia, mês, dia-da-semana e o comando (* = todos). crontab -l mostra; o echo | crontab - grava.', when: 'Para rodar um backup todo dia sem ninguém lembrar.' },
     responder: { cmd: 'responder <valor>', ex: 'responder 10.0.1.25', what: 'Responde a pergunta do passo atual (um IP, uma porta, um número). O campo no painel ao lado faz o mesmo.', when: 'Quando o passo é uma pergunta: rode o comando que mostra a informação, leia a saída e responda.' },
     cabling: { cmd: 'Cabeamento do rack', ex: 'Tarefas → Cabeamento  (ou o botão abaixo)', what: 'Mostra os cabos do rack: azul = ligado e correto, amarelo = incompleto, vermelho = conexão errada, laranja = cabo solto.', when: 'Quando ip link mostra NO-CARRIER: não é configuração, é a camada física (cabo).' },
     end: { cmd: 'end', ex: 'end', what: 'Sai do modo de configuração e volta ao modo privilegiado (#).', when: 'Ao terminar de configurar, para voltar a usar comandos show.' },
@@ -151,9 +177,106 @@
     authLog(d).push(stamp(8) + ' ' + d.os.hostname + ' sudo:   ' + user + ' : TTY=pts/2 ; PWD=/home/' + user + ' ; USER=root ; COMMAND=/usr/bin/systemctl stop ' + svc);
     d.os.stopper = user;
   };
+  // someone logged in with a password from outside the company (a leaked account)
+  DL.authLeak = function (d, user, ip) {
+    ip = ip || '198.51.100.' + rint(10, 250);
+    authLog(d).push(stamp(30) + ' ' + d.os.hostname + ' sshd[' + rint(1200, 9800) + ']: Accepted password for ' + user + ' from ' + ip + ' port ' + rint(40000, 60000) + ' ssh2',
+      stamp(30) + ' ' + d.os.hostname + ' sshd[' + rint(1200, 9800) + ']: pam_unix(sshd:session): session opened for user ' + user + '(uid=1003) by (uid=0)');
+    d.os.leakIp = ip;
+    return ip;
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* The rest of a Linux server (Sênior problems): firewall, accounts,   */
+  /* files with owner and mode, packages, cron. Created on first use and */
+  /* not saved — a loaded game brings a clean server back and the open   */
+  /* problem sets itself up again.                                       */
+  /* ------------------------------------------------------------------ */
+  const dirE = (owner, group) => ({ dir: true, mode: '755', owner: owner || 'root', group: group || owner || 'root' });
+  function sysOf(d) {
+    const os = d.os;
+    if (!os.fw) os.fw = { on: false, rules: [] };
+    if (!os.users) os.users = { root: { uid: 0, groups: ['root'] }, admin: { uid: 1000, groups: ['admin', 'adm', 'sudo'] } };
+    if (!os.groups) os.groups = { root: 0, adm: 4, sudo: 27, 'www-data': 33, admin: 1000, deploy: 1001, app: 1002 };
+    if (!os.files) {
+      os.files = {
+        '/etc': dirE(), '/etc/app': dirE(), '/backup': dirE(), '/usr/local/bin': dirE(), '/var/www': dirE(), '/var/www/html': dirE('www-data'), '/home/admin': dirE('admin'),
+        '/etc/hostname': { mode: '644', owner: 'root', group: 'root', size: 12 },
+        '/etc/app/config.env': { mode: '640', owner: 'root', group: 'app', size: 182, text: ['DB_HOST=10.0.1.20', 'DB_USER=app', 'DB_PASSWORD=Pr0d#Datalab2026'] },
+        '/usr/local/bin/backup.sh': { mode: '755', owner: 'root', group: 'root', size: 412, text: ['#!/bin/bash', '# backup diário do /etc', 'tar czf /backup/etc-$(date +%F).tar.gz /etc'] },
+        '/var/www/html/index.html': { mode: '644', owner: 'www-data', group: 'www-data', size: 615 },
+        '/home/admin/notas.txt': { mode: '644', owner: 'admin', group: 'admin', size: 64 },
+      };
+    }
+    if (!os.pkgs) os.pkgs = { nginx: '1.24.0-2ubuntu7', 'openssh-server': '1:9.6p1-3ubuntu13', openssl: '3.0.13-0ubuntu3', rsync: '3.2.7-1ubuntu1', tar: '1.35+dfsg-3', ufw: '0.36.2-6', cron: '3.0pl1-184ubuntu2' };
+    if (!os.updates) os.updates = [];
+    if (!os.cron) os.cron = [];
+    return os;
+  }
+  DL.linuxSys = sysOf;
+  // the firewall lets this port in (off = everything passes)
+  const fwAllows = (os, port) => !os.fw || !os.fw.on || os.fw.rules.some((r) => r.act === 'allow' && String(r.port) === String(port));
+  DL.fwAllows = fwAllows;
+  const PORT_NAMES = { ssh: '22', http: '80', https: '443' };
+  const parentDir = (p) => p.replace(/\/[^/]+\/?$/, '') || '/';
+  const permStr = (f) => (f.dir ? 'd' : '-') + f.mode.split('').map((n) => ['---', '--x', '-w-', '-wx', 'r--', 'r-x', 'rw-', 'rwx'][+n]).join('');
+  // can this user read / write it (root can always)
+  const can = (os, f, user, bit) => {
+    if (user === 'root') return true;
+    const u = os.users[user] || { groups: [] }, m = f.mode.split('').map(Number);
+    const who = f.owner === user ? m[0] : u.groups.indexOf(f.group) >= 0 ? m[1] : m[2];
+    return (who & bit) === bit;
+  };
+  // a cron line: five time fields (minute 0-59, hour 0-23, day 1-31, month 1-12, weekday 0-7) and a command
+  const CRON_MAX = [[0, 59], [0, 23], [1, 31], [1, 12], [0, 7]];
+  // the first field that is wrong, the way cron names it (null: the line is fine)
+  const cronBad = (l) => {
+    const f = String(l).trim().split(/\s+/), names = ['minute', 'hour', 'day-of-month', 'month', 'day-of-week'];
+    for (let i = 0; i < 5; i++) {
+      const x = f[i] || '';
+      if (!/^(\*|\d+(-\d+)?)(\/\d+)?(,\d+)*$/.test(x) || !(x.match(/\d+/g) || []).filter((n, k, all) => !/\//.test(x) || k < all.length - 1).every((n) => +n >= CRON_MAX[i][0] && +n <= CRON_MAX[i][1])) return names[i];
+    }
+    return f.length >= 6 ? null : 'command';
+  };
+  const cronOk = (l) => !cronBad(l);
+
+  // what a career problem sets up on a Linux server (problems.js: setup.linux) · ctx.vars: what a save kept
+  const LSETUP = {
+    // a leaked account logged in from outside
+    leak: (d, c) => { const os = sysOf(d); os.users.estagio = { uid: 1003, groups: ['estagio'], locked: false }; DL.authLeak(d, 'estagio', c.vars.leak); },
+    // three security updates waiting
+    updates: (d) => { const os = sysOf(d); os.aptFresh = false; os.updates = [{ pkg: 'openssl', to: '3.0.13-0ubuntu3.4' }, { pkg: 'nginx', to: '1.24.0-2ubuntu7.1' }, { pkg: 'openssh-server', to: '1:9.6p1-3ubuntu13.5' }]; },
+    // the app's password file readable by everyone
+    openfile: (d) => { const f = sysOf(d).files['/etc/app/config.env']; Object.assign(f, { mode: '644', owner: 'root', group: 'root' }); },
+    // the new developer has no account yet
+    nouser: (d) => { delete sysOf(d).users.rafael; },
+    nofail2ban: (d) => { delete sysOf(d).pkgs.fail2ban; delete d.os.services.fail2ban; },
+    fwoff: (d) => { sysOf(d).fw = { on: false, rules: [] }; },
+    // the firewall already on, letting SSH and the site in
+    fwweb: (d) => { sysOf(d).fw = { on: true, rules: [{ act: 'allow', port: '22' }, { act: 'allow', port: '80' }] }; },
+    nocron: (d) => { sysOf(d).cron = []; },
+    // the backup scheduled with the wrong script name: cron runs it and fails every night
+    cronbroken: (d) => {
+      const os = sysOf(d);
+      os.cron = ['0 3 * * * /usr/local/bin/bkp.sh'];
+      for (const ago of [1300, 2740]) {
+        DL.syslogAdd(d, ago, 'CRON[' + rint(2000, 9000) + ']: (admin) CMD (/usr/local/bin/bkp.sh)');
+        DL.syslogAdd(d, ago - 0.1, 'CRON[' + rint(2000, 9000) + ']: (CRON) info (No MTA installed, discarding output: /bin/sh: 1: /usr/local/bin/bkp.sh: not found)');
+      }
+    },
+    // no archive in /backup yet
+    nobackup: (d) => { const os = sysOf(d); for (const k of Object.keys(os.files)) if (k.indexOf('/backup/') === 0) delete os.files[k]; },
+  };
+  DL.linuxSetup = function (d, name, ctx) {
+    if (!d.os || (DL.isWin && DL.isWin(d))) return false;
+    for (const n of [].concat(name)) if (LSETUP[n]) LSETUP[n](d, ctx || { vars: {} });
+    return true;
+  };
+
   const LOGS = { '/var/log/auth.log': authLog, '/var/log/syslog': syslog };
   // the lines of a file (null: no such file)
-  const fileLines = (d, f) => (LOGS[f] ? LOGS[f](d) : f === '/etc/hostname' ? [d.os.hostname] : f === 'notas.txt' ? ['gateway da rede: 10.0.1.1', 'meu IP planejado: ' + d.ip + '/24'] : null);
+  const fileLines = (d, f) => (LOGS[f] ? LOGS[f](d) : f === '/etc/hostname' ? [d.os.hostname] : f === 'notas.txt' || f === '/home/admin/notas.txt' ? ['gateway da rede: 10.0.1.1', 'meu IP planejado: ' + d.ip + '/24']
+    : d.os.files && d.os.files[f] && !d.os.files[f].dir ? d.os.files[f].text || [] : null);
   // words, keeping "quoted text" together
   const words = (s) => (s.match(/"[^"]*"|'[^']*'|\S+/g) || []).map((w) => w.replace(/^(["'])(.*)\1$/, '$2'));
   const unesc = (s) => s.replace(/<[^>]*>/g, '').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
@@ -169,13 +292,21 @@
     ran.push('grep:' + src);
     if (hits.length) { ran.push('grep-hit:' + src); if (/fail/i.test(pat)) ran.push('grep-failed:' + src); }
   }
-  // "comando | grep texto": only grep reads from a pipe here
+  // "comando | grep texto" · 'echo "linha" | crontab -' (installs that line as the crontab)
   function pipe(d, left, right, ctx) {
-    const r = linux(d, left, ctx);
-    if (r.ran.indexOf('error') >= 0 || r.ran.indexOf('unknown') >= 0) return r;
     const w = words(right.trim());
     if (w[0] === 'sudo') w.shift();
-    if (w[0] !== 'grep') return { out: ['<span class="m">aqui o | só funciona com grep depois: comando | grep "texto"</span>'], ran: r.ran.concat('error') };
+    if (w[0] === 'crontab' && w[1] === '-') {
+      const l = words(left.trim());
+      if (l[0] !== 'echo') return { out: ['<span class="m">aqui o crontab - aceita só uma linha vinda do echo: echo "0 2 * * * /usr/local/bin/backup.sh" | crontab -</span>'], ran: ['error'] };
+      const line = l.slice(1).join(' ');
+      if (!cronOk(line)) return { out: ['"-":1: bad ' + cronBad(line), 'errors in crontab file, can\'t install.', '<span class="m">formato: minuto hora dia mês dia-da-semana comando — ex.: 0 2 * * * /usr/local/bin/backup.sh</span>'], ran: ['error'] };
+      sysOf(d).cron = [line];
+      return { out: [], ran: ['cron-set'] };
+    }
+    const r = linux(d, left, ctx);
+    if (r.ran.indexOf('error') >= 0 || r.ran.indexOf('unknown') >= 0) return r;
+    if (w[0] !== 'grep') return { out: ['<span class="m">aqui o | só funciona com grep depois (comando | grep "texto") ou com crontab - (echo "linha" | crontab -)</span>'], ran: r.ran.concat('error') };
     const src = (r.ran.find((e) => /^(tail|cat):/.test(e)) || 'pipe:' + left.trim().split(/\s+/)[0]).replace(/^(tail|cat):/, '');
     const out = [], ran = r.ran.slice();
     grepIn(r.out.map(unesc), w.slice(1), src, out, ran);
@@ -201,7 +332,10 @@
           if (k) { const h = HELP[k]; out.push('<b>' + esc(h.cmd) + '</b>', h.what, 'exemplo: ' + esc(h.ex)); }
           else out.push('sem ajuda para "' + esc(a[0]) + '". Use o botão Precisa de ajuda?');
         } else {
-          out.push('comandos disponíveis:', '  ip addr | ip link | ip route     ping -c 3 <destino>', '  systemctl status|restart <serviço>   curl localhost', '  df -h   du -sh <pasta>   journalctl --vacuum-size=200M', '  hostname   hostnamectl set-hostname <nome>', '  uptime  whoami  uname -a  date  history  clear  exit', '  lscpu  nproc  free -h   (hardware do servidor)', '  tail -n 20 <arquivo>   grep "<texto>" <arquivo>   cat <arquivo>   (logs em /var/log)', '  ss -tlnp   (portas em escuta)', '  sudo <comando> executa como administrador', 'detalhes: help <comando>  ·  ou o botão Precisa de ajuda?');
+          out.push('comandos disponíveis:', '  ip addr | ip link | ip route     ping -c 3 <destino>', '  systemctl status|restart <serviço>   curl localhost', '  df -h   du -sh <pasta>   journalctl --vacuum-size=200M', '  hostname   hostnamectl set-hostname <nome>', '  uptime  whoami  uname -a  date  history  clear  exit', '  lscpu  nproc  free -h   (hardware do servidor)', '  tail -n 20 <arquivo>   grep "<texto>" <arquivo>   cat <arquivo>   (logs em /var/log)', '  ss -tlnp   (portas em escuta)', '  ufw status|enable|allow <porta>|deny from <ip>   (firewall)',
+            '  ls -l <pasta>  chmod <modo> <arquivo>  chown <usuário>:<grupo> <arquivo>', '  useradd  usermod -aG  passwd -l  id <usuário>   (contas)',
+            '  apt update | apt list --upgradable | apt upgrade | apt install <pacote>', '  tar czf <arquivo> <pasta>  rsync -a <origem> <destino>  crontab -l  echo "linha" | crontab -',
+            '  sudo <comando> executa como administrador', 'detalhes: help <comando>  ·  ou o botão Precisa de ajuda?');
         }
         break;
       case 'clear': ctx.clear(); break;
@@ -237,8 +371,26 @@
         break;
       }
       case 'pwd': out.push('/home/admin'); break;
-      case 'ls': out.push(a[0] === '/var/log' ? 'apt  journal  nginx  syslog  auth.log' : 'notas.txt  scripts'); break;
+      case 'ls': {
+        // ls [-l] [caminho]: the folders of the model (sysOf) in detail; the logs and the home folder as before
+        const fs = sysOf(d).files, long = a.some((x) => /^-\w*l/.test(x)), p = (a.find((x) => !/^-/.test(x)) || '/home/admin').replace(/(.)\/$/, '$1');
+        if (p === '/var/log') { out.push('apt  journal  nginx  syslog  auth.log'); ran.push('ls:' + p); break; }
+        const f = fs[p];
+        if (!f) { out.push("ls: cannot access '" + esc(p) + "': No such file or directory"); ran.push('error'); break; }
+        const kids = f.dir ? Object.keys(fs).filter((k) => k !== p && parentDir(k) === p).sort() : [p];
+        const name = (k) => k.split('/').pop();
+        if (!long) out.push(kids.map(name).join('  ') || '');
+        else {
+          if (f.dir) out.push('total ' + kids.length * 4);
+          for (const k of kids) { const x = fs[k]; out.push(permStr(x) + ' 1 ' + x.owner.padEnd(8) + ' ' + x.group.padEnd(8) + ' ' + String(x.dir ? 4096 : x.size || 0).padStart(6) + ' Oct 30 09:12 ' + esc(f.dir ? name(k) : k)); }
+        }
+        ran.push('ls:' + p);
+        if (long) ran.push('ls-l:' + p);
+        break;
+      }
       case 'cat': {
+        const fx = sysOf(d).files[a[0]];
+        if (fx && !fx.dir && !can(os, fx, root ? 'root' : 'admin', 4)) { out.push('cat: ' + esc(a[0]) + ': Permission denied', '<span class="m">(ls -l mostra quem pode ler; como administrador, sudo cat lê mesmo assim)</span>'); ran.push('error'); break; }
         const lines = a[0] ? fileLines(d, a[0]) : null;
         if (!lines) { out.push('cat: ' + esc(a[0] || '') + ': Arquivo ou diretório inexistente'); ran.push('error'); break; }
         for (const l of lines) out.push(esc(l));
@@ -376,7 +528,7 @@
         if (!(svc in os.services)) { out.push('Unit ' + esc(svc) + '.service could not be found.'); ran.push('error'); break; }
         if (verb === 'status') {
           const st = os.services[svc];
-          out.push('● ' + svc + '.service - ' + (svc === 'nginx' ? 'A high performance web server' : 'OpenBSD Secure Shell server'));
+          out.push('● ' + svc + '.service - ' + ({ nginx: 'A high performance web server', ssh: 'OpenBSD Secure Shell server', fail2ban: 'Fail2Ban Service' }[svc] || svc));
           out.push('     Loaded: loaded (/lib/systemd/system/' + svc + '.service; enabled)');
           out.push('     Active: <span class="' + (st === 'active' ? 'ok' : 'w') + '">' + (st === 'active' ? 'active (running)' : st === 'failed' ? 'failed (Result: exit-code)' : 'inactive (dead)') + '</span>');
           if (st === 'failed') out.push('<span class="m">     ' + svc + '[812]: ' + (svc === 'nginx' && os.disk >= 95 ? '[emerg] write() to "/var/log/nginx/access.log" failed (28: No space left on device)' : 'worker process exited on signal 9') + '</span>');
@@ -391,6 +543,8 @@
             break;
           }
           os.services[svc] = verb === 'stop' ? 'inactive' : 'active';
+          // an nginx updated by apt only runs the new version after a restart
+          if (svc === 'nginx' && verb !== 'stop') os.nginxStale = false;
           ran.push('svc-' + verb + ':' + svc);
         } else { out.push('Unknown command verb ' + esc(verb) + '.'); ran.push('error'); }
         break;
@@ -429,6 +583,191 @@
         ran.push('vacuum');
         break;
       }
+      case 'echo': out.push(esc(words(line.trim().replace(/^sudo\s+/, '')).slice(1).join(' '))); break;
+      case 'chmod': {
+        // numeric modes only (640, 755…)
+        const fs = sysOf(d).files, m = a.find((x) => /^[0-7]{3}$/.test(x)), p = a[a.length - 1], f = fs[p];
+        if (!m || a.length < 2) { out.push('uso: chmod <modo> <arquivo>   (ex.: chmod 640 /etc/app/config.env)'); ran.push('error'); break; }
+        if (!f) { out.push("chmod: cannot access '" + esc(p) + "': No such file or directory"); ran.push('error'); break; }
+        if (!root && f.owner !== 'admin') { deny("chmod: changing permissions of '" + esc(p) + "': Operation not permitted"); break; }
+        f.mode = m;
+        ran.push('chmod:' + p);
+        break;
+      }
+      case 'chown': {
+        const fs = sysOf(d).files, spec = a[0] || '', p = a[1], f = fs[p];
+        const [u, g] = spec.split(':');
+        if (!spec || !p) { out.push('uso: chown <usuário>[:<grupo>] <arquivo>'); ran.push('error'); break; }
+        if (!f) { out.push("chown: cannot access '" + esc(p) + "': No such file or directory"); ran.push('error'); break; }
+        if (!root) { deny("chown: changing ownership of '" + esc(p) + "': Operation not permitted"); break; }
+        if (u && !os.users[u]) { out.push("chown: invalid user: '" + esc(spec) + "'"); ran.push('error'); break; }
+        if (g && os.groups[g] == null) { out.push("chown: invalid group: '" + esc(spec) + "'"); ran.push('error'); break; }
+        if (u) f.owner = u;
+        if (g) f.group = g;
+        ran.push('chown:' + p);
+        break;
+      }
+      case 'id': case 'groups': {
+        const sys = sysOf(d), u = a[0] || (root ? 'root' : 'admin'), x = sys.users[u];
+        if (!x) { out.push(c + ": '" + esc(u) + "': no such user"); ran.push('error'); break; }
+        const gid = (g) => (sys.groups[g] != null ? sys.groups[g] : x.uid);
+        out.push(c === 'groups' ? u + ' : ' + x.groups.join(' ') : 'uid=' + x.uid + '(' + u + ') gid=' + gid(x.groups[0]) + '(' + x.groups[0] + ') groups=' + x.groups.map((g) => gid(g) + '(' + g + ')').join(','));
+        ran.push('id:' + u);
+        break;
+      }
+      case 'useradd': {
+        // useradd [-m] [-s shell] [-G g1,g2] <nome>
+        const sys = sysOf(d), gi = a.indexOf('-G'), name = a.filter((x, i) => !/^-/.test(x) && !/^-(s|G)$/.test(a[i - 1] || '')).pop();
+        if (!name) { out.push('uso: useradd -m -s /bin/bash [-G grupo] <nome>'); ran.push('error'); break; }
+        if (!root) { deny('useradd: Permission denied.'); break; }
+        if (sys.users[name]) { out.push("useradd: user '" + esc(name) + "' already exists"); ran.push('error'); break; }
+        const extra = gi >= 0 && a[gi + 1] ? a[gi + 1].split(',') : [];
+        const badG = extra.find((g) => sys.groups[g] == null);
+        if (badG) { out.push("useradd: group '" + esc(badG) + "' does not exist"); ran.push('error'); break; }
+        // the next free number for both the account and its own group
+        const uid = Math.max(1000, ...Object.values(sys.users).map((x) => x.uid), ...Object.values(sys.groups)) + 1;
+        sys.groups[name] = uid;
+        sys.users[name] = { uid, groups: [name].concat(extra), locked: false };
+        if (a.indexOf('-m') >= 0) sys.files['/home/' + name] = dirE(name);
+        ran.push('useradd:' + name);
+        break;
+      }
+      case 'usermod': {
+        // usermod -aG <grupo> <usuário> · -L / -U (lock / unlock)
+        const sys = sysOf(d), u = a[a.length - 1], x = sys.users[u], gi = a.findIndex((v) => /^-a?G$|^-aG$/.test(v));
+        if (!x || a.length < 2) { out.push(x ? 'uso: usermod -aG <grupo> <usuário>' : "usermod: user '" + esc(u || '') + "' does not exist"); ran.push('error'); break; }
+        if (!root) { deny('usermod: Permission denied.'); break; }
+        if (a.indexOf('-L') >= 0) x.locked = true;
+        else if (a.indexOf('-U') >= 0) x.locked = false;
+        else if (gi >= 0) {
+          const append = a[gi] === '-aG' || a.indexOf('-a') >= 0;
+          if (!append) out.push('<span class="m">sem -a, o -G troca todos os grupos da pessoa. Use usermod -aG para acrescentar.</span>');
+          const g = a[gi + 1];
+          if (sys.groups[g] == null) { out.push("usermod: group '" + esc(g || '') + "' does not exist"); ran.push('error'); break; }
+          if (!append) x.groups = [x.groups[0], g];
+          else if (x.groups.indexOf(g) < 0) x.groups.push(g);
+        } else { out.push('uso: usermod -aG <grupo> <usuário>'); ran.push('error'); break; }
+        ran.push('usermod:' + u);
+        break;
+      }
+      case 'passwd': {
+        const sys = sysOf(d), u = a.filter((x) => !/^-/.test(x)).pop(), x = sys.users[u];
+        if (a.indexOf('-S') >= 0 && x) { out.push(u + (x.locked ? ' L' : ' P') + ' 10/30/2026 0 99999 7 -1'); ran.push('passwd-status:' + u); break; }
+        if (a.indexOf('-l') < 0 && a.indexOf('-u') < 0) { out.push('<span class="m">no jogo o passwd só bloqueia (-l), desbloqueia (-u) ou mostra o estado (-S) de uma conta.</span>'); ran.push('error'); break; }
+        if (!x) { out.push("passwd: user '" + esc(u || '') + "' does not exist"); ran.push('error'); break; }
+        if (!root) { deny('passwd: You may not view or modify password information for ' + esc(u) + '.'); break; }
+        x.locked = a.indexOf('-l') >= 0;
+        out.push('passwd: password changed.');
+        ran.push((x.locked ? 'passwd-lock:' : 'passwd-unlock:') + u);
+        break;
+      }
+      case 'apt': case 'apt-get': {
+        const sys = sysOf(d), sub = a[0], pkgs = a.slice(1).filter((x) => !/^-/.test(x));
+        const need = () => { if (!root) { deny('E: Could not open lock file /var/lib/dpkg/lock-frontend - open (13: Permission denied)'); return false; } return true; };
+        if (sub === 'update') {
+          if (!need()) break;
+          sys.aptFresh = true;
+          out.push('Hit:1 http://archive.ubuntu.com/ubuntu noble InRelease', 'Get:2 http://security.ubuntu.com/ubuntu noble-security InRelease [126 kB]', 'Reading package lists... Done',
+            sys.updates.length ? sys.updates.length + ' packages can be upgraded. Run \'apt list --upgradable\' to see them.' : 'All packages are up to date.');
+          ran.push('apt-update');
+        } else if (sub === 'list' && a.indexOf('--upgradable') >= 0) {
+          if (!sys.aptFresh && sys.updates.length) out.push('<span class="m">(a lista pode estar velha: rode sudo apt update antes)</span>');
+          out.push('Listing... Done');
+          for (const u of sys.aptFresh ? sys.updates : []) out.push(u.pkg + '/noble-security ' + u.to + ' amd64 [upgradable from: ' + (sys.pkgs[u.pkg] || '?') + ']');
+          ran.push('apt-list');
+        } else if (sub === 'upgrade' || sub === 'full-upgrade') {
+          if (!need()) break;
+          if (!sys.aptFresh) { out.push('0 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.', '<span class="m">nada a atualizar: o apt ainda não sabe das versões novas (sudo apt update primeiro).</span>'); ran.push('apt-upgrade'); break; }
+          const n = sys.updates.length;
+          for (const u of sys.updates) { sys.pkgs[u.pkg] = u.to; out.push('Setting up ' + u.pkg + ' (' + u.to + ') ...'); }
+          if (sys.updates.some((u) => u.pkg === 'nginx')) { os.nginxStale = true; out.push('<span class="m">o nginx foi atualizado: a versão nova só vale depois de reiniciar o serviço.</span>'); }
+          sys.updates = [];
+          out.push(n + ' upgraded, 0 newly installed, 0 to remove and 0 not upgraded.');
+          ran.push('apt-upgrade');
+        } else if (sub === 'install') {
+          if (!need()) break;
+          if (!pkgs.length) { out.push('uso: sudo apt install <pacote>'); ran.push('error'); break; }
+          const KNOWN = { fail2ban: '1.0.2-3ubuntu0.1', htop: '3.3.0-4build1', curl: '8.5.0-2ubuntu10.4', rsync: '3.2.7-1ubuntu1', 'postgresql-client': '16+257build1' };
+          const bad = pkgs.find((x) => !KNOWN[x] && !sys.pkgs[x]);
+          if (bad) { out.push('E: Unable to locate package ' + esc(bad)); ran.push('error'); break; }
+          for (const x of pkgs) { sys.pkgs[x] = sys.pkgs[x] || KNOWN[x]; out.push('Setting up ' + x + ' (' + sys.pkgs[x] + ') ...'); if (x === 'fail2ban') os.services.fail2ban = 'active'; ran.push('apt-install:' + x); }
+        } else { out.push('uso: sudo apt update · apt list --upgradable · sudo apt upgrade · sudo apt install <pacote>'); ran.push('error'); }
+        break;
+      }
+      case 'ufw': {
+        const sys = sysOf(d), fw = sys.fw, sub = a[0];
+        if (!root) { deny('ERROR: You need to be root to run this script'); break; }
+        const portOf = (x) => PORT_NAMES[x] || String(x || '').replace(/\/(tcp|udp)$/, '');
+        const show = (r) => (r.from ? 'Anywhere'.padEnd(27) + (r.act === 'deny' ? 'DENY' : 'ALLOW').padEnd(12) + r.from : (r.port + '/tcp').padEnd(27) + (r.act === 'deny' ? 'DENY' : 'ALLOW').padEnd(12) + 'Anywhere');
+        if (sub === 'status') {
+          out.push('Status: ' + (fw.on ? 'active' : 'inactive'));
+          if (fw.on && fw.rules.length) out.push('', 'To                         Action      From', '--                         ------      ----', ...fw.rules.map(show));
+          ran.push('ufw-status');
+        } else if (sub === 'enable') {
+          if (!fwAllows({ fw: { on: true, rules: fw.rules } }, 22)) {
+            out.push('Command may disrupt existing ssh connections. Proceed with operation (y|n)? y');
+            out.push('<span class="w">A porta 22 não foi liberada: numa sessão SSH você teria acabado de se trancar para fora do servidor. Aqui você está no console do rack, então ainda dá para corrigir: sudo ufw allow 22.</span>');
+            ran.push('ufw-lockout');
+          }
+          fw.on = true;
+          out.push('Firewall is active and enabled on system startup');
+          ran.push('ufw-on');
+        } else if (sub === 'disable') { fw.on = false; out.push('Firewall stopped and disabled on system startup'); ran.push('ufw-off'); }
+        else if (sub === 'allow' || sub === 'deny') {
+          // ufw allow 22 · ufw allow http · ufw deny from 203.0.113.7
+          const fi = a.indexOf('from'), rule = fi > 0 ? { act: sub, from: a[fi + 1] } : { act: sub, port: portOf(a[1]) };
+          if ((fi > 0 && !/^\d+\.\d+\.\d+\.\d+(\/\d+)?$/.test(rule.from || '')) || (fi < 0 && !/^\d+$/.test(rule.port))) { out.push('ERROR: Wrong number of arguments'); out.push('<span class="m">uso: sudo ufw allow 22 · sudo ufw allow http · sudo ufw deny from 203.0.113.7</span>'); ran.push('error'); break; }
+          if (!fw.rules.some((r) => r.act === rule.act && r.port === rule.port && r.from === rule.from)) fw.rules.push(rule);
+          out.push(fw.on ? 'Rule added' : 'Rules updated');
+          ran.push('ufw-rule');
+        } else if (sub === 'delete' && (a[1] === 'allow' || a[1] === 'deny')) {
+          const fi = a.indexOf('from'), port = portOf(a[2]), n = fw.rules.length;
+          fw.rules = fw.rules.filter((r) => !(r.act === a[1] && (fi > 0 ? r.from === a[fi + 1] : r.port === port)));
+          out.push(fw.rules.length < n ? 'Rule deleted' : 'Could not delete non-existent rule');
+          ran.push('ufw-rule');
+        } else { out.push('uso: sudo ufw status · enable · disable · allow <porta> · deny from <ip> · delete allow <porta>'); ran.push('error'); }
+        break;
+      }
+      case 'tar': {
+        // tar czf <arquivo> <pasta> · tar tzf <arquivo>
+        const sys = sysOf(d), fl = (a[0] || '').replace(/^-/, ''), arch = a[1], src = a[2];
+        if (!/[ctx]/.test(fl) || fl.indexOf('f') < 0 || !arch) { out.push('uso: tar czf <arquivo.tar.gz> <pasta>   ·   tar tzf <arquivo.tar.gz>'); ran.push('error'); break; }
+        if (fl.indexOf('c') >= 0) {
+          if (!src || !sys.files[src.replace(/(.)\/$/, '$1')]) { out.push('tar: ' + esc(src || '') + ': Cannot stat: No such file or directory'); ran.push('error'); break; }
+          const dir = sys.files[parentDir(arch)];
+          if (!dir || !dir.dir) { out.push('tar (child): ' + esc(arch) + ': Cannot open: No such file or directory'); ran.push('error'); break; }
+          if (!root && !can(sys, dir, 'admin', 2)) { deny('tar (child): ' + esc(arch) + ': Cannot open: Permission denied'); break; }
+          out.push('tar: Removing leading `/\' from member names');
+          sys.files[arch] = { mode: '644', owner: root ? 'root' : 'admin', group: root ? 'root' : 'admin', size: 180000 + rint(0, 90000), from: src.replace(/(.)\/$/, '$1') };
+          ran.push('tar:' + sys.files[arch].from);
+        } else if (fl.indexOf('t') >= 0) {
+          const f = sys.files[arch];
+          if (!f || !f.from) { out.push('tar: ' + esc(arch) + ': Cannot open: No such file or directory'); ran.push('error'); break; }
+          const base = f.from.replace(/^\//, '');
+          out.push(base + '/', base + '/hostname', base + '/app/', base + '/app/config.env', base + '/nginx/nginx.conf');
+          ran.push('tar-list:' + arch);
+        } else { out.push('<span class="m">extrair (x) fica para mais adiante: aqui use c (criar) ou t (listar).</span>'); ran.push('error'); }
+        break;
+      }
+      case 'rsync': {
+        // rsync -a <origem> <destino>   (destino remoto: usuário@ip:/pasta)
+        const args = a.filter((x) => !/^-/.test(x)), src = args[0], dest = args[1];
+        if (!src || !dest) { out.push('uso: rsync -a <origem>/ <usuário>@<ip>:<pasta>/'); ran.push('error'); break; }
+        const m = /^(?:[\w.-]+@)?(\d+\.\d+\.\d+\.\d+):(.+)$/.exec(dest);
+        if (!m) { out.push('sending incremental file list', '', 'sent 1,204 bytes  received 35 bytes  2,478.00 bytes/sec'); ran.push('rsync-local'); break; }
+        const r = ctx.reach(d, m[1]);
+        if (!r.ok) { out.push('ssh: connect to host ' + esc(m[1]) + ' port 22: No route to host', 'rsync: connection unexpectedly closed (0 bytes received so far) [sender]'); ran.push('error'); break; }
+        out.push('sending incremental file list', './', 'index.html', 'assets/app.css', '', 'sent 48,210 bytes  received 92 bytes  32,201.33 bytes/sec', 'total size is 47,804  speedup is 0.99');
+        ran.push('rsync-ok:' + m[1]);
+        break;
+      }
+      case 'crontab': {
+        const sys = sysOf(d);
+        if (a[0] === '-l') { if (sys.cron.length) for (const l of sys.cron) out.push(esc(l)); else out.push('no crontab for ' + (root ? 'root' : 'admin')); ran.push('cron-list'); }
+        else if (a[0] === '-r') { sys.cron = []; ran.push('cron-set'); }
+        else { out.push('<span class="m">no jogo o editor do crontab não abre. Para ver: crontab -l · para gravar uma linha: echo "0 2 * * * /usr/local/bin/backup.sh" | crontab -</span>'); ran.push('error'); }
+        break;
+      }
       default:
         out.push(esc(c) + ': comando não encontrado');
         ran.push('error', 'unknown');
@@ -436,13 +775,34 @@
     return { out, ran };
   }
 
+  // VLANs of a switch (created on first use): names · the access VLAN of each port (10, the datacenter's, by
+  // default) · ports in trunk mode and the VLANs they carry. A server's port must be an access port in VLAN 10
+  // (where the gateway is) for it to reach the network (ops.js)
+  function vlanState(s) {
+    if (!s.vlans) s.vlans = { 1: 'default', 10: 'DATACENTER' };
+    if (!s.pvlan) s.pvlan = {};
+    if (!s.pmode) s.pmode = {};
+    if (!s.trunk) s.trunk = {};
+    return s;
+  }
+  DL.swVlans = vlanState;
+  const vlanCfg = (s) => JSON.parse(JSON.stringify({ vlans: s.vlans, pvlan: s.pvlan, pmode: s.pmode, trunk: s.trunk }));
+  // Cisco writes MACs as 5254.0001.1100
+  const ciscoMac = (m) => m.replace(/:/g, '').replace(/(.{4})(?=.)/g, '$1.');
+
   // The switch configuration as "show running-config" prints it (one description per port with a cable).
-  // saved: the startup-config — without the change made after the last save (d.sw.unsaved / unsavedPort)
+  // saved: the startup-config — without the change made after the last save (d.sw.unsaved / unsavedPort, and the
+  // VLAN setup as it was at the last copy run start)
   function swConfig(d, ctx, saved) {
-    const s = d.sw, body = ['!', 'hostname ' + d.name, '!'];
+    const s = vlanState(d.sw), v = saved ? s.savedCfg || { vlans: { 1: 'default', 10: 'DATACENTER' }, pvlan: {}, pmode: {}, trunk: {} } : s;
+    const body = ['!', 'hostname ' + d.name, '!'];
+    for (const id of Object.keys(v.vlans).filter((x) => x !== '1')) body.push('vlan ' + id, ' name ' + v.vlans[id], '!');
     for (const p of Object.keys(s.ports)) {
-      const peer = ctx.peer(d, p);
-      if (peer && !(saved && s.unsaved && p === s.unsavedPort)) body.push('interface GigabitEthernet' + p.slice(2), ' description ' + peer, '!');
+      const peer = ctx.peer(d, p), lines = [];
+      if (peer && !(saved && s.unsaved && p === s.unsavedPort)) lines.push(' description ' + peer);
+      if (v.pmode[p] === 'trunk') { lines.push(' switchport mode trunk'); if (v.trunk[p]) lines.push(' switchport trunk allowed vlan ' + v.trunk[p].join(',')); }
+      else if (v.pvlan[p] && v.pvlan[p] !== 10) lines.push(' switchport access vlan ' + v.pvlan[p]);
+      if (lines.length) body.push('interface GigabitEthernet' + p.slice(2), ...lines, '!');
     }
     body.push('interface Vlan10', ' ip address ' + d.ip + ' 255.255.255.0', '!', 'end');
     const size = body.join('\n').length + 600;
@@ -454,36 +814,71 @@
   // gi0/13, Gi0/13, GigabitEthernet0/13, gig0/13, g0/13 and "gi 0/13" all name the same port
   const swPort = (s) => { const m = /^([a-z]+)(\d+\/\d+)$/.exec(String(s).toLowerCase()); return m && 'gigabitethernet'.indexOf(m[1]) === 0 ? 'gi' + m[2] : null; };
   function swcli(d, line, ctx) {
-    const s = d.sw, out = [], ran = [];
+    const s = vlanState(d.sw), out = [], ran = [];
     const t = line.trim().split(/\s+/).filter(Boolean);
     if (!t.length) return { out, ran };
     const bad = (msg) => { out.push('<span class="w">% ' + msg + '</span>'); ran.push('error'); };
     const c = t[0].toLowerCase();
+    const cfg = s.mode === 'conf' || s.mode === 'if' || s.mode === 'vlan';
     if (c === 'help' || c === '?') {
-      out.push('modo atual: ' + { user: 'usuário (>)', priv: 'privilegiado (#)', conf: 'configuração (config)', if: 'interface (config-if)' }[s.mode]);
+      out.push('modo atual: ' + { user: 'usuário (>)', priv: 'privilegiado (#)', conf: 'configuração (config)', if: 'interface (config-if)', vlan: 'VLAN (config-vlan)' }[s.mode]);
       out.push('  enable · show interfaces status · configure terminal', '  interface gi0/N · shutdown · no shutdown · end · exit',
-        '  show running-config · show startup-config · copy running-config startup-config (write memory)', '  ping <ip>');
+        '  show running-config · show startup-config · copy running-config startup-config (write memory)', '  ping <ip>',
+        '  VLANs: show vlan brief · vlan <N> → name <NOME> · switchport access vlan <N> · switchport mode access|trunk',
+        '         switchport trunk allowed vlan <lista> · show interfaces trunk · show mac address-table');
       return { out, ran };
     }
     if (c === 'clear') { ctx.clear(); return { out, ran }; }
     if (kw(c, 'enable')) { if (s.mode === 'user') s.mode = 'priv'; ran.push('enable'); return { out, ran }; }
     if (kw(c, 'disable', 3)) { s.mode = 'user'; return { out, ran }; }
     if (kw(c, 'exit', 3)) {
-      if (s.mode === 'if') s.mode = 'conf';
+      if (s.mode === 'if' || s.mode === 'vlan') s.mode = 'conf';
       else if (s.mode === 'conf') s.mode = 'priv';
       else ctx.close();
       return { out, ran };
     }
-    if (kw(c, 'end', 3)) { if (s.mode === 'conf' || s.mode === 'if') s.mode = 'priv'; s.cur = null; ran.push('end'); return { out, ran }; }
+    if (kw(c, 'end', 3)) { if (cfg) s.mode = 'priv'; s.cur = null; ran.push('end'); return { out, ran }; }
     if (kw(c, 'show')) {
-      if (s.mode === 'conf' || s.mode === 'if') { bad('Comando show não existe neste modo. Use "end" primeiro.'); return { out, ran }; }
+      if (cfg) { bad('Comando show não existe neste modo. Use "end" primeiro.'); return { out, ran }; }
+      if (s.mode === 'user' && (kw(t[1], 'vlan') || kw(t[1], 'mac-address-table', 3) || (kw(t[1], 'interfaces') && kw(t[2], 'trunk')))) { bad('Use "enable" antes.'); return { out, ran }; }
+      // show vlan brief: each VLAN and its access ports
+      if (kw(t[1], 'vlan')) {
+        out.push('VLAN Name                             Status    Ports', '---- -------------------------------- --------- -------------------------------');
+        for (const id of Object.keys(s.vlans).map(Number).sort((x, y) => x - y)) {
+          const ports = Object.keys(s.ports).filter((p) => s.pmode[p] !== 'trunk' && (s.pvlan[p] || 10) === id).map((p) => p.replace('gi', 'Gi'));
+          const rows = []; for (let i = 0; i < ports.length; i += 4) rows.push(ports.slice(i, i + 4).join(', '));
+          out.push(String(id).padEnd(5) + esc(s.vlans[id]).padEnd(33) + 'active    ' + (rows[0] || ''));
+          for (const r of rows.slice(1)) out.push(' '.repeat(48) + r);
+        }
+        ran.push('show-vlan');
+        return { out, ran };
+      }
+      // show mac address-table: the MAC each port learned (the servers whose link is up behind it)
+      if (kw(t[1], 'mac-address-table', 3) || (kw(t[1], 'mac') && kw(t[2], 'address-table', 3))) {
+        const D = window.DataLabDemo, ops = D && D.ops;
+        out.push('          Mac Address Table', '-------------------------------------------', 'Vlan    Mac Address       Type        Ports', '----    -----------       --------    -----');
+        for (const x of ops ? ops.devices().filter((q) => q.kind === 'server' && q.os && q.os.ifaces.eth0.up) : []) {
+          const tr = x.path || ops.trace(x);
+          if (tr.ok && tr.sw === d && s.ports[tr.port] === 'connected') out.push(String(s.pvlan[tr.port] || 10).padStart(4) + '    ' + ciscoMac(x.os.ifaces.eth0.mac) + '    DYNAMIC     ' + tr.port.replace('gi', 'Gi'));
+        }
+        ran.push('show-mac');
+        return { out, ran };
+      }
+      if (kw(t[1], 'interfaces') && kw(t[2], 'trunk')) {
+        const tp = Object.keys(s.pmode).filter((p) => s.pmode[p] === 'trunk');
+        if (!tp.length) out.push('<span class="m">Nenhuma porta em modo trunk.</span>');
+        else { out.push('Port        Mode         Encapsulation  Status        Native vlan'); for (const p of tp) out.push(p.replace('gi', 'Gi').padEnd(12) + 'on           802.1q         trunking      1'); out.push('', 'Port        Vlans allowed on trunk'); for (const p of tp) out.push(p.replace('gi', 'Gi').padEnd(12) + (s.trunk[p] ? s.trunk[p].join(',') : '1-4094')); }
+        ran.push('show-trunk');
+        return { out, ran };
+      }
       if (kw(t[1], 'interfaces') && kw(t[2], 'status')) {
         if (s.mode === 'user') { bad('Comando incompleto ou sem permissão. Use "enable" antes.'); return { out, ran }; }
         out.push('Port      Name               Status         Vlan   Duplex  Speed');
         let idle = 0;
         for (const [p, st] of Object.entries(s.ports)) {
           if (st === 'notconnect') { idle++; continue; }
-          out.push((p.replace('gi', 'Gi')).padEnd(10) + (ctx.peer(d, p) || '').padEnd(19) + '<span class="' + (st === 'err-disabled' ? 'w' : st === 'connected' ? 'ok' : 'm') + '">' + st.padEnd(15) + '</span>' + (st === 'notconnect' ? '1      auto    auto' : '10     a-full  a-1000'));
+          const vl = s.pmode[p] === 'trunk' ? 'trunk' : String(s.pvlan[p] || 10);
+          out.push((p.replace('gi', 'Gi')).padEnd(10) + (ctx.peer(d, p) || '').padEnd(19) + '<span class="' + (st === 'err-disabled' ? 'w' : st === 'connected' ? 'ok' : 'm') + '">' + st.padEnd(15) + '</span>' + vl.padEnd(7) + 'a-full  a-1000');
         }
         if (idle) out.push('<span class="m">… mais ' + idle + ' portas sem cabo (notconnect)</span>');
         ran.push('show-int');
@@ -504,12 +899,13 @@
     // copy running-config startup-config · write memory: what is in use becomes what the switch loads when it boots
     if (kw(c, 'copy', 3) || kw(c, 'write', 2)) {
       if (s.mode === 'user') { bad('Use "enable" antes.'); return { out, ran }; }
-      if (s.mode === 'conf' || s.mode === 'if') { bad('Comando inválido neste modo. Use "end" primeiro.'); return { out, ran }; }
+      if (cfg) { bad('Comando inválido neste modo. Use "end" primeiro.'); return { out, ran }; }
       const copy = kw(c, 'copy', 3);
       if (copy ? !(kw(t[1], 'running-config', 3) && kw(t[2], 'startup-config', 3)) : t[1] && !kw(t[1], 'memory', 3)) { bad(copy ? 'Uso: copy running-config startup-config' : 'Uso: write memory'); return { out, ran }; }
       if (copy) out.push('Destination filename [startup-config]? ');
       out.push('Building configuration...', '<span class="ok">[OK]</span>');
       s.unsaved = false;
+      s.savedCfg = vlanCfg(s);
       ran.push('config-saved');
       return { out, ran };
     }
@@ -519,8 +915,53 @@
       else bad('Comando inválido. Use: configure terminal');
       return { out, ran };
     }
+    // vlan <N> (creates it and enters config-vlan) · no vlan <N>
+    if (c === 'vlan' || (c === 'no' && t[1] === 'vlan')) {
+      if (!cfg) { bad('Comando inválido neste modo. Use "configure terminal" antes.'); return { out, ran }; }
+      const id = +(c === 'no' ? t[2] : t[1]);
+      if (!(id >= 2 && id <= 4094)) { bad('VLAN inválida: use um número de 2 a 4094.'); return { out, ran }; }
+      if (c === 'no') {
+        if (id === 10) { bad('A VLAN 10 é a do datacenter (gateway e servidores): não dá para apagar.'); return { out, ran }; }
+        delete s.vlans[id];
+        s.unsaved = true;
+        return { out, ran };
+      }
+      if (!s.vlans[id]) s.vlans[id] = 'VLAN' + String(id).padStart(4, '0');
+      s.mode = 'vlan'; s.curVlan = id; s.cur = null; s.unsaved = true;
+      ran.push('vlan:' + id);
+      return { out, ran };
+    }
+    if (c === 'name') {
+      if (s.mode !== 'vlan') { bad('name vale dentro de uma VLAN: vlan <N> antes.'); return { out, ran }; }
+      if (!t[1] || !/^[\w-]{1,32}$/.test(t[1])) { bad('Uso: name <NOME> (sem espaços)'); return { out, ran }; }
+      s.vlans[s.curVlan] = t[1];
+      s.unsaved = true;
+      ran.push('vlan-name:' + s.curVlan);
+      return { out, ran };
+    }
+    // switchport mode access|trunk · switchport access vlan <N> · switchport trunk allowed vlan <lista>
+    if (kw(c, 'switchport', 3)) {
+      if (s.mode !== 'if') { bad('switchport vale dentro da porta: interface gi0/N antes.'); return { out, ran }; }
+      const p = s.cur;
+      if (kw(t[1], 'mode') && (t[2] === 'access' || t[2] === 'trunk')) { s.pmode[p] = t[2]; if (t[2] === 'access') delete s.trunk[p]; ran.push('sw-mode:' + t[2]); }
+      else if (kw(t[1], 'access') && kw(t[2], 'vlan') && +t[3] >= 1 && +t[3] <= 4094) {
+        const id = +t[3];
+        if (!s.vlans[id]) { s.vlans[id] = 'VLAN' + String(id).padStart(4, '0'); out.push('% Access VLAN does not exist. Creating vlan ' + id); }
+        s.pvlan[p] = id;
+        if (s.pmode[p] === 'trunk') out.push('<span class="m">a porta continua em modo trunk: para valer a VLAN de acesso, use switchport mode access.</span>');
+        ran.push('sw-access:' + p);
+      } else if (kw(t[1], 'trunk') && kw(t[2], 'allowed') && kw(t[3], 'vlan') && t[4]) {
+        const add = t[4] === 'add', list = (add ? t[5] : t[4]) || '';
+        if (!/^\d+(,\d+)*$/.test(list)) { bad('Uso: switchport trunk allowed vlan 10,30'); return { out, ran }; }
+        const ids = list.split(',').map(Number);
+        s.trunk[p] = add ? Array.from(new Set((s.trunk[p] || []).concat(ids))).sort((x, y) => x - y) : ids;
+        ran.push('sw-trunk:' + p);
+      } else { bad('Uso: switchport mode access|trunk · switchport access vlan <N> · switchport trunk allowed vlan <lista>'); return { out, ran }; }
+      s.unsaved = true;
+      return { out, ran };
+    }
     if (kw(c, 'interface', 3)) {
-      if (s.mode !== 'conf' && s.mode !== 'if') { bad('Comando inválido neste modo. Use "configure terminal" antes.'); return { out, ran }; }
+      if (!cfg) { bad('Comando inválido neste modo. Use "configure terminal" antes.'); return { out, ran }; }
       const p = swPort(t.slice(1).join(''));
       if (!p || !s.ports[p]) { bad('Porta inválida. Portas: gi0/1 a gi0/' + Object.keys(s.ports).length); return { out, ran }; }
       s.mode = 'if';
@@ -582,7 +1023,7 @@
     const isWin = (d) => !!(DL.isWin && DL.isWin(d));
     const shellOf = (d) => (d.kind === 'switch' ? swcli : isWin(d) ? DL.winShell : linux);
     const promptOf = (d) => {
-      if (d.kind === 'switch') return d.name + ({ user: '>', priv: '#', conf: '(config)#', if: '(config-if)#' }[d.sw.mode]);
+      if (d.kind === 'switch') return d.name + ({ user: '>', priv: '#', conf: '(config)#', if: '(config-if)#', vlan: '(config-vlan)#' }[d.sw.mode]);
       if (isWin(d)) return DL.winPrompt(d);
       return 'admin@' + d.os.hostname + ':~$';
     };
@@ -630,7 +1071,8 @@
     // the text of a step in Experiente (hidden until done) — a question is always shown: it is what is asked
     const stepText = (s, hidden) => (hidden && !s.answer ? 'Descubra o próximo passo.' : s.text);
     // why a command failed, in plain words (Iniciante)
-    const FIRST = ['ip', 'ping', 'sudo', 'systemctl', 'curl', 'df', 'du', 'journalctl', 'hostnamectl', 'hostname', 'help', 'clear', 'exit', 'enable', 'show', 'configure', 'interface', 'shutdown', 'no', 'end', 'lscpu', 'free', 'uptime', 'whoami', 'uname', 'responder', 'tail', 'grep', 'cat', 'ss', 'netstat', 'copy', 'write'];
+    const FIRST = ['ip', 'ping', 'sudo', 'systemctl', 'curl', 'df', 'du', 'journalctl', 'hostnamectl', 'hostname', 'help', 'clear', 'exit', 'enable', 'show', 'configure', 'interface', 'shutdown', 'no', 'end', 'lscpu', 'free', 'uptime', 'whoami', 'uname', 'responder', 'tail', 'grep', 'cat', 'ss', 'netstat', 'copy', 'write',
+      'ufw', 'ls', 'chmod', 'chown', 'useradd', 'usermod', 'passwd', 'id', 'groups', 'apt', 'tar', 'rsync', 'crontab', 'echo', 'vlan', 'name', 'switchport'];
     function closest(w) {
       let best = null, bd = 3;
       for (const c of X.dev && isWin(X.dev) && DL.WIN_FIRST ? DL.WIN_FIRST : FIRST) {
@@ -740,7 +1182,8 @@
       const ex = step && step.cmd ? { [step.help[0]]: step.cmd } : null;
       let h = '<p class="term__hint">' + (stepLabel ? 'Para ' + (m.stepText === 'hidden' ? '' : 'este passo: ') + '<b>' + esc(stepLabel) + '</b>' : 'Comandos mais usados aqui:') +
         ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth, ex);
-      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'no-shutdown', 'end', 'show-run', 'show-start', 'copy-run-start', 'sw-ping'];
+      const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'no-shutdown', 'end', 'show-run', 'show-start', 'copy-run-start', 'sw-ping',
+        'show-vlan', 'sw-vlan', 'sw-access', 'sw-mode', 'sw-trunk', 'show-trunk', 'show-mac'];
       const forDev = (k) => (X.dev.kind === 'switch' ? SWITCH_KEYS.includes(k) || k === 'responder' : win ? HELP[k].os === 'win' || k === 'cabling' : !HELP[k].os && !SWITCH_KEYS.includes(k));
       h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter(forDev)
         .map((k) => '<button type="button" class="chip" data-help="' + k + '">' + esc(HELP[k].cmd.split(' <')[0]) + '</button>').join('') + '<div data-help-out></div></details>';
@@ -895,7 +1338,9 @@
       game.onTerminalClose && game.onTerminalClose();
     }
 
-    const COMPLETE = ['ip addr', 'ip link', 'ip route', 'ip link set eth0 up', 'ip addr add ', 'ip addr del ', 'ip route add default via ', 'ip route del default', 'ping -c 3 ', 'systemctl status ', 'systemctl restart ', 'systemctl start ', 'cat notas.txt', 'tail -n 20 /var/log/syslog', 'grep -c ', 'curl localhost', 'df -h', 'du -sh /var/log', 'journalctl --vacuum-size=200M', 'hostnamectl set-hostname ', 'hostname', 'whoami', 'uname -a', 'uptime', 'lscpu', 'free -h', 'responder ', 'tail -n 20 /var/log/auth.log', 'grep "Failed password" /var/log/auth.log', 'ss -tlnp', 'show running-config', 'show startup-config', 'copy running-config startup-config', 'enable', 'show interfaces status', 'configure terminal', 'interface gi0/', 'shutdown', 'no shutdown', 'end'];
+    const COMPLETE = ['ip addr', 'ip link', 'ip route', 'ip link set eth0 up', 'ip addr add ', 'ip addr del ', 'ip route add default via ', 'ip route del default', 'ping -c 3 ', 'systemctl status ', 'systemctl restart ', 'systemctl start ', 'cat notas.txt', 'tail -n 20 /var/log/syslog', 'grep -c ', 'curl localhost', 'df -h', 'du -sh /var/log', 'journalctl --vacuum-size=200M', 'hostnamectl set-hostname ', 'hostname', 'whoami', 'uname -a', 'uptime', 'lscpu', 'free -h', 'responder ', 'tail -n 20 /var/log/auth.log', 'grep "Failed password" /var/log/auth.log', 'ss -tlnp', 'show running-config', 'show startup-config', 'copy running-config startup-config', 'enable', 'show interfaces status', 'configure terminal', 'interface gi0/', 'shutdown', 'no shutdown', 'end',
+      'show vlan brief', 'show mac address-table', 'show interfaces trunk', 'switchport access vlan ', 'switchport mode access', 'switchport mode trunk', 'switchport trunk allowed vlan ',
+      'ufw status', 'ufw enable', 'ufw allow ', 'ufw deny from ', 'ls -l ', 'chmod ', 'chown ', 'useradd -m -s /bin/bash ', 'usermod -aG ', 'passwd -l ', 'apt update', 'apt list --upgradable', 'apt upgrade -y', 'apt install -y ', 'tar czf ', 'rsync -a ', 'crontab -l'];
     el.input.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         const v = el.input.value;
