@@ -1,5 +1,7 @@
 /* DataLab — compact Spotify player in the game HUD: connect the account, show cover / track / artist
    and play-pause / next for whatever is playing on the player's own Spotify device.
+   The card works as a "tocando agora" notice: it pops up when a song starts or changes and hides itself
+   after a few seconds; the HUD button opens it for good (until clicked again).
    Talks only to services/spotify-service.js. Hidden when no spotifyClientId is configured. */
 (function () {
   'use strict';
@@ -7,11 +9,17 @@
   const box = document.getElementById('spot');
   const btn = document.getElementById('spotBtn');
   if (!box || !SP || !SP.enabled || DL.HERO) return;
-  const CLOSED = 'datalab.spot.closed';   // the player closed the card with the HUD button (per browser)
+  const PEEK_MS = 5000;   // how long the "tocando agora" notice stays up
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const safeUrl = (u, host) => { try { const x = new URL(u); return x.protocol === 'https:' && host.test(x.hostname) ? x.href : ''; } catch (e) { return ''; } };
-  const POLL_PLAYING = 5000, POLL_IDLE = 12000, PENDING_MS = 10 * 60 * 1000;
-  const V = { track: undefined, msg: '', busy: false, timer: 0, pendingSince: 0, key: '' };
+  const POLL_PLAYING = 5000, POLL_IDLE = 6000, PENDING_MS = 10 * 60 * 1000;
+  // peek: timer of the notice hiding itself (0 = card closed, or opened with the HUD button)
+  const V = { track: undefined, msg: '', busy: false, timer: 0, pendingSince: 0, key: '', peek: 0 };
+  const IDLE_NOTE = {
+    private: 'Sessão privada ligada: o Spotify não mostra a música. Desligue a sessão privada no app.',
+    ad: 'Tocando um anúncio. A música aparece aqui logo depois.',
+  };
+  const trackKey = (t) => (t && !t.idle ? t.id || t.title + '|' + t.artist : '');
   // the balloon over my own character (click the character to open / close it; demo.js places it every frame)
   const B = { el: null, open: false, key: '' };
 
@@ -39,7 +47,7 @@
     const x = '<button class="spot__x" type="button" data-sp="disconnect" title="Desconectar Spotify" aria-label="Desconectar Spotify">×</button>';
     if (!t || t.idle) {
       return head((t && t.device ? '<span class="spot__dev">' + esc(t.device) + '</span>' : '') + x) +
-        '<p class="spot__note">Nada tocando. Dê play no app do Spotify (celular, PC ou web) e a música aparece aqui.</p>' + msg();
+        '<p class="spot__note">' + (t && IDLE_NOTE[t.why] || 'Nada tocando. Dê play no app do Spotify (celular, PC ou web) e a música aparece aqui.') + '</p>' + msg();
     }
     const img = safeUrl(t.image, /(^|\.)(scdn\.co|spotifycdn\.com)$/);
     const link = safeUrl(t.url, /^open\.spotify\.com$/);
@@ -64,7 +72,7 @@
     }
     const t = V.track;
     if (t === undefined) return '<p class="spot-bubble__note">' + LOGO + 'Carregando…</p>';
-    if (!t || t.idle) return '<p class="spot-bubble__note">' + LOGO + 'Nada tocando agora</p>';
+    if (!t || t.idle) return '<p class="spot-bubble__note">' + LOGO + (t && t.why === 'private' ? 'Sessão privada ligada' : t && t.why === 'ad' ? 'Tocando um anúncio' : 'Nada tocando agora') + '</p>';
     const img = safeUrl(t.image, /(^|\.)(scdn\.co|spotifycdn\.com)$/);
     return '<span class="spot__art">' + (img ? '<img src="' + esc(img) + '" alt="" referrerpolicy="no-referrer">' : '') + '</span>' +
       '<span class="spot__meta"><span class="spot__title" title="' + esc(t.title) + '">' + esc(t.title) + '</span><span class="spot__artist" title="' + esc(t.artist) + '">' + esc(t.artist) + '</span></span>' +
@@ -94,16 +102,32 @@
     if (btn) btn.classList.toggle('is-playing', !!(SP.connected && V.track && V.track.playing));
   }
 
-  /* ---------------- card open / closed (HUD button) ---------------- */
+  /* ---------------- card open / closed (HUD button, "tocando agora" notice) ---------------- */
   function setOpen(open, flash) {
+    clearTimeout(V.peek);
+    V.peek = 0;
     box.hidden = !open;
+    box.classList.remove('is-out');
     if (btn) { btn.classList.toggle('is-on', open); btn.setAttribute('aria-expanded', String(open)); }
-    try { if (open) localStorage.removeItem(CLOSED); else localStorage.setItem(CLOSED, '1'); } catch (e) { /* storage off: just not remembered */ }
     if (open && flash) {
       box.classList.remove('is-flash');
       void box.offsetWidth;   // restart the animation
       box.classList.add('is-flash');
     }
+  }
+  // a song started or changed: show the card for a few seconds (left alone if opened with the HUD button)
+  function peek() {
+    if (!box.hidden && !V.peek) return;
+    if (box.hidden) setOpen(true, true);
+    box.classList.remove('is-out');
+    clearTimeout(V.peek);
+    V.peek = setTimeout(hidePeek, PEEK_MS);
+  }
+  function hidePeek() {
+    // the mouse is on it (about to hit pause / next): wait for it to leave
+    if (box.matches(':hover')) { V.peek = setTimeout(hidePeek, 1500); return; }
+    box.classList.add('is-out');
+    V.peek = setTimeout(() => setOpen(false), 350);
   }
   async function connect() {
     V.msg = '';
@@ -125,9 +149,12 @@
     if (!SP.connected || document.hidden) return;
     const r = await SP.nowPlaying();
     if (r.ok) {
+      const prev = V.track;
       V.track = r.data;
       if (V.msg === SP.MESSAGES.limit || V.msg === SP.MESSAGES.network || V.msg === SP.MESSAGES.device) V.msg = '';
       render();
+      const t = V.track;
+      if (t && t.playing && trackKey(t) && (!prev || !prev.playing || trackKey(prev) !== trackKey(t))) peek();
       schedule(V.track && V.track.playing ? POLL_PLAYING : POLL_IDLE);
       return;
     }
@@ -180,6 +207,8 @@
     V.track = undefined;
     V.msg = info && info.reason === 'expired' ? SP.MESSAGES.expired : '';
     render();
+    // just logged in with the card open: let it hide by itself (the first poll resets it if music is on)
+    if (SP.connected && !box.hidden && !V.peek) V.peek = setTimeout(hidePeek, PEEK_MS * 2);
     if (SP.connected) poll();
     else clearTimeout(V.timer);
   });
@@ -230,9 +259,9 @@
     };
   }
 
-  let closed = false;
-  try { closed = localStorage.getItem(CLOSED) === '1'; } catch (e) { /* default: open */ }
-  setOpen(!closed);
+  // closed until a song plays (notice) or the HUD button opens it
+  try { localStorage.removeItem('datalab.spot.closed'); } catch (e) { /* storage off */ }
+  setOpen(false);
   render();
   if (SP.connected) poll();
 })();
