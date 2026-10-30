@@ -5,7 +5,9 @@
   'use strict';
   const DL = window.DL, SP = DL.Spotify;
   const box = document.getElementById('spot');
+  const btn = document.getElementById('spotBtn');
   if (!box || !SP || !SP.enabled || DL.HERO) return;
+  const CLOSED = 'datalab.spot.closed';   // the player closed the card with the HUD button (per browser)
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const safeUrl = (u, host) => { try { const x = new URL(u); return x.protocol === 'https:' && host.test(x.hostname) ? x.href : ''; } catch (e) { return ''; } };
   const POLL_PLAYING = 5000, POLL_IDLE = 12000, PENDING_MS = 10 * 60 * 1000;
@@ -59,6 +61,26 @@
     box.innerHTML = html;
     box.classList.toggle('is-on', SP.connected);
     box.classList.toggle('is-playing', !!(V.track && V.track.playing));
+    if (btn) btn.classList.toggle('is-playing', !!(SP.connected && V.track && V.track.playing));
+  }
+
+  /* ---------------- card open / closed (HUD button) ---------------- */
+  function setOpen(open, flash) {
+    box.hidden = !open;
+    if (btn) { btn.classList.toggle('is-on', open); btn.setAttribute('aria-expanded', String(open)); }
+    try { if (open) localStorage.removeItem(CLOSED); else localStorage.setItem(CLOSED, '1'); } catch (e) { /* storage off: just not remembered */ }
+    if (open && flash) {
+      box.classList.remove('is-flash');
+      void box.offsetWidth;   // restart the animation
+      box.classList.add('is-flash');
+    }
+  }
+  async function connect() {
+    V.msg = '';
+    const r = await SP.connect();
+    if (r.ok) V.pendingSince = Date.now();
+    else V.msg = SP.MESSAGES[r.code] || SP.MESSAGES.network;
+    render();
   }
 
   /* ---------------- polling ---------------- */
@@ -111,11 +133,7 @@
     b.blur();   // keep Space / Enter for the game, not for the last clicked button
     const act = b.dataset.sp;
     if (act === 'connect') {
-      V.msg = '';
-      const r = await SP.connect();
-      if (r.ok) V.pendingSince = Date.now();
-      else V.msg = SP.MESSAGES[r.code] || SP.MESSAGES.network;
-      render();
+      connect();
     } else if (act === 'cancel') {
       V.pendingSince = 0;
       render();
@@ -143,7 +161,22 @@
   const econ = document.getElementById('econBtn');
   if (econ && window.ResizeObserver) new ResizeObserver(() => box.style.setProperty('--econ-h', econ.offsetHeight + 6 + 'px')).observe(econ);
 
-  box.hidden = false;
+  if (btn) {
+    btn.hidden = false;
+    btn.addEventListener('click', () => {
+      btn.blur();
+      if (box.hidden) {
+        setOpen(true, true);
+        // one click from the top bar straight to the Spotify login (the popup needs this user gesture)
+        if (!SP.connected && !V.pendingSince) connect();
+      } else {
+        setOpen(false);
+      }
+    });
+  }
+  let closed = false;
+  try { closed = localStorage.getItem(CLOSED) === '1'; } catch (e) { /* default: open */ }
+  setOpen(!closed);
   render();
   if (SP.connected) poll();
 })();
