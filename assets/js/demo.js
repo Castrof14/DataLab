@@ -685,9 +685,18 @@
   // Camera drag: build and crew modes pan when the press lands on empty floor (builder.js / crew.js);
   // exploring, a drag on empty space looks around freely until the player walks again. Letting go
   // keeps a little momentum (step → camGlide).
+  // my own character: a click shows / hides what's playing on Spotify over my head (spotify-player.js)
+  const onMe = (x, y) => {
+    if (!DL.SpotifyBubble || S.mode !== 'explore' || player.hidden) return false;
+    if (scene.iso) return !!scene.pickAt(x, y, (o) => o === player);
+    const w = scene.screenToWorld(x, y);
+    return !!crew.pickActor(w.x, w.y, [player]);
+  };
   canvas.addEventListener('pointerdown', (ev) => {
-    if (S.phase === 'intro' || isOverlayOpen() || (ev.pointerType === 'touch' && S.mode === 'explore')) return;
+    if (S.phase === 'intro' || isOverlayOpen()) return;
     const [x, y] = local(ev);
+    if (ev.button === 0 && onMe(x, y)) { DL.SpotifyBubble.toggle(); return; }
+    if (ev.pointerType === 'touch' && S.mode === 'explore') return;
     if (ev.button === 0) canvas.setPointerCapture(ev.pointerId);
     S.ptrDown = ev.button === 0;
     S.camVel = null;
@@ -710,6 +719,7 @@
     }
     if (S.mode === 'build') builder.pointerMove(x, y);
     else crew.pointerMove(x, y);
+    if (onMe(x, y)) setCursor('pointer');
   });
   const up = () => {
     if (S.drag && S.drag.on) setCursor('');
@@ -952,6 +962,7 @@
       }
     }
     prompt.classList.toggle('is-on', !!show && !(P.use && P.use.e === t));
+    if (DL.SpotifyBubble) DL.SpotifyBubble.place(S.mode === 'explore' && !player.hidden && !isOverlayOpen() ? scene.worldToScreen(player.x, player.y, player.seated ? 25 : 31) : null);
   }
 
   /* ---------------- in-world overlay ---------------- */

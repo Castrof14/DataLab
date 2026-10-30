@@ -12,6 +12,8 @@
   const safeUrl = (u, host) => { try { const x = new URL(u); return x.protocol === 'https:' && host.test(x.hostname) ? x.href : ''; } catch (e) { return ''; } };
   const POLL_PLAYING = 5000, POLL_IDLE = 12000, PENDING_MS = 10 * 60 * 1000;
   const V = { track: undefined, msg: '', busy: false, timer: 0, pendingSince: 0, key: '' };
+  // the balloon over my own character (click the character to open / close it; demo.js places it every frame)
+  const B = { el: null, open: false, key: '' };
 
   const LOGO = '<svg class="spot__logo" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#1ed760"/><path d="M6.2 9.3c3.9-1.2 8.4-.8 11.8 1.2M7 12.6c3.1-.9 6.6-.6 9.4 1M7.8 15.7c2.4-.6 5-.4 7.1.8" fill="none" stroke="#0a0a0a" stroke-width="1.7" stroke-linecap="round"/></svg>';
   const ICON = {
@@ -53,7 +55,35 @@
       '</div>' + msg();
   }
 
+  // balloon over my character: same data as the card, one compact line
+  function viewBubble() {
+    if (!SP.connected) {
+      return V.pendingSince
+        ? '<p class="spot-bubble__note">' + LOGO + 'Aguardando o login no Spotify…</p>'
+        : '<p class="spot-bubble__note">' + LOGO + 'Spotify desconectado</p><button class="btn btn--sm spot__connect" type="button" data-sp="connect">Conectar</button>';
+    }
+    const t = V.track;
+    if (t === undefined) return '<p class="spot-bubble__note">' + LOGO + 'Carregando…</p>';
+    if (!t || t.idle) return '<p class="spot-bubble__note">' + LOGO + 'Nada tocando agora</p>';
+    const img = safeUrl(t.image, /(^|\.)(scdn\.co|spotifycdn\.com)$/);
+    return '<span class="spot__art">' + (img ? '<img src="' + esc(img) + '" alt="" referrerpolicy="no-referrer">' : '') + '</span>' +
+      '<span class="spot__meta"><span class="spot__title" title="' + esc(t.title) + '">' + esc(t.title) + '</span><span class="spot__artist" title="' + esc(t.artist) + '">' + esc(t.artist) + '</span></span>' +
+      '<span class="spot__ctl">' +
+        '<button class="spot__b" type="button" data-sp="toggle" aria-label="' + (t.playing ? 'Pausar' : 'Tocar') + '"' + (t.canToggle && !V.busy ? '' : ' disabled') + '>' + (t.playing ? ICON.pause : ICON.play) + '</button>' +
+        '<button class="spot__b" type="button" data-sp="next" aria-label="Próxima faixa"' + (t.canNext && !V.busy ? '' : ' disabled') + '>' + ICON.next + '</button>' +
+      '</span>';
+  }
+  function renderBubble() {
+    if (!B.open) return;
+    const html = viewBubble();
+    if (html === B.key) return;
+    B.key = html;
+    B.el.innerHTML = html;
+    B.el.classList.toggle('is-playing', !!(SP.connected && V.track && V.track.playing));
+  }
+
   function render() {
+    renderBubble();
     const html = SP.connected ? viewPlayer() : V.pendingSince ? viewPending() : viewConnect();
     // the poll re-renders every few seconds: skip the DOM work (and the cover reload) when nothing changed
     if (html === V.key) return;
@@ -127,7 +157,7 @@
   }
 
   /* ---------------- wiring ---------------- */
-  box.addEventListener('click', async (ev) => {
+  function onClick(ev) {
     const b = ev.target.closest('[data-sp]');
     if (!b || b.disabled) return;
     b.blur();   // keep Space / Enter for the game, not for the last clicked button
@@ -142,7 +172,8 @@
     } else {
       control(act);
     }
-  });
+  }
+  box.addEventListener('click', onClick);
 
   SP.on('change', (info) => {
     V.pendingSince = 0;
@@ -174,6 +205,31 @@
       }
     });
   }
+  const worldUi = document.getElementById('worldUi');
+  if (worldUi) {
+    B.el = document.createElement('div');
+    B.el.className = 'spot-bubble';
+    B.el.setAttribute('role', 'status');
+    B.el.setAttribute('aria-label', 'Spotify: tocando agora');
+    B.el.hidden = true;
+    B.el.addEventListener('click', onClick);
+    worldUi.appendChild(B.el);
+    DL.SpotifyBubble = {
+      toggle() {
+        B.open = !B.open;
+        B.key = '';
+        B.el.hidden = !B.open;
+        if (B.open) { renderBubble(); if (SP.connected) poll(); }
+      },
+      // p = screen point over my head, or null to hide it this frame (other modes, panels open…)
+      place(p) {
+        if (!B.open) return;
+        B.el.classList.toggle('is-away', !p);
+        if (p) B.el.style.transform = 'translate(' + p.x.toFixed(1) + 'px,' + p.y.toFixed(1) + 'px) translate(-50%,-100%)';
+      },
+    };
+  }
+
   let closed = false;
   try { closed = localStorage.getItem(CLOSED) === '1'; } catch (e) { /* default: open */ }
   setOpen(!closed);

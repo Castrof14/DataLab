@@ -65,6 +65,46 @@ a.spot__title:hover { text-decoration: underline; }
 /* out of the way while building (the finances card moves to the top) and in conversations */
 .game.is-build .spot, .game.is-talk .spot { opacity: 0; pointer-events: none; }
 
+/* balloon over my own character (click the character): what's playing, with play-pause / next */
+.spot-bubble {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 150px) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid rgba(30, 215, 96, 0.35);
+  background: rgba(10, 10, 11, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: var(--ink);
+  pointer-events: auto;
+  z-index: 3;
+  transition: opacity 0.2s var(--ease), border-color 0.3s var(--ease);
+}
+.spot-bubble[hidden] { display: none; }
+.spot-bubble.is-away, .game.is-talk .spot-bubble { opacity: 0; pointer-events: none; }
+.spot-bubble.is-playing { border-color: #1ed760; }
+/* the little tail pointing down at the character */
+.spot-bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 10px;
+  height: 10px;
+  transform: translateX(-50%) rotate(45deg);
+  background: rgb(10, 10, 11);
+  border-right: inherit;
+  border-bottom: inherit;
+}
+.spot-bubble .spot__art { width: 32px; height: 32px; }
+.spot-bubble .spot__b { width: 24px; height: 24px; }
+.spot-bubble__note { grid-column: 1 / -1; display: flex; align-items: center; gap: 6px; margin: 0; font-size: 11px; line-height: 14px; color: var(--mute); white-space: nowrap; }
+.spot-bubble__note:has(+ .spot__connect) { grid-column: 1 / 3; }
+
 @media (max-width: 860px) {
   /* the finances card sits at the top right here (the bottom belongs to the team chat): go right under it */
   .spot { right: var(--s-lg); bottom: auto; top: calc(64px + var(--econ-h, 58px)); width: min(216px, calc(100vw - 2 * var(--s-lg))); }
