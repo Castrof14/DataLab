@@ -10,3 +10,5 @@
 /PROBLEMAS-PATENTES.md
 /tests/
 # DEV-AUTOPLAY: assets/js/dev/ vai para o deploy; o botão Auto aparece para todos (ver demo.js)
+# the Agent Gateway runs on its own server (Docker), never on Vercel
+/agents/

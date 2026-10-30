@@ -38,7 +38,7 @@
     return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   };
   const fmtPower = (e) => (e.tel.unit === 'W' ? Math.round(e.power) : e.power.toFixed(e.power < 10 ? 2 : 1)) + '<small>' + e.tel.unit + '</small>';
-  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account', 'mpDialog', 'welcome', 'feedback'].some((id) => $(id).classList.contains('is-open'));
+  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account', 'mpDialog', 'welcome', 'feedback', 'agentsOv'].some((id) => $(id) && $(id).classList.contains('is-open'));
   const canMove = () => S.phase !== 'intro' && !isOverlayOpen() && S.mode === 'explore';
 
   /* ---------------- toasts ---------------- */
@@ -135,6 +135,13 @@
   G.staff = staff;
   // working hours, custom schedules and on-call cover (shifts.js)
   const shifts = DL.createShifts(G, { crew });
+  // real tasks run by AI agents (OpenCode) on the Agent Gateway; absent = the crew works as before (agents.js)
+  // OFF unless config.js sets crewAI: true (the code stays, nothing shows and nothing runs)
+  const aiOn = !!(window.DATALAB_CONFIG && window.DATALAB_CONFIG.crewAI === true);
+  const agents = aiOn && DL.createCrewAI && DL.AgentService ? DL.createCrewAI(G, { crew }) : null;
+  G.agents = agents;
+  // always reachable: top bar + team panel (opens the selected employee, or a list to pick one)
+  if (agents) for (const id of ['aiBtn', 'aiTeamBtn']) if ($(id)) { $(id).hidden = false; $(id).addEventListener('click', () => { $(id).blur(); agents.open(crew.selected || null); }); }
   $('shiftsBtn').addEventListener('click', () => { $('shiftsBtn').blur(); shifts.open(); });
   G.on('payday', () => updateMeta());
   // sounds for money, levels and milestones (the sound bank is in audio.js)
@@ -637,6 +644,7 @@
     if (monitor.isOpen) { if (monitor.key(ev)) ev.preventDefault(); return; }
     if (economy.isOpen) { if (economy.key(ev)) ev.preventDefault(); return; }
     if (shifts.isOpen) { if (ev.code === 'Escape') { shifts.close(); ev.preventDefault(); } return; }
+    if (agents && agents.isOpen) { if (ev.code === 'Escape') { agents.close(); ev.preventDefault(); } return; }
     if (infra.isOpen) { if (infra.key(ev)) ev.preventDefault(); return; }
     if (inventory.isOpen) { if (inventory.key(ev)) ev.preventDefault(); return; }
     const tag = document.activeElement && document.activeElement.tagName;
@@ -810,17 +818,21 @@
   // At the default (5) it is deliberately slow: a full trackpad swipe (~300px) is about one zoom level.
   // The player picks 1 (≈ ⅓ as fast) … 10 (≈ 4× as fast) in Configurações; it stays in this browser.
   // Sound: effects and the server-room hum have their own volume (0 = off), also kept in this browser.
+  // Animações: how elastic the interface springs are (motion.js), 0 = off.
   const SETTINGS_KEY = 'datalab.settings.v1';
-  const settings = { zoomSens: 5, sfxVol: 6, ambVol: 3 };
+  const settings = { zoomSens: 5, sfxVol: 6, ambVol: 3, motionLvl: 6 };
   try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) { /* defaults */ }
   const clamp10 = (v, d) => { v = Math.round(Number(v)); return Number.isFinite(v) ? Math.max(0, Math.min(10, v)) : d; };
   settings.zoomSens = Math.max(1, clamp10(settings.zoomSens, 5) || 5);
   settings.sfxVol = clamp10(settings.sfxVol, 6);
   settings.ambVol = clamp10(settings.ambVol, 3);
+  settings.motionLvl = clamp10(settings.motionLvl, 6);
   const zoomSens = () => (1 / 320) * Math.pow(2, (settings.zoomSens - 5) / 2.5);
   const applyVolume = () => DL.audio.setVolume(settings.sfxVol / 10, settings.ambVol / 10);
   applyVolume();
-  [['zoomSens', null], ['sfxVol', applyVolume], ['ambVol', applyVolume]].forEach(([key, then]) => {
+  const applyMotion = () => DL.Motion && DL.Motion.setLevel(settings.motionLvl / 10);
+  applyMotion();
+  [['zoomSens', null], ['sfxVol', applyVolume], ['ambVol', applyVolume], ['motionLvl', applyMotion]].forEach(([key, then]) => {
     const input = $(key), out = $(key + 'Val');
     input.value = out.textContent = settings[key];
     input.addEventListener('input', () => {
@@ -832,6 +844,7 @@
   });
   // a sample of the new volume when the slider is let go
   $('sfxVol').addEventListener('change', () => DL.audio.play('done'));
+  $('motionLvl').addEventListener('change', () => DL.Motion && DL.Motion.preview($('help').firstElementChild));
   const zoomRange = () => [2 - scene.autoS, 3];
   const wheelZ = { target: 0 };
   canvas.addEventListener('wheel', (ev) => {

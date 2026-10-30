@@ -1789,7 +1789,8 @@
         case 'going': return 'Indo até ' + (c.station ? c.station.label : 'o computador') + (j ? ' · ' + j.name : '');
         case 'sitting': return 'Sentando…';
         case 'standing': return 'Levantando…';
-        case 'working': return j ? j.def.verb + (j.auto ? ' · rotina' : ' · ' + Math.ceil(Math.max(0, j.left)) + ' s') : 'No computador';
+        // AI tasks (agents.js) report the agent's live progress instead of a countdown
+        case 'working': return j ? (j.def.statusText ? j.def.statusText() : j.def.verb + (j.auto ? ' · rotina' : ' · ' + Math.ceil(Math.max(0, j.left)) + ' s')) : 'No computador';
         case 'toEquip': return 'Indo até ' + j.label + ' · ' + j.name;
         case 'inspecting': return j.def.verb + ' · ' + j.label;
         case 'toSpot': return 'Indo até ' + (j.label || 'lá') + ' · ' + j.name;
@@ -1819,6 +1820,7 @@
     const progressOf = (a) => {
       const c = a.crew, j = c.job;
       if (!j) return 0;
+      if (j.def.progress && c.state === 'working') return j.def.progress();
       if (c.state === 'patrol') return 1 - (c.spots.length + (a.route && a.route.length ? 1 : 0)) / (c.spotsTotal || 1);
       if (c.state === 'working' || c.state === 'inspecting' || c.state === 'atSpot' || c.state === 'talking' || c.state === 'sipping' || c.state === 'resting' || c.state === 'using') return Math.max(0, Math.min(1, 1 - j.left / j.total));
       if (c.state === 'serving') return j.progress || 0.5;
@@ -1900,7 +1902,7 @@
       const c = a.crew, role = roleOf(a), st = c.stats;
       const stars = XP.starsOf(st, c.profile.role);
       const key = [c.id, busy(a), c.name, c.profile.role, !!c.confirmFire, c.menu, st.level, stars, c.unread || 0, c.menu ? world().version + ':' + (game.ops ? game.ops.openFaults : 0) : '', c.home ? c.home.id || 'h' : '', c.zone || '', world().version,
-        c.missing.map((n) => n.id).join(), c.shift.id + c.shift.start + '-' + c.shift.end, c.attend, !!c.off].join(':');
+        c.missing.map((n) => n.id).join(), c.shift.id + c.shift.start + '-' + c.shift.end, c.attend, !!c.off, game.agents ? game.agents.badgeOf(a) || '-' : ''].join(':');
       if (!force && key === C.cardKey) return;
       // don't rebuild under an open dropdown
       if (!force && el.card.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
@@ -1921,6 +1923,8 @@
         h += '<div class="cc__actions">';
         h += '<button type="button" class="btn btn--sm btn--primary" data-cc="talk">Conversar' + (c.unread ? ' <span class="cc__unread">' + c.unread + '</span>' : '') + '</button>';
         h += '<button type="button" class="btn btn--sm" data-cc="assign">Atribuir tarefa</button>';
+        // a real task for an AI agent (agents.js) — only when an Agent Gateway is configured
+        if (game.agents) { const ab = game.agents.badgeOf(a); h += '<button type="button" class="btn btn--sm btn--primary cc__ai' + (ab ? ' is-' + ab : '') + '" data-cc="ai" title="Tarefa real com agente de IA (OpenCode)">🤖 IA' + (ab === 'ask' ? ' · aprovar' : ab ? ' · rodando' : ' · OpenCode') + '</button>'; }
         if (busy(a)) h += '<button type="button" class="btn btn--sm" data-cc="stop">Parar</button>';
         h += '<button type="button" class="btn btn--sm" data-cc="edit">Editar</button>';
         h += '<button type="button" class="btn btn--sm' + (c.confirmFire ? ' is-warn' : '') + '" data-cc="fire">' + (c.confirmFire ? 'Confirmar' : 'Dispensar') + '</button>';
@@ -2022,8 +2026,10 @@
         case 'close': select(null); break;
         case 'assign': c.menu = true; renderCard(true); break;
         case 'talk': game.emit('talk', a); break;
+        case 'ai': if (game.agents) game.agents.open(a); break;
         case 'back': c.menu = false; renderCard(true); break;
-        case 'stop': cancelJob(a); break;
+        // stopping the visual AI job only frees the person for a minute; the agent keeps running (IA → Parar stops it)
+        case 'stop': if (c.job && c.job.def.ai) c.job.def.ai.noJobUntil = Date.now() + 60000; cancelJob(a); break;
         case 'edit': openCreator(a); break;
         case 'fire':
           if (c.confirmFire) fire(a);

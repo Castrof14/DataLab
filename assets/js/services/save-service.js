@@ -53,6 +53,8 @@
         stats: { done: c.stats.done || 0, found: c.stats.found || 0, fixed: c.stats.fixed || 0 },
         pay: c.pay, profile: p, shift: Object.assign({}, c.shift), oncall: (c.oncall || []).slice(0, 3), attend: c.attend, zone: c.zone || null,
         legend: c.legendBot || null, legendItem: c.legend || null,
+        // AI agent of this employee (agents.js): id of their workspace on the Agent Gateway, agent, model
+        ai: DL.sanitizeAi ? DL.sanitizeAi(c.ai) : null,
       };
     });
     const devices = ops.devices().map((d) => {
@@ -158,6 +160,7 @@
       if (c.shift) a.crew.shift = Object.assign({}, c.shift);
       a.crew.oncall = c.oncall || [];
       if (c.attend) a.crew.attend = c.attend;
+      if (c.ai && DL.sanitizeAi) a.crew.ai = DL.sanitizeAi(c.ai);
       if (c.zone && W.rooms.some((r) => r.id === c.zone)) { a.crew.zone = c.zone; a.crew.placeAuto = false; }
     }
     // (multiplayer.js applies the world's shape alone: without these parts the running ones stay)
