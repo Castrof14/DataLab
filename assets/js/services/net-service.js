@@ -11,7 +11,13 @@
   const DL = window.DL;
   const PROTO = 1;
   const MAX_GUESTS = 8;
-  const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }];
+  // STUN only finds the way through most home routers; a TURN relay (DATALAB_CONFIG.iceServers, e.g. a
+  // free Metered or Cloudflare account) is what gets through the ones that block direct connections
+  const ICE = [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun.cloudflare.com:3478' }]
+    .concat(Array.isArray((window.DATALAB_CONFIG || {}).iceServers) ? window.DATALAB_CONFIG.iceServers : []);
+  const KNOCK_EVERY = 2000; // a knock can get lost: knock again until the host answers
+  const FIND_MS = 15000;    // nobody answered the knocks in this long: there is no room with that code
+  const LINK_MS = 22000;    // the host answered but the two computers never got connected (it gives up at 25 s)
   const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O, 1/I
   const CHUNK = 16000; // data channel messages stay small; a world is sent in pieces
   const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(5)), (b) => b.toString(16).padStart(2, '0')).join('');
@@ -235,9 +241,9 @@
   function joinRoom(code, hello) {
     const { conn, emit, N, finish } = makeConn();
     const me = 'g' + rid();
-    let pc = null, dc = null, bye = null, seen = Date.now(), ping = 0, watch = 0;
+    let pc = null, dc = null, bye = null, seen = Date.now(), ping = 0, watch = 0, knocking = 0;
     const end = (c, reason) => {
-      clearTimeout(knockT); clearInterval(ping); clearInterval(watch);
+      clearTimeout(knockT); clearInterval(knocking); clearInterval(ping); clearInterval(watch);
       if (sig) sig.close();
       if (pc) setTimeout(() => { try { pc.close(); } catch (e) { /* closed */ } }, 100);
       finish(bye ? bye.code : c, bye ? bye.reason : reason);
@@ -255,6 +261,10 @@
       }
       if (p.type === 'nope') { end(p.code, p.reason); return; }
       if (p.type !== 'offer') return;
+      // the room exists: stop knocking, and give the connection itself time to come up
+      clearInterval(knocking);
+      clearTimeout(knockT);
+      knockT = setTimeout(() => { if (!N.open) end(1006, 'a sala existe, mas não deu para ligar os dois computadores — a rede de um de vocês bloqueia a conexão direta (tente outra rede, ex. o 4G do celular)'); }, LINK_MS);
       pc = new RTCPeerConnection({ iceServers: ICE });
       pc.ondatachannel = (ev) => {
         dc = ev.channel;
@@ -278,12 +288,15 @@
         sig.send({ type: 'answer', from: me, sdp: pc.localDescription.toJSON() });
       } catch (e) { end(1006, 'falha na conexão com o anfitrião'); }
     });
-    const knockT = setTimeout(() => { if (!N.open) end(4004, 'nenhuma sala aberta com esse código'); }, 10000);
+    let knockT = 0;
     if (!sig) { end(4006, 'entre na sua conta para jogar online'); return conn; }
     sig.ready.then((ok) => {
       if (N.closed) return;
       if (!ok) { end(4006, 'o servidor de salas não respondeu — confira a internet'); return; }
-      sig.send({ type: 'knock', from: me });
+      const knock = () => sig.send({ type: 'knock', from: me });
+      knock();
+      knocking = setInterval(knock, KNOCK_EVERY);
+      knockT = setTimeout(() => { if (!pc) end(4004, 'nenhuma sala aberta com esse código — confira o código e se o anfitrião ainda está com a sala aberta'); }, FIND_MS);
     });
 
     conn.send = (m) => N.open && sendText(dc, typeof m === 'string' ? m : JSON.stringify(m));
