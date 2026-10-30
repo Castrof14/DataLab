@@ -4,7 +4,7 @@
 window.DATALAB_CONFIG = {
   supabaseUrl: 'https://YOUR-PROJECT-REF.supabase.co',
   supabasePublishableKey: 'sb_publishable_YOUR_PUBLISHABLE_KEY',
-  autosaveSeconds: 60,
+  autosaveSeconds: 30,
   // Spotify (compact in-game player): the app's PUBLIC Client ID from developer.spotify.com/dashboard.
   // OAuth with PKCE: there is NO client secret in this project; never paste one here. Empty = no player.
   spotifyClientId: 'YOUR_SPOTIFY_CLIENT_ID',

@@ -32,7 +32,7 @@
       D.crew.updatePlayer(patch);
     } else pushLook(D.crew.playerProfile);
     if (D.menu && D.menu.refresh) D.menu.refresh();
-    DL.SaveService.startAutosave((window.DATALAB_CONFIG || {}).autosaveSeconds || 60);
+    DL.SaveService.startAutosave((window.DATALAB_CONFIG || {}).autosaveSeconds || 30);
   }
 
   function signedOut() {

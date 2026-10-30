@@ -75,7 +75,7 @@
   }
   function viewSaves() {
     const active = DL.SaveService.slot;
-    let h = '<p class="acc-small">O servidor confere e precifica tudo a cada salvamento (automático a cada ' + ((window.DATALAB_CONFIG || {}).autosaveSeconds || 60) + ' s). Um <b>Novo jogo</b> ocupa o primeiro espaço livre.</p>' +
+    let h = '<p class="acc-small">O servidor confere e precifica tudo a cada salvamento (automático a cada ' + ((window.DATALAB_CONFIG || {}).autosaveSeconds || 30) + ' s e ao sair do jogo). Um <b>Novo jogo</b> ocupa o primeiro espaço livre.</p>' +
       (V.saves.error ? '<p class="acc-msg is-warn" role="status">' + esc(V.saves.error) + '</p>' : '') + '<ul class="acc-slots">';
     for (const n of [1, 2, 3]) {
       const s = V.saves.find((x) => x.slot === n && x.version > 0);

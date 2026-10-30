@@ -213,7 +213,7 @@
         if (opts.name) S.name = opts.name;
         const data = serialize(D, S.name);
         const claim = D.economy.takeClaim();
-        const r = await DL.Cloud.call('game', { action: 'save', slot: S.slot, data, claim, request_id: DL.Cloud.requestId() });
+        const r = await DL.Cloud.call('game', { action: 'save', slot: S.slot, data, claim, request_id: DL.Cloud.requestId() }, { keepalive: true });
         if (r.ok) {
           D.economy.resetClaim();
           D.economy.applyServer(r.data);
@@ -247,10 +247,19 @@
       return { ok: true, data: r.data, refused };
     },
     remove: (slot) => DL.Cloud.call('game', { action: 'delete', slot }),
-    // autosave while a cloud game is running
+    // autosave while a cloud game is running: on a timer (the game pauses in a hidden tab, so the timer
+    // skips it) and whenever the player leaves — switching tabs, minimizing, closing or reloading.
+    // Saves are sent with keepalive, so the one fired on exit still reaches the server.
     startAutosave(seconds) {
       clearInterval(S.timer);
-      S.timer = setInterval(() => { if (S.slot && DL.Cloud.signedIn && !document.hidden) this.save({}); }, Math.max(20, seconds || 60) * 1000);
+      S.timer = setInterval(() => { if (S.slot && DL.Cloud.signedIn && !document.hidden) this.save({}); }, Math.max(20, seconds || 30) * 1000);
+      if (!S.exitHooked) {
+        S.exitHooked = true;
+        // leaving right after a save adds nothing: a few seconds apart keeps quick tab switches from flooding the server
+        const onExit = () => { if (S.timer && S.slot && DL.Cloud.signedIn && Date.now() - S.last > 5000) this.save({}); };
+        document.addEventListener('visibilitychange', () => { if (document.hidden) onExit(); });
+        addEventListener('pagehide', onExit);
+      }
     },
     stopAutosave() { clearInterval(S.timer); S.timer = 0; },
   };

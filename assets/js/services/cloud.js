@@ -17,7 +17,7 @@
     network: 'Falha de rede: verifique a conexão e tente de novo.',
     internal: 'Erro no servidor. Tente de novo em instantes.',
   };
-  const C = { client: null, session: null, user: null, status: 'offline', listeners: {}, ready: null };
+  const C = { client: null, session: null, user: null, status: 'offline', listeners: {}, ready: null, url: '', key: '' };
 
   const emit = (ev, info) => (C.listeners[ev] || []).forEach((fn) => { try { fn(info); } catch (e) { console.error(e); } });
 
@@ -75,6 +75,7 @@
       return false;
     }
     try { await loadSdk(); } catch (e) { C.status = 'offline'; console.warn('DataLab: SDK do Supabase indisponível — jogando offline'); return false; }
+    C.url = url; C.key = key;
     C.client = window.supabase.createClient(url, key, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce', storageKey: 'datalab.auth' },
     });
@@ -105,11 +106,32 @@
     return 'O servidor do DataLab não respondeu a este site (' + location.host + '). Se persistir, o endereço do site precisa ser liberado no servidor (ALLOWED_ORIGINS).';
   }
 
+  // A request that survives the tab closing (fetch keepalive): the browser caps those bodies at 64 KB,
+  // so a bigger one goes the normal way. Same answer shape as call().
+  async function callKeepalive(fn, payload) {
+    const r = await fetch(C.url + '/functions/v1/' + fn, {
+      method: 'POST',
+      keepalive: true,
+      headers: { Authorization: 'Bearer ' + C.session.access_token, apikey: C.key, 'Content-Type': 'application/json' },
+      body: payload,
+    });
+    const info = await r.json().catch(() => null);
+    if (r.ok) return { ok: true, data: info };
+    if (r.status === 401) emit('expired', {});
+    const code = (info && info.error) || 'http_' + r.status;
+    return { ok: false, code, status: r.status, message: (info && info.message) || MESSAGES[code] || 'Erro no servidor (' + code + ').' };
+  }
+
   // Call an Edge Function. Always resolves: { ok: true, data } | { ok: false, code, message, status }
-  async function call(fn, body) {
+  // opts.keepalive: the request still reaches the server if the page is closing (saves on exit)
+  async function call(fn, body, opts) {
     if (!C.client) return { ok: false, code: 'offline', message: MESSAGES.offline, status: 0 };
     if (!C.user) return { ok: false, code: 'unauthorized', message: MESSAGES.unauthorized, status: 401 };
     try {
+      if (opts && opts.keepalive && C.session && C.session.access_token) {
+        const payload = JSON.stringify(body);
+        if (payload.length < 60000) return await callKeepalive(fn, payload);
+      }
       const { data, error } = await C.client.functions.invoke(fn, { body });
       if (!error) return { ok: true, data };
       let info = null, status = 0;
