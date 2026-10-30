@@ -15,8 +15,9 @@
   const KEY = 'datalab.inventory.v1';
   const OLD_SHOP = 'datalab.shop.v1';
   const SLOTS_INFRA = ['rack', 'server', 'switch', 'storage', 'rackacc', 'led'];
-  // slots kept in the inventory's equip map (one item each): infrastructure, accessories, the pet
-  const SLOTS_MAP = SLOTS_INFRA.concat(DL.GEAR_SLOTS);
+  // slots kept in the inventory's equip map (one item each): infrastructure, accessories, the pet and the
+  // terminal skin
+  const SLOTS_MAP = SLOTS_INFRA.concat(DL.GEAR_SLOTS, 'terminal');
   const isMapSlot = (slot) => SLOTS_MAP.indexOf(slot) >= 0;
   const SRC = { loja: 'Loja', evento: 'Evento', presente: 'Presente', recompensa: 'Recompensa', migrado: 'Loja (versão anterior)' };
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -182,6 +183,13 @@
       S.pending = true;
       promise.then((r) => {
         S.pending = false;
+        // an item the shop shows but the server's catalog lacks: the database is missing a migration
+        if (!r.ok && r.code === 'item_not_found') {
+          console.warn('DataLab: item da loja ausente no catálogo do servidor — aplique as migrations pendentes (supabase/migrations).');
+          game.toast('warn', 'Loja', 'Este item ainda não foi liberado no servidor. Seu Gold não foi descontado.');
+          changed();
+          return;
+        }
         if (!r.ok) { game.toast('warn', 'Servidor', r.message); changed(); return; }
         if (okText) game.toast('ok', okText[0], okText[1]);
       });
@@ -197,7 +205,8 @@
         D.equip[it.slot] = id;
         changed();
         const where = it.slot === 'pet' ? 'agora te segue pelo datacenter' : DL.GEAR_POS[it.slot] ? 'no seu personagem (' + DL.GEAR_POS[it.slot].toLowerCase() + ')'
-          : 'em todos os ' + ({ rack: 'racks', server: 'servidores', switch: 'switches', storage: 'storages', rackacc: 'racks', led: 'racks' })[it.slot] + ' do datacenter';
+          : it.slot === 'terminal' ? 'no console do jogo (abra um terminal para ver)'
+          : 'em todos os ' + ({ rack: 'racks, servidores e storages', server: 'servidores', switch: 'switches', storage: 'storages', rackacc: 'racks', led: 'racks' })[it.slot] + ' do datacenter';
         game.toast('ok', 'Equipado', it.name + ' · ' + where);
         return null;
       }
@@ -253,6 +262,21 @@
     const forSale = (it) => !it.gift && it.price > 0 && (!it.event || DL.eventActive(it.event));
     const sellValue = (it) => (it.sell === false || it.gift || !it.price ? 0 : Math.floor(it.price / 2));
     const activeBots = (id) => (crew ? crew.members.filter((a) => a.crew.legend === id).length : 0);
+    // cosmetic furniture (Cosméticos, slot 'furniture'): either in the map or kept in the inventory;
+    // demo.js places it through the build mode and puts it away
+    const isFurn = (it) => !!it && it.slot === 'furniture';
+    const placed = (id) => !!(game.cosmPlaced && game.cosmPlaced(id));
+    function place(id) {
+      const it = item(id);
+      if (!isFurn(it) || !owns(id)) return 'Você não tem este item';
+      if (!inPlay()) return 'Comece um jogo para colocar no mapa';
+      return game.placeCosmetic ? game.placeCosmetic(id) : 'Indisponível';
+    }
+    function putAway(id) {
+      const it = item(id);
+      if (!isFurn(it) || !placed(id)) return 'Não está no mapa';
+      return game.storeCosmetic ? game.storeCosmetic(id) : 'Indisponível';
+    }
 
     function canBuy(it) {
       if (!it) return 'Item desconhecido';
@@ -381,6 +405,33 @@
         else DL.drawItem(g, { kind: 'rack', units: PREVIEW_UNITS, unitModel: [], unitState: [], px: 16, py: 28, tw: 1, th: 1, rot: 0, seed: 3, skinOver: over }, t);
         return;
       }
+      if (it.slot === 'terminal') {
+        // a small console window wearing the skin: its colours, its live effect and a few lines
+        const L = DL.TERM_LOOK[it.value] || DL.TERM_LOOK.neon, x = 4, y = 8, w = 40, h = 32;
+        DL.R(g, x - 1, y - 1, w + 2, h + 2, '#05080f');
+        DL.R(g, x, y, w, h, L.bg);
+        DL.R(g, x, y, w, 5, L.bar);
+        DL.R(g, x + 2, y + 2, 1, 1, '#56657d'); DL.R(g, x + 4, y + 2, 1, 1, '#56657d'); DL.R(g, x + 6, y + 2, 1, 1, L.text);
+        g.save();
+        g.beginPath(); g.rect(x, y + 5, w, h - 5); g.clip();
+        g.translate(x, y + 5);
+        DL.termFx(g, it.value, w, h - 5, t);
+        g.restore();
+        [[2, 14, L.text], [4, 20, L.dim], [4, 11, L.dim], [2, 17, L.text]].forEach(([ind, len, c], i) => { DL.R(g, x + 2, y + 9 + i * 5, 1, 1, L.text); DL.R(g, x + 3 + ind, y + 9 + i * 5, len, 1, c); });
+        if (Math.floor(t * 2) % 2) DL.R(g, x + 3, y + 29, 3, 1, L.text);
+        return;
+      }
+      if (isFurn(it)) {
+        // the piece itself, drawn by cosm-furniture.js, standing on the card
+        const def = DL.CATALOG_DEF && DL.CATALOG_DEF[it.value];
+        if (!def) return;
+        const tw = def.w || 1, th = def.h || 1, wall = def.mount === 'wall';
+        const e = Object.assign({ kind: def.kind || def.id, defId: def.id, tw, th, rot: 0, seed: 5, wall, rug: !!def.rug }, def.set || {});
+        e.px = 24 - tw * 8;
+        e.py = def.rug ? 24 - th * 8 : wall ? 34 : 44 - th * 16;
+        DL.drawItem(g, e, t);
+        return;
+      }
       const C = DL.CHAR;
       if (it.slot === 'pet') {
         // twice the size: a pet is small next to a person; walking in the big preview, idle on the card
@@ -442,18 +493,20 @@
       if (it.cat === 'legend') { const a = activeBots(it.id); return a ? a + ' trabalhando' : ''; }
       if (it.slot === 'palette') return 'Ativa';
       if (it.slot === 'use') return '';
+      if (isFurn(it)) return placed(it.id) ? 'No mapa' : '';
       return isEquipped(it) ? 'Equipado' : '';
     }
     // the shop card's state: bought / equipped, or why it can't be bought yet
     function shopState(it) {
       if (it.free) return 'Equipado';
       if (!owns(it.id)) return broke(it) ? 'Sem moedas' : '';
+      if (isFurn(it)) return placed(it.id) ? 'No mapa' : 'No inventário';
       if (it.stack) return 'Você tem ' + qty(it.id);
       return equippable(it) ? (isEquipped(it) ? 'Equipado' : 'Comprado') : 'No inventário';
     }
     function card(it, mode, sel) {
       const n = qty(it.id), st = mode === 'inv' ? statusOf(it) : shopState(it);
-      return '<button type="button" class="st-card rar-' + it.rarity + (sel ? ' is-sel' : '') + (st === 'Equipado' || /trabalhando|Ativa/.test(st) ? ' is-eq' : '') + (mode === 'shop' && broke(it) ? ' is-broke' : '') + '" data-pick="' + it.id + '">' +
+      return '<button type="button" class="st-card rar-' + it.rarity + (sel ? ' is-sel' : '') + (st === 'Equipado' || st === 'No mapa' || /trabalhando|Ativa/.test(st) ? ' is-eq' : '') + (mode === 'shop' && broke(it) ? ' is-broke' : '') + '" data-pick="' + it.id + '">' +
         '<span class="st-card__art"><canvas data-art="' + it.id + '" aria-hidden="true"></canvas>' + (mode === 'inv' && n > 1 ? '<span class="st-qty">×' + n + '</span>' : '') + (it.event ? '<span class="st-ev">EVENTO</span>' : '') + '</span>' +
         '<span class="st-card__body"><b>' + esc(it.name) + '</b>' + rarTag(it) + '</span>' +
         '<span class="st-card__foot">' + (mode === 'shop' ? priceHtml(it) : '<span class="eyebrow-sm">' + esc(groupName(DL.groupOf(it))) + '</span>') + (st ? '<span class="st-state">' + esc(st) + '</span>' : '') + '</span></button>';
@@ -468,6 +521,8 @@
         const why = canBuy(it);
         // Comprar → Equipar → Equipado (stackable items keep buying more)
         if (it.gift) h += b('buy', owns(it.id) ? 'Resgatado' : 'Resgatar grátis', true, !!why, why);
+        // furniture: Comprar → Colocar no mapa → No mapa (and back to the inventory)
+        else if (owns(it.id) && isFurn(it)) h += placed(it.id) ? b('noop', 'No mapa', true, true, '', 'btn--done') + b('putaway', 'Guardar no inventário') : b('place', 'Colocar no mapa', true, !inPlay(), inPlay() ? '' : 'Comece um jogo para colocar');
         else if (owns(it.id) && !it.stack && equippable(it)) h += isEquipped(it) ? b('noop', 'Equipado', true, true, '', 'btn--done') : b('equip', 'Equipar', true);
         else if (ask === it.id && !why) h += b('confirm', 'Confirmar · ' + fmt(it.price) + ' Gold', true) + b('cancel', 'Cancelar');
         else if (why && /Faltam/.test(why)) h += b('ask', 'Moedas insuficientes', false, true, why, 'btn--broke');
@@ -477,6 +532,7 @@
         return h;
       }
       if (equippable(it)) h += isEquipped(it) ? b('unequip', 'Desequipar') : b('equip', 'Equipar', true);
+      if (isFurn(it)) h += placed(it.id) ? b('place', 'Mover no mapa') + b('putaway', 'Guardar no inventário') : b('place', 'Colocar no mapa', true, !inPlay(), inPlay() ? '' : 'Comece um jogo para colocar');
       if (it.slot === 'use') h += b('use', 'Usar', true, !inPlay(), inPlay() ? '' : 'Comece um jogo para usar');
       if (it.cat === 'legend') {
         const a = activeBots(it.id);
@@ -499,6 +555,9 @@
       h += '<dl class="st-detail__meta"><dt>Categoria</dt><dd>' + esc(groupName(DL.groupOf(it))) + '</dd>';
       if (DL.GEAR_POS[it.slot]) h += '<dt>Posição</dt><dd>' + DL.GEAR_POS[it.slot] + ' · funciona com qualquer skin</dd>';
       if (it.slot === 'pet') h += '<dt>Pet</dt><dd>Segue você pelo datacenter · um por vez</dd>';
+      if (it.slot === 'terminal') h += '<dt>Onde</dt><dd>No console de todos os servidores e switches · uma por vez</dd>';
+      if (it.slot === 'rack' && it.cat === 'equip') h += '<dt>Onde</dt><dd>Todos os racks, servidores e storages do datacenter</dd>';
+      if (isFurn(it)) h += '<dt>Onde</dt><dd>Modo construção (B) → Cosméticos · um de cada no mapa</dd>' + (owns(it.id) ? '<dt>Agora</dt><dd>' + (placed(it.id) ? 'No mapa' : 'Guardado no inventário') + '</dd>' : '');
       if (it.cat !== 'legend' && it.slot !== 'use' && it.slot) h += '<dt>Efeito</dt><dd>Só aparência — não muda desempenho</dd>';
       if (it.cat === 'legend') h += '<dt>Função</dt><dd>' + esc((DL.ROLES[it.bot.role] || {}).title || '') + ' + quase todas as outras · aprende em dobro · salário normal do cargo</dd>';
       if (ev) h += '<dt>Evento</dt><dd>' + esc(ev.name) + (DL.eventActive(it.event) ? ' · até ' + DL.eventEnds(it.event) : ' · encerrado em ' + DL.eventEnds(it.event)) + '</dd>';
@@ -536,12 +595,14 @@
     }
 
     /* ---------- the shop ---------- */
-    // Skins | Acessórios | Pets | Emotes, then the bots, the special items, an event (only while it has
-    // items on sale) and the Gold tab
+    // Skins | Acessórios | Pets | Emotes | Equipamentos | Cosméticos, then the bots, the special items, an
+    // event (only while it has items on sale) and the Gold tab
     const SHOP_TABS = [
-      ['skins', 'Skins'], ['acc', 'Acessórios'], ['pets', 'Pets'], ['emotes', 'Emotes'],
+      ['skins', 'Skins'], ['acc', 'Acessórios'], ['pets', 'Pets'], ['emotes', 'Emotes'], ['equip', 'Equipamentos'], ['decor', 'Cosméticos'],
       ['legend', 'Bots lendários'], ['special', 'Especiais'], ['event', 'Evento'], ['gold', 'Gold'],
     ];
+    // Equipamentos has two sections, each sorted on its own
+    const EQUIP_SECTIONS = [['Skins de hacks', 'terminal', 'O visual do console onde você digita os comandos. Só aparência.'], ['Skins de PCs e servidores', 'rack', 'Muda todos os racks, servidores e storages do datacenter.']];
     // most expensive first
     const shopOrder = (a, b) => b.price - a.price || a.name.localeCompare(b.name);
     function shopList(tab) {
@@ -552,10 +613,20 @@
       else if (tab === 'acc') list = all.filter((it) => it.cat === 'char' && !it.event && (DL.GEAR_POS[it.slot] || it.slot === 'hat'));
       else if (tab === 'pets') list = all.filter((it) => !it.event && it.slot === 'pet');
       else if (tab === 'emotes') return EMOTE_LIST.slice();
+      else if (tab === 'equip') return [].concat(...EQUIP_SECTIONS.map(([, slot]) => all.filter((it) => it.cat === 'equip' && !it.event && it.slot === slot).sort(shopOrder)));
+      else if (tab === 'decor') list = all.filter((it) => !it.event && it.slot === 'furniture');
       else if (tab === 'legend') list = all.filter((it) => it.cat === 'legend' && !it.event);
       else if (tab === 'special') list = all.filter((it) => it.cat === 'special' && !it.event);
       else list = [];
       return list.sort(shopOrder);
+    }
+    // the shop grid: Equipamentos shows its two sections with a title each
+    function shopGrid(tab, list, sel) {
+      if (tab !== 'equip') return list.map((it) => card(it, 'shop', it.id === sel)).join('');
+      return EQUIP_SECTIONS.map(([title, slot, note]) => {
+        const part = list.filter((it) => it.slot === slot);
+        return part.length ? '<div class="st-sec"><b>' + title + '</b><span>' + note + '</span></div>' + part.map((it) => card(it, 'shop', it.id === sel)).join('') : '';
+      }).join('');
     }
     function goldTabHtml() {
       const E = DL.ECON, W = wallet();
@@ -582,7 +653,7 @@
       const list = shopList(s.tab);
       if (s.sel && !list.some((it) => it.id === s.sel)) s.sel = null;
       if (!s.sel && list[0]) s.sel = list[0].id;
-      h += '<div class="st-main"><div class="st-grid">' + (list.map((it) => card(it, 'shop', it.id === s.sel)).join('') || '<p class="st-why">Nada à venda nesta categoria agora.</p>') + '</div>' +
+      h += '<div class="st-main"><div class="st-grid">' + (shopGrid(s.tab, list, s.sel) || '<p class="st-why">Nada à venda nesta categoria agora.</p>') + '</div>' +
         '<aside class="st-side" data-side>' + detailHtml(item(s.sel), 'shop', s.ask) + '</aside></div>';
       return h;
     }
@@ -670,6 +741,8 @@
           case 'unequip': fail(unequip(id)); break;
           case 'use': fail(use(id)); break;
           case 'activate': { const why = activate(id); fail(why); if (!why && opts && opts.onActivate) opts.onActivate(); break; }
+          case 'place': { const why = place(id); if (why) { fail(why); break; } return; }
+          case 'putaway': fail(putAway(id)); break;
           case 'store': fail(store(id)); break;
           case 'asksell': st.ask = 'sell:' + id; break;
           case 'sell': st.ask = null; fail(sell(id)); break;

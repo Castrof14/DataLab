@@ -345,6 +345,11 @@
 .st-detail__meta dt { color: var(--mute); font: 400 10px/1.4 var(--font-pixel-tiny); letter-spacing: 1px; }
 .st-detail__meta dd { color: var(--body); }
 .st-why { color: var(--mute); font: 400 18px/1.2 var(--font-pixel-small); }
+/* section titles inside a tab's grid (Equipamentos: hacks / PCs e servidores) */
+.st-sec { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; padding: 6px 2px 2px; border-bottom: 2px solid var(--st-steel); }
+.st-sec:not(:first-child) { margin-top: 10px; }
+.st-sec b { color: var(--st-accent); font: 400 22px/1.1 var(--font-pixel-small); }
+.st-sec span { color: var(--mute); font: 400 17px/1.2 var(--font-pixel-small); }
 .st-empty { color: var(--mute); font: 400 19px/1.25 var(--font-pixel-small); }
 .st-empty b { color: var(--ink); font: 400 24px/1.1 var(--font-pixel-small); }
 .st .btn,

@@ -1505,6 +1505,46 @@
     };
     const X = { open: false, dev: null, lesson: null, ran: new Set(), history: [], hi: -1, misses: 0, step: 0, onDone: null, helpOpen: false };
 
+    // The equipped terminal skin (Equipamentos · skins de hacks, cosmetics.js): colours by CSS
+    // (#terminal[data-skin]) and a live pixel effect on a small canvas behind the output. Only the look.
+    const fx = { cv: null, raf: 0, kind: '' };
+    function applySkin() {
+      const id = DL.Skins && DL.Skins.equipped.terminal, it = id && DL.cosmetic(id);
+      fx.kind = it ? it.value : '';
+      if (fx.kind) el.root.dataset.skin = fx.kind; else delete el.root.dataset.skin;
+      runFx();
+    }
+    function runFx() {
+      cancelAnimationFrame(fx.raf);
+      fx.raf = 0;
+      if (!fx.kind || !DL.termFx) { if (fx.cv) fx.cv.hidden = true; return; }
+      if (!fx.cv) {
+        fx.cv = document.createElement('canvas');
+        fx.cv.className = 'term__fx';
+        fx.cv.setAttribute('aria-hidden', 'true');
+        el.out.parentNode.insertBefore(fx.cv, el.out.parentNode.firstChild);
+      }
+      fx.cv.hidden = false;
+      if (!X.open) return;
+      let last = 0;
+      const step = (now) => {
+        fx.raf = 0;
+        if (!X.open || !fx.kind) return;
+        if (now - last > 66) {
+          last = now;
+          // a third of the screen resolution, scaled up pixelated: the effect stays pixel art
+          const host = fx.cv.parentNode, w = Math.max(1, Math.round(host.clientWidth / 3)), h = Math.max(1, Math.round(host.clientHeight / 3));
+          if (fx.cv.width !== w || fx.cv.height !== h) { fx.cv.width = w; fx.cv.height = h; }
+          const g = fx.cv.getContext('2d');
+          g.clearRect(0, 0, w, h);
+          DL.termFx(g, fx.kind, w, h, now / 1000);
+        }
+        fx.raf = requestAnimationFrame(step);
+      };
+      fx.raf = requestAnimationFrame(step);
+    }
+    game.on('inventory', applySkin);
+
     // which interpreter runs on this device: switch CLI, Windows Server (winserver.js) or Linux
     const isWin = (d) => !!(DL.isWin && DL.isWin(d));
     const shellOf = (d) => (d.kind === 'switch' ? swcli : isWin(d) ? DL.winShell : linux);
@@ -1812,6 +1852,7 @@
       renderMode();
       el.root.classList.add('is-open');
       X.open = true;
+      applySkin();
       renderSide();
       setTimeout(() => el.input.focus({ preventScroll: true }), 40);
     }
@@ -1819,6 +1860,8 @@
     function close() {
       if (!X.open) return;
       X.open = false;
+      cancelAnimationFrame(fx.raf);
+      fx.raf = 0;
       el.root.classList.remove('is-open');
       el.input.blur();
       if (X.dev && X.dev.kind === 'switch') { X.dev.sw.mode = 'user'; X.dev.sw.cur = null; }

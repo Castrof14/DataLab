@@ -108,6 +108,9 @@
     for (const it of rest.filter((x) => !x.host).concat(rest.filter((x) => x.host))) {
       let tx = it.tx, ty = it.ty;
       if (it.host) { const h = byUid.get(it.host); if (!h) { refused.push(it.def + ': sem mesa'); continue; } tx = h.tx + (it.dx | 0); ty = h.ty + (it.dy | 0); }
+      // cosmetic furniture comes back only while it is in the player's inventory (one of each)
+      const cdef = DL.CATALOG_DEF && DL.CATALOG_DEF[it.def];
+      if (cdef && cdef.cosm && (!DL.Inventory || !DL.Inventory.owns(it.def) || W.items.some((x) => x.defId === it.def))) { refused.push(it.def + ': cosmético fora do inventário'); continue; }
       const before = W.items.length;
       const why = A.place(it.def, tx, ty, it.rot || 0);
       if (why || W.items.length === before) { refused.push(it.def + '@' + tx + ',' + ty + ': ' + (why || '?')); continue; }

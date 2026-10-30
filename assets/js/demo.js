@@ -742,6 +742,22 @@
     setMode(b.dataset.mode === S.mode ? 'explore' : b.dataset.mode);
   }));
 
+  // cosmetic furniture from the shop (inventory.js → build.js): in the map or kept in the inventory
+  G.cosmPlaced = (id) => scene.world.items.some((e) => e.defId === id);
+  G.placeCosmetic = (id) => {
+    if (S.phase !== 'play') return 'Comece um jogo para colocar no mapa';
+    inventory.close();
+    setMode('build');
+    builder.choose(id);
+    return null;
+  };
+  G.storeCosmetic = (id) => {
+    const e = scene.world.items.find((x) => x.defId === id);
+    if (!e) return 'Não está no mapa';
+    builder.api.removeItem(e);
+    return null;
+  };
+
   function setCursor(c) { canvas.style.cursor = c || ''; }
 
   // keep the bottom of the map reachable above the build dock

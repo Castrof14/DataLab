@@ -99,6 +99,39 @@
   add({ id: 'pet_server', cat: 'char', slot: 'pet', value: 'server', name: 'Mini Servidor', rarity: 'epic', price: 160, desc: 'Um servidorzinho com perninhas e LEDs piscando. Corre atrás de você fazendo uptime.' });
   add({ id: 'pet_holodog', cat: 'char', slot: 'pet', value: 'holodog', name: 'Cachorro Holográfico', rarity: 'legendary', price: 260, desc: 'Cachorro feito de luz azul, com linhas de varredura e rabo que não para.' });
 
+  // --- Equipamentos · skins of the hacking tools: the look of the in-game terminal (slot 'terminal',
+  // terminal.js + DL.termFx below). Only the appearance: commands work the same.
+  add({ id: 'term_retro', cat: 'equip', slot: 'terminal', value: 'retro', name: 'Terminal Retrô', rarity: 'common', price: 40, desc: 'Tela de fósforo verde dos anos 80, com linhas de varredura e o brilho do tubo.' });
+  add({ id: 'term_neon', cat: 'equip', slot: 'terminal', value: 'neon', name: 'Terminal Neon Turquesa', rarity: 'rare', price: 70, desc: 'Letras turquesa com brilho de neon e borda acesa em volta do console.' });
+  add({ id: 'term_matrix', cat: 'equip', slot: 'terminal', value: 'matrix', name: 'Terminal Matrix', rarity: 'epic', price: 120, desc: 'Colunas de caracteres turquesa caindo no fundo enquanto você digita.' });
+  add({ id: 'term_skull', cat: 'equip', slot: 'terminal', value: 'skull', name: 'Terminal Caveira Pixel', rarity: 'epic', price: 140, desc: 'Uma caveira em pixel art no fundo do console, com os olhos piscando em azul.' });
+  add({ id: 'term_glitch', cat: 'equip', slot: 'terminal', value: 'glitch', name: 'Terminal Glitch', rarity: 'epic', price: 160, desc: 'O console treme de vez em quando e as cores falham em faixas azuis e turquesa.' });
+  add({ id: 'term_holo', cat: 'equip', slot: 'terminal', value: 'holo', name: 'Terminal Holográfico', rarity: 'legendary', price: 240, desc: 'Painel de luz azul meio transparente, com grade e uma linha de varredura subindo.' });
+
+  // --- Equipamentos · skins of the PCs and servers: every rack, the servers in it and every storage of
+  // the datacenter change look (slot 'rack'; a rack can still wear its own skin in build mode)
+  add({ id: 'm_retro', cat: 'equip', slot: 'rack', value: 'm_retro', name: 'PC Retrô', rarity: 'common', price: 60, desc: 'Gabinete bege dos anos 90, com grade de ventilação, selo azul e luz de força.' });
+  add({ id: 'm_led', cat: 'equip', slot: 'rack', value: 'm_led', name: 'Gabinete LED Turquesa', rarity: 'rare', price: 90, desc: 'Azul-marinho com trilhos de LED turquesa que pulsam devagar.' });
+  add({ id: 'm_armor', cat: 'equip', slot: 'rack', value: 'm_armor', name: 'Servidor Blindado', rarity: 'rare', price: 130, desc: 'Preto, coberto de placas de metal rebitadas. Aguenta qualquer incidente.' });
+  add({ id: 'm_glass', cat: 'equip', slot: 'rack', value: 'm_glass', name: 'PC Gamer de Vidro', rarity: 'epic', price: 180, desc: 'Lateral de vidro e coolers girando em turquesa, azul e cinza-azulado.' });
+  add({ id: 'm_cyber', cat: 'equip', slot: 'rack', value: 'm_cyber', name: 'Rack Cyberpunk', rarity: 'epic', price: 220, desc: 'Cabos pendurados pelos trilhos com uma luz correndo por dentro deles.' });
+  add({ id: 'm_crystal', cat: 'equip', slot: 'rack', value: 'm_crystal', name: 'Servidor Cristal', rarity: 'legendary', price: 300, desc: 'Transparente como vidro: dá para ver as placas e os LEDs lá dentro.' });
+
+  // --- Cosméticos: furniture and decoration for the datacenter (slot 'furniture'; the value is the build
+  // catalog entry, cosm-furniture.js). Bought here, placed in build mode → Cosméticos.
+  const FURN = (id, name, rarity, price, desc) => add({ id, cat: 'decor', slot: 'furniture', value: id, name, rarity, price, sell: false, desc });
+  FURN('cz_desk3', 'Mesa com 3 Monitores', 'rare', 150, 'Três telas com código rolando e uma faixa turquesa na mesa. Ocupa 2 tiles.');
+  FURN('cz_arcade', 'Fliperama', 'epic', 140, 'Gabinete azul-marinho com letreiro turquesa e um jogo da cobrinha na tela.');
+  FURN('cz_sign', 'Placa Neon DATALAB', 'epic', 130, 'O nome do jogo em neon turquesa, piscando de leve na parede do fundo.');
+  FURN('cz_fridge', 'Geladeira de Energético', 'rare', 100, 'Porta de vidro com três prateleiras de latas e um raio aceso no topo.');
+  FURN('cz_sofa', 'Sofá', 'rare', 90, 'Sofá azul-marinho de dois lugares com almofadas turquesa e azul.');
+  FURN('cz_chair', 'Cadeira Gamer', 'rare', 80, 'Concha azul-marinho com duas listras turquesa e apoio de cabeça.');
+  FURN('cz_lamp', 'Luminária Neon', 'uncommon', 60, 'Um anel de neon turquesa num pedestal. Ilumina o chão em volta.');
+  FURN('cz_coffee', 'Máquina de Café', 'uncommon', 55, 'Café na hora, com o visor aceso e vapor saindo da xícara.');
+  FURN('cz_codeart', 'Quadro com Código', 'uncommon', 50, 'Uma função emoldurada na parede, com o cursor piscando no fim.');
+  FURN('cz_rug', 'Tapete Pixel', 'common', 40, 'Tapete 2 × 2 com borda quadriculada e o prompt >_ no meio.');
+  FURN('cz_plant', 'Planta em Vaso', 'common', 25, 'Folhas em tons de turquesa num vaso azul-marinho que balançam de leve.');
+
   // --- Retired items (no longer sold or kept): their price is given back once, in Gold, to whoever had
   // them (inventory.js; the server does the same for accounts). Gifts were free: nothing to give back.
   DL.RETIRED_COSMETICS = {
@@ -158,7 +191,9 @@
     { id: 'acc', name: 'Acessórios', test: (it) => !!DL.GEAR_POS[it.slot] || it.slot === 'hat' },
     { id: 'pet', name: 'Pets', test: (it) => it.slot === 'pet' },
     { id: 'emote', name: 'Emotes', test: (it) => it.cat === 'emote' },
-    { id: 'rack', name: 'Skins de racks', test: (it) => it.slot === 'rack' },
+    { id: 'hack', name: 'Skins de hacks', test: (it) => it.slot === 'terminal' },
+    { id: 'rack', name: 'Skins de PCs e servidores', test: (it) => it.slot === 'rack' },
+    { id: 'decor', name: 'Cosméticos', test: (it) => it.slot === 'furniture' },
     { id: 'special', name: 'Itens especiais', test: (it) => it.cat === 'special' },
     { id: 'legend', name: 'Bots lendários', test: (it) => it.cat === 'legend' },
   ];
@@ -170,6 +205,7 @@
   // which catalog item is equipped per slot (inventory.js keeps it); `ver` bumps on every change
   DL.Skins = { equipped: {}, ver: 0 };
   const hue = (t, off, l) => 'hsl(' + ((((t * 80 + off) % 360) + 360) % 360).toFixed(0) + ',95%,' + (l || 60) + '%)';
+  const turqA = (a) => 'rgba(45,226,200,' + Math.max(0, Math.min(1, a)).toFixed(2) + ')';
 
   const FRAME = {
     clean: { cap: '#d9dde3', capHi: '#f4f6f8', frame: '#c9ced6', hi: '#eef0f3', dk: '#8d96a3', side: '#cfd4db', vent: '#aab2bd', accent: '#a0c3ec' },
@@ -181,13 +217,29 @@
     launch: { cap: '#141414', capHi: '#2c2c2c', frame: '#1a1a1a', hi: '#2c2c2c', dk: '#0a0a0a', side: '#161616', vent: '#0d0d0d', accent: '#ff7a17', pattern: 'stripe' },
     founder: { cap: '#e8ecef', capHi: '#ffffff', frame: '#dfe4e8', hi: '#ffffff', dk: '#9aa7b0', side: '#d6dde2', vent: '#b8c2c9', accent: '#5eead4', accent2: '#f2c14e', pattern: 'neon' },
     dev: { cap: '#0b0f0b', capHi: '#1d2a1d', frame: '#0e140e', hi: '#1f2f1f', dk: '#050705', side: '#0c110c', vent: '#081008', accent: '#39ff14', pattern: 'code' },
+    // Equipamentos · PCs and servers (the game's palette; the retro one is the beige of the 90s)
+    m_retro: { cap: '#cfc2a0', capHi: '#efe6cf', frame: '#d8cba8', hi: '#efe6cf', dk: '#8a7f66', side: '#c9bb97', vent: '#a39677', accent: '#3d7bd9', pattern: 'retro' },
+    m_led: { cap: '#0b1730', capHi: '#1a2b4d', frame: '#0b1730', hi: '#1a2b4d', dk: '#060d1c', side: '#0d1a33', vent: '#060d1c', accent: '#2de2c8', accent2: '#a5f7ea', pattern: 'pulse' },
+    m_armor: { cap: '#141a24', capHi: '#323d50', frame: '#181f2b', hi: '#56657d', dk: '#05080f', side: '#151b26', vent: '#0b0f17', accent: '#8797b0', pattern: 'plates' },
+    m_glass: { cap: '#0d1626', capHi: '#26344d', frame: '#111b2d', hi: '#26344d', dk: '#05080f', side: 'rgba(127,178,240,0.22)', vent: '#0b1220', accent: '#2de2c8', accent2: '#3d7bd9', pattern: 'glass' },
+    m_cyber: { cap: '#060d1c', capHi: '#1a2b4d', frame: '#0b1730', hi: '#21477f', dk: '#05080f', side: '#0b1428', vent: '#05080f', accent: '#2de2c8', accent2: '#3d7bd9', pattern: 'cables' },
+    m_crystal: { cap: 'rgba(127,178,240,0.55)', capHi: 'rgba(165,247,234,0.9)', frame: 'rgba(127,178,240,0.45)', hi: 'rgba(165,247,234,0.85)', dk: 'rgba(33,71,127,0.7)', side: 'rgba(127,178,240,0.25)', vent: 'rgba(165,247,234,0.35)', accent: '#2de2c8', accent2: '#7fb2f0', pattern: 'crystal' },
   };
+  // palette colours the glass PC's coolers cycle through
+  const COOLERS = ['#2de2c8', '#3d7bd9', '#8797b0', '#7fb2f0'];
+  const cooler = (t, k) => COOLERS[Math.floor(t * 1.5 + k) % COOLERS.length];
   const BEZEL = {
     clean: { hi: '#f4f6f8', body: '#d9dde3', mark: '#9aa3b0' },
     carbon: { hi: '#34343b', body: '#17171b', mark: '#26262c', checker: true },
     neon: { hi: '#00e5ff', body: '#0f1c26', mark: '#00a3b8' },
     cyber: { hi: '#ff2bd6', body: '#1f1235', mark: '#00e5ff' },
     gold: { hi: '#ffe08a', body: '#b8892f', mark: '#fff1b8' },
+    m_retro: { hi: '#efe6cf', body: '#d8cba8', mark: '#5a5244', slot: true },
+    m_led: { hi: '#2de2c8', body: '#0b1730', mark: '#14897a' },
+    m_armor: { hi: '#56657d', body: '#141a24', mark: '#8797b0', rivet: true },
+    m_glass: { hi: '#26344d', body: '#0d1626', mark: '#2de2c8', cycle: true },
+    m_cyber: { hi: '#3d7bd9', body: '#060d1c', mark: '#2de2c8' },
+    m_crystal: { hi: 'rgba(165,247,234,0.8)', body: 'rgba(127,178,240,0.3)', mark: '#2de2c8' },
   };
   const SWITCH = {
     clean: { hi: '#f4f6f8', body: '#cfd4db' },
@@ -204,10 +256,18 @@
     return id ? BY_ID[id] || null : null;
   }
   DL.skinOf = effective;
+  // the PC / server skins (Equipamentos, values m_*) dress the whole machine: the rack's frame, the
+  // server fronts inside it and the storages too
+  function machine(e) {
+    const it = effective(e, 'rack');
+    return it && it.value.indexOf('m_') === 0 ? it : null;
+  }
+  const serverSkin = (e) => effective(e, 'server') || machine(e);
+  const storageSkin = (e) => effective(e, 'storage') || machine(e);
   // part of iso.js' look cache key: a new skin means a new measured look
   DL.skinKey = function (e) {
-    if (e.kind === 'rack') return ['rack', 'server', 'switch', 'rackacc', 'led'].map((s) => { const it = effective(e, s); return it ? it.id : ''; }).join(',');
-    if (e.kind === 'storage') { const it = effective(e, 'storage'); return it ? it.id : ''; }
+    if (e.kind === 'rack') return ['rack', 'server', 'switch', 'rackacc', 'led'].map((s) => { const it = s === 'server' ? serverSkin(e) : effective(e, s); return it ? it.id : ''; }).join(',');
+    if (e.kind === 'storage') { const it = storageSkin(e); return it ? it.id : ''; }
     return '';
   };
 
@@ -223,6 +283,19 @@
     if (P.pattern === 'stripe') R(g, px, py - 19, 16, 1, P.accent);
     if (P.pattern === 'neon') { R(g, px, py - 19, 16, 1, P.accent2); R(g, px + 1, py - 24, 14, 1, P.accent); }
     if (P.pattern === 'rgb') for (let i = 0; i < 16; i++) R(g, px + i, py - 19, 1, 1, hue(t, i * 14));
+    // Equipamentos · PCs and servers
+    const glow = turqA(0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 2.2 + (e.seed || 0))));
+    if (P.pattern === 'retro') { R(g, px + 11, py - 22, 3, 2, P.accent); R(g, px + 2, py - 22, 1, 1, Math.sin(t * 2) > -0.6 ? '#2de2c8' : '#14897a'); }
+    if (P.pattern === 'pulse') R(g, px, py - 19, 16, 1, glow);
+    if (P.pattern === 'plates') { R(g, px + 1, py - 23, 1, 1, P.accent); R(g, px + 14, py - 23, 1, 1, P.accent); R(g, px + 8, py - 24, 1, 6, P.dk); }
+    if (P.pattern === 'glass') for (const fx of [px + 2, px + 9]) {
+      const a = Math.floor(t * 12) % 2, c = cooler(t, fx);
+      R(g, fx, py - 23, 5, 3, '#05080f');
+      R(g, fx + (a ? 1 : 2), py - 22, a ? 3 : 1, 1, c);
+      R(g, fx + 2, py - 23 + (a ? 1 : 0), 1, a ? 1 : 3, c);
+    }
+    if (P.pattern === 'cables') { R(g, px + 1, py - 19, 14, 1, P.accent2); R(g, px + 1 + Math.floor((t * 10) % 14), py - 19, 2, 1, P.accent); }
+    if (P.pattern === 'crystal') R(g, px + 3, py - 22, 10, 3, 'rgba(45,226,200,0.35)');
     if (e.tag) R(g, rot === 2 ? px + 12 : rot === 3 ? px + 1 : px + 12, py - 23, 3, 2, e.tag);
     if (rot === 1) return; // the rear door keeps its mesh; the cap already says which skin it is
     if (rot === 2 || rot === 3) {
@@ -233,6 +306,21 @@
       if (P.pattern === 'neon') R(g, px + 2, py + 10, 12, 1, P.accent);
       if (P.pattern === 'rgb') for (let i = 0; i < 12; i++) R(g, px + 2 + i, py + 10, 1, 1, hue(t, i * 20));
       if (P.pattern === 'shine') { const s = Math.floor((t * 9) % 40) - 6; if (s >= 0 && s < 12) R(g, px + 2 + s, py - 16, 1, 28, 'rgba(255,241,184,0.35)'); }
+      if (P.pattern === 'pulse' || P.pattern === 'cables') { R(g, px + 2, py + 10, 12, 1, glow); R(g, px + 2, py - 16, 12, 1, glow); }
+      if (P.pattern === 'plates') { R(g, px + 2, py - 2, 12, 1, P.dk); for (const [x, y] of [[3, -15], [12, -15], [3, 9], [12, 9], [3, -4], [12, -4]]) R(g, px + x, py + y, 1, 1, P.accent); }
+      if (P.pattern === 'retro') { R(g, px + 4, py + 6, 3, 2, P.accent); R(g, px + 9, py + 7, 3, 1, P.dk); }
+      if (P.pattern === 'glass') for (const [y, k] of [[-12, 0], [-1, 2]]) {
+        // two coolers seen through the side glass
+        R(g, px + 5, py + y, 6, 6, '#05080f');
+        const a = Math.floor(t * 12 + k) % 2, c = cooler(t, k);
+        R(g, px + 6 + (a ? 0 : 2), py + y + (a ? 2 : 1), a ? 4 : 1, a ? 1 : 4, c);
+        R(g, px + 6 + (a ? 2 : 0), py + y + (a ? 1 : 2), a ? 1 : 4, a ? 4 : 1, c);
+      }
+      if (P.pattern === 'crystal') {
+        // the boards and LEDs inside, through the glass
+        R(g, px + 4, py - 12, 7, 3, 'rgba(45,226,200,0.45)'); R(g, px + 5, py - 5, 6, 2, 'rgba(61,123,217,0.6)'); R(g, px + 4, py + 2, 8, 3, 'rgba(45,226,200,0.3)');
+        for (let i = 0; i < 3; i++) R(g, px + 5 + i * 2, py + 7, 1, 1, Math.sin(t * 5 + i) > 0 ? '#a5f7ea' : '#14897a');
+      }
       return;
     }
     // front: the frame around the unit opening
@@ -258,6 +346,30 @@
       R(g, px + 3, py - 22, 3, 1, P.accent);
       R(g, px + 7, py - 22, 1, 1, P.accent);
     }
+    if (P.pattern === 'pulse') { R(g, px + 1, py - 17, 1, 30, glow); R(g, px + 14, py - 17, 1, 30, glow); R(g, px + 2, py + 12, 12, 1, glow); }
+    if (P.pattern === 'plates') {
+      // metal plates bolted along the rails
+      R(g, px, py - 18, 16, 2, P.hi);
+      for (let y = py - 15; y < py + 12; y += 6) { R(g, px, y + 3, 2, 1, P.dk); R(g, px + 14, y + 3, 2, 1, P.dk); R(g, px + 1, y + 1, 1, 1, P.accent); R(g, px + 14, y + 1, 1, 1, P.accent); }
+    }
+    if (P.pattern === 'retro') { R(g, px + 1, py + 12, 14, 1, P.dk); R(g, px + 2, py + 12, 3, 1, P.accent); R(g, px + 12, py + 12, 1, 1, Math.sin(t * 2) > -0.6 ? '#2de2c8' : '#14897a'); }
+    if (P.pattern === 'glass') {
+      // glass door with a sheen sliding over it, coolers lighting the rails
+      R(g, px + 2, py - 16, 12, 28, 'rgba(127,178,240,0.08)');
+      const s = Math.floor((t * 8) % 36) - 6;
+      if (s >= 0 && s < 12) R(g, px + 2 + s, py - 16, 1, 28, 'rgba(165,247,234,0.18)');
+      R(g, px + 1, py - 17, 1, 30, cooler(t, 0)); R(g, px + 14, py - 17, 1, 30, cooler(t, 2));
+    }
+    if (P.pattern === 'cables') {
+      // a cable hanging along each rail, light running down inside it
+      const k = Math.floor((t * 14) % 34);
+      for (let y = 0; y < 30; y++) {
+        const sag = Math.round(Math.sin((y / 29) * Math.PI) * 1.5), lit = Math.abs(y - k) < 3;
+        R(g, px + 1 + sag, py - 17 + y, 1, 1, lit ? '#a5f7ea' : P.accent2);
+        R(g, px + 14 - sag, py - 17 + y, 1, 1, Math.abs(29 - y - k) < 3 ? '#a5f7ea' : P.accent);
+      }
+    }
+    if (P.pattern === 'crystal') { const y = Math.floor((t * 18) % 30); R(g, px + 1, py - 17 + y, 1, 2, 'rgba(255,255,255,0.75)'); R(g, px + 14, py + 12 - y, 1, 2, 'rgba(255,255,255,0.6)'); }
     if (P.pattern === 'shine') {
       // a glint that runs around the gold frame
       const n = 92, k = Math.floor((t * 22) % n);
@@ -272,7 +384,7 @@
   // server bezels / switch bodies inside a modular rack (front view only)
   function paintUnits(g, e, t) {
     if ((e.rot | 0) !== 0) return;
-    const sv = effective(e, 'server'), sw = effective(e, 'switch');
+    const sv = serverSkin(e), sw = effective(e, 'switch');
     if (!sv && !sw) return;
     const px = e.px, py = e.py;
     for (let k = 0; k < 9; k++) {
@@ -286,6 +398,9 @@
         R(g, px + 4, uy, 6, 1, B.hi);
         R(g, px + 4, uy + 1, 6, 1, B.body);
         if (B.checker) for (let i = 0; i < 6; i += 2) R(g, px + 4 + i, uy + 1, 1, 1, B.mark);
+        else if (B.slot) R(g, px + 5, uy + 1, 4, 1, B.mark); // a floppy slot
+        else if (B.rivet) { R(g, px + 4, uy + 1, 1, 1, B.mark); R(g, px + 9, uy + 1, 1, 1, B.mark); }
+        else if (B.cycle) R(g, px + 5, uy + 1, 3, 1, cooler(t, k));
         else R(g, px + 5, uy + 1, 3, 1, B.mark);
         R(g, px + 11, uy, 1, 2, B.body);
       } else if (u === 'switch' && sw) {
@@ -352,7 +467,7 @@
   }
 
   function paintStorage(g, e, t) {
-    const it = effective(e, 'storage');
+    const it = storageSkin(e);
     if (!it) return;
     const P = FRAME[it.value];
     if (!P) return;
@@ -1253,6 +1368,92 @@
       }
     } else if (L.outfit === 'hx_bot' && a.dir === 'down' && !a.moving && Math.floor(t * 2.5) % 2) {
       R(g, X - 1, top + 4, 2, 1, HX.screen);
+    }
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Terminal skins (Equipamentos · skins de hacks): colours + a live     */
+  /* pixel effect behind the console (terminal.js) and in the shop        */
+  /* ------------------------------------------------------------------ */
+  DL.TERM_LOOK = {
+    retro: { bg: '#03110a', bar: '#0b2416', text: '#5dff9d', dim: '#2a9c5c' },
+    neon: { bg: '#050c18', bar: '#0b1730', text: '#2de2c8', dim: '#14897a' },
+    matrix: { bg: '#020a0c', bar: '#06121a', text: '#a5f7ea', dim: '#14897a' },
+    skull: { bg: '#060a14', bar: '#0b1730', text: '#7fb2f0', dim: '#3d7bd9' },
+    glitch: { bg: '#070b16', bar: '#1a2b4d', text: '#2de2c8', dim: '#3d7bd9' },
+    holo: { bg: '#0a1c36', bar: '#21477f', text: '#a5f7ea', dim: '#7fb2f0' },
+  };
+  // 3×3 glyphs for the falling code
+  const GLYPHS = ['111101111', '010111010', '110011110', '101010101', '111010010', '011110011'];
+  const SKULL = ['..XXXXXX..', '.XXXXXXXX.', 'XXXXXXXXXX', 'XX..XX..XX', 'XX..XX..XX', 'XXXXXXXXXX', '.XXX..XXX.', '..XXXXXX..', '..X.XX.X..', '..XXXXXX..'];
+  // draws the effect of a terminal skin over a w×h pixel area (transparent where there is nothing)
+  DL.termFx = function (g, kind, w, h, t) {
+    const hash = DL.hash;
+    switch (kind) {
+      case 'matrix':
+        for (let c = 0; c * 4 < w; c++) {
+          const sp = 7 + hash(c * 13 + 1) * 12, len = 5 + Math.floor(hash(c * 7 + 2) * 8);
+          const head = Math.floor((t * sp + hash(c * 31 + 3) * (h + 60)) % (h + len * 4));
+          for (let i = 0; i < len; i++) {
+            const y = head - i * 4;
+            if (y < 0 || y + 3 > h) continue;
+            const gl = GLYPHS[Math.floor(hash(c * 101 + Math.floor(y / 4) * 17 + Math.floor(t * 2)) * GLYPHS.length)];
+            g.fillStyle = i === 0 ? 'rgba(165,247,234,0.55)' : 'rgba(45,226,200,' + (0.32 * (1 - i / len)).toFixed(3) + ')';
+            for (let p = 0; p < 9; p++) if (gl[p] === '1') g.fillRect(c * 4 + (p % 3), y + Math.floor(p / 3), 1, 1);
+          }
+        }
+        return;
+      case 'glitch': {
+        const n = Math.floor(t * 9);
+        if (hash(n * 7) < 0.45) {
+          const bands = 1 + Math.floor(hash(n * 11) * 3);
+          for (let b = 0; b < bands; b++) {
+            const y = Math.floor(hash(n * 13 + b * 5) * h), bh = 1 + Math.floor(hash(n * 17 + b) * 4), off = Math.floor((hash(n * 19 + b) - 0.5) * 24);
+            g.fillStyle = b % 2 ? 'rgba(61,123,217,0.28)' : 'rgba(45,226,200,0.22)';
+            g.fillRect(Math.max(0, off), y, w, bh);
+            g.fillStyle = 'rgba(165,247,234,0.35)';
+            g.fillRect(Math.floor(hash(n * 23 + b) * w), y, 2 + Math.floor(hash(n * 29 + b) * 10), 1);
+          }
+        }
+        return;
+      }
+      case 'holo': {
+        g.fillStyle = 'rgba(127,178,240,0.07)';
+        for (let x = 0; x < w; x += 8) g.fillRect(x, 0, 1, h);
+        for (let y = 0; y < h; y += 8) g.fillRect(0, y, w, 1);
+        const y = h - Math.floor((t * 22) % (h + 6));
+        g.fillStyle = 'rgba(165,247,234,0.16)';
+        g.fillRect(0, y, w, 2);
+        g.fillStyle = 'rgba(165,247,234,0.06)';
+        g.fillRect(0, y + 2, w, 4);
+        return;
+      }
+      case 'retro': {
+        g.fillStyle = 'rgba(0,0,0,0.28)';
+        for (let y = 0; y < h; y += 2) g.fillRect(0, y, w, 1);
+        const y = Math.floor((t * 12) % (h + 10)) - 10;
+        g.fillStyle = 'rgba(93,255,157,0.05)';
+        g.fillRect(0, y, w, 10);
+        return;
+      }
+      case 'skull': {
+        const k = Math.max(2, Math.floor(Math.min(w, h) / 22)), sx = w - 10 * k - k * 2, sy = h - 10 * k - k * 2, on = Math.sin(t * 2.2) > 0.2;
+        SKULL.forEach((row, r) => {
+          for (let c = 0; c < 10; c++) {
+            const eye = (r === 3 || r === 4) && (c === 2 || c === 3 || c === 6 || c === 7);
+            if (row[c] === 'X') { g.fillStyle = 'rgba(45,226,200,0.11)'; g.fillRect(sx + c * k, sy + r * k, k, k); }
+            else if (eye && on) { g.fillStyle = 'rgba(61,123,217,0.55)'; g.fillRect(sx + c * k, sy + r * k, k, k); }
+          }
+        });
+        return;
+      }
+      case 'neon': {
+        const a = 0.35 + 0.25 * Math.sin(t * 2.4);
+        g.fillStyle = 'rgba(45,226,200,' + a.toFixed(3) + ')';
+        g.fillRect(0, 0, w, 1); g.fillRect(0, h - 1, w, 1); g.fillRect(0, 0, 1, h); g.fillRect(w - 1, 0, 1, h);
+        g.fillStyle = 'rgba(45,226,200,' + (a * 0.35).toFixed(3) + ')';
+        g.fillRect(1, 1, w - 2, 1); g.fillRect(1, h - 2, w - 2, 1); g.fillRect(1, 1, 1, h - 2); g.fillRect(w - 2, 1, 1, h - 2);
+      }
     }
   };
 

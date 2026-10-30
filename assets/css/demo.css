@@ -1166,6 +1166,43 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
 .term__p { color: var(--breeze); white-space: nowrap; }
 .term__line { display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid rgba(255, 255, 255, 0.04); font: 400 13px/20px var(--font-mono); }
 .term__line input { flex: 1; min-width: 0; border: 0; outline: none; background: transparent; color: var(--ink); font: inherit; caret-color: var(--signal); }
+
+/* terminal skins (shop → Equipamentos → Skins de hacks; terminal.js sets data-skin, cosmetics.js draws the effect) */
+#terminal[data-skin] .term__main { position: relative; }
+.term__fx { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; pointer-events: none; z-index: 0; }
+.term__main > .term__bar, .term__main > .term__out, .term__main > .term__line { position: relative; z-index: 1; }
+#terminal[data-skin="retro"] .term__main { background: #03110a; }
+#terminal[data-skin="retro"] .term__bar { background: #0b2416; }
+#terminal[data-skin="retro"] .term__out, #terminal[data-skin="retro"] .term__line input, #terminal[data-skin="retro"] .term__out b { color: #5dff9d; text-shadow: 0 0 4px rgba(93, 255, 157, 0.45); }
+#terminal[data-skin="retro"] .term__p, #terminal[data-skin="retro"] .term__out .ok { color: #b6ffd2; }
+#terminal[data-skin="retro"] .term__out .m { color: #2a9c5c; }
+#terminal[data-skin="neon"] .term { border-color: #2de2c8; box-shadow: 0 0 22px rgba(45, 226, 200, 0.28); }
+#terminal[data-skin="neon"] .term__main { background: #050c18; }
+#terminal[data-skin="neon"] .term__bar { background: #0b1730; }
+#terminal[data-skin="neon"] .term__out, #terminal[data-skin="neon"] .term__line input, #terminal[data-skin="neon"] .term__out b, #terminal[data-skin="neon"] .term__p { color: #2de2c8; text-shadow: 0 0 6px rgba(45, 226, 200, 0.6); }
+#terminal[data-skin="neon"] .term__out .m { color: #14897a; text-shadow: none; }
+#terminal[data-skin="matrix"] .term__main { background: #020a0c; }
+#terminal[data-skin="matrix"] .term__bar { background: #06121a; }
+#terminal[data-skin="matrix"] .term__out, #terminal[data-skin="matrix"] .term__line input, #terminal[data-skin="matrix"] .term__out b { color: #a5f7ea; }
+#terminal[data-skin="matrix"] .term__p { color: #2de2c8; }
+#terminal[data-skin="skull"] .term__main { background: #060a14; }
+#terminal[data-skin="skull"] .term__bar { background: #0b1730; }
+#terminal[data-skin="skull"] .term__out, #terminal[data-skin="skull"] .term__line input, #terminal[data-skin="skull"] .term__out b { color: #c4dcf7; }
+#terminal[data-skin="skull"] .term__p { color: #7fb2f0; }
+#terminal[data-skin="glitch"] .term__main { background: #070b16; }
+#terminal[data-skin="glitch"] .term__bar { background: #1a2b4d; }
+#terminal[data-skin="glitch"] .term__out, #terminal[data-skin="glitch"] .term__line input, #terminal[data-skin="glitch"] .term__out b { color: #a5f7ea; text-shadow: 1px 0 rgba(61, 123, 217, 0.7), -1px 0 rgba(45, 226, 200, 0.5); }
+#terminal[data-skin="glitch"] .term__p { color: #2de2c8; }
+#terminal[data-skin="glitch"] .term__out { animation: term-glitch 3.4s steps(1) infinite; }
+@keyframes term-glitch { 0%, 90%, 100% { transform: none; } 91% { transform: translateX(-2px); } 93% { transform: translateX(2px); } 95% { transform: translate(-1px, 1px); } }
+#terminal[data-skin="holo"] .term { border-color: #7fb2f0; box-shadow: 0 0 26px rgba(127, 178, 240, 0.3); }
+#terminal[data-skin="holo"] .term__main { background: linear-gradient(180deg, rgba(10, 28, 54, 0.92), rgba(6, 18, 36, 0.86)); }
+#terminal[data-skin="holo"] .term__bar { background: rgba(33, 71, 127, 0.55); }
+#terminal[data-skin="holo"] .term__out, #terminal[data-skin="holo"] .term__line input, #terminal[data-skin="holo"] .term__out b, #terminal[data-skin="holo"] .term__p { color: #a5f7ea; text-shadow: 0 0 5px rgba(127, 178, 240, 0.55); }
+@media (prefers-reduced-motion: reduce) {
+  .term__fx { display: none; }
+  #terminal[data-skin="glitch"] .term__out { animation: none; }
+}
 .term__side { display: flex; flex-direction: column; gap: 10px; padding: var(--s-lg); border-left: 1px solid var(--hairline); overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--canvas-mid) transparent; }
 .term__goal { font-size: 14px; line-height: 20px; color: var(--body); }
 .term__steps { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--hairline); }

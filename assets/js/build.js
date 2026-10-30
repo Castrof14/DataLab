@@ -673,6 +673,8 @@
   for (const d of (DL.HW_CATALOG || []).concat(DL.FURN_CATALOG || [], DL.DECO_CATALOG || [], DL.PROPS_CATALOG || [])) CATALOG.push(d);
   const THEME_PRICE = { rug_robot: 300, rug_claude: 300, rug_gpt: 300, rug_rgb: 450, poster: 60, neon: 250, clock: 70, arcade: 2500, beanbag: 180, ledtube: 160, pcgamer: 3800, hologram: 1900, toolcart: 650, bonsai: 90, banner: 220 };
   for (const d of DL.DECOR_CATALOG || []) CATALOG.push(Object.assign({ price: THEME_PRICE[d.id] || 100 }, d));
+  // the shop's cosmetic furniture (cosm-furniture.js): bought with Gold, placed for free
+  for (const d of DL.COSM_CATALOG || []) CATALOG.push(d);
   // everything turns (rack units live inside a rack, so they don't)
   for (const d of CATALOG) if (d.rot == null) d.rot = d.mount !== 'rack';
   const DEF = {};
@@ -702,7 +704,7 @@
   const BANDS_EQUIP = [[2000, 2], [5000, 4], [15000, 6], [40000, 8]];
   const BANDS_OTHER = [[400, 2], [900, 4], [2000, 6]];
   DL.unlockLevel = function (def) {
-    if (!def || def.cat === 'wall') return 1;
+    if (!def || def.cat === 'wall' || def.cosm) return 1;
     if (UNLOCK[def.id]) return UNLOCK[def.id];
     const p = def.price || 0;
     for (const [max, lvl] of def.cat === 'equip' ? BANDS_EQUIP : BANDS_OTHER) if (p <= max) return lvl;
@@ -871,6 +873,14 @@
       return game.lockReason ? game.lockReason(e) : null;
     }
 
+    // cosmetic furniture (the shop's Cosméticos tab, cosm-furniture.js): placed only once bought, one of
+    // each in the map; the shop item has the def's id
+    const isCosm = (e) => { const d = e && ((e.defId && DEF[e.defId]) || DEF[e.kind]); return !!(d && d.cosm); };
+    function cosmState(def) {
+      if (world.items.some((x) => x.defId === def.id)) return 'placed';
+      return DL.Inventory && DL.Inventory.owns(def.id) ? 'free' : 'locked';
+    }
+
     function actorCells(skip) {
       const set = new Set();
       for (const a of game.actors()) {
@@ -908,6 +918,21 @@
           if (layer.has(k)) return 'Espaço ocupado';
           if (!isRug(e) && people.has(k)) return 'Tem alguém neste lugar';
         }
+      }
+      // cosmetic furniture never stands where the crew works on the equipment: in front of a rack,
+      // a storage or the precision air (the side its front faces)
+      const standing = group.filter((e) => isCosm(e) && !e.wall && !isRug(e));
+      if (standing.length) {
+        const front = new Set();
+        for (const r of world.items) {
+          if (exclude.has(r) || (r.kind !== 'rack' && r.kind !== 'storage' && r.kind !== 'crac')) continue;
+          const o = r.rot | 0;
+          for (let j = 0; j < r.th; j++) for (let i = 0; i < r.tw; i++) {
+            const x = r.tx + i, y = r.ty + j;
+            front.add(o === 0 ? x + ',' + (r.ty + r.th) : o === 1 ? x + ',' + (r.ty - 1) : o === 2 ? (r.tx + r.tw) + ',' + y : (r.tx - 1) + ',' + y);
+          }
+        }
+        for (const e of standing) for (const [x, y] of cells(e)) if (front.has(x + ',' + y)) return 'Deixe a frente dos racks e servidores livre';
       }
       return null;
     }
@@ -1063,6 +1088,8 @@
       if (e.chair) world.items.push(e.chair);
       commit({ added: groupOf(e) });
       game.sfx('place');
+      // a cosmetic is one of a kind: placed, it leaves the catalog's "no inventário" state
+      if (def.cosm && !B.free) { B.def = null; B.ghost = null; select(e); syncUi(); renderCatalogSoon(); game.emit('inventory', { placed: def.id }); }
     }
 
     function removeItem(e) {
@@ -1081,6 +1108,11 @@
       commit({ removed: group });
       refund(back, DL.itemName(e));
       game.sfx('remove');
+      if (isCosm(e)) {
+        game.toast('info', 'Guardado', DL.itemName(e) + ' voltou para o inventário');
+        renderCatalogSoon();
+        game.emit('inventory', { stored: e.defId });
+      }
     }
 
     function removeUnit(r) {
@@ -1743,7 +1775,15 @@
         const s = document.createElement('span');
         s.textContent = def.name;
         b.appendChild(s);
-        if (lock) {
+        if (def.cosm) {
+          // bought in the shop (Gold) → placed here for free, one of each
+          const st = cosmState(def), p = document.createElement('em');
+          p.className = 'cat-item__price' + (st === 'free' ? ' is-free' : st === 'locked' ? ' is-lock' : '');
+          p.textContent = st === 'free' ? 'No inventário' : st === 'placed' ? 'No mapa' : '🔒 Loja';
+          b.appendChild(p);
+          if (st === 'locked') b.classList.add('is-locked');
+          b.title = def.desc + (st === 'locked' ? ' · compre na Loja (O), aba Cosméticos' : st === 'placed' ? ' · já está no mapa: selecione para mover, girar ou guardar' : ' · clique e depois clique no chão');
+        } else if (lock) {
           const p = document.createElement('em');
           p.className = 'cat-item__price is-lock';
           p.textContent = '🔒 Nível ' + lock;
@@ -1845,7 +1885,8 @@
         h += '<div class="insp__actions">';
         h += '<button type="button" class="btn btn--sm" data-ins="move">Mover <kbd>M</kbd></button>';
         if (canTurn(e)) h += '<button type="button" class="btn btn--sm" data-ins="rotate" title="' + (e.kind === 'door' ? 'Troca o lado da dobradiça e da abertura' : DL.ROT_LABEL[e.rot | 0]) + '">Girar <kbd>R</kbd></button>';
-        h += '<button type="button" class="btn btn--sm" data-ins="remove">Remover <kbd>Del</kbd></button></div>';
+        h += '<button type="button" class="btn btn--sm" data-ins="remove">' + (isCosm(e) ? 'Guardar no inventário' : 'Remover') + ' <kbd>Del</kbd></button></div>';
+        if (isCosm(e)) h += '<p class="insp__note">Cosmético da loja · guardado, volta para o inventário e pode ser colocado de novo</p>';
         if (e.kind === 'door') {
           h += '<p class="insp__note">' + (e.axis === 'h' ? 'Parede horizontal' : 'Parede vertical') + ' · abre sozinha quando alguém chega · <button type="button" class="linkbtn" data-ins="hold">' + (e.hold ? 'deixar fechar' : 'manter aberta') + '</button></p>';
         }
@@ -1943,6 +1984,19 @@
       const def = DEF[id];
       const lock = lockedLevel(def);
       if (lock) { nope(def.name + ' libera no nível ' + lock + ' da carreira'); return; }
+      if (def.cosm && B.def !== def) {
+        const st = cosmState(def);
+        if (st === 'locked') { nope(def.name + ': compre na Loja (O), aba Cosméticos'); return; }
+        if (st === 'placed') {
+          // already on the map: select it, so it can be moved, turned or put away
+          const e = world.items.find((x) => x.defId === def.id);
+          B.def = null; B.ghost = null;
+          select(e);
+          if (e) game.focus(e.px + e.tw * 8, e.py + e.th * 8);
+          syncUi();
+          return;
+        }
+      }
       B.def = B.def === def ? null : def;
       B.rot = 0;
       B.ghost = null;
@@ -2076,7 +2130,8 @@
       pointerMove(sx, sy);
       const m = B.mouse;
       if (B.move) { dropMove(); return; }
-      if (B.def) { place(); B.ghost = ghostAt(m.wx, m.wy); return; }
+      // (a cosmetic leaves the hand once placed: no ghost to follow the mouse then)
+      if (B.def) { place(); if (B.def) B.ghost = ghostAt(m.wx, m.wy); return; }
       if (B.tab === 'room') {
         const tx = Math.floor(m.wx / T), ty = Math.floor(m.wy / T);
         if (B.roomTool === 'draw') { B.draw = { x0: tx, y0: ty, x1: tx, y1: ty }; B.previewKey = ''; roomPreview(); return; }
@@ -2428,6 +2483,8 @@
       if (B.def && lockedLevel(B.def)) cancelPlace();
       renderCatalogSoon();
     });
+    // a cosmetic bought (or the account's inventory arriving) changes what the Cosméticos tab offers
+    game.on('inventory', () => { if (B.tab === 'cosm') renderCatalogSoon(); });
 
     return {
       get active() { return B.active; },

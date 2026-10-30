@@ -5,8 +5,9 @@ import { serve, json, readJson, str, optUuid, ITEM_ID, HttpError } from '../_sha
 import { requireUser } from '../_shared/auth.ts';
 import { sql, rateLimit } from '../_shared/db.ts';
 
-// the hacker collection adds the accessory positions and the pet (migration 20261030000200)
-const SLOT = /^(rack|server|switch|storage|rackacc|led|shirt|pants|hair|hat|shades|scarf|backpack|chain|head|face|neck|back|hands|pet)$/;
+// the hacker collection adds the accessory positions and the pet (migration 20261030000200), the
+// Equipamentos tab the terminal skin (migration 20261031000100)
+const SLOT = /^(rack|server|switch|storage|rackacc|led|shirt|pants|hair|hat|shades|scarf|backpack|chain|head|face|neck|back|hands|pet|terminal)$/;
 
 serve(async (req) => {
   const user = await requireUser(req);
