@@ -1948,7 +1948,7 @@
         if (mu.dataset.k !== mk) {
           mu.dataset.k = mk;
           mu.classList.toggle('is-playing', m.playing);
-          mu.innerHTML = '<span class="cc__cover" style="background:linear-gradient(135deg,' + m.colors[0] + ',' + m.colors[1] + ')" aria-hidden="true">♪</span>' +
+          mu.innerHTML = '<img class="cc__cover" src="' + DL.BotMusic.cover(m.title, m.genre) + '" alt="" aria-hidden="true">' +
             '<span class="cc__mmeta"><span class="cc__mtitle">' + esc(m.title) + '</span><span class="cc__martist">' + esc(m.artist) + ' · ' + esc(m.genre) + '</span></span>' +
             '<span class="eyebrow-sm cc__mstate">' + (m.playing ? 'Ouvindo' : 'Pausado') + '</span>' +
             '<span class="cc__mbar"><i data-live="mbar"></i></span><span class="cc__mtime" data-live="mtime"></span>';

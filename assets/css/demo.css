@@ -634,9 +634,9 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
 
 .crew-card { width: 268px; }
 /* the bot's simulated music (bot-music.js): cover, song, artist · genre, progress */
-.cc__music { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 8px; row-gap: 5px; align-items: center; margin-top: 8px; padding: 6px 8px; border: 1px solid var(--hairline); background: rgba(255, 255, 255, 0.03); transition: border-color 0.3s var(--ease); }
+.cc__music { display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 8px; row-gap: 5px; align-items: center; margin-top: 8px; padding: 6px 8px; border: 1px solid var(--hairline); background: rgba(255, 255, 255, 0.03); transition: border-color 0.3s var(--ease); }
 .cc__music.is-playing { border-color: rgba(30, 215, 96, 0.4); }
-.cc__cover { grid-row: 1 / 3; width: 32px; height: 32px; display: grid; place-items: center; font-size: 15px; color: rgba(255, 255, 255, 0.9); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.cc__cover { grid-row: 1 / 3; display: block; width: 36px; height: 36px; image-rendering: pixelated; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08); }
 .cc__music.is-playing .cc__cover { animation: cc-beat 0.9s ease-in-out infinite; }
 @keyframes cc-beat { 50% { filter: brightness(1.25); } }
 .cc__mmeta { display: grid; gap: 2px; min-width: 0; }
