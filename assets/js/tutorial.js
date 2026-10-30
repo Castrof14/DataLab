@@ -20,7 +20,7 @@
     const count = (kind) => world().items.filter((e) => e.kind === kind).length;
     const mine = () => sys.ops.devices().filter((d) => d.kind === 'server' && !d.pre);
     const toBuild = () => ({ act: 'Aperte <kbd>B</kbd> ou clique em <b>Construir</b>', guide: '[data-mode="build"]' });
-    const toOps = () => ({ act: 'Abra o painel <b>Tarefas</b> no topo da tela', guide: '#opsBtn' });
+    const toOps = () => ({ act: 'Abra <b>Operações → Tarefas</b> no topo da tela', guide: '#opsBtn' });
     const infra = () => sys.infra;
     // whatever covers the screen has to be closed before the next window is opened
     function closeFirst() {
@@ -31,7 +31,7 @@
     }
     function toInfra() {
       if (infra().isOpen) return null;
-      return closeFirst() || { act: 'Aperte <kbd>I</kbd> ou clique em <b>Infra</b> no topo', guide: '#infraBtn' };
+      return closeFirst() || { act: 'Aperte <kbd>I</kbd> ou abra <b>Operações → Infra</b> no topo', guide: '#infraBtn' };
     }
 
     // Rede: the port of the player's server goes err-disabled on purpose (the game is paused during the
@@ -128,7 +128,7 @@
         done: () => sys.monitor.opened > start.mon && mine().some((d) => d.state === 'online'),
         how() {
           if (sys.terminal.isOpen) return { act: 'Feche o terminal (<kbd>Esc</kbd>)', guide: '#termClose' };
-          return { act: 'Aperte <kbd>M</kbd> ou clique em <b>Monitor</b> no topo', guide: '#monBtn' };
+          return { act: 'Aperte <kbd>M</kbd> ou abra <b>Operações → Monitor</b> no topo', guide: '#monBtn' };
         },
       },
       {
@@ -234,7 +234,10 @@
     }
 
     function drawSpot() {
-      const node = U.on && !U.done && U.guide && U.guide.isConnected ? U.guide : null;
+      let node = U.on && !U.done && U.guide && U.guide.isConnected ? U.guide : null;
+      // a top bar button inside a closed group: point at the group's button until it opens
+      const group = node && node.closest('.hud-group:not(.is-open)');
+      if (group) node = group.querySelector('.hud-group__btn');
       const r = node && visibleRect(node);
       if (!r || !shown(r)) { spot.classList.remove('is-on'); ring.classList.remove('is-on'); return; }
       let d = 'M0 0H' + innerWidth + 'V' + innerHeight + 'H0Z' + hole(r, 6, 8);

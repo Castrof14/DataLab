@@ -100,6 +100,36 @@ html, body.demo { height: 100%; overflow: hidden; overscroll-behavior: none; }
 .hud-meta { display: flex; gap: var(--s-xl); margin-left: var(--s-lg); }
 .hud-meta__clock { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); }
 .hud-actions { margin-left: auto; display: flex; gap: var(--s-sm); }
+.hud-meta, .hud-actions .btn { white-space: nowrap; }
+@media (max-width: 1500px) { #hudMeta { display: none; } .hud-meta { margin-left: var(--s-sm); } }
+
+/* HUD groups: one button per group opens a block with its options */
+.hud-group { position: relative; flex: none; }
+.hud-group__btn { gap: 6px; }
+.hud-group__caret { width: 0; height: 0; margin-left: 2px; border: 4px solid transparent; border-top-color: currentColor; border-bottom-width: 0; transition: transform 0.15s var(--ease); }
+.hud-group.is-open .hud-group__caret { transform: rotate(180deg); }
+.hud-group.is-open > .hud-group__btn { border-color: var(--pill-border-hover); background: rgba(255, 255, 255, 0.08); }
+.hud-group__menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 220px;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid var(--pill-border);
+  background: rgba(10, 11, 13, 0.96);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  z-index: 6;
+}
+.hud-group.is-open .hud-group__menu { display: flex; }
+.hud-top:has(.hud-group.is-open) { z-index: 11; } /* an open block sits above toasts and panels */
+.hud-group__menu .btn { width: 100%; justify-content: flex-start; gap: 8px; }
+.hud-group__menu .btn kbd { margin-left: auto; }
+.hud-group__menu .btn[hidden] { display: none; }
+/* the tutorial points at a button inside a closed group: light the group button instead */
+.hud-group:not(.is-open):has(.is-guide) > .hud-group__btn { border-color: var(--signal) !important; color: var(--ink) !important; animation: guide 1.4s var(--ease) infinite; }
 
 /* Equipment panel */
 .panel {
@@ -783,7 +813,6 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
   .modes { margin-left: auto; }
   .mode { padding: 0 9px; }
   .mode kbd { display: none; }
-  #helpBtn { display: none; }
   .build { width: calc(100% - 32px); bottom: var(--s-lg); }
   .crew-panel { left: var(--s-lg); right: var(--s-lg); width: auto; top: auto; bottom: var(--s-lg); max-height: 46vh; }
   .creator { grid-template-columns: 1fr; }
@@ -1952,3 +1981,34 @@ b.is-loss { color: var(--sunset); }
 
 /* Build dock: thicker frame with the same notch */
 .build { border-width: 2px; clip-path: var(--px-notch); }
+
+/* HUD groups on phones: the groups get a row of their own under the top bar, and each block opens across the full width
+   (kept at the end so it wins over the mode, toast and top bar rules above) */
+@media (max-width: 1300px) { .ops-btn--emo .hud-lbl { display: none; } }
+@media (max-width: 1180px) {
+  .hud-top .brand { gap: 0; font-size: 0; }
+  .mode kbd { display: none; }
+}
+@media (max-width: 1000px) {
+  .hud-meta { display: none; }
+  .modes { margin-left: var(--s-sm); }
+  .mode { padding: 0 8px; }
+}
+@media (max-width: 860px) {
+  .hud-top { flex-wrap: wrap; row-gap: 8px; }
+  .hud-top .emo { order: 8; margin-left: 0; }
+  .hud-actions { position: relative; order: 9; flex: 1 1 200px; margin-left: 0; }
+  .hud-group { position: static; flex: 1; }
+  .hud-group__btn { width: 100%; }
+  .hud-group__menu { left: 0; right: 0; min-width: 0; }
+  .toasts { top: 112px; width: calc(100% - 32px); }
+}
+@media (max-width: 560px) {
+  .hud-top { gap: 6px; }
+  .hud-top .brand { display: none; }
+  .modes { flex: 1 1 auto; min-width: 0; }
+  .mode { flex: 1; justify-content: center; padding: 0 4px; letter-spacing: 0.4px; }
+  .hud-group { flex: 1 1 auto; min-width: 0; }
+  .hud-top .hud-group__btn { gap: 4px; padding: 0 6px; letter-spacing: 0.4px; }
+}
+@media (max-width: 400px) { .hud-group__caret { display: none; } }

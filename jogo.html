@@ -169,28 +169,41 @@
         <button class="mode" type="button" data-mode="crew" aria-pressed="false">Equipe <kbd>C</kbd></button>
       </nav>
       <span class="emo">
-        <button class="btn btn--sm ops-btn ops-btn--emo" id="emoteBtn" type="button" title="Emotes: dança (1), acenar (2), raiva (3)" aria-haspopup="menu" aria-expanded="false" aria-controls="emoteWheel"><span aria-hidden="true">🙂</span>Emotes</button>
+        <button class="btn btn--sm ops-btn ops-btn--emo" id="emoteBtn" type="button" title="Emotes: dança (1), acenar (2), raiva (3)" aria-haspopup="menu" aria-expanded="false" aria-controls="emoteWheel"><span aria-hidden="true">🙂</span><span class="hud-lbl">Emotes</span></button>
         <span class="emo__wheel" id="emoteWheel" role="menu" aria-label="Emotes" hidden></span>
       </span>
       <div class="hud-meta eyebrow-sm">
         <span id="hudMeta">Meu datacenter</span>
         <span class="hud-meta__clock"><span class="dot dot--live"></span><span id="clock">08:00</span></span>
       </div>
-      <div class="hud-actions">
-        <button class="btn btn--sm ops-btn" id="hdBtn" type="button" title="Central de Atendimento (H)">Atendimento <kbd>H</kbd><span class="ops-badge" id="hdBadge" hidden>0</span></button>
-        <button class="btn btn--sm ops-btn" id="nlBtn" type="button" title="Laboratório de Redes (L)">Lab <kbd>L</kbd></button>
-        <button class="btn btn--sm ops-btn" id="infraBtn" type="button" title="Infraestrutura: tipos de servidor e máquinas virtuais (I)">Infra <kbd>I</kbd></button>
-        <button class="btn btn--sm ops-btn" id="monBtn" type="button">Monitor <kbd>M</kbd><span class="ops-badge ops-badge--mon" id="monBadge" hidden>0</span></button>
-        <button class="btn btn--sm ops-btn" id="opsBtn" type="button" aria-expanded="false" aria-controls="opsPanel">Tarefas <kbd>T</kbd><span class="ops-badge" id="opsBadge" hidden>0</span></button>
-        <span class="hud-store">
-          <button class="btn btn--sm ops-btn ops-btn--gold" id="storeBtn" type="button" title="Loja: skins, roupas, itens especiais e bots lendários (O)"><span class="cur cur--dc" aria-hidden="true"></span>Loja <kbd>O</kbd></button>
-          <button class="btn btn--sm ops-btn ops-btn--inv" id="invBtn" type="button" title="Inventário: equipar, desequipar, vender (U)" aria-label="Inventário"><span class="inv-ico" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="hud-lbl">Inventário</span> <kbd>U</kbd></button>
-        </span>
-        <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
-        <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
-        <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
-        <button class="btn btn--sm" id="saveBtn" type="button" title="Salvar o jogo na sua conta (Ctrl+S)">Salvar</button>
-        <button class="btn btn--sm" id="menuBtn" type="button" title="Salvar e voltar ao Menu Principal">Menu</button>
+      <div class="hud-actions" id="hudActions">
+        <div class="hud-group" data-group="ops">
+          <button class="btn btn--sm ops-btn hud-group__btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="hudOps">Operações<span class="ops-badge hud-group__badge" hidden>0</span><span class="hud-group__caret" aria-hidden="true"></span></button>
+          <div class="hud-group__menu" id="hudOps" role="menu" aria-label="Operações">
+            <button class="btn btn--sm ops-btn" id="opsBtn" type="button" aria-expanded="false" aria-controls="opsPanel">Tarefas <kbd>T</kbd><span class="ops-badge" id="opsBadge" hidden>0</span></button>
+            <button class="btn btn--sm ops-btn" id="hdBtn" type="button" title="Central de Atendimento (H)">Atendimento <kbd>H</kbd><span class="ops-badge" id="hdBadge" hidden>0</span></button>
+            <button class="btn btn--sm ops-btn" id="monBtn" type="button">Monitor <kbd>M</kbd><span class="ops-badge ops-badge--mon" id="monBadge" hidden>0</span></button>
+            <button class="btn btn--sm ops-btn" id="infraBtn" type="button" title="Infraestrutura: tipos de servidor e máquinas virtuais (I)">Infra <kbd>I</kbd></button>
+            <button class="btn btn--sm ops-btn" id="nlBtn" type="button" title="Laboratório de Redes (L)">Lab <kbd>L</kbd></button>
+          </div>
+        </div>
+        <div class="hud-group" data-group="store">
+          <button class="btn btn--sm ops-btn ops-btn--gold hud-group__btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="hudStore"><span class="cur cur--dc" aria-hidden="true"></span>Loja<span class="hud-group__caret" aria-hidden="true"></span></button>
+          <div class="hud-group__menu" id="hudStore" role="menu" aria-label="Loja">
+            <button class="btn btn--sm ops-btn ops-btn--gold" id="storeBtn" type="button" title="Loja: skins, roupas, itens especiais e bots lendários (O)"><span class="cur cur--dc" aria-hidden="true"></span>Loja <kbd>O</kbd></button>
+            <button class="btn btn--sm ops-btn ops-btn--inv" id="invBtn" type="button" title="Inventário: equipar, desequipar, vender (U)"><span class="inv-ico" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Inventário <kbd>U</kbd></button>
+          </div>
+        </div>
+        <div class="hud-group" data-group="game">
+          <button class="btn btn--sm ops-btn hud-group__btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="hudGame">Jogo<span class="hud-group__caret" aria-hidden="true"></span></button>
+          <div class="hud-group__menu" id="hudGame" role="menu" aria-label="Jogo">
+            <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
+            <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
+            <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
+            <button class="btn btn--sm" id="saveBtn" type="button" title="Salvar o jogo na sua conta (Ctrl+S)" data-keep>Salvar</button>
+            <button class="btn btn--sm" id="menuBtn" type="button" title="Salvar e voltar ao Menu Principal" data-keep>Menu</button>
+          </div>
+        </div>
       </div>
     </header>
 

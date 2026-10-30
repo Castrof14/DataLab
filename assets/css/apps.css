@@ -232,10 +232,5 @@
   .nl__stage { height: 340px; }
 }
 
-/* HUD: two more app buttons (Atendimento, Lab) — tighten it on narrower screens */
-.hud-meta, .hud-actions .btn { white-space: nowrap; }
-@media (max-width: 1720px) { #hudMeta { display: none; } .hud-meta { margin-left: var(--s-sm); } }
-@media (max-width: 1520px) { .hud-actions .btn kbd { display: none; } .hud-chip { display: none; } }
-@media (max-width: 1300px) { .hud-actions { gap: 4px; } .hud-actions .btn--sm { padding: 0 9px; } .hud-top { gap: var(--s-sm); } }
 .nl-ch .nl-hint b, .nl-ch .nl-learn b { font-size: 12px; }
 .nl-hint .linkbtn, .nl-ch .linkbtn { font-size: 12px; text-align: left; }

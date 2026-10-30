@@ -176,17 +176,13 @@
 .inv__sort select { height: 30px; padding: 0 10px; background: #111214; color: var(--ink); }
 
 /* ---------- HUD bits ---------- */
-.hud-store { display: inline-flex; gap: 0; }
-.hud-store .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
-.hud-store .btn:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
 .ops-btn--gold { border-color: rgba(242, 193, 78, 0.45); color: #ffe7a6; gap: 6px; }
 .ops-btn--gold:hover { border-color: var(--gold); background: rgba(242, 193, 78, 0.08); }
 .ops-btn--inv { gap: 6px; }
 .inv-ico { display: inline-grid; grid-template-columns: 4px 4px; gap: 2px; }
 .inv-ico i { width: 4px; height: 4px; border-radius: 1px; background: currentColor; opacity: 0.85; }
 .inv-ico i:nth-child(2) { background: var(--gold); opacity: 1; }
-@media (max-width: 2099px) { .hud-store .hud-lbl, .hud-store kbd { display: none; } }
-/* emotes: the button in the top bar and its menu (fixed under the button: the bar may scroll sideways) */
+/* emotes: the button in the top bar and its menu (fixed under the button) */
 .emo { display: inline-flex; flex: none; margin-left: var(--s-sm, 8px); }
 .ops-btn--emo { gap: 6px; border-color: rgba(5, 181, 177, 0.55); }
 .ops-btn--emo:hover, .ops-btn--emo[aria-expanded="true"] { border-color: var(--teal); background: rgba(5, 181, 177, 0.1); }
@@ -202,13 +198,6 @@
 .emo__opt:hover, .emo__opt:focus-visible { border-color: var(--teal); background: rgba(5, 181, 177, 0.16); outline: none; }
 .emo__opt kbd { margin-left: auto; }
 .emo__ico { font-size: 18px; line-height: 1; }
-/* the shop buttons take room in the top bar: tighten it a little earlier, and when the screen is
-   still too narrow the buttons scroll sideways instead of running off the screen */
-@media (max-width: 1999px) { #hudMeta { display: none; } .hud-meta { margin-left: var(--s-sm); } }
-@media (max-width: 1800px) { .hud-actions .btn kbd { display: none; } .hud-chip { display: none; } }
-.hud-actions { min-width: 0; overflow-x: auto; scrollbar-width: none; padding: 4px; margin: -4px -4px -4px auto; }
-.hud-actions::-webkit-scrollbar { display: none; }
-.hud-actions > * { flex: none; }
 .econ-float span.is-gold { color: var(--gold); }
 .w-xchg { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; font-size: 12px; color: var(--mute); }
 .w-bal b.is-gold { color: var(--gold); }

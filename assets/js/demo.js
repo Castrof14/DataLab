@@ -166,6 +166,47 @@
   $('emoteBtn').addEventListener('click', () => { $('emoteBtn').blur(); wheel(emoteWheel.hidden); });
   emoteWheel.addEventListener('click', (ev) => { const b = ev.target.closest('[data-emote]'); if (!b) return; wheel(false); b.blur(); emotes.play(b.dataset.emote); });
   addEventListener('pointerdown', (ev) => { if (!emoteWheel.hidden && !ev.target.closest('.emo')) wheel(false); });
+
+  // top bar groups: one button opens a block with that group's options; the group button
+  // sums the badges inside it and lights up when one of them is on or alerting
+  const groups = Array.from(document.querySelectorAll('.hud-group'));
+  const setGroup = (g, on) => {
+    g.classList.toggle('is-open', on);
+    g.querySelector('.hud-group__btn').setAttribute('aria-expanded', on ? 'true' : 'false');
+  };
+  const closeGroups = () => groups.forEach((g) => setGroup(g, false));
+  groups.forEach((g) => {
+    const btn = g.querySelector('.hud-group__btn'), menu = g.querySelector('.hud-group__menu');
+    const badge = btn.querySelector('.hud-group__badge');
+    btn.addEventListener('click', () => {
+      const on = !g.classList.contains('is-open');
+      closeGroups();
+      setGroup(g, on);
+      btn.blur();
+    });
+    menu.addEventListener('click', (ev) => {
+      const item = ev.target.closest('button');
+      if (item && !item.hasAttribute('data-keep')) setGroup(g, false);
+    });
+    const sync = () => {
+      const items = Array.from(menu.querySelectorAll(':scope > .btn'));
+      btn.classList.toggle('is-on', items.some((b) => b.classList.contains('is-on')));
+      btn.classList.toggle('is-alert', items.some((b) => b.classList.contains('is-alert')));
+      if (!badge) return;
+      const n = Array.from(menu.querySelectorAll('.ops-badge')).reduce((sum, b) => sum + (b.hidden ? 0 : parseInt(b.textContent, 10) || 0), 0);
+      badge.hidden = n <= 0;
+      badge.textContent = n > 99 ? '99+' : String(n);
+    };
+    new MutationObserver(sync).observe(menu, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'hidden'] });
+    sync();
+  });
+  document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest('.hud-group')) closeGroups(); }, true);
+  addEventListener('keydown', (ev) => {
+    if (ev.code !== 'Escape' || !groups.some((g) => g.classList.contains('is-open'))) return;
+    closeGroups();
+    ev.preventDefault();
+    ev.stopImmediatePropagation();
+  }, true);
   G.on('world', () => {
     if (S.panel && W.items.indexOf(S.panel) < 0) closePanel();
     buildLabels();
