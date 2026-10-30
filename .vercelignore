@@ -7,5 +7,6 @@
 /.env.*
 /PROXIMOS-PASSOS.txt
 /DESIGN-x.ai.md
+/PROBLEMAS-PATENTES.md
 /tests/
 # DEV-AUTOPLAY: assets/js/dev/ vai para o deploy; o botão Auto aparece para todos (ver demo.js)

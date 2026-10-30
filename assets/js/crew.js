@@ -1910,6 +1910,7 @@
       if (c.menu) {
         h += menuHtml(a);
       } else {
+        if (DL.BotMusic) h += '<div class="cc__music" data-live="music"></div>';
         h += skillsHtml(a);
         h += placeHtml(a);
         h += workHtml(a);
@@ -1939,6 +1940,23 @@
       if (bar) bar.style.transform = 'scaleX(' + progressOf(a).toFixed(3) + ')';
       const pin = el.card.querySelector('[data-live="payin"]');
       if (pin && game.economy) { const t = 'pagamento em ' + game.economy.payInText(); if (pin.textContent !== t) pin.textContent = t; }
+      const mu = el.card.querySelector('[data-live="music"]');
+      if (mu) {
+        // the bot's own (simulated) music: bot-music.js
+        const m = DL.BotMusic.of(a);
+        const mk = m.title + m.playing;
+        if (mu.dataset.k !== mk) {
+          mu.dataset.k = mk;
+          mu.classList.toggle('is-playing', m.playing);
+          mu.innerHTML = '<span class="cc__cover" style="background:linear-gradient(135deg,' + m.colors[0] + ',' + m.colors[1] + ')" aria-hidden="true">♪</span>' +
+            '<span class="cc__mmeta"><span class="cc__mtitle">' + esc(m.title) + '</span><span class="cc__martist">' + esc(m.artist) + ' · ' + esc(m.genre) + '</span></span>' +
+            '<span class="eyebrow-sm cc__mstate">' + (m.playing ? 'Ouvindo' : 'Pausado') + '</span>' +
+            '<span class="cc__mbar"><i data-live="mbar"></i></span><span class="cc__mtime" data-live="mtime"></span>';
+        }
+        mu.querySelector('[data-live="mbar"]').style.transform = 'scaleX(' + (m.pos / m.dur).toFixed(3) + ')';
+        const tt = DL.BotMusic.clock(m.pos) + ' / ' + DL.BotMusic.clock(m.dur), te = mu.querySelector('[data-live="mtime"]');
+        if (te.textContent !== tt) te.textContent = tt;
+      }
       const xp = el.card.querySelector('[data-live="xp"]');
       const S = a.crew.stats;
       if (xp) xp.style.transform = 'scaleX(' + (S.level >= XP.MAX_LEVEL ? 1 : S.xp / XP.xpNeed(S.level)).toFixed(3) + ')';
@@ -2323,8 +2341,9 @@
         const txt = a.crew.name;
         const unread = a.crew.unread > 0;
         const miss = a.crew.missing && a.crew.missing.length > 0;
-        const k = txt + r.color + alert + a.crew.stats.level + unread + miss;
-        if (s.dataset.k !== k) { s.dataset.k = k; s.innerHTML = (alert ? '<b>!</b>' : '<i style="background:' + r.color + '"></i>') + esc(txt) + '<small>' + a.crew.stats.level + '</small>' + (miss ? '<em class="nt-miss" title="Falta estrutura no posto de trabalho">⚠</em>' : '') + (unread ? '<em title="Quer falar com você">💬</em>' : ''); }
+        const tune = DL.BotMusic ? DL.BotMusic.of(a) : null, music = !!(tune && tune.playing);
+        const k = txt + r.color + alert + a.crew.stats.level + unread + miss + music;
+        if (s.dataset.k !== k) { s.dataset.k = k; s.innerHTML = (alert ? '<b>!</b>' : '<i style="background:' + r.color + '"></i>') + esc(txt) + '<small>' + a.crew.stats.level + '</small>' + (music ? '<em class="nt-music" title="Ouvindo música">♪</em>' : '') + (miss ? '<em class="nt-miss" title="Falta estrutura no posto de trabalho">⚠</em>' : '') + (unread ? '<em title="Quer falar com você">💬</em>' : ''); }
         s.classList.toggle('is-alert', alert);
         s.classList.toggle('is-legend', !!a.crew.legend);
         const show = (near(a) || alert || unread) && C.mode !== 'build' && C.sel !== a && !a.bubble && !a.hidden && !(a.alpha != null && a.alpha < 0.3);

@@ -633,6 +633,24 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
 .nametags i { width: 5px; height: 5px; border-radius: 50%; }
 
 .crew-card { width: 268px; }
+/* the bot's simulated music (bot-music.js): cover, song, artist · genre, progress */
+.cc__music { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: 8px; row-gap: 5px; align-items: center; margin-top: 8px; padding: 6px 8px; border: 1px solid var(--hairline); background: rgba(255, 255, 255, 0.03); transition: border-color 0.3s var(--ease); }
+.cc__music.is-playing { border-color: rgba(30, 215, 96, 0.4); }
+.cc__cover { grid-row: 1 / 3; width: 32px; height: 32px; display: grid; place-items: center; font-size: 15px; color: rgba(255, 255, 255, 0.9); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5); }
+.cc__music.is-playing .cc__cover { animation: cc-beat 0.9s ease-in-out infinite; }
+@keyframes cc-beat { 50% { filter: brightness(1.25); } }
+.cc__mmeta { display: grid; gap: 2px; min-width: 0; }
+.cc__mtitle, .cc__martist { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cc__mtitle { font-size: 12px; line-height: 15px; color: var(--ink); }
+.cc__martist { font-size: 10px; line-height: 13px; color: var(--mute); }
+.cc__mstate { font-size: 9px; color: var(--mute); }
+.cc__music.is-playing .cc__mstate { color: #1ed760; }
+.cc__mbar { display: block; height: 2px; background: var(--hairline); overflow: hidden; }
+.cc__mbar i { display: block; height: 100%; background: #1ed760; transform-origin: left; transform: scaleX(0); transition: transform 0.25s linear; }
+.cc__music:not(.is-playing) .cc__mbar i { background: var(--mute); }
+.cc__mtime { font: 400 9px/1 var(--font-mono); color: var(--mute); }
+.nametags .nt-music { color: #1ed760; }
+@media (prefers-reduced-motion: reduce) { .cc__music.is-playing .cc__cover { animation: none; } }
 .cc__head { display: flex; align-items: center; gap: 8px; }
 .cc__head b { font-weight: 400; font-size: 15px; line-height: 20px; }
 .cc__dot { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; }
