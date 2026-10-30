@@ -679,6 +679,9 @@
     if (aura) DL.drawAura(g, X, Y, sc.t || 0, 'back');
     g.drawImage(a.frame(), X - C.AX, Y - C.AY);
     if (aura) DL.drawAura(g, X, Y, sc.t || 0, 'front');
+    // live effects: animated skins (cosmetics.js) and the actor's own (emotes)
+    if (!ghost && DL.charFx) DL.charFx(g, a, X, Y, sc.t || 0);
+    if (!ghost && a.fx) a.fx(g, X, Y, sc.t || 0);
     g.globalAlpha = ga;
     return { rect: [X - 7, Y - C.AY + 1, X + 7, Y + 1] };
   }

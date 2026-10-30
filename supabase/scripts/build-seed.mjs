@@ -29,7 +29,7 @@ for (const ev of Object.values(X.events))
 
 // items + skins + event items + legendary templates
 p('\n-- items (shop, events, Founder, Developer, Beta, Special, legendary bots)');
-const SKIN_TARGET = { rack: 'rack', server: 'server', switch: 'switch', storage: 'storage', rackacc: 'rackacc', led: 'led', shirt: 'character', pants: 'character', hair: 'character', hat: 'character', shades: 'character', scarf: 'character', backpack: 'character', chain: 'character' };
+const SKIN_TARGET = { rack: 'rack', server: 'server', switch: 'switch', storage: 'storage', rackacc: 'rackacc', led: 'led', shirt: 'character', pants: 'character', hair: 'character', hat: 'character', shades: 'character', scarf: 'character', backpack: 'character', chain: 'character', head: 'character', face: 'character', neck: 'character', back: 'character', hands: 'character', pet: 'character' };
 for (const it of X.cosmetics) {
   const grant = it.grant || (it.event ? 'event' : 'shop');
   const purchasable = !it.grantOnly && !it.gift && it.price > 0;

@@ -50,101 +50,74 @@
   /* Catalog                                                             */
   /* ------------------------------------------------------------------ */
   // slot: where it is equipped. Infrastructure skins apply to every rack / unit / storage of the
-  // datacenter (a rack can override its own skin in build mode). Character slots change the player's
-  // profile (outfit, hairStyle, hat, pantsStyle, accessory flags). Palettes unlock colours (passive).
+  // datacenter (a rack can override its own skin in build mode). Skins (shirt slot) change the player's
+  // profile; accessories (head / face / neck / back / hands) and the pet are kept by the inventory like
+  // the infrastructure slots (DL.GEAR_SLOTS).
   // cur: 'gold' (moeda dourada). price 0 + gift = only obtainable (events, rewards).
   const C = [];
   const add = (o) => C.push(Object.assign({ cur: 'gold', stack: false, sell: true }, o));
 
-  // --- Infrastructure: racks
-  add({ id: 'rack_clean', cat: 'infra', slot: 'rack', value: 'clean', name: 'Rack Clean', theme: 'Clean', rarity: 'common', price: 15, desc: 'Gabinete branco fosco, cantos claros. Combina com salas minimalistas.' });
-  add({ id: 'rack_corp', cat: 'infra', slot: 'rack', value: 'corp', name: 'Rack Corporativo', theme: 'Corporativo', rarity: 'common', price: 15, desc: 'Grafite com faixa azul e plaqueta da empresa no topo.' });
-  add({ id: 'rack_industrial', cat: 'infra', slot: 'rack', value: 'industrial', name: 'Rack Industrial', theme: 'Industrial', rarity: 'uncommon', price: 30, desc: 'Aço escovado e faixas de sinalização amarelas e pretas.' });
-  add({ id: 'rack_gamer', cat: 'infra', slot: 'rack', value: 'gamer', name: 'Rack Gamer RGB', theme: 'Gamer', rarity: 'rare', price: 60, desc: 'Moldura preta com contorno RGB que percorre todo o espectro.' });
-  add({ id: 'rack_cyber', cat: 'infra', slot: 'rack', value: 'cyber', name: 'Rack Cyberpunk', theme: 'Cyberpunk', rarity: 'epic', price: 120, desc: 'Roxo profundo com neon magenta e ciano nos trilhos.' });
-  add({ id: 'rack_gold', cat: 'infra', slot: 'rack', value: 'gold', name: 'Rack Dourado', theme: 'Lendário', rarity: 'legendary', price: 250, desc: 'Moldura banhada a ouro com brilho que corre pela borda.' });
-  add({ id: 'rack_launch', cat: 'infra', slot: 'rack', value: 'launch', name: 'Rack Lançamento', theme: 'Evento', rarity: 'epic', price: 90, event: 'lancamento', desc: 'Preto com a faixa laranja do DataLab. Só durante a Semana de Lançamento.' });
-  // --- servers (bezels of every server unit)
-  add({ id: 'srv_clean', cat: 'infra', slot: 'server', value: 'clean', name: 'Servidor Clean', theme: 'Clean', rarity: 'common', price: 15, desc: 'Frontal branco nos servidores.' });
-  add({ id: 'srv_carbon', cat: 'infra', slot: 'server', value: 'carbon', name: 'Servidor Carbono', theme: 'Industrial', rarity: 'uncommon', price: 30, desc: 'Frontal em fibra de carbono.' });
-  add({ id: 'srv_neon', cat: 'infra', slot: 'server', value: 'neon', name: 'Servidor Neon', theme: 'Gamer', rarity: 'rare', price: 55, desc: 'Frisos ciano iluminados em cada unidade.' });
-  add({ id: 'srv_cyber', cat: 'infra', slot: 'server', value: 'cyber', name: 'Servidor Cyberpunk', theme: 'Cyberpunk', rarity: 'epic', price: 110, desc: 'Frontal roxo com detalhe magenta e ciano.' });
-  add({ id: 'srv_gold', cat: 'infra', slot: 'server', value: 'gold', name: 'Servidor Dourado', theme: 'Lendário', rarity: 'legendary', price: 230, desc: 'Frontal dourado polido.' });
-  // --- switches
-  add({ id: 'sw_clean', cat: 'infra', slot: 'switch', value: 'clean', name: 'Switch Clean', theme: 'Clean', rarity: 'common', price: 15, desc: 'Carcaça clara nos switches.' });
-  add({ id: 'sw_industrial', cat: 'infra', slot: 'switch', value: 'industrial', name: 'Switch Industrial', theme: 'Industrial', rarity: 'uncommon', price: 30, desc: 'Carcaça amarela de alta visibilidade.' });
-  add({ id: 'sw_gamer', cat: 'infra', slot: 'switch', value: 'gamer', name: 'Switch RGB', theme: 'Gamer', rarity: 'rare', price: 55, desc: 'LEDs das portas em arco-íris (falhas continuam piscando em laranja).' });
-  add({ id: 'sw_cyber', cat: 'infra', slot: 'switch', value: 'cyber', name: 'Switch Cyberpunk', theme: 'Cyberpunk', rarity: 'epic', price: 110, desc: 'Carcaça roxa com contorno neon.' });
-  // --- storage / NAS
-  add({ id: 'sto_clean', cat: 'infra', slot: 'storage', value: 'clean', name: 'Storage Clean', theme: 'Clean', rarity: 'common', price: 15, desc: 'Gabinete claro para storages e NAS.' });
-  add({ id: 'sto_industrial', cat: 'infra', slot: 'storage', value: 'industrial', name: 'Storage Industrial', theme: 'Industrial', rarity: 'uncommon', price: 30, desc: 'Faixas de sinalização no storage.' });
-  add({ id: 'sto_cyber', cat: 'infra', slot: 'storage', value: 'cyber', name: 'Storage Cyberpunk', theme: 'Cyberpunk', rarity: 'epic', price: 110, desc: 'Neon magenta e ciano no storage.' });
-  add({ id: 'sto_gold', cat: 'infra', slot: 'storage', value: 'gold', name: 'Storage Dourado', theme: 'Lendário', rarity: 'legendary', price: 230, desc: 'Storage banhado a ouro.' });
-  // --- rack accessories
-  add({ id: 'acc_fans', cat: 'infra', slot: 'rackacc', value: 'fans', name: 'Ventoinhas no topo', theme: 'Gamer', rarity: 'uncommon', price: 25, desc: 'Duas ventoinhas girando no teto de cada rack.' });
-  add({ id: 'acc_beacon', cat: 'infra', slot: 'rackacc', value: 'beacon', name: 'Giroflex de status', theme: 'Industrial', rarity: 'uncommon', price: 25, desc: 'Luz de sinalização no topo do rack.' });
-  add({ id: 'acc_plate', cat: 'infra', slot: 'rackacc', value: 'plate', name: 'Plaqueta iluminada', theme: 'Corporativo', rarity: 'rare', price: 45, desc: 'Plaqueta com brilho suave na frente do topo.' });
-  add({ id: 'acc_stickers', cat: 'infra', slot: 'rackacc', value: 'stickers', name: 'Adesivos', theme: 'Gamer', rarity: 'common', price: 10, desc: 'Adesivos coloridos colados na moldura.' });
-  // --- LEDs / RGB
-  add({ id: 'led_cyan', cat: 'infra', slot: 'led', value: '#00e5ff', name: 'Fita de LED Ciano', theme: 'Clean', rarity: 'common', price: 12, desc: 'Fita de LED vertical na frente dos racks.' });
-  add({ id: 'led_magenta', cat: 'infra', slot: 'led', value: '#ff2bd6', name: 'Fita de LED Magenta', theme: 'Cyberpunk', rarity: 'uncommon', price: 22, desc: 'Fita magenta pulsando devagar.' });
-  add({ id: 'led_amber', cat: 'infra', slot: 'led', value: '#ffb020', name: 'Fita de LED Âmbar', theme: 'Industrial', rarity: 'uncommon', price: 22, desc: 'Luz quente de oficina.' });
-  add({ id: 'led_rgb', cat: 'infra', slot: 'led', value: 'rgb', name: 'Fita RGB Arco-íris', theme: 'Gamer', rarity: 'rare', price: 50, desc: 'Gradiente RGB que corre de cima para baixo.' });
-  add({ id: 'led_gold', cat: 'infra', slot: 'led', value: '#f2c14e', name: 'Fita de LED Dourada', theme: 'Lendário', rarity: 'epic', price: 100, desc: 'Brilho dourado respirando.' });
-
-  // --- Character: shirts (profile.outfit)
-  add({ id: 'shirt_polo', cat: 'char', slot: 'shirt', value: 'polo', name: 'Camisa Polo', rarity: 'common', price: 12, desc: 'Gola polo com botões. A cor é a que você escolher no personagem.' });
-  add({ id: 'shirt_striped', cat: 'char', slot: 'shirt', value: 'striped', name: 'Camiseta Listrada', rarity: 'common', price: 12, desc: 'Listras horizontais claras.' });
-  add({ id: 'shirt_flannel', cat: 'char', slot: 'shirt', value: 'flannel', name: 'Camisa Xadrez', rarity: 'uncommon', price: 25, desc: 'Flanela xadrez de quem passa o dia no datacenter.' });
-  add({ id: 'shirt_jacket', cat: 'char', slot: 'shirt', value: 'jacket', name: 'Jaqueta Aberta', rarity: 'rare', price: 45, desc: 'Jaqueta por cima de uma camiseta branca.' });
-  add({ id: 'shirt_jersey', cat: 'char', slot: 'shirt', value: 'jersey', name: 'Camisa de Time', rarity: 'rare', price: 45, desc: 'Camisa de time com número 7 e faixas nos ombros.' });
-  add({ id: 'shirt_launch', cat: 'char', slot: 'shirt', value: 'launch', name: 'Camiseta do Lançamento', rarity: 'rare', price: 40, event: 'lancamento', desc: 'Com a marca do DataLab no peito. Edição limitada.' });
-  // full-body costumes: worn in the shirt slot, they also recolour the legs, hands and boots and cover the
-  // head (DL.charCostume + charOutfit + charTop below). All of them are original designs.
-  add({ id: 'costume_hero', cat: 'char', slot: 'shirt', value: 'hero', name: 'Capitão Debug', rarity: 'epic', price: 120, desc: 'Traje de super-herói do DataLab: máscara com visor, um bug dourado no peito, luvas e botas amarelas.' });
-  add({ id: 'costume_ceo', cat: 'char', slot: 'shirt', value: 'ceo', name: 'Terno de Magnata', rarity: 'rare', price: 70, desc: 'Terno azul-marinho, camisa branca e gravata dourada. Para quem é dono do datacenter.' });
-  add({ id: 'costume_hacker', cat: 'char', slot: 'shirt', value: 'hacker', name: 'Hacker Anônimo', rarity: 'epic', price: 100, desc: 'Moletom preto com capuz e máscara branca. Ninguém sabe quem está no terminal.' });
-  add({ id: 'costume_tech', cat: 'char', slot: 'shirt', value: 'tech', name: 'Técnico de TI', rarity: 'rare', price: 70, desc: 'Colete laranja refletivo, crachá e fone com microfone. O técnico que mantém tudo funcionando no corredor quente.' });
+  // --- Character skins (full-body, worn in the shirt slot): the hacker collection. All original designs,
+  // in the game's palette (navy, turquoise, blue, slate). The first one is what replaces a retired skin.
+  add({ id: 'hx_hoodie', cat: 'char', slot: 'shirt', value: 'hx_hoodie', name: 'Moletom do Código', theme: 'Hacker', rarity: 'common', price: 45, desc: 'Moletom azul-marinho com capuz e linhas de código turquesa descendo pelo rosto.' });
+  add({ id: 'hx_leather', cat: 'char', slot: 'shirt', value: 'hx_leather', name: 'Jaqueta Holo', theme: 'Hacker', rarity: 'rare', price: 95, desc: 'Jaqueta de couro escura, gola alta e um visor holográfico turquesa na frente dos olhos.' });
+  add({ id: 'hx_agent', cat: 'char', slot: 'shirt', value: 'hx_agent', name: 'Agente Sem Nome', theme: 'Hacker', rarity: 'rare', price: 120, desc: 'Terno preto, gravata fina, óculos escuros e um fone com fio enrolado atrás da orelha.' });
+  add({ id: 'hx_ninja', cat: 'char', slot: 'shirt', value: 'hx_ninja', name: 'Ninja de LED', theme: 'Hacker', rarity: 'epic', price: 170, desc: 'Roupa de infiltração azul-marinho e máscara de LED com olhos turquesa que piscam.' });
+  add({ id: 'hx_coat', cat: 'char', slot: 'shirt', value: 'hx_coat', name: 'Sobretudo Neon', theme: 'Hacker', rarity: 'epic', price: 190, desc: 'Sobretudo longo cinza-azulado com as bordas e a barra acesas em turquesa.' });
+  add({ id: 'hx_bot', cat: 'char', slot: 'shirt', value: 'hx_bot', name: 'Robô do Terminal', theme: 'Hacker', rarity: 'epic', price: 220, desc: 'Corpo de metal azulado e uma tela no lugar do rosto, com o cursor do terminal piscando.' });
+  add({ id: 'hx_ghost', cat: 'char', slot: 'shirt', value: 'hx_ghost', name: 'Fantasma Digital', theme: 'Hacker', rarity: 'legendary', price: 320, desc: 'Meio transparente, feito de luz azul, com falhas de glitch que fazem o corpo tremer.' });
+  add({ id: 'hx_master', cat: 'char', slot: 'shirt', value: 'hx_master', name: 'Mestre do Terminal', theme: 'Hacker', rarity: 'legendary', price: 380, desc: 'Capa longa coberta de linhas de código turquesa e capuz de quem já viu todos os logs.' });
+  // full-body costumes from the previous collection that stay on sale (recolour legs, hands and boots and
+  // cover the head: DL.charCostume + charOutfit + charTop below)
   add({ id: 'costume_astronaut', cat: 'char', slot: 'shirt', value: 'astronaut', name: 'Astronauta', rarity: 'epic', price: 120, desc: 'Traje branco pressurizado com capacete de vidro e painel neon. Pronto para o próximo deploy fora do planeta.' });
   add({ id: 'costume_ninja', cat: 'char', slot: 'shirt', value: 'ninja', name: 'Ninja do Código', rarity: 'epic', price: 100, desc: 'Roupa preta de infiltração com faixa verde neon e máscara. Ninguém vê o código passar.' });
   add({ id: 'costume_robot', cat: 'char', slot: 'shirt', value: 'robot', name: 'Robô', rarity: 'epic', price: 130, desc: 'Corpo de metal com juntas, chassi iluminado e olhos verdes que piscam. Mais máquina que pessoa.' });
   add({ id: 'costume_scientist', cat: 'char', slot: 'shirt', value: 'scientist', name: 'Cientista de Dados', rarity: 'rare', price: 80, desc: 'Jaleco branco, óculos grandes e caneta neon no bolso. Transforma dados em decisões.' });
   add({ id: 'costume_samurai', cat: 'char', slot: 'shirt', value: 'samurai', name: 'Samurai Digital', rarity: 'epic', price: 160, desc: 'Armadura preta com frisos verdes, máscara e katana de luz. Disciplina de outro nível.' });
-  add({ id: 'costume_mage', cat: 'char', slot: 'shirt', value: 'mage', name: 'Mago dos Servidores', rarity: 'epic', price: 150, desc: 'Capa roxa, chapéu pontudo e cajado com cristal. Mantém os servidores no ar com magia.' });
   add({ id: 'costume_knight', cat: 'char', slot: 'shirt', value: 'knight', name: 'Cavaleiro do Firewall', rarity: 'epic', price: 170, desc: 'Armadura de metal, elmo e escudo com chamas azuis. Protege o firewall corpo a corpo.' });
   add({ id: 'costume_detective', cat: 'char', slot: 'shirt', value: 'detective', name: 'Detetive Cibernético', rarity: 'rare', price: 110, desc: 'Casaco longo, chapéu e lupa brilhante. Investiga cada pacote suspeito.' });
   add({ id: 'costume_pilot', cat: 'char', slot: 'shirt', value: 'pilot', name: 'Piloto Espacial', rarity: 'rare', price: 90, desc: 'Macacão laranja, capacete com visor e painel no peito. Pilota até o rack mais distante.' });
   add({ id: 'costume_backup', cat: 'char', slot: 'shirt', value: 'backup', name: 'Super-Herói do Backup', rarity: 'epic', price: 140, desc: 'Capa vermelha com símbolo de disco no peito. Salva seus dados antes que o pior aconteça.' });
   add({ id: 'costume_cowboy', cat: 'char', slot: 'shirt', value: 'cowboy', name: 'Cowboy do Código', rarity: 'rare', price: 80, desc: 'Chapéu, colete e botas com esporas neon. Domando servidores como um rebanho.' });
   add({ id: 'costume_vampire', cat: 'char', slot: 'shirt', value: 'vampire', name: 'Vampiro da Madrugada', rarity: 'epic', price: 150, desc: 'Capa preta, gola alta e olhos vermelhos. Só trabalha depois da meia-noite.' });
-  add({ id: 'costume_chef', cat: 'char', slot: 'shirt', value: 'chef', name: 'Chef do Datacenter', rarity: 'uncommon', price: 60, desc: 'Chapéu de cozinheiro e avental. Prepara cada deploy com receita própria.' });
-  add({ id: 'costume_king', cat: 'char', slot: 'shirt', value: 'king', name: 'Rei do Datacenter', rarity: 'legendary', price: 300, desc: 'Coroa dourada, manto de arminho e joias. O trono do datacenter é seu.' });
-  // pants (profile.pantsStyle)
-  add({ id: 'pants_jeans', cat: 'char', slot: 'pants', value: 'jeans', name: 'Calça Jeans', rarity: 'common', price: 12, desc: 'Costura clara e barra dobrada.' });
-  add({ id: 'pants_cargo', cat: 'char', slot: 'pants', value: 'cargo', name: 'Calça Cargo', rarity: 'uncommon', price: 22, desc: 'Bolsos laterais para levar o alicate de crimpar.' });
-  add({ id: 'pants_baggy', cat: 'char', slot: 'pants', value: 'baggy', name: 'Calça Baggy', rarity: 'uncommon', price: 22, desc: 'Larga, cobrindo o tênis.' });
-  add({ id: 'pants_joggers', cat: 'char', slot: 'pants', value: 'joggers', name: 'Calça Jogger', rarity: 'rare', price: 40, desc: 'Punho na barra e faixa lateral branca.' });
-  add({ id: 'pants_shorts', cat: 'char', slot: 'pants', value: 'shorts', name: 'Bermuda', rarity: 'common', price: 10, desc: 'Para o corredor quente.' });
-  // hair (profile.hairStyle)
-  add({ id: 'hair_undercut', cat: 'char', slot: 'hair', value: 'undercut', name: 'Undercut', rarity: 'common', price: 12, desc: 'Laterais raspadas e topo penteado.' });
-  add({ id: 'hair_spiky', cat: 'char', slot: 'hair', value: 'spiky', name: 'Espetado', rarity: 'uncommon', price: 22, desc: 'Pontas para cima.' });
-  add({ id: 'hair_braids', cat: 'char', slot: 'hair', value: 'braids', name: 'Tranças', rarity: 'rare', price: 40, desc: 'Tranças com contas douradas nas pontas.' });
-  add({ id: 'hair_mohawk', cat: 'char', slot: 'hair', value: 'mohawk', name: 'Moicano', rarity: 'epic', price: 90, desc: 'Crista alta no meio da cabeça.' });
-  // hats (profile.hat)
-  add({ id: 'hat_snapback', cat: 'char', slot: 'hat', value: 'snapback', name: 'Boné Aba Reta', rarity: 'common', price: 12, desc: 'Aba reta com logo branco (cor do seu cargo).' });
-  add({ id: 'hat_backcap', cat: 'char', slot: 'hat', value: 'backcap', name: 'Boné para Trás', rarity: 'uncommon', price: 20, desc: 'Aba virada para trás.' });
-  add({ id: 'hat_bucket', cat: 'char', slot: 'hat', value: 'bucket', name: 'Chapéu Bucket', rarity: 'rare', price: 40, desc: 'Chapéu de pescador.' });
-  add({ id: 'hat_crown', cat: 'char', slot: 'hat', value: 'crown', name: 'Coroa Dourada', rarity: 'legendary', price: 250, desc: 'Para quem manda no datacenter.' });
-  add({ id: 'hat_launch', cat: 'char', slot: 'hat', value: 'snapback', color: '#ff7a17', name: 'Boné do Lançamento', rarity: 'rare', price: 0, gift: true, event: 'lancamento', desc: 'Presente da Semana de Lançamento: resgate grátis na loja.' });
-  // accessories (profile flags)
-  add({ id: 'acc_shades', cat: 'char', slot: 'shades', value: true, name: 'Óculos Escuros', rarity: 'common', price: 10, desc: 'Lentes pretas.' });
-  add({ id: 'acc_scarf', cat: 'char', slot: 'scarf', value: true, name: 'Cachecol', rarity: 'common', price: 10, desc: 'Para a sala fria.' });
-  add({ id: 'acc_backpack', cat: 'char', slot: 'backpack', value: true, name: 'Mochila', rarity: 'uncommon', price: 20, desc: 'Mochila de notebook nas costas.' });
-  add({ id: 'acc_chain', cat: 'char', slot: 'chain', value: true, name: 'Corrente Dourada', rarity: 'epic', price: 90, desc: 'Corrente com pingente brilhando.' });
-  // colour palettes (unlock extra swatches for clothes)
-  add({ id: 'pal_pastel', cat: 'char', slot: 'palette', value: ['#f9c0d0', '#b8e0d2', '#d6c1f0', '#fde2a7'], name: 'Paleta Pastel', rarity: 'uncommon', price: 20, desc: 'Libera 4 cores pastel para roupas e calças.' });
-  add({ id: 'pal_neon', cat: 'char', slot: 'palette', value: ['#39ff14', '#ff2bd6', '#00e5ff', '#ffe600'], name: 'Paleta Neon', rarity: 'rare', price: 40, desc: 'Libera 4 cores neon para roupas e calças.' });
-  add({ id: 'pal_gold', cat: 'char', slot: 'palette', value: ['#f2c14e', '#b8892f', '#fff1b8'], name: 'Paleta Dourada', rarity: 'epic', price: 100, desc: 'Libera tons de ouro para roupas e calças.' });
+
+  // --- Accessories: one per body position, drawn over any skin (DL.charGear below). The position is the
+  // item's slot, so two pieces never fight for the same spot.
+  add({ id: 'gear_antenna', cat: 'char', slot: 'head', value: 'antenna', name: 'Boné com Antena', rarity: 'common', price: 35, desc: 'Boné azul-marinho com uma antena que pisca turquesa. Pega sinal até no subsolo.' });
+  add({ id: 'gear_headset', cat: 'char', slot: 'head', value: 'headset', name: 'Fone Gamer LED', rarity: 'rare', price: 60, desc: 'Fone fechado com aro de LED turquesa e microfone de haste.' });
+  add({ id: 'gear_nvg', cat: 'char', slot: 'face', value: 'nvg', name: 'Óculos de Visão Noturna', rarity: 'rare', price: 70, desc: 'Dois tubos com lentes que brilham em turquesa. Enxerga o cabo solto no escuro.' });
+  add({ id: 'gear_holovisor', cat: 'char', slot: 'face', value: 'holovisor', name: 'Visor Holográfico', rarity: 'epic', price: 110, desc: 'Uma faixa de luz azul na frente dos olhos, com dados correndo de um lado para o outro.' });
+  add({ id: 'gear_ledmask', cat: 'char', slot: 'face', value: 'ledmask', name: 'Máscara de LED', rarity: 'epic', price: 120, desc: 'Cobre boca e nariz com uma grade de LEDs que desenha um sorriso turquesa.' });
+  add({ id: 'gear_usb', cat: 'char', slot: 'neck', value: 'usb', name: 'Pendrive no Pescoço', rarity: 'common', price: 25, desc: 'Um pendrive azul num cordão. Os arquivos mais importantes sempre por perto.' });
+  add({ id: 'gear_laptop', cat: 'char', slot: 'back', value: 'laptop', name: 'Mochila com Notebook', rarity: 'rare', price: 65, desc: 'Mochila cinza-azulada com um notebook aberto aparecendo por cima, tela acesa.' });
+  add({ id: 'gear_gloves', cat: 'char', slot: 'hands', value: 'gloves', name: 'Luvas de Circuito', rarity: 'epic', price: 95, desc: 'Luvas escuras com trilhas de circuito que brilham em turquesa nas mãos.' });
+
+  // --- Pets: a companion that follows the player around (one at a time, slot 'pet'; pets.js moves it)
+  add({ id: 'pet_bug', cat: 'char', slot: 'pet', value: 'bug', name: 'Bug Brilhante', rarity: 'common', price: 50, desc: 'Um inseto digital de luz turquesa. O único bug que você vai querer por perto.' });
+  add({ id: 'pet_drone', cat: 'char', slot: 'pet', value: 'drone', name: 'Drone Turquesa', rarity: 'rare', price: 80, desc: 'Drone pequeno de quatro hélices que flutua atrás de você com uma luz turquesa.' });
+  add({ id: 'pet_catbot', cat: 'char', slot: 'pet', value: 'catbot', name: 'Gato Robô', rarity: 'epic', price: 140, desc: 'Gato de metal azulado com olhos de LED e uma antena no lugar do rabo.' });
+  add({ id: 'pet_server', cat: 'char', slot: 'pet', value: 'server', name: 'Mini Servidor', rarity: 'epic', price: 160, desc: 'Um servidorzinho com perninhas e LEDs piscando. Corre atrás de você fazendo uptime.' });
+  add({ id: 'pet_holodog', cat: 'char', slot: 'pet', value: 'holodog', name: 'Cachorro Holográfico', rarity: 'legendary', price: 260, desc: 'Cachorro feito de luz azul, com linhas de varredura e rabo que não para.' });
+
+  // --- Retired items (no longer sold or kept): their price is given back once, in Gold, to whoever had
+  // them (inventory.js; the server does the same for accounts). Gifts were free: nothing to give back.
+  DL.RETIRED_COSMETICS = {
+    rack_clean: 15, rack_corp: 15, rack_industrial: 30, rack_gamer: 60, rack_cyber: 120, rack_gold: 250, rack_launch: 90,
+    srv_clean: 15, srv_carbon: 30, srv_neon: 55, srv_cyber: 110, srv_gold: 230,
+    sw_clean: 15, sw_industrial: 30, sw_gamer: 55, sw_cyber: 110,
+    sto_clean: 15, sto_industrial: 30, sto_cyber: 110, sto_gold: 230,
+    acc_fans: 25, acc_beacon: 25, acc_plate: 45, acc_stickers: 10,
+    led_cyan: 12, led_magenta: 22, led_amber: 22, led_rgb: 50, led_gold: 100,
+    shirt_polo: 12, shirt_striped: 12, shirt_flannel: 25, shirt_jacket: 45, shirt_jersey: 45, shirt_launch: 40,
+    costume_hero: 120, costume_ceo: 70, costume_hacker: 100, costume_tech: 70, costume_mage: 150, costume_chef: 60, costume_king: 300,
+    pants_jeans: 12, pants_cargo: 22, pants_baggy: 22, pants_joggers: 40, pants_shorts: 10,
+    hair_undercut: 12, hair_spiky: 22, hair_braids: 40, hair_mohawk: 90,
+    hat_snapback: 12, hat_backcap: 20, hat_bucket: 40, hat_crown: 250, hat_launch: 0,
+    acc_shades: 10, acc_scarf: 10, acc_backpack: 20, acc_chain: 90,
+    pal_pastel: 20, pal_neon: 40, pal_gold: 100,
+  };
+  // the skins (shirt-slot values) among them: whoever wears one gets the first new skin instead
+  DL.RETIRED_OUTFITS = ['polo', 'striped', 'flannel', 'jacket', 'jersey', 'launch', 'hero', 'ceo', 'hacker', 'tech', 'mage', 'chef', 'king'];
 
   // --- Special items
   add({ id: 'xp_boost', cat: 'special', slot: 'use', value: 'xp', name: 'Treinamento Intensivo', rarity: 'rare', price: 20, stack: true, desc: 'Consumível: a equipe ganha XP em dobro por 2 h de jogo.' });
@@ -175,18 +148,17 @@
   for (const it of C) BY_ID[it.id] = it;
   DL.cosmetic = (id) => BY_ID[id] || null;
 
+  // accessory positions (where each one sits on the body) + the pet: one item per slot
+  DL.GEAR_POS = { head: 'Cabeça', face: 'Rosto', neck: 'Pescoço', back: 'Costas', hands: 'Mãos' };
+  DL.GEAR_SLOTS = Object.keys(DL.GEAR_POS).concat('pet');
+
   // Shop / inventory categories (the inventory groups items by these)
   DL.COSMETIC_GROUPS = [
+    { id: 'skins', name: 'Skins', test: (it) => it.slot === 'shirt' },
+    { id: 'acc', name: 'Acessórios', test: (it) => !!DL.GEAR_POS[it.slot] || it.slot === 'hat' },
+    { id: 'pet', name: 'Pets', test: (it) => it.slot === 'pet' },
+    { id: 'emote', name: 'Emotes', test: (it) => it.cat === 'emote' },
     { id: 'rack', name: 'Skins de racks', test: (it) => it.slot === 'rack' },
-    { id: 'server', name: 'Skins de servidores', test: (it) => it.slot === 'server' },
-    { id: 'switch', name: 'Skins de switches', test: (it) => it.slot === 'switch' },
-    { id: 'storage', name: 'Skins de storage', test: (it) => it.slot === 'storage' },
-    { id: 'rackacc', name: 'Acessórios de rack', test: (it) => it.slot === 'rackacc' },
-    { id: 'led', name: 'LEDs / RGB', test: (it) => it.slot === 'led' },
-    { id: 'clothes', name: 'Roupas', test: (it) => it.slot === 'shirt' || it.slot === 'pants' },
-    { id: 'hair', name: 'Cabelos', test: (it) => it.slot === 'hair' },
-    { id: 'acc', name: 'Acessórios', test: (it) => it.slot === 'hat' || it.slot === 'shades' || it.slot === 'scarf' || it.slot === 'backpack' || it.slot === 'chain' },
-    { id: 'palette', name: 'Paletas de cor', test: (it) => it.slot === 'palette' },
     { id: 'special', name: 'Itens especiais', test: (it) => it.cat === 'special' },
     { id: 'legend', name: 'Bots lendários', test: (it) => it.cat === 'legend' },
   ];
@@ -421,48 +393,51 @@
   // Costumes (shirt slot, see the catalog): before drawChar paints anything, the look is patched — suit
   // colour on torso and legs, boots, gloves (the skin colour: only the hands show, the head is covered),
   // and nothing on the head that the mask or hood would cut through.
-  const HERO = { suit: '#5b2bd1', dark: '#3a1a8c', light: '#7d55e8', gold: '#ffd23f', band: '#14102e' };
-  const HOOD = { cloth: '#1b1d24', dark: '#0e0f14', light: '#2b2f3a', mask: '#e9e9e6', maskD: '#b9bcc4', ink: '#0b0d12', code: '#39ff14' };
-  const CEO = { suit: '#1b2236', tie: '#c9a227', tieL: '#f2c14e' };
   const NEON = { green: '#39ff14', glow: '#b6ff9a', dim: '#1f8f0f', ink: '#0b0d12' };
-  const TECH = { vest: '#ff7a17', vestD: '#b34a0a', vestL: '#ffb36b', shirt: '#242832', pants: '#1b2028', badge: '#f1f1ee' };
   const ASTRO = { suit: '#eef1f4', suitD: '#c3ccd4', suitL: '#ffffff', panel: '#1b2230', glass: 'rgba(140,255,170,0.16)' };
   const NINJA = { cloth: '#14161c', clothD: '#0a0b0f', clothL: '#262a33', band: '#39ff14', bandD: '#1f8f0f' };
   const ROBOT = { metal: '#6f7a86', metalD: '#3d4650', metalL: '#aab4bf', joint: '#2b323a' };
   const SCI = { coat: '#eef1f4', coatD: '#c3ccd4', shirt: '#1b2230', frame: '#0b0d12', lens: 'rgba(57,255,20,0.22)' };
   const SAM = { armor: '#1a1f2b', dark: '#0b0e14', light: '#303849', green: NEON.green, glow: NEON.glow };
-  const MAGE = { robe: '#5b2bd1', dark: '#35167e', light: '#8f6bff', trim: '#b6ff9a', staff: '#6b4a2f', gem: NEON.green };
   const KNIGHT = { metal: '#8b96a6', dark: '#4a5565', light: '#c3ccd9', joint: '#2b323a', flame: '#3aa0ff', flameL: '#8fd3ff' };
   const DET = { coat: '#3b3540', dark: '#221f29', light: '#5a5264', hat: '#2b2630', band: '#39ff14', lens: 'rgba(57,255,20,0.28)', glass: NEON.glow };
   const PILOT = { suit: '#ff7a17', dark: '#b34a0a', light: '#ffb36b', shell: '#eef1f4', shellD: '#c3ccd4', visor: '#1b2230', glass: 'rgba(57,255,20,0.22)', strap: '#2b2f38' };
   const BK = { suit: '#d92b3a', dark: '#8f1622', light: '#ff6b78', cape: '#b01d2b', capeD: '#6e101a', white: '#f1f1ee', ring: NEON.green };
   const COW = { hat: '#7a5230', hatD: '#4a2f1d', hatL: '#a97a4a', shirt: '#d9c7a3', vest: '#3b2b22', vestD: '#241a14', denim: '#2e4a6b', boots: '#4a2f1d', neon: NEON.green };
   const VAMP = { cape: '#141018', capeD: '#08060b', lining: '#7a1220', shirt: '#1b1620', skin: '#e2dcd6', red: '#ff2b3a', redD: '#8f1622' };
-  const CHEF = { white: '#eef1f4', whiteD: '#c3ccd4', whiteL: '#ffffff', apron: '#d8dde4', apronD: '#aab3bd', neck: '#39ff14', pants: '#2b313b' };
-  const KING = { robe: '#4a1050', robeD: '#2b082f', robeL: '#7a1a82', gold: '#f2c14e', goldD: '#b8892f', goldL: '#fff1b8', fur: '#f1f1ee', furD: '#c3ccd4', jewel: '#ff2bd6' };
   const BARE = { hat: '', glasses: false, headset: false, beard: false, earrings: false, shades: false, visor: false, scarf: false, hairStyle: 'buzz' };
   // role: null drops the job's gear (cable coil, tie, tool belt…), which would sit on top of the costume
   const SUIT = { lanyard: null, badge: null, vest: null, role: null };
+  // the hacker skins keep the player's own hair when nothing covers the head
+  const OPEN = { hat: '', glasses: false, headset: false, shades: false, visor: false, scarf: false };
+  // the game's palette: navy, turquoise, blue and slate (grey-blue)
+  const HX = {
+    navy: '#0b1730', navyD: '#060d1c', navyL: '#1a2b4d', turq: '#2de2c8', turqL: '#a5f7ea', turqD: '#14897a',
+    blue: '#3d7bd9', blueL: '#7fb2f0', blueD: '#21477f', slate: '#56657d', slateL: '#8797b0', slateD: '#323d50', ink: '#05080f',
+    leather: '#161c28', leatherL: '#2a3344', metal: '#4a5d7a', metalL: '#8aa0c2', metalD: '#2c3a52', screen: '#06121a', shadow: '#05090f',
+  };
+  DL.HX = HX;
   DL.charCostume = function (L) {
     switch (L.outfit) {
-      case 'hero': return Object.assign({}, BARE, SUIT, { shirt: HERO.suit, pants: HERO.suit, shoes: HERO.gold, skin: HERO.gold });
-      case 'hacker': return Object.assign({}, BARE, SUIT, { shirt: HOOD.cloth, pants: '#22252d', shoes: '#e9e9e6', skin: HOOD.light });
-      case 'ceo': return Object.assign({}, SUIT, { shirt: CEO.suit, pants: CEO.suit, shoes: '#0b0d12' });
-      case 'tech': return Object.assign({}, BARE, SUIT, { shirt: TECH.shirt, pants: TECH.pants, shoes: '#0b0d12', hairStyle: 'short' });
+      case 'hx_hoodie': return Object.assign({}, BARE, SUIT, { shirt: HX.navy, pants: HX.slateD, shoes: HX.ink });
+      case 'hx_leather': return Object.assign({}, OPEN, SUIT, { shirt: HX.leather, pants: HX.navyD, shoes: HX.ink });
+      case 'hx_agent': return Object.assign({}, OPEN, SUIT, { shirt: '#0c0f16', pants: '#0c0f16', shoes: HX.ink });
+      case 'hx_ninja': return Object.assign({}, BARE, SUIT, { shirt: HX.navy, pants: HX.navyD, shoes: HX.navyD, skin: HX.navyL });
+      case 'hx_coat': return Object.assign({}, OPEN, SUIT, { shirt: HX.slate, pants: HX.navyD, shoes: HX.ink });
+      case 'hx_bot': return Object.assign({}, BARE, SUIT, { shirt: HX.metal, pants: HX.slateD, shoes: '#1c2433', skin: '#7d93b5' });
+      case 'hx_ghost': return Object.assign({}, BARE, SUIT, { shirt: '#4f8fe0', pants: HX.blueD, shoes: HX.blueD, skin: HX.blueL, hair: '#5a9ae6' });
+      case 'hx_master': return Object.assign({}, BARE, SUIT, { shirt: HX.navyD, pants: HX.navyD, shoes: HX.ink });
       case 'astronaut': return Object.assign({}, BARE, SUIT, { shirt: ASTRO.suit, pants: ASTRO.suit, shoes: ASTRO.suitD, skin: ASTRO.suitD });
       case 'ninja': return Object.assign({}, BARE, SUIT, { shirt: NINJA.cloth, pants: NINJA.clothD, shoes: NINJA.clothD });
       case 'robot': return Object.assign({}, BARE, SUIT, { shirt: ROBOT.metal, pants: ROBOT.metalD, shoes: ROBOT.joint, skin: ROBOT.metal });
       case 'scientist': return Object.assign({}, BARE, SUIT, { shirt: SCI.coat, pants: '#2a3340', shoes: '#1a1f27', hairStyle: 'undercut' });
       case 'samurai': return Object.assign({}, BARE, SUIT, { shirt: SAM.armor, pants: SAM.dark, shoes: SAM.dark, skin: SAM.light });
-      case 'mage': return Object.assign({}, BARE, SUIT, { shirt: MAGE.robe, pants: MAGE.dark, shoes: MAGE.dark });
       case 'knight': return Object.assign({}, BARE, SUIT, { shirt: KNIGHT.metal, pants: KNIGHT.dark, shoes: KNIGHT.joint, skin: KNIGHT.light });
       case 'detective': return Object.assign({}, BARE, SUIT, { shirt: DET.coat, pants: DET.dark, shoes: '#121318', hairStyle: 'short' });
       case 'pilot': return Object.assign({}, BARE, SUIT, { shirt: PILOT.suit, pants: PILOT.suit, shoes: PILOT.strap, skin: PILOT.strap });
       case 'backup': return Object.assign({}, BARE, SUIT, { shirt: BK.suit, pants: BK.suit, shoes: BK.dark });
       case 'cowboy': return Object.assign({}, BARE, SUIT, { shirt: COW.shirt, pants: COW.denim, shoes: COW.boots, hairStyle: 'short' });
       case 'vampire': return Object.assign({}, BARE, SUIT, { shirt: VAMP.shirt, pants: VAMP.cape, shoes: VAMP.capeD, skin: VAMP.skin });
-      case 'chef': return Object.assign({}, BARE, SUIT, { shirt: CHEF.white, pants: CHEF.pants, shoes: '#121318', hairStyle: 'short' });
-      case 'king': return Object.assign({}, BARE, SUIT, { shirt: KING.robe, pants: KING.robeD, shoes: KING.goldD });
     }
     return null;
   };
@@ -471,86 +446,99 @@
   DL.charOutfit = function (g, dir, ty, L, shirt, shirtD, shirtL) {
     const ax = AX, o = L.outfit, side = dir !== 'down' && dir !== 'up';
     switch (o) {
-      case 'polo':
-        if (dir === 'down') { R(g, ax - 3, ty, 2, 1, shirtL); R(g, ax + 1, ty, 2, 1, shirtL); R(g, ax, ty + 1, 1, 2, shirtD); R(g, ax, ty + 1, 1, 1, WHITE); }
-        else if (dir === 'up') R(g, ax - 3, ty, 6, 1, shirtL);
-        else R(g, ax, ty, 3, 1, shirtL);
+      case 'hx_hoodie':
+        // drawstrings, two dots of code on the chest and the front pocket
+        if (dir === 'down') {
+          R(g, ax - 2, ty + 1, 1, 2, HX.turq); R(g, ax + 1, ty + 1, 1, 2, HX.turq);
+          R(g, ax - 1, ty + 3, 1, 1, HX.turqD); R(g, ax + 1, ty + 3, 1, 1, HX.turqD);
+          R(g, ax - 3, ty + 5, 6, 2, HX.navyL); R(g, ax - 3, ty + 5, 6, 1, HX.navyD);
+        } else if (dir === 'up') { R(g, ax - 3, ty, 6, 2, HX.navyL); R(g, ax - 2, ty + 2, 4, 1, HX.navyD); }
+        else { R(g, ax + 1, ty + 1, 1, 2, HX.turq); R(g, ax - 1, ty + 5, 4, 2, HX.navyL); }
         return true;
-      case 'striped': {
-        const s = 'rgba(255,255,255,0.32)';
+      case 'hx_leather':
+        // high collar, a light zipper and zipped pockets
+        if (dir === 'down') {
+          R(g, ax - 3, ty, 2, 2, HX.leatherL); R(g, ax + 1, ty, 2, 2, HX.leatherL); R(g, ax, ty, 1, 7, HX.slateL);
+          R(g, ax - 4, ty, 1, 7, HX.leatherL); R(g, ax - 3, ty + 4, 2, 1, HX.slate); R(g, ax + 1, ty + 4, 2, 1, HX.slate);
+        } else if (dir === 'up') { R(g, ax - 3, ty, 6, 1, HX.leatherL); R(g, ax - 4, ty + 3, 8, 1, '#202837'); R(g, ax - 1, ty + 1, 2, 2, HX.turqD); }
+        else { R(g, ax, ty, 2, 2, HX.leatherL); R(g, ax + 2, ty, 1, 7, HX.slateL); }
+        return true;
+      case 'hx_agent':
+        // white shirt in the V, dark lapels and a thin blue tie with a turquoise clip
+        if (dir === 'down') {
+          R(g, ax - 1, ty, 2, 5, WHITE); R(g, ax - 2, ty, 1, 4, '#1d2230'); R(g, ax + 1, ty, 1, 4, '#1d2230');
+          R(g, ax - 1, ty + 1, 2, 1, HX.blue); R(g, ax - 1, ty + 2, 2, 3, HX.blueD); R(g, ax - 1, ty + 3, 2, 1, HX.turq);
+          R(g, ax - 1, ty + 6, 2, 1, '#1d2230');
+        } else if (dir === 'up') { R(g, ax - 3, ty, 6, 1, WHITE); R(g, ax, ty + 1, 1, 6, '#05070b'); }
+        else { R(g, ax + 1, ty, 2, 3, WHITE); R(g, ax + 2, ty + 1, 1, 4, HX.blueD); R(g, ax + 1, ty, 1, 4, '#1d2230'); }
+        return true;
+      case 'hx_ninja':
+        // a turquoise wrap across the chest and a blue belt
+        if (dir === 'down') {
+          R(g, ax - 3, ty + 1, 1, 1, HX.turq); R(g, ax - 2, ty + 2, 1, 1, HX.turq); R(g, ax - 1, ty + 3, 2, 1, HX.turq);
+          R(g, ax + 1, ty + 4, 1, 1, HX.turq); R(g, ax + 2, ty + 5, 1, 1, HX.turq);
+          R(g, ax - 4, ty + 6, 8, 1, HX.blueD); R(g, ax - 1, ty + 6, 2, 1, HX.turq);
+        } else if (dir === 'up') { R(g, ax - 3, ty + 1, 1, 5, HX.turqD); R(g, ax + 2, ty + 1, 1, 5, HX.turqD); R(g, ax - 4, ty + 6, 8, 1, HX.blueD); }
+        else { R(g, ax - 2, ty + 1, 1, 4, HX.turqD); R(g, ax - 3, ty + 6, 6, 1, HX.blueD); R(g, ax + 1, ty + 6, 1, 1, HX.turq); }
+        return true;
+      case 'hx_coat':
+        // open long coat: lit turquoise edges and tails down over the legs
+        if (dir === 'down') {
+          R(g, ax - 1, ty, 2, 8, HX.navyD); R(g, ax - 4, ty, 2, 2, shirtL); R(g, ax + 2, ty, 2, 2, shirtL);
+          R(g, ax - 4, ty + 8, 3, 4, shirt); R(g, ax + 1, ty + 8, 3, 4, shirt);
+          R(g, ax - 2, ty, 1, 12, HX.turq); R(g, ax + 1, ty, 1, 12, HX.turq);
+          R(g, ax - 4, ty + 8, 1, 4, HX.turqD); R(g, ax + 3, ty + 8, 1, 4, HX.turqD);
+          R(g, ax - 4, ty + 11, 3, 1, HX.turq); R(g, ax + 1, ty + 11, 3, 1, HX.turq);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty + 8, 8, 4, shirt); R(g, ax, ty + 3, 1, 9, shirtD);
+          R(g, ax - 4, ty, 1, 12, HX.turqD); R(g, ax + 3, ty, 1, 12, HX.turqD); R(g, ax - 4, ty + 11, 8, 1, HX.turq);
+        } else {
+          R(g, ax - 3, ty + 8, 5, 4, shirt); R(g, ax + 2, ty, 1, 12, HX.turq);
+          R(g, ax - 3, ty + 8, 1, 4, HX.turqD); R(g, ax - 3, ty + 11, 5, 1, HX.turq);
+        }
+        return true;
+      case 'hx_bot':
+        // chest plate with bolts, a turquoise power core and vents
+        if (dir === 'down') {
+          R(g, ax - 3, ty + 1, 6, 5, '#5d7394'); R(g, ax - 3, ty + 1, 6, 1, HX.metalL);
+          R(g, ax - 1, ty + 2, 2, 2, HX.turq); R(g, ax - 1, ty + 2, 1, 1, HX.turqL);
+          R(g, ax - 3, ty + 5, 6, 1, HX.metalD); R(g, ax - 4, ty + 7, 8, 1, HX.metalD);
+          R(g, ax - 4, ty, 1, 1, HX.metalL); R(g, ax + 3, ty, 1, 1, HX.metalL);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty, 8, 7, '#3c4d68'); R(g, ax - 3, ty + 2, 6, 1, HX.metalD); R(g, ax - 3, ty + 4, 6, 1, HX.metalD);
+          R(g, ax - 1, ty + 1, 2, 1, HX.turq);
+        } else { R(g, ax - 1, ty + 1, 3, 5, '#5d7394'); R(g, ax, ty + 2, 1, 2, HX.turq); }
+        return true;
+      case 'hx_ghost': {
+        // scan lines through the light body and a bright core
+        const s = 'rgba(165,247,234,0.35)';
         for (const y of [1, 3, 5]) R(g, side ? ax - 3 : ax - 4, ty + y, side ? 6 : 8, 1, s);
+        if (dir === 'down') R(g, ax - 1, ty + 2, 2, 2, HX.turqL);
         return true;
       }
-      case 'flannel': {
-        const d = 'rgba(0,0,0,0.3)';
-        if (side) { R(g, ax - 1, ty, 1, 7, d); R(g, ax - 3, ty + 2, 6, 1, d); R(g, ax - 3, ty + 5, 6, 1, d); }
-        else { R(g, ax - 2, ty, 1, 7, d); R(g, ax + 1, ty, 1, 7, d); R(g, ax - 4, ty + 2, 8, 1, d); R(g, ax - 4, ty + 5, 8, 1, d); }
-        if (dir === 'down') R(g, ax - 1, ty, 2, 1, shirtL);
+      case 'hx_master': {
+        // a cape covered in lines of code (dots that read as text at sprite scale)
+        const dots = (x0, y0, w, rows) => { for (let r = 0; r < rows; r++) for (let c = 0; c < w; c++) if ((r * 7 + c * 3) % 5 < 2) R(g, x0 + c, y0 + r * 2, 1, 1, (r + c) % 3 ? HX.turqD : HX.turq); };
+        if (dir === 'down') {
+          R(g, ax - 7, ty + 1, 1, 11, HX.navy); R(g, ax + 6, ty + 1, 1, 11, HX.navy);
+          R(g, ax - 7, ty + 3, 1, 1, HX.turqD); R(g, ax + 6, ty + 6, 1, 1, HX.turqD);
+          R(g, ax - 1, ty, 2, 8, HX.navy); dots(ax - 3, ty + 2, 6, 3);
+          R(g, ax - 4, ty + 8, 8, 3, HX.navyD); R(g, ax - 4, ty + 10, 8, 1, HX.turqD);
+        } else if (dir === 'up') {
+          R(g, ax - 5, ty, 10, 12, HX.navy); R(g, ax - 5, ty, 10, 1, HX.navyL);
+          dots(ax - 4, ty + 2, 8, 5); R(g, ax - 5, ty + 11, 10, 1, HX.turq);
+        } else {
+          R(g, ax - 5, ty, 3, 12, HX.navy); dots(ax - 5, ty + 2, 3, 5);
+          R(g, ax - 3, ty + 8, 6, 3, HX.navyD); R(g, ax - 3, ty + 10, 6, 1, HX.turqD);
+        }
         return true;
       }
-      case 'jacket':
-        if (dir === 'down') { R(g, ax - 1, ty, 2, 7, WHITE); R(g, ax - 2, ty, 1, 3, shirtL); R(g, ax + 1, ty, 1, 3, shirtL); R(g, ax - 2, ty + 3, 1, 4, shirtD); R(g, ax + 1, ty + 3, 1, 4, shirtD); }
-        else if (dir === 'up') { R(g, ax - 3, ty, 6, 1, shirtL); R(g, ax, ty + 1, 1, 6, shirtD); }
-        else { R(g, ax + 2, ty, 1, 7, WHITE); R(g, ax + 1, ty, 1, 2, shirtL); }
-        return true;
-      case 'jersey':
-        if (dir === 'down') { R(g, ax - 4, ty, 2, 1, WHITE); R(g, ax + 2, ty, 2, 1, WHITE); R(g, ax - 1, ty + 2, 3, 1, WHITE); R(g, ax + 1, ty + 3, 1, 3, WHITE); }
-        else if (dir === 'up') { R(g, ax - 4, ty, 2, 1, WHITE); R(g, ax + 2, ty, 2, 1, WHITE); R(g, ax - 2, ty + 2, 4, 1, WHITE); R(g, ax + 1, ty + 3, 1, 3, WHITE); }
-        else { R(g, ax - 1, ty, 3, 1, WHITE); R(g, ax, ty + 3, 2, 1, WHITE); }
-        return true;
-      case 'launch':
-        if (dir === 'down') { R(g, ax - 2, ty + 2, 4, 4, WHITE); R(g, ax - 1, ty + 3, 2, 2, shirt); R(g, ax - 1, ty + 4, 2, 1, '#ff7a17'); }
-        else if (dir === 'up') R(g, ax - 4, ty + 2, 8, 1, '#ff7a17');
-        else { R(g, ax, ty + 2, 2, 3, WHITE); R(g, ax, ty + 4, 2, 1, '#ff7a17'); }
-        return true;
       case 'dev': {
         // </> on the chest in terminal green
         const k = '#39ff14';
         if (dir === 'down') { R(g, ax - 3, ty + 3, 1, 1, k); R(g, ax - 4, ty + 4, 1, 1, k); R(g, ax - 3, ty + 5, 1, 1, k); R(g, ax, ty + 2, 1, 1, k); R(g, ax - 1, ty + 4, 1, 1, k); R(g, ax - 1, ty + 3, 1, 1, k); R(g, ax - 2, ty + 5, 1, 1, k); R(g, ax + 2, ty + 3, 1, 1, k); R(g, ax + 3, ty + 4, 1, 1, k); R(g, ax + 2, ty + 5, 1, 1, k); }
         else if (dir === 'up') R(g, ax - 3, ty + 2, 6, 1, k);
         else { R(g, ax, ty + 3, 1, 1, k); R(g, ax + 1, ty + 4, 1, 1, k); R(g, ax, ty + 5, 1, 1, k); }
-        return true;
-      }
-      case 'hero': {
-        // a gold bug on the chest (body + six legs) and a gold belt
-        const y = HERO.gold;
-        if (dir === 'down') {
-          R(g, ax - 1, ty + 2, 2, 3, y); R(g, ax - 2, ty + 2, 1, 1, y); R(g, ax + 1, ty + 2, 1, 1, y); R(g, ax - 2, ty + 4, 1, 1, y); R(g, ax + 1, ty + 4, 1, 1, y);
-          R(g, ax - 1, ty + 1, 1, 1, y); R(g, ax, ty + 1, 1, 1, y); R(g, ax - 4, ty + 6, 8, 1, y);
-        } else if (dir === 'up') { R(g, ax - 4, ty + 6, 8, 1, y); R(g, ax - 1, ty, 2, 6, HERO.dark); }
-        else { R(g, ax, ty + 2, 2, 3, y); R(g, ax + 2, ty + 3, 1, 1, y); R(g, ax - 3, ty + 6, 6, 1, y); }
-        return true;
-      }
-      case 'hacker':
-        // hoodie: drawstrings, a line of green code and the front pocket
-        if (dir === 'down') {
-          R(g, ax - 2, ty + 1, 1, 2, HOOD.mask); R(g, ax + 1, ty + 1, 1, 2, HOOD.mask);
-          R(g, ax - 3, ty + 3, 1, 1, HOOD.code); R(g, ax - 1, ty + 3, 2, 1, HOOD.code); R(g, ax + 2, ty + 3, 1, 1, HOOD.code);
-          R(g, ax - 3, ty + 5, 6, 2, HOOD.light); R(g, ax - 3, ty + 5, 6, 1, HOOD.dark);
-        } else if (dir === 'up') { R(g, ax - 3, ty, 6, 3, HOOD.light); R(g, ax - 2, ty + 3, 4, 1, HOOD.dark); }
-        else { R(g, ax, ty + 3, 2, 1, HOOD.code); R(g, ax - 1, ty + 5, 4, 2, HOOD.light); }
-        return true;
-      case 'tech': {
-        // orange high-visibility vest over a dark shirt, reflective neon stripe and a chest badge
-        const v = TECH;
-        if (dir === 'down') {
-          R(g, ax - 4, ty, 2, 7, v.vest); R(g, ax + 2, ty, 2, 7, v.vest);
-          R(g, ax - 4, ty, 2, 1, v.vestL); R(g, ax + 2, ty, 2, 1, v.vestL);
-          R(g, ax - 2, ty, 1, 7, v.vestD); R(g, ax + 1, ty, 1, 7, v.vestD);
-          R(g, ax - 4, ty + 4, 2, 1, NEON.green); R(g, ax + 2, ty + 4, 2, 1, NEON.green);
-          R(g, ax - 3, ty + 2, 2, 2, v.badge); R(g, ax - 3, ty + 2, 2, 1, NEON.green); R(g, ax - 3, ty + 3, 1, 1, '#7d8187');
-          R(g, ax - 3, ty, 1, 2, NEON.green);
-        } else if (dir === 'up') {
-          R(g, ax - 4, ty, 8, 5, v.vest); R(g, ax - 4, ty, 8, 1, v.vestL);
-          R(g, ax - 1, ty, 1, 5, v.vestD); R(g, ax - 4, ty + 4, 8, 1, NEON.green);
-          R(g, ax - 3, ty + 2, 6, 1, v.vestD);
-        } else {
-          R(g, ax - 3, ty, 2, 7, v.vest); R(g, ax + 1, ty, 2, 7, v.vest);
-          R(g, ax - 3, ty, 2, 1, v.vestL); R(g, ax + 1, ty, 2, 1, v.vestL);
-          R(g, ax - 1, ty, 1, 7, v.vestD);
-          R(g, ax - 3, ty + 4, 2, 1, NEON.green); R(g, ax + 1, ty + 4, 2, 1, NEON.green);
-          R(g, ax + 1, ty + 2, 1, 2, v.badge);
-        }
         return true;
       }
       case 'astronaut': {
@@ -651,21 +639,6 @@
           R(g, ax - 1, ty + 1, 3, 4, SAM.light); R(g, ax + 1, ty + 2, 1, 3, SAM.dark);
           R(g, ax, ty + 3, 1, 1, SAM.green);
           R(g, ax - 3, ty + 6, 6, 1, NEON.dim); R(g, ax + 1, ty + 6, 2, 1, SAM.green);
-        }
-        return true;
-      }
-      case 'mage': {
-        if (dir === 'down') {
-          R(g, ax - 5, ty + 1, 1, 7, MAGE.dark); R(g, ax + 4, ty + 1, 1, 7, MAGE.dark);
-          R(g, ax - 1, ty, 1, 7, MAGE.trim); R(g, ax - 2, ty, 1, 2, MAGE.light); R(g, ax + 1, ty, 1, 2, MAGE.light);
-          R(g, ax - 3, ty + 2, 1, 1, MAGE.trim); R(g, ax + 2, ty + 4, 1, 1, MAGE.trim);
-          R(g, ax - 4, ty + 6, 8, 1, MAGE.dark); R(g, ax - 1, ty + 6, 2, 1, MAGE.gem);
-        } else if (dir === 'up') {
-          R(g, ax - 4, ty, 8, 1, MAGE.light); R(g, ax - 1, ty + 1, 2, 6, MAGE.dark);
-          R(g, ax - 2, ty + 2, 4, 1, MAGE.trim); R(g, ax - 4, ty + 6, 8, 1, MAGE.dark); R(g, ax - 1, ty + 6, 2, 1, MAGE.gem);
-        } else {
-          R(g, ax - 5, ty, 2, 7, MAGE.dark); R(g, ax - 1, ty, 1, 7, MAGE.trim); R(g, ax + 2, ty + 2, 1, 2, MAGE.light);
-          R(g, ax - 3, ty + 6, 6, 1, MAGE.dark); R(g, ax, ty + 6, 2, 1, MAGE.gem);
         }
         return true;
       }
@@ -770,52 +743,6 @@
         }
         return true;
       }
-      case 'chef': {
-        if (dir === 'down') {
-          R(g, ax - 4, ty, 1, 7, CHEF.whiteD); R(g, ax + 3, ty, 1, 7, CHEF.whiteD);
-          R(g, ax - 3, ty, 6, 1, CHEF.apron); R(g, ax - 3, ty, 1, 3, CHEF.apronD); R(g, ax + 2, ty, 1, 3, CHEF.apronD);
-          R(g, ax - 2, ty, 4, 1, CHEF.neck); R(g, ax - 1, ty + 1, 2, 1, NEON.dim);
-          R(g, ax - 1, ty + 2, 1, 1, CHEF.whiteD); R(g, ax + 1, ty + 3, 1, 1, CHEF.whiteD);
-          R(g, ax - 2, ty + 4, 4, 3, CHEF.apron); R(g, ax - 2, ty + 4, 4, 1, CHEF.whiteL);
-          R(g, ax - 4, ty + 6, 8, 1, CHEF.apronD);
-        } else if (dir === 'up') {
-          R(g, ax - 4, ty, 8, 1, CHEF.whiteD); R(g, ax, ty + 1, 1, 6, CHEF.whiteD); R(g, ax - 2, ty + 3, 4, 1, CHEF.apron);
-          R(g, ax - 4, ty + 6, 8, 1, CHEF.apronD); R(g, ax - 1, ty + 6, 2, 1, CHEF.whiteL);
-        } else {
-          R(g, ax - 3, ty, 2, 1, CHEF.neck); R(g, ax - 3, ty + 1, 6, 1, CHEF.apron); R(g, ax - 1, ty + 2, 4, 3, CHEF.apron);
-          R(g, ax - 3, ty, 1, 6, CHEF.whiteD); R(g, ax - 3, ty + 6, 6, 1, CHEF.apronD); R(g, ax - 1, ty + 6, 2, 1, CHEF.whiteL);
-        }
-        return true;
-      }
-      case 'king': {
-        if (dir === 'down') {
-          R(g, ax - 4, ty, 8, 1, KING.fur); R(g, ax - 4, ty + 1, 8, 1, KING.furD);
-          R(g, ax - 5, ty + 2, 1, 6, KING.robeL); R(g, ax + 4, ty + 2, 1, 6, KING.robeL);
-          R(g, ax - 4, ty + 1, 1, 6, KING.gold); R(g, ax + 3, ty + 1, 1, 6, KING.gold);
-          R(g, ax - 4, ty + 1, 1, 1, KING.goldL); R(g, ax + 3, ty + 1, 1, 1, KING.goldL);
-          R(g, ax - 1, ty + 1, 2, 5, KING.robeD); R(g, ax - 1, ty + 1, 2, 1, KING.jewel); R(g, ax, ty + 2, 1, 1, KING.goldL);
-          R(g, ax - 4, ty + 6, 8, 1, KING.goldD); R(g, ax - 1, ty + 6, 2, 1, KING.goldL);
-        } else if (dir === 'up') {
-          R(g, ax - 4, ty, 8, 1, KING.fur); R(g, ax - 4, ty + 1, 8, 7, KING.robe);
-          R(g, ax - 4, ty + 1, 1, 6, KING.gold); R(g, ax + 3, ty + 1, 1, 6, KING.gold); R(g, ax, ty + 1, 1, 6, KING.robeD);
-          R(g, ax - 4, ty + 7, 8, 1, KING.goldD); R(g, ax - 1, ty, 2, 1, KING.jewel);
-        } else {
-          R(g, ax - 3, ty, 6, 1, KING.fur); R(g, ax - 3, ty + 1, 6, 6, KING.robe);
-          R(g, ax - 3, ty + 1, 1, 6, KING.gold); R(g, ax + 2, ty + 1, 1, 6, KING.gold);
-          R(g, ax - 1, ty + 2, 2, 2, KING.robeD); R(g, ax, ty + 3, 1, 1, KING.jewel);
-          R(g, ax - 3, ty + 6, 6, 1, KING.goldD); R(g, ax, ty + 6, 2, 1, KING.goldL);
-        }
-        return true;
-      }
-      case 'ceo':
-        // white shirt in the V, lapels, a gold tie and a pocket square
-        if (dir === 'down') {
-          R(g, ax - 1, ty, 2, 5, WHITE); R(g, ax - 2, ty, 1, 4, shirtL); R(g, ax + 1, ty, 1, 4, shirtL);
-          R(g, ax - 1, ty + 1, 2, 1, CEO.tieL); R(g, ax - 1, ty + 2, 2, 3, CEO.tie); R(g, ax - 1, ty + 5, 2, 1, shade(CEO.tie, -0.3));
-          R(g, ax + 2, ty + 2, 1, 1, WHITE); R(g, ax - 3, ty + 5, 1, 1, CEO.tieL);
-        } else if (dir === 'up') { R(g, ax - 3, ty, 6, 1, WHITE); R(g, ax, ty + 1, 1, 6, shirtD); }
-        else { R(g, ax + 1, ty, 2, 3, WHITE); R(g, ax + 2, ty + 1, 1, 4, CEO.tie); R(g, ax + 1, ty, 1, 4, shirtL); }
-        return true;
       case 'legend':
         // the legendary bots' suit: gold collar, seam and belt with a light on the chest
         if (dir === 'down') { R(g, ax - 3, ty, 6, 1, GOLD); R(g, ax, ty + 1, 1, 5, GOLD_D); R(g, ax - 2, ty + 2, 1, 1, GOLD_L); R(g, ax - 4, ty + 6, 8, 1, GOLD_D); R(g, ax - 4, ty, 1, 1, GOLD_L); R(g, ax + 3, ty, 1, 1, GOLD_L); }
@@ -893,72 +820,164 @@
         else if (dir === 'up') H(-2, 3, 4, 1, WHITE);
         else { H(2, 3, 6, 1, dk); H(1, 0, 2, 2, WHITE); }
         return true;
-      case 'backcap':
-        H(-4, -1, 8, 1, cc); H(-5, 0, 10, 3, cc);
-        if (dir === 'down') H(-1, 1, 2, 1, WHITE);
-        else if (dir === 'up') H(-4, 3, 8, 2, dk);
-        else H(-8, 3, 4, 1, dk);
-        return true;
-      case 'bucket':
-        H(-4, -2, 8, 2, cc); H(-5, 0, 10, 2, cc); H(-5, 1, 10, 1, dk);
-        H(side ? -7 : -7, 2, 14, side ? 1 : 2, shade(cc, -0.18));
-        return true;
-      case 'crown':
-        H(-4, -3, 8, 2, GOLD); H(-4, -5, 1, 2, GOLD); H(-1, -5, 2, 2, GOLD); H(3, -5, 1, 2, GOLD);
-        H(-4, -3, 8, 1, GOLD_L); H(-1, -2, 2, 1, '#ff2bd6');
-        return true;
     }
     return false;
   };
 
-  // accessories on top of everything (glasses, visor, chain, scarf, backpack)
+  // the hacker skins' heads: hood, mask, monitor or holo visor over the head sprites.js drew
+  function hxHead(g, dir, L, o) {
+    const hx = o.hx, hy = o.hy, side = o.side, eye = o.closed ? HX.turqD : HX.turq;
+    switch (L.outfit) {
+      case 'hx_hoodie':
+        // hood up, the face in shadow with code running down it (cosmetics' charFx animates it)
+        R(g, hx - 5, hy - 2, 10, 2, HX.navy); R(g, hx - 6, hy, 12, 10, HX.navy); R(g, hx - 4, hy - 2, 4, 1, HX.navyL);
+        if (dir === 'down') {
+          R(g, hx - 6, hy, 1, 10, HX.navyL); R(g, hx + 5, hy, 1, 10, HX.navyD);
+          R(g, hx - 4, hy + 1, 8, 8, '#08101f');
+          R(g, hx - 3, hy + 2, 1, 3, HX.turqD); R(g, hx, hy + 3, 1, 4, HX.turqD); R(g, hx + 2, hy + 1, 1, 2, HX.turqD); R(g, hx + 2, hy + 6, 1, 2, HX.turqD);
+          R(g, hx - 2, hy + 5, 1, 1, eye); R(g, hx + 1, hy + 5, 1, 1, eye);
+        } else if (side) {
+          R(g, hx - 6, hy, 1, 10, HX.navyD); R(g, hx + 1, hy + 1, 4, 8, '#08101f');
+          R(g, hx + 2, hy + 2, 1, 4, HX.turqD); R(g, hx + 4, hy + 3, 1, 3, HX.turqD); R(g, hx + 3, hy + 5, 1, 1, eye);
+        } else { R(g, hx - 1, hy - 1, 2, 11, HX.navyD); R(g, hx - 6, hy, 1, 10, HX.navyL); }
+        return;
+      case 'hx_leather':
+        // holographic visor band in front of the eyes
+        if (dir === 'down') {
+          R(g, hx - 5, hy + 4, 10, 2, 'rgba(45,226,200,0.55)'); R(g, hx - 5, hy + 4, 10, 1, HX.turqL);
+          R(g, hx - 6, hy + 4, 1, 2, HX.slateD); R(g, hx + 5, hy + 4, 1, 2, HX.slateD); R(g, hx + 4, hy + 3, 2, 1, HX.turq);
+        } else if (side) { R(g, hx + 1, hy + 4, 5, 2, 'rgba(45,226,200,0.55)'); R(g, hx + 1, hy + 4, 5, 1, HX.turqL); R(g, hx - 1, hy + 4, 2, 1, HX.slateD); }
+        else R(g, hx - 5, hy + 4, 10, 1, HX.slateD);
+        return;
+      case 'hx_agent':
+        // dark glasses with a blue glint and a coiled earpiece
+        if (dir === 'down') {
+          R(g, hx - 4, hy + 5, 3, 2, HX.ink); R(g, hx + 1, hy + 5, 3, 2, HX.ink); R(g, hx - 1, hy + 5, 2, 1, HX.ink); R(g, hx - 4, hy + 5, 1, 1, HX.blueL);
+          R(g, hx + 5, hy + 5, 1, 1, HX.slateL); R(g, hx + 5, hy + 6, 1, 4, 'rgba(135,151,176,0.8)');
+        } else if (side) {
+          R(g, hx + 1, hy + 5, 4, 2, HX.ink); R(g, hx - 2, hy + 5, 3, 1, HX.ink); R(g, hx + 4, hy + 5, 1, 1, HX.blueL);
+          R(g, hx - 1, hy + 5, 1, 2, HX.slateL); R(g, hx - 1, hy + 7, 1, 3, 'rgba(135,151,176,0.8)');
+        } else { R(g, hx - 5, hy + 5, 1, 1, HX.ink); R(g, hx + 4, hy + 5, 1, 1, HX.ink); R(g, hx + 4, hy + 6, 1, 4, HX.slateL); }
+        return;
+      case 'hx_ninja':
+        // head wrap and an LED mask: two turquoise eyes and a dotted grid
+        R(g, hx - 4, hy - 1, 8, 1, HX.navy); R(g, hx - 5, hy, 10, 9, HX.navy); R(g, hx - 4, hy + 9, 8, 1, HX.navyD); R(g, hx - 3, hy, 4, 1, HX.navyL);
+        if (dir === 'down') {
+          R(g, hx - 5, hy + 4, 10, 4, HX.ink); R(g, hx - 3, hy + 5, 2, 1, eye); R(g, hx + 1, hy + 5, 2, 1, eye);
+          for (let x = -3; x <= 3; x += 2) R(g, hx + x, hy + 7, 1, 1, HX.turqD);
+        } else if (side) {
+          R(g, hx - 1, hy + 4, 6, 4, HX.ink); R(g, hx + 2, hy + 5, 2, 1, eye); R(g, hx + 1, hy + 7, 1, 1, HX.turqD); R(g, hx + 3, hy + 7, 1, 1, HX.turqD);
+          R(g, hx - 6, hy + 4, 1, 4, HX.turqD);
+        } else { R(g, hx - 5, hy + 4, 10, 1, HX.ink); R(g, hx - 1, hy + 4, 2, 2, HX.turqD); R(g, hx - 1, hy + 6, 1, 4, HX.turqD); R(g, hx + 1, hy + 6, 1, 3, HX.turqD); }
+        return;
+      case 'hx_bot':
+        // a monitor for a head: the prompt and cursor on the screen, an antenna with a light
+        R(g, hx - 6, hy - 1, 12, 11, '#3c4d68'); R(g, hx - 6, hy - 1, 12, 1, HX.metalL); R(g, hx - 6, hy + 9, 12, 1, HX.metalD);
+        R(g, hx + 3, hy - 3, 1, 2, HX.metalL); R(g, hx + 3, hy - 4, 1, 1, HX.turq);
+        if (dir === 'down') {
+          R(g, hx - 5, hy, 10, 8, HX.screen);
+          R(g, hx - 4, hy + 2, 1, 1, HX.turq); R(g, hx - 3, hy + 3, 1, 1, HX.turq); R(g, hx - 4, hy + 4, 1, 1, HX.turq);
+          R(g, hx - 1, hy + 4, 2, 1, o.closed ? HX.screen : HX.turq); R(g, hx - 5, hy + 6, 10, 1, 'rgba(45,226,200,0.18)');
+        } else if (side) {
+          R(g, hx + 3, hy, 2, 8, HX.screen); R(g, hx + 4, hy + 3, 1, 1, HX.turq);
+          for (const y of [2, 4, 6]) R(g, hx - 4, hy + y, 4, 1, HX.metalD);
+        } else for (const y of [2, 4, 6]) R(g, hx - 4, hy + y, 8, 1, HX.metalD);
+        return;
+      case 'hx_ghost':
+        // glowing eyes, no mouth, a wisp of light on top and scan lines through the head
+        R(g, hx - 2, hy - 2, 4, 2, 'rgba(127,178,240,0.7)'); R(g, hx - 1, hy - 3, 2, 1, 'rgba(165,247,234,0.6)');
+        R(g, hx - 5, hy + 2, 10, 1, 'rgba(165,247,234,0.35)'); R(g, hx - 5, hy + 6, 10, 1, 'rgba(165,247,234,0.35)');
+        if (dir === 'down') {
+          R(g, hx - 3, hy + 5, 2, 2, HX.turqL); R(g, hx + 1, hy + 5, 2, 2, HX.turqL);
+          R(g, hx - 1, hy + 8, 2, 1, HX.blueL); R(g, hx - 4, hy + 7, 1, 1, HX.blueL); R(g, hx + 3, hy + 7, 1, 1, HX.blueL);
+        } else if (side) { R(g, hx + 2, hy + 5, 2, 2, HX.turqL); R(g, hx + 4, hy + 8, 1, 1, HX.blueL); R(g, hx + 3, hy + 7, 1, 1, HX.blueL); }
+        return;
+      case 'hx_master':
+        // deep hood, the face lost in shadow except for two turquoise eyes
+        R(g, hx - 5, hy - 3, 10, 3, HX.navy); R(g, hx - 1, hy - 4, 2, 1, HX.navy); R(g, hx - 6, hy, 12, 10, HX.navy); R(g, hx - 4, hy - 3, 4, 1, HX.navyL);
+        if (dir === 'down') {
+          R(g, hx - 6, hy, 1, 10, HX.navyL); R(g, hx + 5, hy, 1, 10, HX.navyD); R(g, hx - 4, hy + 1, 8, 8, '#03060c');
+          R(g, hx - 3, hy + 5, 2, 1, eye); R(g, hx + 1, hy + 5, 2, 1, eye);
+          R(g, hx - 5, hy + 1, 1, 1, HX.turq); R(g, hx - 5, hy + 4, 1, 1, HX.turqD); R(g, hx + 4, hy + 2, 1, 1, HX.turq); R(g, hx + 4, hy + 6, 1, 1, HX.turqD);
+        } else if (side) { R(g, hx - 6, hy, 1, 10, HX.navyD); R(g, hx + 1, hy + 1, 4, 8, '#03060c'); R(g, hx + 3, hy + 5, 2, 1, eye); }
+        else { R(g, hx - 1, hy - 3, 2, 13, HX.navyD); R(g, hx - 4, hy + 2, 1, 1, HX.turqD); R(g, hx + 3, hy + 5, 1, 1, HX.turqD); }
+        return;
+    }
+  }
+
+  // Accessories (DL.GEAR_POS): drawn after the skin, so they sit over any of them. Back first, then the
+  // neck, the face and the head on top. Gloves recolour the hands in sprites.js (DL.charGlove).
+  function gear(g, dir, L, o) {
+    const G = L.gear, ax = AX, ty = o.ty, hy = o.hy, hx = o.hx, side = o.side;
+    if (G.back === 'laptop' && !o.sit) {
+      if (dir === 'up') {
+        R(g, ax - 3, ty + 1, 6, 6, HX.slate); R(g, ax - 3, ty + 1, 6, 1, HX.slateL); R(g, ax - 2, ty + 4, 4, 2, HX.slateD);
+        R(g, ax - 3, ty - 2, 6, 3, HX.slateD); R(g, ax - 2, ty - 1, 4, 2, HX.turq); R(g, ax - 2, ty - 1, 4, 1, HX.turqL);
+      } else if (dir === 'down') {
+        R(g, ax - 4, ty, 1, 6, HX.slateD); R(g, ax + 3, ty, 1, 6, HX.slateD);
+        R(g, ax + 4, ty - 2, 2, 2, HX.slateD); R(g, ax + 4, ty - 2, 1, 1, HX.turq);
+      } else {
+        R(g, ax - 6, ty + 1, 3, 6, HX.slate); R(g, ax - 6, ty + 1, 3, 1, HX.slateL); R(g, ax - 2, ty, 1, 4, HX.slateD);
+        R(g, ax - 6, ty - 2, 2, 3, HX.slateD); R(g, ax - 5, ty - 2, 1, 3, HX.turq);
+      }
+    }
+    if (G.neck === 'usb' && dir !== 'up') {
+      if (dir === 'down') {
+        R(g, ax - 2, ty, 1, 2, HX.slateL); R(g, ax + 1, ty, 1, 2, HX.slateL); R(g, ax - 1, ty + 2, 2, 1, HX.slateL);
+        R(g, ax - 1, ty + 3, 2, 3, HX.blue); R(g, ax - 1, ty + 3, 2, 1, HX.blueL); R(g, ax, ty + 4, 1, 1, HX.turq);
+      } else { R(g, ax + 1, ty, 1, 3, HX.slateL); R(g, ax + 1, ty + 3, 1, 3, HX.blue); R(g, ax + 1, ty + 5, 1, 1, HX.turq); }
+    }
+    switch (G.face) {
+      case 'nvg':
+        if (dir === 'down') {
+          R(g, hx - 5, hy + 3, 10, 1, HX.slateD); R(g, hx - 4, hy + 4, 3, 3, HX.slateD); R(g, hx + 1, hy + 4, 3, 3, HX.slateD);
+          R(g, hx - 1, hy + 5, 2, 1, HX.slateD); R(g, hx - 3, hy + 5, 1, 1, HX.turqL); R(g, hx + 2, hy + 5, 1, 1, HX.turqL);
+        } else if (side) { R(g, hx - 5, hy + 3, 7, 1, HX.slateD); R(g, hx + 2, hy + 4, 4, 3, HX.slateD); R(g, hx + 5, hy + 5, 1, 1, HX.turqL); }
+        else { R(g, hx - 5, hy + 3, 10, 1, HX.slateD); R(g, hx - 1, hy + 3, 2, 1, HX.slate); }
+        break;
+      case 'holovisor':
+        if (dir === 'down') {
+          R(g, hx - 5, hy + 4, 10, 1, 'rgba(61,123,217,0.8)'); R(g, hx - 5, hy + 5, 10, 1, 'rgba(127,178,240,0.55)');
+          R(g, hx - 3, hy + 5, 1, 1, HX.turqL); R(g, hx + 1, hy + 4, 2, 1, HX.turqL); R(g, hx - 6, hy + 4, 1, 2, HX.slate); R(g, hx + 5, hy + 4, 1, 2, HX.slate);
+        } else if (side) { R(g, hx + 1, hy + 4, 5, 2, 'rgba(61,123,217,0.7)'); R(g, hx + 4, hy + 4, 1, 1, HX.turqL); R(g, hx - 1, hy + 4, 2, 2, HX.slate); }
+        else R(g, hx - 5, hy + 4, 10, 1, HX.slate);
+        break;
+      case 'ledmask':
+        if (dir === 'down') {
+          R(g, hx - 4, hy + 6, 8, 3, HX.ink); R(g, hx - 4, hy + 6, 8, 1, HX.slateD);
+          R(g, hx - 3, hy + 7, 1, 1, HX.turq); R(g, hx - 2, hy + 8, 4, 1, HX.turq); R(g, hx + 2, hy + 7, 1, 1, HX.turq);
+          R(g, hx - 5, hy + 6, 1, 1, HX.slateD); R(g, hx + 4, hy + 6, 1, 1, HX.slateD);
+        } else if (side) { R(g, hx + 1, hy + 6, 4, 3, HX.ink); R(g, hx + 3, hy + 8, 2, 1, HX.turq); R(g, hx + 4, hy + 7, 1, 1, HX.turq); R(g, hx - 2, hy + 6, 3, 1, HX.slateD); }
+        else R(g, hx - 5, hy + 6, 10, 1, HX.slateD);
+        break;
+    }
+    switch (G.head) {
+      case 'antenna':
+        R(g, hx - 4, hy - 1, 8, 1, HX.navy); R(g, hx - 5, hy, 10, 3, HX.navy); R(g, hx - 3, hy, 3, 1, HX.navyL);
+        if (dir === 'down') { R(g, hx - 6, hy + 3, 12, 1, HX.navyD); R(g, hx - 1, hy + 1, 2, 1, HX.turq); }
+        else if (side) R(g, hx + 2, hy + 3, 6, 1, HX.navyD);
+        else R(g, hx - 2, hy + 3, 4, 1, HX.navyD);
+        R(g, hx + 2, hy - 5, 1, 4, HX.slateL); R(g, hx + 2, hy - 6, 1, 1, HX.turqL);
+        break;
+      case 'headset':
+        R(g, hx - 4, hy - 2, 8, 1, HX.slateD); R(g, hx - 5, hy - 1, 1, 2, HX.slateD); R(g, hx + 4, hy - 1, 1, 2, HX.slateD);
+        if (dir === 'down') {
+          R(g, hx - 7, hy + 3, 2, 4, HX.slateD); R(g, hx + 5, hy + 3, 2, 4, HX.slateD); R(g, hx - 7, hy + 4, 1, 2, HX.turq); R(g, hx + 6, hy + 4, 1, 2, HX.turq);
+          R(g, hx + 4, hy + 7, 1, 1, HX.slateD); R(g, hx + 2, hy + 8, 2, 1, HX.slateD); R(g, hx + 1, hy + 8, 1, 1, HX.turq);
+        } else if (side) { R(g, hx - 3, hy + 3, 3, 4, HX.slateD); R(g, hx - 3, hy + 4, 1, 2, HX.turq); R(g, hx, hy + 7, 4, 1, HX.slateD); R(g, hx + 4, hy + 7, 1, 1, HX.turq); }
+        else { R(g, hx - 7, hy + 3, 2, 4, HX.slateD); R(g, hx + 5, hy + 3, 2, 4, HX.slateD); R(g, hx - 7, hy + 4, 1, 2, HX.turq); R(g, hx + 6, hy + 4, 1, 2, HX.turq); }
+        break;
+    }
+  }
+  // circuit gloves: dark hands with a turquoise trace (sprites.js paints every hand with this)
+  DL.charGlove = (L) => (L.gear && L.gear.hands === 'gloves' ? { c: '#121a2b', d: '#0a101c', glow: HX.turq } : null);
+
+  // skin heads, then the costumes' head pieces and the legendary visor; accessories last, on top of all
   DL.charTop = function (g, dir, pose, L, o) {
     const ax = AX, ty = o.ty, hy = o.hy, side = o.side;
     const hx = o.hx;
-    if (L.outfit === 'hero') {
-      // full mask in the suit colour with a dark visor band and glowing gold eyes
-      R(g, hx - 4, hy - 1, 8, 1, HERO.suit); R(g, hx - 5, hy, 10, 9, HERO.suit); R(g, hx - 4, hy + 9, 8, 1, HERO.dark);
-      if (dir === 'down') {
-        R(g, hx + 4, hy + 1, 1, 8, HERO.dark); R(g, hx - 3, hy, 4, 1, HERO.light);
-        R(g, hx - 5, hy + 4, 10, 3, HERO.band); R(g, hx - 3, hy + 5, 2, 1, HERO.gold); R(g, hx + 1, hy + 5, 2, 1, HERO.gold);
-      } else if (side) {
-        R(g, hx + 5, hy + 5, 1, 2, HERO.suit); R(g, hx - 5, hy + 1, 1, 8, HERO.dark); R(g, hx - 2, hy, 4, 1, HERO.light);
-        R(g, hx - 1, hy + 4, 7, 3, HERO.band); R(g, hx + 2, hy + 5, 3, 1, HERO.gold);
-      } else {
-        R(g, hx - 3, hy, 4, 1, HERO.light); R(g, hx - 5, hy + 4, 10, 2, HERO.band); R(g, hx - 1, hy + 6, 2, 3, HERO.dark);
-      }
-    } else if (L.outfit === 'hacker') {
-      // hood up over the head; from the front and the side, a plain white mask with a thin smile
-      R(g, hx - 5, hy - 2, 10, 2, HOOD.cloth); R(g, hx - 6, hy, 12, 10, HOOD.cloth); R(g, hx - 4, hy - 2, 4, 1, HOOD.light);
-      if (dir === 'down') {
-        R(g, hx - 6, hy, 1, 10, HOOD.light); R(g, hx + 5, hy, 1, 10, HOOD.dark);
-        R(g, hx - 4, hy + 1, 8, 8, HOOD.mask); R(g, hx + 3, hy + 2, 1, 6, HOOD.maskD); R(g, hx - 4, hy + 1, 8, 1, HOOD.maskD);
-        R(g, hx - 3, hy + 4, 2, 1, HOOD.ink); R(g, hx + 1, hy + 4, 2, 1, HOOD.ink);
-        R(g, hx - 3, hy + 6, 1, 1, HOOD.ink); R(g, hx - 2, hy + 7, 4, 1, HOOD.ink); R(g, hx + 2, hy + 6, 1, 1, HOOD.ink);
-      } else if (side) {
-        R(g, hx - 6, hy, 1, 10, HOOD.dark);
-        R(g, hx + 1, hy + 1, 5, 8, HOOD.mask); R(g, hx + 1, hy + 1, 1, 8, HOOD.maskD);
-        R(g, hx + 3, hy + 4, 2, 1, HOOD.ink); R(g, hx + 3, hy + 7, 2, 1, HOOD.ink); R(g, hx + 5, hy + 6, 1, 1, HOOD.ink);
-      } else {
-        R(g, hx - 1, hy - 1, 2, 11, HOOD.dark); R(g, hx - 6, hy, 1, 10, HOOD.light);
-      }
-    } else if (L.outfit === 'tech') {
-      // headset over the hair, with a neon status light and a boom microphone
-      const hs = '#2b2f38';
-      if (dir === 'down') {
-        R(g, hx - 5, hy - 1, 10, 1, hs);
-        R(g, hx - 6, hy + 3, 2, 4, hs); R(g, hx + 4, hy + 3, 2, 4, hs);
-        R(g, hx - 5, hy + 4, 1, 2, NEON.green); R(g, hx + 4, hy + 4, 2, 2, NEON.green);
-        R(g, hx + 2, hy + 7, 3, 1, hs); R(g, hx + 1, hy + 7, 1, 1, NEON.green);
-      } else if (side) {
-        R(g, hx - 5, hy - 1, 8, 1, hs); R(g, hx - 4, hy + 3, 2, 4, hs); R(g, hx - 4, hy + 4, 1, 2, NEON.green);
-        R(g, hx - 1, hy + 7, 4, 1, hs); R(g, hx + 2, hy + 7, 1, 1, NEON.green);
-      } else {
-        R(g, hx - 5, hy - 1, 10, 1, hs);
-        R(g, hx - 6, hy + 3, 2, 4, hs); R(g, hx + 4, hy + 3, 2, 4, hs);
-        R(g, hx - 2, hy + 5, 4, 1, '#1b1f27');
-      }
-    } else if (L.outfit === 'astronaut') {
+    hxHead(g, dir, L, o);
+    if (L.outfit === 'astronaut') {
       // glass dome helmet: a white shell, a green-tinted visor and a neon rim
       const shell = '#dfe7ed', shellD = '#b6c1ca', shellL = '#ffffff';
       if (dir === 'down') {
@@ -1087,23 +1106,6 @@
       const kx = hx + 6;
       R(g, kx, hy + 3, 1, 11, NEON.green); R(g, kx + 1, hy + 4, 1, 9, NEON.dim);
       R(g, kx - 1, hy + 2, 3, 2, SAM.dark); R(g, kx - 1, hy + 2, 1, 2, SAM.light);
-    } else if (L.outfit === 'mage') {
-      if (dir === 'down') {
-        R(g, hx - 6, hy - 1, 12, 2, MAGE.dark); R(g, hx - 6, hy - 1, 12, 1, MAGE.light);
-        R(g, hx - 4, hy - 4, 8, 3, MAGE.robe); R(g, hx - 3, hy - 5, 6, 1, MAGE.robe); R(g, hx - 2, hy - 6, 4, 1, MAGE.light);
-        R(g, hx - 4, hy - 2, 8, 1, MAGE.trim); R(g, hx - 2, hy - 3, 3, 1, MAGE.trim); R(g, hx + 1, hy - 4, 1, 1, MAGE.gem);
-      } else if (side) {
-        R(g, hx - 6, hy - 1, 12, 2, MAGE.dark); R(g, hx - 6, hy - 1, 12, 1, MAGE.light);
-        R(g, hx - 3, hy - 4, 8, 3, MAGE.robe); R(g, hx - 2, hy - 5, 5, 1, MAGE.robe); R(g, hx - 1, hy - 6, 3, 1, MAGE.light);
-        R(g, hx - 3, hy - 2, 8, 1, MAGE.trim); R(g, hx + 1, hy - 3, 2, 1, MAGE.trim);
-      } else {
-        R(g, hx - 6, hy - 1, 12, 2, MAGE.dark); R(g, hx - 6, hy - 1, 12, 1, MAGE.light);
-        R(g, hx - 4, hy - 4, 8, 3, MAGE.dark); R(g, hx - 3, hy - 5, 6, 1, MAGE.robe); R(g, hx - 2, hy - 6, 4, 1, MAGE.light);
-        R(g, hx - 4, hy - 2, 8, 1, MAGE.trim); R(g, hx - 1, hy - 3, 3, 1, MAGE.trim);
-      }
-      const sx = hx + 6;
-      R(g, sx, hy + 4, 1, 13, MAGE.staff); R(g, sx + 1, hy + 5, 1, 10, MAGE.dark);
-      R(g, sx - 1, hy + 1, 3, 3, MAGE.gem); R(g, sx, hy + 2, 1, 1, NEON.glow); R(g, sx - 1, hy + 1, 1, 1, '#ffffff');
     } else if (L.outfit === 'knight') {
       if (dir === 'down') {
         R(g, hx - 5, hy - 1, 10, 9, KNIGHT.metal); R(g, hx - 5, hy - 1, 10, 1, KNIGHT.light);
@@ -1207,62 +1209,134 @@
         R(g, hx - 5, hy - 2, 10, 3, VAMP.cape); R(g, hx - 5, hy + 1, 10, 8, VAMP.cape);
         R(g, hx - 5, hy + 6, 10, 3, VAMP.capeD); R(g, hx - 1, hy + 8, 2, 1, VAMP.red);
       }
-    } else if (L.outfit === 'chef') {
-      if (dir === 'down') {
-        R(g, hx - 5, hy - 2, 10, 2, CHEF.white); R(g, hx - 4, hy - 5, 8, 3, CHEF.white);
-        R(g, hx - 6, hy - 4, 2, 2, CHEF.white); R(g, hx + 4, hy - 4, 2, 2, CHEF.white);
-        R(g, hx - 5, hy - 1, 10, 1, CHEF.neck); R(g, hx - 4, hy - 5, 4, 1, CHEF.whiteL);
-        R(g, hx - 5, hy - 3, 1, 1, CHEF.whiteD); R(g, hx + 4, hy - 3, 1, 1, CHEF.whiteD);
-      } else if (side) {
-        R(g, hx - 5, hy - 2, 10, 2, CHEF.white); R(g, hx - 3, hy - 5, 8, 3, CHEF.white);
-        R(g, hx - 5, hy - 4, 2, 2, CHEF.white); R(g, hx + 4, hy - 4, 2, 2, CHEF.white);
-        R(g, hx - 5, hy - 1, 10, 1, CHEF.neck); R(g, hx - 2, hy - 5, 4, 1, CHEF.whiteL);
-      } else {
-        R(g, hx - 5, hy - 2, 10, 2, CHEF.white); R(g, hx - 4, hy - 5, 8, 3, CHEF.white);
-        R(g, hx - 6, hy - 4, 2, 2, CHEF.whiteD); R(g, hx + 4, hy - 4, 2, 2, CHEF.whiteD);
-        R(g, hx - 5, hy - 1, 10, 1, CHEF.neck); R(g, hx - 4, hy - 5, 4, 1, CHEF.whiteL);
-      }
-    } else if (L.outfit === 'king') {
-      if (dir === 'down') {
-        R(g, hx - 4, hy - 3, 8, 2, KING.gold); R(g, hx - 4, hy - 5, 1, 2, KING.gold); R(g, hx - 1, hy - 5, 2, 2, KING.gold); R(g, hx + 3, hy - 5, 1, 2, KING.gold);
-        R(g, hx - 4, hy - 3, 8, 1, KING.goldL); R(g, hx - 1, hy - 2, 2, 1, KING.jewel); R(g, hx - 3, hy - 2, 1, 1, NEON.green); R(g, hx + 2, hy - 2, 1, 1, NEON.green);
-        R(g, hx - 6, hy + 7, 12, 3, KING.fur); R(g, hx - 6, hy + 9, 12, 1, KING.furD);
-        R(g, hx - 5, hy + 7, 2, 1, KING.furD); R(g, hx + 3, hy + 7, 2, 1, KING.furD);
-      } else if (side) {
-        R(g, hx - 3, hy - 3, 8, 2, KING.gold); R(g, hx - 3, hy - 5, 1, 2, KING.gold); R(g, hx, hy - 5, 2, 2, KING.gold); R(g, hx + 4, hy - 5, 1, 2, KING.gold);
-        R(g, hx - 3, hy - 3, 8, 1, KING.goldL); R(g, hx, hy - 2, 2, 1, KING.jewel);
-        R(g, hx - 6, hy + 7, 12, 3, KING.fur); R(g, hx - 6, hy + 9, 12, 1, KING.furD);
-      } else {
-        R(g, hx - 4, hy - 3, 8, 2, KING.gold); R(g, hx - 4, hy - 5, 1, 2, KING.gold); R(g, hx - 1, hy - 5, 2, 2, KING.gold); R(g, hx + 3, hy - 5, 1, 2, KING.gold);
-        R(g, hx - 4, hy - 3, 8, 1, KING.goldL); R(g, hx - 1, hy - 2, 2, 1, KING.jewel);
-        R(g, hx - 6, hy + 7, 12, 3, KING.furD); R(g, hx - 6, hy + 9, 12, 1, KING.fur);
-      }
     }
     if (L.visor) {
       if (dir === 'down') { R(g, ax - 5, hy + 4, 10, 2, GOLD); R(g, ax - 4, hy + 5, 8, 1, GOLD_L); }
       else if (side) { R(g, ax, hy + 4, 6, 2, GOLD); R(g, ax + 2, hy + 5, 3, 1, GOLD_L); }
       else R(g, ax - 5, hy + 4, 10, 1, GOLD_D);
-    } else if (L.shades) {
-      const k = '#0b0d12';
-      if (dir === 'down') { R(g, ax - 4, hy + 5, 3, 2, k); R(g, ax + 1, hy + 5, 3, 2, k); R(g, ax - 1, hy + 5, 2, 1, k); R(g, ax - 4, hy + 5, 1, 1, 'rgba(160,195,236,0.7)'); }
-      else if (side) { R(g, ax + 1, hy + 5, 4, 2, k); R(g, ax - 2, hy + 5, 3, 1, k); }
     }
-    if (L.scarf) {
-      const c = '#8a2d3b';
-      if (dir === 'down') { R(g, ax - 4, ty, 8, 2, c); R(g, ax - 4, ty + 1, 8, 1, shade(c, -0.25)); R(g, ax + 1, ty + 2, 2, 3, c); R(g, ax + 1, ty + 4, 2, 1, shade(c, -0.3)); }
-      else if (dir === 'up') R(g, ax - 4, ty, 8, 2, c);
-      else { R(g, ax - 3, ty, 6, 2, c); R(g, ax - 4, ty + 2, 2, 3, c); }
+    if (L.gear) gear(g, dir, L, o);
+  };
+
+  // after a frame is drawn and outlined: the Digital Ghost is half see-through, with faint scan lines
+  DL.charPost = function (c, L) {
+    if (L.outfit !== 'hx_ghost') return c;
+    const o = DL.mk(c.width, c.height), g = o.getContext('2d');
+    g.globalAlpha = 0.62;
+    g.drawImage(c, 0, 0);
+    g.globalAlpha = 1;
+    g.globalCompositeOperation = 'destination-out';
+    g.fillStyle = 'rgba(0,0,0,0.35)';
+    for (let y = 1; y < c.height; y += 3) g.fillRect(0, y, c.width, 1);
+    return o;
+  };
+
+  // live effects drawn over a character every frame (sprites.js / iso.js drawActor): the code that
+  // runs down the hoodie's face, the ghost's glitches, the robot's blinking cursor
+  DL.charFx = function (g, a, X, Y, t) {
+    const L = a.look;
+    if (!L || !L.outfit || L.outfit.indexOf('hx_') !== 0 || a.seated) return;
+    const top = Y - AY + 6; // the head's first row (hy) when standing still
+    if (L.outfit === 'hx_hoodie' && a.dir !== 'up') {
+      const cols = a.dir === 'down' ? [-3, 0, 2] : a.dir === 'right' ? [2, 4] : [-3, -5];
+      cols.forEach((c, i) => {
+        const k = 1 + Math.floor((t * 9 + i * 3.7) % 9);
+        if (k <= 8) R(g, X + c, top + k, 1, 1, HX.turqL);
+        if (k > 1 && k <= 9) R(g, X + c, top + k - 1, 1, 1, HX.turq);
+      });
+    } else if (L.outfit === 'hx_ghost') {
+      const n = Math.floor(t * 10);
+      if (DL.hash(n * 31) < 0.35) {
+        const y = Y - 4 - Math.floor(DL.hash(n * 17) * 24), off = DL.hash(n * 7) < 0.5 ? -2 : 2;
+        R(g, X - 6 + off, y, 12, 1, 'rgba(165,247,234,0.55)');
+        R(g, X - 5 - off, y + 1, 10, 1, 'rgba(61,123,217,0.5)');
+      }
+    } else if (L.outfit === 'hx_bot' && a.dir === 'down' && !a.moving && Math.floor(t * 2.5) % 2) {
+      R(g, X - 1, top + 4, 2, 1, HX.screen);
     }
-    if (L.chain && dir !== 'up') {
-      if (dir === 'down') { R(g, ax - 2, ty, 1, 2, GOLD); R(g, ax - 1, ty + 2, 2, 1, GOLD); R(g, ax + 1, ty, 1, 2, GOLD); R(g, ax - 1, ty + 3, 2, 1, GOLD_L); }
-      else R(g, ax + 1, ty + 1, 1, 2, GOLD);
+  };
+
+  /* ------------------------------------------------------------------ */
+  /* Pets: small companions in profile (facing right; left is mirrored), */
+  /* on the same 22×31 frame as a character so drawActor can place them  */
+  /* ------------------------------------------------------------------ */
+  // f: animation frame (0–3), walk: legs moving. Ground row = 28 (where a character's shoes end).
+  function drawPet(g, kind, f, walk) {
+    const odd = f % 2 === 1, step = walk ? f % 2 : 0;
+    switch (kind) {
+      case 'bug': {
+        // a glowing beetle: shell, head with antennae, fluttering wings, six legs
+        R(g, 7, 24, 7, 3, HX.turqD); R(g, 8, 23, 5, 1, HX.turqD); R(g, 8, 23, 4, 1, HX.turq); R(g, 7, 24, 6, 1, HX.turq);
+        R(g, 9, 25, 1, 1, HX.turqL); R(g, 11, 25, 1, 1, HX.turqL);
+        R(g, 14, 24, 2, 2, HX.navy); R(g, 15, 24, 1, 1, HX.turqL); R(g, 16, 22, 1, 2, HX.turqD); R(g, 17, 21, 1, 1, HX.turqL);
+        if (odd) R(g, 8, 21, 3, 2, 'rgba(165,247,234,0.6)'); else R(g, 9, 22, 4, 1, 'rgba(165,247,234,0.6)');
+        for (const [x, s] of [[8, 0], [10, 1], [12, 0]]) R(g, x + (s === step ? 1 : 0), 27, 1, 2, HX.navyL);
+        return;
+      }
+      case 'drone': {
+        // hovers at chest height, rotors spinning, a turquoise light underneath
+        const y = 15 + (odd ? 1 : 0);
+        R(g, 7, y + 2, 8, 3, HX.slate); R(g, 7, y + 2, 8, 1, HX.slateL); R(g, 13, y + 3, 2, 1, HX.turq);
+        R(g, 5, y + 1, 12, 1, HX.slateD);
+        if (odd) { R(g, 3, y, 5, 1, HX.slateL); R(g, 14, y, 5, 1, HX.slateL); } else { R(g, 5, y, 1, 1, HX.slateL); R(g, 16, y, 1, 1, HX.slateL); R(g, 4, y - 1, 3, 1, 'rgba(135,151,176,0.5)'); R(g, 15, y - 1, 3, 1, 'rgba(135,151,176,0.5)'); }
+        R(g, 10, y + 5, 2, 1, HX.turqL); R(g, 9, y + 6, 4, 2, 'rgba(45,226,200,0.25)');
+        return;
+      }
+      case 'catbot': {
+        // metal cat: ears, LED eyes, jointed legs and an antenna for a tail
+        R(g, 6, 23, 9, 4, HX.slate); R(g, 6, 23, 9, 1, HX.slateL); R(g, 8, 25, 5, 1, HX.slateD);
+        R(g, 13, 19, 5, 5, HX.slate); R(g, 13, 19, 5, 1, HX.slateL); R(g, 13, 18, 1, 1, HX.slate); R(g, 17, 18, 1, 1, HX.slate);
+        R(g, 16, 21, 1, 1, odd && !walk ? HX.turqD : HX.turq); R(g, 18, 22, 1, 1, HX.slateD);
+        R(g, 5, 20, 1, 4, HX.slateL); R(g, 5, 19, 1, 1, odd ? HX.turqL : HX.turq);
+        for (const [x, s] of [[7, 0], [9, 1], [12, 0], [14, 1]]) R(g, x + (s === step ? 1 : 0), 27, 1, 2, HX.slateD);
+        return;
+      }
+      case 'server': {
+        // a little server box on legs, front LEDs blinking
+        R(g, 7, 18, 8, 9, HX.navy); R(g, 7, 18, 8, 1, HX.navyL); R(g, 14, 18, 1, 9, HX.navyD);
+        for (const y of [20, 22, 24]) R(g, 8, y, 5, 1, HX.navyD);
+        R(g, 12, 19, 1, 1, odd ? HX.turq : HX.turqD); R(g, 12, 21, 1, 1, odd ? HX.blue : HX.blueL); R(g, 12, 23, 1, 1, f % 3 ? HX.turq : HX.turqD);
+        R(g, 8 + (step ? 1 : 0), 27, 1, 2, HX.slateD); R(g, 13 - (step ? 1 : 0), 27, 1, 2, HX.slateD);
+        return;
+      }
+      case 'holodog': {
+        // a dog of blue light with scan lines and a wagging tail
+        const b = 'rgba(127,178,240,0.85)', d = 'rgba(61,123,217,0.85)';
+        R(g, 6, 22, 9, 4, b); R(g, 14, 19, 4, 4, b); R(g, 18, 21, 2, 2, b); R(g, 14, 18, 2, 2, d);
+        R(g, 16, 20, 1, 1, HX.turqL); R(g, 19, 21, 1, 1, HX.navy);
+        R(g, 6, 23, 9, 1, 'rgba(165,247,234,0.6)'); R(g, 14, 21, 4, 1, 'rgba(165,247,234,0.6)');
+        if (odd) R(g, 3, 20, 3, 1, b); else R(g, 3, 22, 3, 1, b);
+        for (const [x, s] of [[7, 0], [9, 1], [12, 0], [14, 1]]) R(g, x + (s === step ? 1 : 0), 26, 1, 3, d);
+      }
     }
-    if (L.backpack && !o.sit) {
-      const bp = '#3b4250';
-      if (dir === 'up') { R(g, ax - 3, ty + 1, 6, 6, bp); R(g, ax - 3, ty + 1, 6, 1, shade(bp, 0.22)); R(g, ax - 2, ty + 4, 4, 2, shade(bp, -0.22)); R(g, ax - 2, ty + 4, 4, 1, '#9aa3b0'); }
-      else if (dir === 'down') { R(g, ax - 4, ty, 1, 6, shade(bp, -0.1)); R(g, ax + 3, ty, 1, 6, shade(bp, -0.1)); }
-      else { R(g, ax - 5, ty + 1, 2, 6, bp); R(g, ax - 5, ty + 1, 2, 1, shade(bp, 0.22)); R(g, ax - 2, ty, 1, 4, shade(bp, -0.1)); }
-    }
+  }
+  function petOutline(src) {
+    const W = src.width, H = src.height;
+    const s = DL.mk(W, H), sg = s.getContext('2d');
+    sg.drawImage(src, 0, 0);
+    sg.globalCompositeOperation = 'source-in';
+    sg.fillStyle = DL.C.outline;
+    sg.fillRect(0, 0, W, H);
+    const o = DL.mk(W, H), og = o.getContext('2d');
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) og.drawImage(s, dx, dy);
+    og.drawImage(src, 0, 0);
+    return o;
+  }
+  function petMirror(src) {
+    const c = DL.mk(src.width, src.height), g = c.getContext('2d');
+    g.translate(src.width, 0);
+    g.scale(-1, 1);
+    g.drawImage(src, 0, 0);
+    return c;
+  }
+  // { right: { idle: [2 frames], walk: [4 frames] }, left: mirrored } (cached per kind)
+  const petSheets = {};
+  DL.petSheet = function (kind) {
+    if (petSheets[kind]) return petSheets[kind];
+    const build = (f, walk) => { const c = DL.mk(DL.CHAR.FW, DL.CHAR.FH); drawPet(c.getContext('2d'), kind, f, walk); return petOutline(c); };
+    const right = { idle: [build(0, false), build(1, false)], walk: [0, 1, 2, 3].map((f) => build(f, true)) };
+    const left = { idle: right.idle.map(petMirror), walk: right.walk.map(petMirror) };
+    return (petSheets[kind] = { right, left });
   };
 
   /* ------------------------------------------------------------------ */

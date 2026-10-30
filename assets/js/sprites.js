@@ -159,8 +159,12 @@
     const ax = AX, ay = AY;
     const side = dir === 'right';
     const sit = pose.indexOf('sit') === 0;
-    const bob = pose === 'pass' ? -1 : sit ? 4 : 0;
+    const bob = pose === 'pass' || pose === 'danceB' ? -1 : sit ? 4 : 0;
     const skinD = shade(L.skin, -0.16);
+    // hands: bare, or the shop's circuit gloves with a lit trace (cosmetics.js)
+    const glove = DL.charGlove && DL.charGlove(L);
+    const handD = glove ? glove.d : skinD;
+    const hand = (x, y, w, h) => { R(g, x, y, w, h, glove ? glove.c : L.skin); if (glove) R(g, x, y, 1, 1, glove.glow); };
     const shirt = L.shirt, shirtD = shade(shirt, -0.3), shirtL = shade(shirt, 0.14);
     const pantsD = shade(L.pants, -0.35);
     const shoeD = shade(L.shoes, -0.4);
@@ -184,8 +188,8 @@
     } else if (sit) {
       // no legs
     } else if (!side) {
-      const lDy = pose === 'B' ? -1 : 0;
-      const rDy = pose === 'A' ? -1 : 0;
+      const lDy = pose === 'B' || pose === 'danceB' ? -1 : 0;
+      const rDy = pose === 'A' || pose === 'danceA' ? -1 : 0;
       leg(ax - 3, lDy, L.pants);
       leg(ax, rDy, L.pants);
       R(g, ax - 1, ay - 6 + lDy, 1, 4, pantsD);
@@ -212,8 +216,8 @@
       const arm = (x, dy) => {
         R(g, x, ty + 1 + dy, 2, 5, shirt);
         R(g, x, ty + 1 + dy, 2, 1, shirtL);
-        R(g, x, ty + 6 + dy, 2, 2, L.skin);
-        R(g, x, ty + 7 + dy, 2, 1, skinD);
+        hand(x, ty + 6 + dy, 2, 2);
+        R(g, x, ty + 7 + dy, 2, 1, handD);
       };
       if (!sit && pose === 'reach') {
         // both hands up and forward: working on something at chest height
@@ -225,8 +229,23 @@
         arm(ax - 6, 0);
         R(g, ax + 4, ty - 4, 2, 6, shirt);
         R(g, ax + 4, ty - 4, 2, 1, shirtL);
-        R(g, ax + 4, ty - 7, 2, 3, L.skin);
+        hand(ax + 4, ty - 7, 2, 3);
         R(g, ax + 5, ty - 4, 1, 6, shirtD);
+      } else if (!sit && pose === 'waveB') {
+        // the waving hand at the other end of its swing: the forearm leans out
+        arm(ax - 6, 0);
+        R(g, ax + 4, ty - 2, 2, 4, shirt);
+        R(g, ax + 5, ty - 5, 2, 3, shirt);
+        R(g, ax + 5, ty - 5, 2, 1, shirtL);
+        hand(ax + 6, ty - 8, 2, 3);
+      } else if (!sit && (pose === 'danceA' || pose === 'danceB')) {
+        // dancing: one arm up and out (clear of the head), the other swinging low, switching on every beat
+        const a = pose === 'danceA', sx = a ? ax - 6 : ax + 4, ux = sx + (a ? -1 : 1), low = a ? ax + 4 : ax - 6;
+        R(g, sx, ty, 2, 3, shirt);
+        R(g, ux, ty - 4, 2, 4, shirt);
+        R(g, ux, ty - 4, 2, 1, shirtL);
+        hand(ux, ty - 7, 2, 3);
+        arm(low, 1);
       } else if (!sit) {
         arm(ax - 6, sw);
         arm(ax + 4, -sw);
@@ -239,10 +258,10 @@
         R(g, ax + 4, ty + 1, 2, 5, shirt);
         R(g, ax + 4, ty + 1, 2, 1, shirtL);
         R(g, ax + 5, ty + 1, 1, 5, shirtD);
-        R(g, ax - 5, ty + 6 + ly, 2, 2, L.skin);
-        R(g, ax - 5, ty + 7 + ly, 2, 1, skinD);
-        R(g, ax + 3, ty + 6 + ry, 2, 2, L.skin);
-        R(g, ax + 3, ty + 7 + ry, 2, 1, skinD);
+        hand(ax - 5, ty + 6 + ly, 2, 2);
+        R(g, ax - 5, ty + 7 + ly, 2, 1, handD);
+        hand(ax + 3, ty + 6 + ry, 2, 2);
+        R(g, ax + 3, ty + 7 + ry, 2, 1, handD);
       } else {
         // seen from behind: elbows out, alternating as the hands type
         const ly = pose === 'sitA' ? -1 : 0, ry = pose === 'sitB' ? -1 : 0;
@@ -294,19 +313,19 @@
         R(g, ax - 2, ty + 1, 1, 4, shirtD);
         R(g, ax - 1, ty + 1, 2, 1, shirtL);
         R(g, ax - 1, ty + 4 + dy, rest ? 3 : 5, 2, shirt);
-        R(g, ax + (rest ? 2 : 4), ty + 4 + dy, 2, 2, L.skin);
+        hand(ax + (rest ? 2 : 4), ty + 4 + dy, 2, 2);
       } else if (pose === 'reach' || pose === 'wave') {
         // profile: forearm stretched out in front (raised a bit more when waving)
         const up = pose === 'wave' ? -3 : 0;
         R(g, ax - 1, ty + 1, 2, 4, shirt);
         R(g, ax - 2, ty + 1, 1, 4, shirtD);
         R(g, ax - 1, ty + 3 + up, 5, 2, shirt);
-        R(g, ax + 4, ty + 3 + up, 2, 2, L.skin);
+        hand(ax + 4, ty + 3 + up, 2, 2);
       } else {
         R(g, ax - 1 + sw, ty + 1, 2, 5, shirt);
         R(g, ax - 2 + sw, ty + 1, 1, 5, shirtD);
         R(g, ax - 1 + sw, ty + 1, 2, 1, shirtL);
-        R(g, ax - 1 + sw, ty + 6, 2, 2, L.skin);
+        hand(ax - 1 + sw, ty + 6, 2, 2);
       }
     }
     if (L.role) roleGear(g, dir, ty, L, sit);
@@ -497,12 +516,14 @@
   }
 
   const POSES = ['A', 'pass', 'B', 'pass'];
+  // after the outline: costume effects on the whole frame (cosmetics.js)
+  const post = (c, L) => (DL.charPost ? DL.charPost(c, L) : c);
 
   DL.makeSheet = function (L) {
     const build = (dir, pose, closed) => {
       const c = mk(FW, FH);
       drawChar(c.getContext('2d'), dir, pose, L, closed);
-      return outline(c);
+      return post(outline(c), L);
     };
     const sheet = {};
     for (const d of ['down', 'up', 'right']) {
@@ -526,7 +547,7 @@
     const build = (dir, pose, closed) => {
       const c = mk(FW, FH);
       drawChar(c.getContext('2d'), dir, pose, L, closed);
-      return outline(c);
+      return post(outline(c), L);
     };
     const set = (dir) => ({ A: build(dir, 'sitA'), B: build(dir, 'sitB'), R: build(dir, 'sitR'), L: build(dir, 'sitL'), blink: build(dir, 'sitR', true) });
     // profile frames for desks turned sideways (left = the right ones mirrored)
@@ -541,12 +562,34 @@
     const build = (dir, pose) => {
       const c = mk(FW, FH);
       drawChar(c.getContext('2d'), dir, pose, L, false);
-      return outline(c);
+      return post(outline(c), L);
     };
     const set = (dir) => ({ talk: build(dir, 'talk'), reach: build(dir, 'reach'), wave: build(dir, 'wave') });
     const right = set('right'), left = {};
     for (const k of Object.keys(right)) left[k] = mirror(right[k]);
     return { down: set('down'), up: set('up'), right, left };
+  };
+
+  // Emote frames (emotes.js), always facing the camera: the dance sways the body a pixel to each side,
+  // the wave swings the raised hand, anger turns the head red (tint over the head pixels only).
+  DL.makeEmoteSheet = function (L) {
+    const build = (pose, dx, red) => {
+      const c = mk(FW, FH), g = c.getContext('2d');
+      if (dx) g.translate(dx, 0);
+      drawChar(g, 'down', pose, L, false);
+      if (red) {
+        g.setTransform(1, 0, 0, 1, 0, 0);
+        g.globalCompositeOperation = 'source-atop';
+        g.fillStyle = 'rgba(235,60,50,' + red + ')';
+        g.fillRect(0, 0, FW, AY - 13);
+      }
+      return post(outline(c), L);
+    };
+    return {
+      danceA: build('danceA', -1), danceB: build('danceB', 1),
+      waveA: build('wave'), waveB: build('waveB'),
+      angry1: build('idle', 0, 0.22), angry2: build('idle', 0, 0.45),
+    };
   };
 
   // S = device pixels per world pixel; positions snap to device pixels, not world pixels,
@@ -567,6 +610,9 @@
     if (aura) DL.drawAura(g, x, y, at, 'back');
     g.drawImage(a.frame(), x - AX, y - AY);
     if (aura) DL.drawAura(g, x, y, at, 'front');
+    // live effects: animated skins (cosmetics.js) and the actor's own (emotes)
+    if (DL.charFx) DL.charFx(g, a, x, y, at);
+    if (a.fx) a.fx(g, x, y, at);
     if (alpha < 1) g.globalAlpha = 1;
   };
 

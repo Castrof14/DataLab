@@ -1453,6 +1453,8 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
 .nametags .say.is-warn { border-color: rgba(255, 122, 23, 0.6); color: var(--sunset-soft); }
 .nametags .say.is-ok { border-color: rgba(126, 224, 161, 0.5); }
 .nametags .say.is-sad { font-size: 16px; line-height: 18px; padding: 3px 7px; }
+.nametags .say.is-emote { font-size: 18px; line-height: 20px; padding: 3px 7px; border-color: rgba(5, 181, 177, 0.6); background: rgba(11, 17, 29, 0.94); }
+.nametags .say.is-emote::after { border-color: rgba(5, 181, 177, 0.6); background: rgba(11, 17, 29, 0.94); }
 .nametags small { margin-left: 2px; padding: 1px 4px; border-radius: 4px; background: rgba(255, 255, 255, 0.1); font-size: 9px; color: var(--ink); }
 .nametags .is-me { color: var(--ink); border: 1px solid rgba(255, 255, 255, 0.2); }
 .nametags .is-me small { background: none; padding: 0; color: var(--mute); }

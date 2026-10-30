@@ -150,6 +150,22 @@
   G.store = { open: (tab) => inventory.openShop(tab), inventory: (id) => inventory.openInventory(id) };
   $('storeBtn').addEventListener('click', () => { $('storeBtn').blur(); inventory.openShop(); });
   $('invBtn').addEventListener('click', () => { $('invBtn').blur(); inventory.openInventory(); });
+  // the equipped pet follows the player (pets.js); the three free emotes, keys 1 / 2 / 3 (emotes.js)
+  const pet = DL.createPet(G);
+  const emotes = DL.createEmotes(G, player, {
+    can: () => (S.phase === 'intro' ? 'Comece um jogo para usar os emotes'
+      : P.seat || P.rest || P.glide ? 'Levante-se (F) para usar os emotes' : !canMove() ? 'Saia do modo construção / equipe para usar os emotes' : null),
+  });
+  const emoteWheel = $('emoteWheel');
+  emoteWheel.innerHTML = DL.EMOTES.map((e) => '<button type="button" class="emo__opt" role="menuitem" data-emote="' + e.id + '"><span class="emo__ico" aria-hidden="true">' + e.emoji + '</span>' + e.name + ' <kbd>' + e.key + '</kbd></button>').join('');
+  const wheel = (open) => {
+    if (open) { const r = $('emoteBtn').getBoundingClientRect(); emoteWheel.style.left = Math.max(8, Math.min(r.left, innerWidth - 184)) + 'px'; emoteWheel.style.top = r.bottom + 6 + 'px'; }
+    emoteWheel.hidden = !open;
+    $('emoteBtn').setAttribute('aria-expanded', String(open));
+  };
+  $('emoteBtn').addEventListener('click', () => { $('emoteBtn').blur(); wheel(emoteWheel.hidden); });
+  emoteWheel.addEventListener('click', (ev) => { const b = ev.target.closest('[data-emote]'); if (!b) return; wheel(false); b.blur(); emotes.play(b.dataset.emote); });
+  addEventListener('pointerdown', (ev) => { if (!emoteWheel.hidden && !ev.target.closest('.emo')) wheel(false); });
   G.on('world', () => {
     if (S.panel && W.items.indexOf(S.panel) < 0) closePanel();
     buildLabels();
@@ -547,6 +563,9 @@
     return true;
   }
   player.frame = function () {
+    // an emote running (emotes.js) shows its own frames
+    const em = !this.seated && emotes.frame();
+    if (em) return em;
     if (this.seated && this.sitSheet) {
       const set = this.sitSheet[P.seat ? P.seat.dir : P.rest ? P.rest.dir : 'up'] || this.sitSheet.up;
       const pose = P.rest ? 'R' : P.pose;
@@ -599,6 +618,8 @@
     // Enter: write in the team chat
     if (free && S.mode !== 'build' && ev.code === 'Enter' && !ev.repeat && !(document.activeElement && document.activeElement.tagName === 'BUTTON')) { crew.chat.focusInput(); ev.preventDefault(); return; }
     if (free && S.mode === 'build' && builder.key(ev)) { ev.preventDefault(); return; }
+    // 1 / 2 / 3: dance, wave, anger
+    if (free && emotes.key(ev)) { ev.preventDefault(); return; }
     if (free && talk.key(ev)) { ev.preventDefault(); return; }
     if (free && crew.key(ev)) { ev.preventDefault(); return; }
     if (free && S.mode === 'crew' && ev.code === 'Escape') { setMode('explore'); return; }
@@ -817,6 +838,8 @@
     let ix = 0, iy = 0;
     if (P.actT > 0) P.actT -= dt;
     if (P.talkT > 0) P.talkT -= dt;
+    // the emote's clock; sitting down or leaving explore mode ends it
+    emotes.update(dt, !!(P.seat || P.glide || P.rest) || S.mode !== 'explore');
     // talking with someone in the conversation panel: look at them
     if (talk.active && !P.seat && !player.moving) player.dir = DL.dirOf(talk.active.x - player.x, talk.active.y - player.y);
     if (P.seat || P.glide || P.rest) {
@@ -875,6 +898,8 @@
     const moved = Math.hypot(player.x - x0, player.y - y0);
     const was = player.moving;
     player.moving = len > 0.1 && moved > 0.05;
+    // walking ends an emote
+    if (len > 0.1) emotes.stop();
     updateUse(dt, len > 0.1);
     if (player.moving && !was) player.dist = 0;
     // a footstep on every other walk frame (scene.js swaps frames each 6.5 px)
@@ -1144,6 +1169,7 @@
   function step(dt) {
     if (S.phase !== 'intro') S.time += dt;
     updatePlayer(dt);
+    pet.update(dt);
     camGlide(dt);
     zoomStep(dt);
     S.target = canMove() ? findTarget() : null;
@@ -1241,7 +1267,7 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, problems, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, problems, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, pet, emotes, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
     // fast-forward the simulation (game minutes) without drawing — for automated checks
     step,
     advance(sec, dt) { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) { step(dt); scene.update(dt); } },

@@ -1,7 +1,9 @@
 /* DataLab — the player's inventory and the shop (real, persistent systems).
    Inventory (localStorage datalab.inventory.v1): what the player owns (quantity, where it came from,
-   when, event items marked and kept forever) and the equipped infrastructure skins. Clothes are
-   equipped on the player's own character (crew.updatePlayer → datalab.player.v1).
+   when, event items marked and kept forever) and what is equipped per slot: infrastructure skins,
+   accessories (head / face / neck / back / hands) and the pet. Skins are equipped on the player's own
+   character (crew.updatePlayer → datalab.player.v1); the accessories follow into it (profile.gear).
+   Emotes are free for everyone: never bought, always on (emotes.js).
    Shop: everything is paid in Gold (the golden premium coin, economy.js wallet) — never with the
    company's cash. Items can be sold back for half, gifts claimed during their event, legendary bots
    activated into the crew (and put back), special items used.
@@ -13,10 +15,17 @@
   const KEY = 'datalab.inventory.v1';
   const OLD_SHOP = 'datalab.shop.v1';
   const SLOTS_INFRA = ['rack', 'server', 'switch', 'storage', 'rackacc', 'led'];
+  // slots kept in the inventory's equip map (one item each): infrastructure, accessories, the pet
+  const SLOTS_MAP = SLOTS_INFRA.concat(DL.GEAR_SLOTS);
+  const isMapSlot = (slot) => SLOTS_MAP.indexOf(slot) >= 0;
   const SRC = { loja: 'Loja', evento: 'Evento', presente: 'Presente', recompensa: 'Recompensa', migrado: 'Loja (versão anterior)' };
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
-  const item = (id) => DL.cosmetic(id);
+  // the emotes as shop / inventory entries (free, always equipped, never stored)
+  const EMO = {};
+  for (const e of DL.EMOTES || []) EMO['emote_' + e.id] = { id: 'emote_' + e.id, cat: 'emote', slot: 'emote', value: e.id, name: e.name + ' ' + e.emoji, rarity: 'common', price: 0, free: true, sell: false, desc: e.desc + ' Atalho no jogo: tecla ' + e.key + ' ou o botão Emotes.' };
+  const EMOTE_LIST = Object.values(EMO);
+  const item = (id) => DL.cosmetic(id) || EMO[id] || null;
   const RAR = (it) => DL.RARITY[it.rarity] || DL.RARITY.common;
 
   DL.createInventory = function (game, sys) {
@@ -31,6 +40,15 @@
     D.items = D.items || {};
     D.equip = D.equip || {};
     D.claimed = D.claimed || {};
+    // retired items (cosmetics.js): whatever was paid for them comes back in Gold, once (they leave the
+    // inventory right here, so they can't be counted twice); gifts and rewards cost nothing
+    const RETIRED = DL.RETIRED_COSMETICS || {}, PAID = { loja: 1, evento: 1, migrado: 1 };
+    let refund = 0;
+    for (const id of Object.keys(D.items)) {
+      if (!Object.prototype.hasOwnProperty.call(RETIRED, id)) continue;
+      if (PAID[D.items[id].src]) refund += RETIRED[id] * Math.max(0, D.items[id].n | 0);
+      delete D.items[id];
+    }
     // drop what the catalog no longer knows
     for (const id of Object.keys(D.items)) if (!item(id) || !(D.items[id].n > 0)) delete D.items[id];
     for (const s of Object.keys(D.equip)) if (!item(D.equip[s]) || !D.items[D.equip[s]]) delete D.equip[s];
@@ -38,11 +56,17 @@
     // browser's storage and every action is decided by the server
     const S = { version: 1, boostUntil: -1, remote: null, legendary: [], pending: false };
     const save = () => { if (S.remote) return; try { localStorage.setItem(KEY, JSON.stringify({ v: 1, items: D.items, equip: D.equip, claimed: D.claimed })); } catch (e) { /* private mode */ } };
+    if (refund > 0) {
+      save();
+      economy.earn('gold', refund, 'Devolução: itens retirados da loja', { quiet: true });
+      setTimeout(() => game.toast('ok', 'Loja renovada', 'Itens antigos saíram da loja · +' + fmt(refund) + ' Gold devolvidos'), 1500);
+    }
     function changed() {
       S.version++;
       DL.Skins.equipped = Object.assign({}, D.equip);
       DL.Skins.ver++;
       save();
+      syncGear();
       game.emit('inventory', {});
     }
 
@@ -65,8 +89,8 @@
       if (e.n <= 0) {
         delete D.items[id];
         const it = item(id);
-        if (it && SLOTS_INFRA.indexOf(it.slot) >= 0 && D.equip[it.slot] === id) delete D.equip[it.slot];
-        if (it && it.cat === 'char' && isEquipped(it)) unequipChar(it, true);
+        if (it && isMapSlot(it.slot) && D.equip[it.slot] === id) delete D.equip[it.slot];
+        else if (it && it.cat === 'char' && isEquipped(it)) unequipChar(it, true);
       }
       changed();
     }
@@ -75,8 +99,8 @@
     try {
       const old = JSON.parse(localStorage.getItem(OLD_SHOP) || 'null');
       if (Array.isArray(old) && old.length && !D.claimed._shopV1) {
-        const MAP = { skin_neon: 'led_rgb', skin_gold: 'rack_gold', outfit_ops: 'shirt_jacket', pet_bot: 'acc_backpack', boost_xp: 'xp_boost', boost_cool: 'xp_boost' };
-        for (const o of old) if (MAP[o] && (item(MAP[o]).stack || !owns(MAP[o]))) add(MAP[o], 1, 'migrado');
+        const MAP = { boost_xp: 'xp_boost', boost_cool: 'xp_boost' };
+        for (const o of old) if (MAP[o] && item(MAP[o]) && (item(MAP[o]).stack || !owns(MAP[o]))) add(MAP[o], 1, 'migrado');
       }
       D.claimed._shopV1 = true;
     } catch (e) { /* nothing to migrate */ }
@@ -88,30 +112,60 @@
     /* Equipping                                                           */
     /* ------------------------------------------------------------------ */
     const profile = () => (crew && crew.playerProfile) || {};
-    const CHAR_ACC = { shades: 1, scarf: 1, backpack: 1, chain: 1 };
     function isEquipped(it) {
       if (!it) return false;
-      if (SLOTS_INFRA.indexOf(it.slot) >= 0) return D.equip[it.slot] === it.id;
+      if (it.cat === 'emote') return true;
+      if (isMapSlot(it.slot)) return D.equip[it.slot] === it.id;
       const p = profile();
       switch (it.slot) {
         case 'shirt': return p.outfit === it.value;
-        case 'pants': return p.pantsStyle === it.value;
-        case 'hair': return p.hairStyle === it.value;
         case 'hat': return p.hat === it.value && (p.hatColor || null) === (it.color || null);
         case 'palette': return true;
       }
-      if (CHAR_ACC[it.slot]) return !!p[it.slot];
       return false;
     }
-    const equippable = (it) => !!it && (SLOTS_INFRA.indexOf(it.slot) >= 0 || (it.cat === 'char' && it.slot !== 'palette'));
+    const equippable = (it) => !!it && it.cat !== 'emote' && (isMapSlot(it.slot) || (it.cat === 'char' && it.slot !== 'palette'));
+    // the equipped accessories go into the player's look (sprites.js draws them through cosmetics.js);
+    // only reads crew + D, so it is safe while the inventory is still loading
+    function syncGear() {
+      if (!crew || !crew.playerProfile) return;
+      const gear = {};
+      for (const s of Object.keys(DL.GEAR_POS)) { const it = D.equip[s] && item(D.equip[s]); if (it) gear[s] = it.value; }
+      const now = Object.keys(gear).length ? gear : null;
+      if (JSON.stringify(crew.playerProfile.gear || null) !== JSON.stringify(now)) crew.updatePlayer({ gear: now });
+    }
+    // The look must only wear what the player has: a skin, hat or hairstyle from a retired item goes back
+    // to the free default — and whoever was wearing a retired skin gets the first skin of the new
+    // collection in its place (offline here; for accounts the server's migration gives it).
+    const FIRST_SKIN = 'hx_hoodie';
+    const opt = (list, v) => ((DL.CHAR_OPTS || {})[list] || []).some((o) => o[0] === v);
+    const ownsLook = (slot, v, color) => Object.keys(D.items).some((id) => { const it = item(id); return !!it && it.slot === slot && it.value === v && (slot !== 'hat' || (it.color || null) === (color || null)); });
+    function fixLook() {
+      if (!crew || !crew.playerProfile) return;
+      const p = crew.playerProfile, patch = {};
+      if (p.outfit && p.outfit !== 'tee' && !opt('OUTFITS', p.outfit) && !ownsLook('shirt', p.outfit)) {
+        if ((DL.RETIRED_OUTFITS || []).indexOf(p.outfit) >= 0 && !S.remote && item(FIRST_SKIN)) {
+          if (!owns(FIRST_SKIN)) add(FIRST_SKIN, 1, 'presente');
+          patch.outfit = item(FIRST_SKIN).value;
+          setTimeout(() => game.toast('info', 'Skin trocada', 'Sua skin saiu da loja · você ganhou ' + item(FIRST_SKIN).name), 1800);
+        } else patch.outfit = 'tee';
+      }
+      if (p.hairStyle && !opt('STYLES', p.hairStyle) && !ownsLook('hair', p.hairStyle)) patch.hairStyle = 'short';
+      if (p.pantsStyle && !ownsLook('pants', p.pantsStyle)) patch.pantsStyle = '';
+      if (p.hat && !opt('HATS', p.hat) && !ownsLook('hat', p.hat, p.hatColor)) { patch.hat = ''; patch.hatColor = null; }
+      for (const k of ['shades', 'scarf', 'backpack', 'chain']) if (p[k]) patch[k] = false;
+      if (Object.keys(patch).length) crew.updatePlayer(patch);
+    }
+    fixLook();
+    syncGear();
     /* ---------- the server's inventory ---------- */
-    const AVATAR_KEYS = ['outfit', 'pantsStyle', 'hairStyle', 'hat', 'hatColor', 'shades', 'scarf', 'backpack', 'chain'];
+    const AVATAR_KEYS = ['outfit', 'pantsStyle', 'hairStyle', 'hat', 'hatColor'];
     function applyRemote(st) {
       if (!st || !Array.isArray(st.items)) return;
       D.items = {};
       for (const r of st.items) if (item(r.item_id)) D.items[r.item_id] = { n: r.quantity, at: Date.parse(r.first_acquired_at) || Date.now(), last: Date.parse(r.updated_at) || Date.now(), src: r.source === 'shop' ? 'loja' : r.source === 'event' ? 'evento' : r.source, ev: r.event_id || undefined };
       D.equip = {};
-      for (const [slot, id] of Object.entries(st.equipped || {})) if (SLOTS_INFRA.indexOf(slot) >= 0) D.equip[slot] = id;
+      for (const [slot, id] of Object.entries(st.equipped || {})) if (isMapSlot(slot) && D.items[id]) D.equip[slot] = id;
       S.legendary = st.legendary || [];
       if (st.wallet && economy.applyServer) economy.applyServer({ wallet: st.wallet });
       if (st.avatar && crew) {
@@ -120,6 +174,7 @@
         if (Object.keys(patch).length) crew.updatePlayer(patch);
       }
       if (st.effect === 'xp' && inPlay()) S.boostUntil = Math.max(game.time(), S.boostUntil) + 120;
+      fixLook();
       changed();
     }
     // run an action on the server; the UI updates when the answer arrives
@@ -138,18 +193,17 @@
       if (!it || !owns(id)) return 'Você não tem este item';
       if (!equippable(it)) return 'Este item não é equipável';
       if (S.remote) return remoteDo(S.remote.equip(id), ['Equipado', it.name]);
-      if (SLOTS_INFRA.indexOf(it.slot) >= 0) {
+      if (isMapSlot(it.slot)) {
         D.equip[it.slot] = id;
         changed();
-        game.toast('ok', 'Equipado', it.name + ' · em todos os ' + ({ rack: 'racks', server: 'servidores', switch: 'switches', storage: 'storages', rackacc: 'racks', led: 'racks' })[it.slot] + ' do datacenter');
+        const where = it.slot === 'pet' ? 'agora te segue pelo datacenter' : DL.GEAR_POS[it.slot] ? 'no seu personagem (' + DL.GEAR_POS[it.slot].toLowerCase() + ')'
+          : 'em todos os ' + ({ rack: 'racks', server: 'servidores', switch: 'switches', storage: 'storages', rackacc: 'racks', led: 'racks' })[it.slot] + ' do datacenter';
+        game.toast('ok', 'Equipado', it.name + ' · ' + where);
         return null;
       }
       const patch = {};
       if (it.slot === 'shirt') patch.outfit = it.value;
-      else if (it.slot === 'pants') patch.pantsStyle = it.value;
-      else if (it.slot === 'hair') patch.hairStyle = it.value;
       else if (it.slot === 'hat') { patch.hat = it.value; patch.hatColor = it.color || null; }
-      else if (CHAR_ACC[it.slot]) patch[it.slot] = true;
       if (crew) crew.updatePlayer(patch);
       changed();
       game.toast('ok', 'Equipado', it.name + ' · no seu personagem');
@@ -158,18 +212,16 @@
     function unequipChar(it, quiet) {
       const patch = {};
       if (it.slot === 'shirt') patch.outfit = 'tee';
-      else if (it.slot === 'pants') patch.pantsStyle = '';
-      else if (it.slot === 'hair') patch.hairStyle = 'short';
       else if (it.slot === 'hat') { patch.hat = ''; patch.hatColor = null; }
-      else if (CHAR_ACC[it.slot]) patch[it.slot] = false;
       if (crew) crew.updatePlayer(patch);
       if (!quiet) game.toast('info', 'Desequipado', it.name);
     }
     function unequip(id) {
       const it = item(id);
       if (!it || !isEquipped(it)) return 'Não está equipado';
+      if (it.cat === 'emote') return 'Emotes ficam sempre equipados';
       if (S.remote) { if (it.slot === 'palette') return 'Paletas ficam sempre ativas'; return remoteDo(S.remote.unequip(it.slot), ['Desequipado', it.name]); }
-      if (SLOTS_INFRA.indexOf(it.slot) >= 0) { delete D.equip[it.slot]; game.toast('info', 'Desequipado', it.name + ' · visual padrão de volta'); }
+      if (isMapSlot(it.slot)) { delete D.equip[it.slot]; game.toast('info', 'Desequipado', it.name + (SLOTS_INFRA.indexOf(it.slot) >= 0 ? ' · visual padrão de volta' : '')); }
       else if (it.slot === 'palette') return 'Paletas ficam sempre ativas';
       else unequipChar(it);
       changed();
@@ -298,14 +350,20 @@
     function previewProfile(it) {
       if (it.cat === 'legend') return Object.assign({}, it.bot);
       const p = Object.assign({}, profile());
-      // a costume worn now would hide the hat, hair or accessory being previewed: show it on a plain tee
-      if (it.slot !== 'shirt' && DL.charCostume && DL.charCostume(p)) p.outfit = 'tee';
+      // a costume worn now would hide the hat being previewed: show it on a plain tee
+      if (it.slot === 'hat' && DL.charCostume && DL.charCostume(p)) p.outfit = 'tee';
       if (it.slot === 'shirt') p.outfit = it.value;
-      else if (it.slot === 'pants') p.pantsStyle = it.value;
-      else if (it.slot === 'hair') { p.hairStyle = it.value; p.hat = ''; }
       else if (it.slot === 'hat') { p.hat = it.value; p.hatColor = it.color || null; }
-      else if (CHAR_ACC[it.slot]) p[it.slot] = true;
+      // accessories go over whatever skin the player wears now
+      else if (DL.GEAR_POS[it.slot]) p.gear = Object.assign({}, p.gear, { [it.slot]: it.value });
       return p;
+    }
+    const emoteSheets = new Map();
+    function emoteSheetFor(p) {
+      const L = DL.crewLook(p), k = JSON.stringify(L);
+      let s = emoteSheets.get(k);
+      if (!s) { s = DL.makeEmoteSheet(L); emoteSheets.set(k, s); if (emoteSheets.size > 12) emoteSheets.delete(emoteSheets.keys().next().value); }
+      return s;
     }
     const PREVIEW_UNITS = ['switch', 'patch', 'server', 'server', 'server', null, 'server', 'server', null];
     function drawArt(cv, it, t, big) {
@@ -321,6 +379,24 @@
         over[it.slot] = it.id;
         if (it.slot === 'storage') DL.drawItem(g, { kind: 'storage', model: 'storage', px: 16, py: 28, tw: 1, th: 1, rot: 0, seed: 4, skinOver: over }, t);
         else DL.drawItem(g, { kind: 'rack', units: PREVIEW_UNITS, unitModel: [], unitState: [], px: 16, py: 28, tw: 1, th: 1, rot: 0, seed: 3, skinOver: over }, t);
+        return;
+      }
+      const C = DL.CHAR;
+      if (it.slot === 'pet') {
+        // twice the size: a pet is small next to a person; walking in the big preview, idle on the card
+        const s = DL.petSheet(it.value).right;
+        const img = big && Math.floor(t / 2.4) % 2 ? s.walk[Math.floor(t * 8) % 4] : s.idle[Math.floor(t * 3) % 2];
+        g.drawImage(img, 24 - C.AX * 2, 46 - C.AY * 2, C.FW * 2, C.FH * 2);
+        return;
+      }
+      if (it.cat === 'emote') {
+        const em = DL.emote(it.value), sh = emoteSheetFor(profile());
+        const f = DL.emoteFrame(sh, it.value, t % em.dur, em.dur) || sh.waveA;
+        g.drawImage(f, 24 - C.AX, 42 - C.AY);
+        // the emoji over the head, as in the game
+        g.font = '9px sans-serif';
+        g.textAlign = 'center';
+        g.fillText(em.emoji, 24, 12);
         return;
       }
       if (it.cat === 'char' || it.cat === 'legend') {
@@ -359,7 +435,8 @@
       return '<span class="ev-tag' + (on ? '' : ' is-over') + '" title="' + esc(ev.name) + '">Evento' + (on ? ' · até ' + DL.eventEnds(it.event) : ' · limitado') + '</span>';
     }
     const groupName = (id) => (DL.COSMETIC_GROUPS.find((g) => g.id === id) || { name: 'Outros' }).name;
-    const priceHtml = (it) => (it.gift ? '<span class="st-price is-free">Grátis</span>' : '<span class="st-price"><span class="cur cur--dc" aria-hidden="true">⬢</span>' + fmt(it.price) + '</span>');
+    const priceHtml = (it) => (it.gift || it.free ? '<span class="st-price is-free">Grátis</span>' : '<span class="st-price"><span class="cur cur--dc" aria-hidden="true">⬢</span>' + fmt(it.price) + '</span>');
+    const broke = (it) => !it.free && !it.gift && !owns(it.id) && wallet().gold < it.price;
 
     function statusOf(it) {
       if (it.cat === 'legend') { const a = activeBots(it.id); return a ? a + ' trabalhando' : ''; }
@@ -367,21 +444,33 @@
       if (it.slot === 'use') return '';
       return isEquipped(it) ? 'Equipado' : '';
     }
+    // the shop card's state: bought / equipped, or why it can't be bought yet
+    function shopState(it) {
+      if (it.free) return 'Equipado';
+      if (!owns(it.id)) return broke(it) ? 'Sem moedas' : '';
+      if (it.stack) return 'Você tem ' + qty(it.id);
+      return equippable(it) ? (isEquipped(it) ? 'Equipado' : 'Comprado') : 'No inventário';
+    }
     function card(it, mode, sel) {
-      const n = qty(it.id), st = mode === 'inv' ? statusOf(it) : owns(it.id) ? (it.stack ? 'Você tem ' + n : 'No inventário') : '';
-      return '<button type="button" class="st-card rar-' + it.rarity + (sel ? ' is-sel' : '') + (st === 'Equipado' || /trabalhando|Ativa/.test(st) ? ' is-eq' : '') + '" data-pick="' + it.id + '">' +
+      const n = qty(it.id), st = mode === 'inv' ? statusOf(it) : shopState(it);
+      return '<button type="button" class="st-card rar-' + it.rarity + (sel ? ' is-sel' : '') + (st === 'Equipado' || /trabalhando|Ativa/.test(st) ? ' is-eq' : '') + (mode === 'shop' && broke(it) ? ' is-broke' : '') + '" data-pick="' + it.id + '">' +
         '<span class="st-card__art"><canvas data-art="' + it.id + '" aria-hidden="true"></canvas>' + (mode === 'inv' && n > 1 ? '<span class="st-qty">×' + n + '</span>' : '') + (it.event ? '<span class="st-ev">EVENTO</span>' : '') + '</span>' +
         '<span class="st-card__body"><b>' + esc(it.name) + '</b>' + rarTag(it) + '</span>' +
         '<span class="st-card__foot">' + (mode === 'shop' ? priceHtml(it) : '<span class="eyebrow-sm">' + esc(groupName(DL.groupOf(it))) + '</span>') + (st ? '<span class="st-state">' + esc(st) + '</span>' : '') + '</span></button>';
     }
 
     function actionsHtml(it, mode, ask) {
-      const b = (act, label, primary, dis, title) => '<button type="button" class="btn btn--sm' + (primary ? ' btn--primary' : '') + '" data-do="' + act + '" data-id="' + it.id + '"' + (dis ? ' disabled' : '') + (title ? ' title="' + esc(title) + '"' : '') + '>' + label + '</button>';
+      const b = (act, label, primary, dis, title, cls) => '<button type="button" class="btn btn--sm' + (primary ? ' btn--primary' : '') + (cls ? ' ' + cls : '') + '" data-do="' + act + '" data-id="' + it.id + '"' + (dis ? ' disabled' : '') + (title ? ' title="' + esc(title) + '"' : '') + '>' + label + '</button>';
+      const emoteKey = () => { const e = DL.emote(it.value); return '<p class="st-why">Use no jogo: tecla <kbd>' + e.key + '</kbd> ou o botão <b>Emotes</b>.</p>'; };
       let h = '';
+      if (it.cat === 'emote') return b('noop', 'Grátis – Equipado', true, true, '', 'btn--done') + emoteKey();
       if (mode === 'shop') {
         const why = canBuy(it);
+        // Comprar → Equipar → Equipado (stackable items keep buying more)
         if (it.gift) h += b('buy', owns(it.id) ? 'Resgatado' : 'Resgatar grátis', true, !!why, why);
+        else if (owns(it.id) && !it.stack && equippable(it)) h += isEquipped(it) ? b('noop', 'Equipado', true, true, '', 'btn--done') : b('equip', 'Equipar', true);
         else if (ask === it.id && !why) h += b('confirm', 'Confirmar · ' + fmt(it.price) + ' Gold', true) + b('cancel', 'Cancelar');
+        else if (why && /Faltam/.test(why)) h += b('ask', 'Moedas insuficientes', false, true, why, 'btn--broke');
         else h += b('ask', why && owns(it.id) && !it.stack ? 'No inventário' : 'Comprar', true, !!why, why);
         if (why && !owns(it.id) && /Faltam/.test(why)) h += '<p class="st-why">' + esc(why) + ' · troque créditos ou adicione Gold na aba <b>Gold</b>.</p>';
         if (owns(it.id)) h += b('goinv', 'Ver no inventário');
@@ -408,6 +497,8 @@
       h += '<div class="st-detail__tags">' + rarTag(it) + evTag(it) + (it.theme && !it.event ? '<span class="ev-tag is-theme">' + esc(it.theme) + '</span>' : '') + '</div>';
       h += '<h3 class="st-detail__name">' + esc(it.name) + '</h3><p class="st-detail__desc">' + esc(it.desc) + '</p>';
       h += '<dl class="st-detail__meta"><dt>Categoria</dt><dd>' + esc(groupName(DL.groupOf(it))) + '</dd>';
+      if (DL.GEAR_POS[it.slot]) h += '<dt>Posição</dt><dd>' + DL.GEAR_POS[it.slot] + ' · funciona com qualquer skin</dd>';
+      if (it.slot === 'pet') h += '<dt>Pet</dt><dd>Segue você pelo datacenter · um por vez</dd>';
       if (it.cat !== 'legend' && it.slot !== 'use' && it.slot) h += '<dt>Efeito</dt><dd>Só aparência — não muda desempenho</dd>';
       if (it.cat === 'legend') h += '<dt>Função</dt><dd>' + esc((DL.ROLES[it.bot.role] || {}).title || '') + ' + quase todas as outras · aprende em dobro · salário normal do cargo</dd>';
       if (ev) h += '<dt>Evento</dt><dd>' + esc(ev.name) + (DL.eventActive(it.event) ? ' · até ' + DL.eventEnds(it.event) : ' · encerrado em ' + DL.eventEnds(it.event)) + '</dd>';
@@ -419,7 +510,7 @@
 
     /* ---------- shared view state + art animation ---------- */
     const V = {
-      shop: { tab: 'featured', sel: null, ask: null, root: null },
+      shop: { tab: 'skins', sel: null, ask: null, root: null },
       inv: { cat: 'all', rar: '', only: '', sort: 'rarity', sel: null, ask: null, root: null },
     };
     const live = new Set(); // roots on screen
@@ -445,24 +536,22 @@
     }
 
     /* ---------- the shop ---------- */
+    // Skins | Acessórios | Pets | Emotes, then the bots, the special items, an event (only while it has
+    // items on sale) and the Gold tab
     const SHOP_TABS = [
-      ['featured', 'Destaques'], ['infra', 'Infraestrutura'], ['costumes', 'Trajes'], ['clothes', 'Roupas'],
-      ['accessories', 'Acessórios'], ['hair', 'Cabelos'], ['palette', 'Paletas'], ['legend', 'Bots lendários'],
-      ['special', 'Especiais'], ['event', 'Evento'], ['gold', 'Gold'],
+      ['skins', 'Skins'], ['acc', 'Acessórios'], ['pets', 'Pets'], ['emotes', 'Emotes'],
+      ['legend', 'Bots lendários'], ['special', 'Especiais'], ['event', 'Evento'], ['gold', 'Gold'],
     ];
-    const SHOP_ACC = ['hat', 'shades', 'scarf', 'backpack', 'chain'];
+    // most expensive first
     const shopOrder = (a, b) => b.price - a.price || a.name.localeCompare(b.name);
     function shopList(tab) {
       const all = DL.COSMETICS.filter((it) => forSale(it) || (it.gift && it.event && DL.eventActive(it.event)));
       let list;
-      if (tab === 'featured') list = all.filter((it) => it.event || it.rarity === 'legendary' || it.rarity === 'epic');
-      else if (tab === 'event') list = all.filter((it) => it.event);
-      else if (tab === 'infra') list = all.filter((it) => it.cat === 'infra' && !it.event);
-      else if (tab === 'costumes') list = all.filter((it) => it.cat === 'char' && !it.event && it.id.startsWith('costume_'));
-      else if (tab === 'clothes') list = all.filter((it) => it.cat === 'char' && !it.event && !it.id.startsWith('costume_') && (it.slot === 'shirt' || it.slot === 'pants'));
-      else if (tab === 'accessories') list = all.filter((it) => it.cat === 'char' && !it.event && SHOP_ACC.indexOf(it.slot) >= 0);
-      else if (tab === 'hair') list = all.filter((it) => it.cat === 'char' && !it.event && it.slot === 'hair');
-      else if (tab === 'palette') list = all.filter((it) => it.cat === 'char' && !it.event && it.slot === 'palette');
+      if (tab === 'event') list = all.filter((it) => it.event);
+      else if (tab === 'skins') list = all.filter((it) => it.cat === 'char' && !it.event && it.slot === 'shirt');
+      else if (tab === 'acc') list = all.filter((it) => it.cat === 'char' && !it.event && (DL.GEAR_POS[it.slot] || it.slot === 'hat'));
+      else if (tab === 'pets') list = all.filter((it) => !it.event && it.slot === 'pet');
+      else if (tab === 'emotes') return EMOTE_LIST.slice();
       else if (tab === 'legend') list = all.filter((it) => it.cat === 'legend' && !it.event);
       else if (tab === 'special') list = all.filter((it) => it.cat === 'special' && !it.event);
       else list = [];
@@ -485,9 +574,10 @@
       let h = '';
       if (!opts || !opts.bare) h += '<header class="app__bar st-bar"><span class="eyebrow-sm app__title">Loja · moeda dourada</span><span class="st-bals" data-bals>' + goldHtml() + '</span><button type="button" class="btn btn--sm" data-do="goinv">Inventário <kbd>U</kbd></button><button class="cc__x" type="button" data-do="close" aria-label="Fechar loja">×</button></header>';
       else h += '<div class="st-bals st-bals--menu" data-bals>' + goldHtml() + '</div>';
-      const ev = Object.values(DL.EVENTS).find((x) => DL.eventActive(x.id));
-      if (ev) h += '<div class="st-banner" style="--c:' + ev.color + '"><span class="ev-tag">Evento</span><b>' + esc(ev.name) + '</b><span>' + esc(ev.desc) + ' · até ' + DL.eventEnds(ev.id) + '</span><button type="button" class="btn btn--sm" data-tab="event">Ver itens</button></div>';
-      h += '<nav class="mv-tabs st-tabs" role="tablist">' + SHOP_TABS.map(([k, l]) => '<button type="button" role="tab" class="mv-tab' + (s.tab === k ? ' is-on' : '') + '" data-tab="' + k + '">' + l + '</button>').join('') + '</nav>';
+      const ev = Object.values(DL.EVENTS).find((x) => DL.eventActive(x.id)), evOn = !!ev && shopList('event').length > 0;
+      if (!evOn && s.tab === 'event') s.tab = 'skins';
+      if (evOn) h += '<div class="st-banner" style="--c:' + ev.color + '"><span class="ev-tag">Evento</span><b>' + esc(ev.name) + '</b><span>' + esc(ev.desc) + ' · até ' + DL.eventEnds(ev.id) + '</span><button type="button" class="btn btn--sm" data-tab="event">Ver itens</button></div>';
+      h += '<nav class="mv-tabs st-tabs" role="tablist">' + SHOP_TABS.filter(([k]) => k !== 'event' || evOn).map(([k, l]) => '<button type="button" role="tab" class="mv-tab' + (s.tab === k ? ' is-on' : '') + '" data-tab="' + k + '">' + l + '</button>').join('') + '</nav>';
       if (s.tab === 'gold') return h + '<div class="st-main st-main--full">' + goldTabHtml() + '</div>';
       const list = shopList(s.tab);
       if (s.sel && !list.some((it) => it.id === s.sel)) s.sel = null;
@@ -500,14 +590,14 @@
     /* ---------- the inventory ---------- */
     function invList() {
       const s = V.inv;
-      let list = Object.keys(D.items).map(item).filter(Boolean);
+      let list = Object.keys(D.items).map(item).filter(Boolean).concat(EMOTE_LIST);
       if (s.cat === 'event') list = list.filter((it) => it.event);
       else if (s.cat === 'unequipped') list = list.filter((it) => equippable(it) && !isEquipped(it));
       else if (s.cat !== 'all') list = list.filter((it) => DL.groupOf(it) === s.cat);
       if (s.rar) list = list.filter((it) => it.rarity === s.rar);
       const by = {
         rarity: (a, b) => DL.RARITY[b.rarity].rank - DL.RARITY[a.rarity].rank || a.name.localeCompare(b.name),
-        recent: (a, b) => (D.items[b.id].last || D.items[b.id].at) - (D.items[a.id].last || D.items[a.id].at),
+        recent: (a, b) => { const t = (it) => (D.items[it.id] ? D.items[it.id].last || D.items[it.id].at : 0); return t(b) - t(a); },
         name: (a, b) => a.name.localeCompare(b.name),
         cat: (a, b) => DL.COSMETIC_GROUPS.findIndex((g) => g.id === DL.groupOf(a)) - DL.COSMETIC_GROUPS.findIndex((g) => g.id === DL.groupOf(b)) || a.name.localeCompare(b.name),
       };
@@ -516,10 +606,10 @@
     function invHtml(opts) {
       const s = V.inv, owned = Object.keys(D.items).map(item).filter(Boolean);
       const total = owned.reduce((n, it) => n + qty(it.id), 0);
-      const count = (f) => owned.filter(f).reduce((n, it) => n + qty(it.id), 0);
+      const count = (f) => owned.concat(EMOTE_LIST).filter(f).reduce((n, it) => n + (it.free ? 1 : qty(it.id)), 0);
       let h = opts && opts.bare ? '<div class="st-bals st-bals--menu" data-bals>' + goldHtml() + '</div>'
         : '<header class="app__bar st-bar"><span class="eyebrow-sm app__title">Inventário · ' + total + ' ' + (total === 1 ? 'item' : 'itens') + '</span><span class="st-bals" data-bals>' + goldHtml() + '</span><button type="button" class="btn btn--sm" data-do="goshop">Loja <kbd>O</kbd></button><button class="cc__x" type="button" data-do="close" aria-label="Fechar inventário">×</button></header>';
-      const cats = [['all', 'Tudo', total], ['unequipped', 'Não equipados', count((it) => equippable(it) && !isEquipped(it))], ['event', 'Eventos', count((it) => !!it.event)]]
+      const cats = [['all', 'Tudo', total + EMOTE_LIST.length], ['unequipped', 'Não equipados', count((it) => equippable(it) && !isEquipped(it))], ['event', 'Eventos', count((it) => !!it.event)]]
         .concat(DL.COSMETIC_GROUPS.map((g) => [g.id, g.name, count(g.test)]));
       h += '<div class="inv"><nav class="inv__cats" aria-label="Categorias">' + cats.map(([id, l, n], i) =>
         (i === 3 ? '<span class="inv__sep eyebrow-sm">Categorias</span>' : '') + '<button type="button" class="inv__cat' + (s.cat === id ? ' is-on' : '') + (n ? '' : ' is-empty') + '" data-cat="' + id + '"><span>' + l + '</span><b>' + n + '</b></button>').join('') + '</nav>';
@@ -527,10 +617,10 @@
         '<button type="button" class="chip chip--xs' + (s.rar === r ? ' is-on' : '') + (r ? ' rar-chip rar-chip--' + r : '') + '" data-rar="' + r + '">' + l + '</button>').join('') + '</div>' +
         '<label class="inv__sort"><span class="eyebrow-sm">Organizar</span><select class="input input--sm" data-sort>' + [['rarity', 'Raridade'], ['recent', 'Mais recentes'], ['name', 'Nome'], ['cat', 'Categoria']].map(([v, l]) => '<option value="' + v + '"' + (s.sort === v ? ' selected' : '') + '>' + l + '</option>').join('') + '</select></label></div>';
       const list = invList();
-      if (s.sel && !owns(s.sel)) s.sel = null;
+      if (s.sel && !owns(s.sel) && !EMO[s.sel]) s.sel = null;
       if (!s.sel && list[0]) s.sel = list[0].id;
       h += '<div class="st-main"><div class="st-grid">' + (list.map((it) => card(it, 'inv', it.id === s.sel)).join('') ||
-        '<div class="st-empty"><b>Nada aqui ainda</b><p>Compre skins, roupas e bots lendários na loja ou ganhe itens em eventos.</p><button type="button" class="btn btn--sm btn--primary" data-do="goshop">Abrir a loja</button></div>') + '</div>' +
+        '<div class="st-empty"><b>Nada aqui ainda</b><p>Compre skins, acessórios, pets e bots lendários na loja ou ganhe itens em eventos.</p><button type="button" class="btn btn--sm btn--primary" data-do="goshop">Abrir a loja</button></div>') + '</div>' +
         '<aside class="st-side" data-side>' + detailHtml(s.sel ? item(s.sel) : null, 'inv', s.ask) + '</aside></div></section></div>';
       return h;
     }

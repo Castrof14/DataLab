@@ -168,6 +168,10 @@
         <button class="mode" type="button" data-mode="build" aria-pressed="false">Construir <kbd>B</kbd></button>
         <button class="mode" type="button" data-mode="crew" aria-pressed="false">Equipe <kbd>C</kbd></button>
       </nav>
+      <span class="emo">
+        <button class="btn btn--sm ops-btn ops-btn--emo" id="emoteBtn" type="button" title="Emotes: dança (1), acenar (2), raiva (3)" aria-haspopup="menu" aria-expanded="false" aria-controls="emoteWheel"><span aria-hidden="true">🙂</span>Emotes</button>
+        <span class="emo__wheel" id="emoteWheel" role="menu" aria-label="Emotes" hidden></span>
+      </span>
       <div class="hud-meta eyebrow-sm">
         <span id="hudMeta">Meu datacenter</span>
         <span class="hud-meta__clock"><span class="dot dot--live"></span><span id="clock">08:00</span></span>
@@ -644,6 +648,8 @@
   <script src="assets/js/furniture.js"></script>
   <script src="assets/js/build.js"></script>
   <script src="assets/js/cosmetics.js"></script>
+  <script src="assets/js/emotes.js"></script>
+  <script src="assets/js/pets.js"></script>
   <script src="assets/js/iso.js"></script>
   <script src="assets/js/interact.js"></script>
   <script src="assets/js/jobs.js"></script>

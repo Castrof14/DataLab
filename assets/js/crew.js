@@ -56,6 +56,8 @@
       // shop cosmetics (cosmetics.js): pants style, accessories, the hat's own colour, the legendary visor
       pantsStyle: p.pantsStyle || null, shades: p.shades, scarf: p.scarf, chain: p.chain, backpack: p.backpack,
       hatColor: p.hatColor || null, visor: p.visor,
+      // the player's accessories by body position (inventory.js keeps them in sync)
+      gear: p.gear || null,
     };
   }
   DL.crewLook = lookOf;
@@ -2110,7 +2112,8 @@
       const inv = DL.Inventory, o = { hair: [], shirt: [], hat: [], pants: [], acc: [], colors: [] };
       if (!inv) return o;
       for (const it of DL.COSMETICS || []) {
-        if (it.cat !== 'char' || !inv.owns(it.id)) continue;
+        // accessories and the pet are equipped in the inventory, not picked here
+        if (it.cat !== 'char' || !inv.owns(it.id) || (DL.GEAR_SLOTS || []).indexOf(it.slot) >= 0) continue;
         if (it.slot === 'hair') o.hair.push([it.value, it.name]);
         else if (it.slot === 'shirt') o.shirt.push([it.value, it.name]);
         else if (it.slot === 'hat') { if (!o.hat.some((x) => x[0] === it.value)) o.hat.push([it.value, it.name]); }
@@ -2167,7 +2170,7 @@
     el.form.addEventListener('click', (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;
-      if (b.hasAttribute('data-cr-shop')) { closeCreator(); if (game.store) game.store.open('clothes'); return; }
+      if (b.hasAttribute('data-cr-shop')) { closeCreator(); if (game.store) game.store.open('skins'); return; }
       const p = CR.profile;
       if (b.dataset.k) {
         p[b.dataset.k] = b.dataset.v;
