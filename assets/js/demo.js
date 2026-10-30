@@ -38,7 +38,7 @@
     return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   };
   const fmtPower = (e) => (e.tel.unit === 'W' ? Math.round(e.power) : e.power.toFixed(e.power < 10 ? 2 : 1)) + '<small>' + e.tel.unit + '</small>';
-  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account'].some((id) => $(id).classList.contains('is-open'));
+  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account', 'mpDialog'].some((id) => $(id).classList.contains('is-open'));
   const canMove = () => S.phase !== 'intro' && !isOverlayOpen() && S.mode === 'explore';
 
   /* ---------------- toasts ---------------- */
@@ -91,6 +91,8 @@
     // the player's name / colour in the team chat
     playerInfo() { const p = crew.playerProfile, r = DL.ROLES[p.role] || {}; return { name: p.name, color: r.color || '#ffffff' }; },
     playerSeat: null,
+    // multiplayer.js, while playing in someone else's room: { update(dt) }
+    guest: null,
   };
   let crew = null, tutorial = null;
   const builder = DL.createBuilder(G);
@@ -1214,20 +1216,24 @@
     camGlide(dt);
     zoomStep(dt);
     S.target = canMove() ? findTarget() : null;
-    crew.update(dt);
+    // multiplayer.js: in someone else's room the host's game runs the world (crew, devices, money);
+    // this one only shows it (G.guest moves the crew to where the host says they are)
+    const sim = S.phase !== 'intro' && !G.guest;
+    if (G.guest) G.guest.update(dt);
+    else crew.update(dt);
     listen(dt);
-    if (S.phase !== 'intro') director.update(dt);
-    ops.update(dt);
-    if (S.phase !== 'intro') economy.update(dt);
-    if (S.phase !== 'intro') helpdesk.update(dt);
+    if (sim) director.update(dt);
+    if (!G.guest) ops.update(dt);
+    if (sim) economy.update(dt);
+    if (sim) helpdesk.update(dt);
     talk.update(dt);
-    staff.update(dt);
-    if (S.phase !== 'intro') shifts.update(dt);
-    infra.update(dt);
+    if (!G.guest) staff.update(dt);
+    if (sim) shifts.update(dt);
+    if (!G.guest) infra.update(dt);
     monitor.update(dt);
     tutorial.update(dt);
-    if (S.phase !== 'intro') career.update(dt);
-    if (S.phase !== 'intro') problems.update(dt);
+    if (sim) career.update(dt);
+    if (sim) problems.update(dt);
     if (S.panel && Math.hypot(S.panel.ix - player.x, S.panel.iy - player.y) > 44) closePanel();
     const c = clockAt(S.time);
     if (c !== lastClock) { lastClock = c; $('clock').textContent = c; }
@@ -1252,6 +1258,7 @@
         else updateLive();
       }
     }
+    G.emit('step', dt);
   }
 
   // Intro choice: continue with the tutorial (it starts in explore mode) or skip straight into build mode.

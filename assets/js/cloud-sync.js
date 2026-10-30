@@ -80,6 +80,7 @@
   // a new game with an account gets the first free cloud slot
   G.on('game-begin', async ({ preset }) => {
     if (S.loading) return; // a save is being loaded into this game
+    if (DL.MP && DL.MP.role === 'guest') return; // someone else's room: the world is the host's, saved by the host
     setSlot(null);
     if (!DL.Cloud.signedIn) return;
     S.name = (DL.PRESETS[preset] || {}).name || 'Meu datacenter';

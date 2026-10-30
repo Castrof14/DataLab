@@ -2473,6 +2473,27 @@
         buildWall: (x0, y0, x1, y1, mat, box) => { const keep = B.wallMat; B.wallMat = mat || 'solid'; const wd = { x0, y0, x1, y1, box: !!box }; const r = wallPlan(wd).reason; applyWall(wd); B.wallMat = keep; return r; },
         eraseWall: (x0, y0, x1, y1) => { const wd = { x0, y0, x1, y1, erase: true }; const r = wallPlan(wd).reason; applyWall(wd); return r; },
         placeDoor: (tx, ty, len, rot) => { const d = doorGhost(tx, ty, len || 1, rot || 0); if (d.reason) return d.reason; world.items.push(d.e); commit({ added: [d.e] }); return null; },
+        // multiplayer.js: put an object where another player moved / turned it — the same object, so a rack
+        // keeps its id and devices and a desk its station; returns the reason when it doesn't fit there
+        relocate(e, tx, ty, rot) {
+          e = e.parent || e;
+          const group = groupOf(e);
+          const orig = group.map((x) => ({ x, tx: x.tx, ty: x.ty, rot: x.rot, tw: x.tw, th: x.th, dx: x.dx, dy: x.dy }));
+          if (e.kind === 'door') e.rot = rot | 0;
+          else for (let n = 0; n < 4 && (e.rot | 0) !== (rot | 0) && canTurn(e); n++) turn(e);
+          if (e.host) { e.dx = tx - e.host.tx; e.dy = ty - e.host.ty; }
+          e.tx = tx;
+          e.ty = ty;
+          pos(e);
+          const why = e.host || e.kind === 'door' ? null : check(group.filter((x) => !x.host), new Set(group), () => true);
+          if (why) {
+            for (const o of orig) Object.assign(o.x, { tx: o.tx, ty: o.ty, rot: o.rot, tw: o.tw, th: o.th, dx: o.dx, dy: o.dy });
+            pos(e);
+            return why;
+          }
+          commit({ moved: true, added: group, removed: group, layout: e.kind === 'door' });
+          return null;
+        },
         setRoomType, renameRoom, areaOfRoom, roomIndexAt, wallAxisAt, doorCheck },
     };
   };

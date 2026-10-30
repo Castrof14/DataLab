@@ -160,13 +160,16 @@
       if (c.attend) a.crew.attend = c.attend;
       if (c.zone && W.rooms.some((r) => r.id === c.zone)) { a.crew.zone = c.zone; a.crew.placeAuto = false; }
     }
-    D.economy.restore(data.econ);
+    // (multiplayer.js applies the world's shape alone: without these parts the running ones stay)
+    if ('econ' in data) D.economy.restore(data.econ);
     if (opts.company) D.economy.applyServer(opts.company);
-    if (D.career) D.career.restore(data.career);
-    if (D.problems) D.problems.restore(data.problems);
-    const pl = D.player;
-    pl.x = W.spawn.x; pl.y = W.spawn.y; pl.vx = pl.vy = 0;
-    scene.cam.x = pl.x; scene.cam.y = pl.y;
+    if (D.career && 'career' in data) D.career.restore(data.career);
+    if (D.problems && 'problems' in data) D.problems.restore(data.problems);
+    if (!opts.keepPlayer) {
+      const pl = D.player;
+      pl.x = W.spawn.x; pl.y = W.spawn.y; pl.vx = pl.vy = 0;
+      scene.cam.x = pl.x; scene.cam.y = pl.y;
+    }
     if (refused.length) console.warn('save: itens não restaurados', refused);
     return refused;
   }
