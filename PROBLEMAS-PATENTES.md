@@ -4,8 +4,9 @@ Os 180 problemas novos: 20 para cada patente, de Júnior I a Tech Lead. Eles seg
 
 **Situação (30/10/2026):** a proposta foi aprovada.
 - **Fase 1 (Júnior I a III) está implementada.** Os 60 problemas estão em `problems-data.js` e no `seed_scenarios.sql`.
+- **Fase 2 (Pleno I a III) está implementada** (31/10/2026). São mais 60 problemas, testados de ponta a ponta com `node tests/sim-problems.js`.
 - As tabelas abaixo mostram a versão implementada. Onde ela mudou em relação à proposta, a linha diz **(mudou)** e explica o motivo.
-- Fases 2 a 4: só a proposta, ainda não programadas.
+- Fases 3 e 4: só a proposta, ainda não programadas.
 
 Decisões que valem para este documento:
 - O jogo continua com **10 níveis**: a Trainee segue dentro do Estagiário.
@@ -136,7 +137,7 @@ Tema: o passo diz só o sintoma. Começa o Active Directory e entram as dependê
 | # | Problema | Dif | XP | Onde | O que o jogador faz |
 |---|---|---|---|---|---|
 | 1 | Site fora: descubra a causa | 4 | 140 | Linux | A causa é sorteada entre serviço, interface, disco e cabo. Os passos dizem só "descubra", "corrija" e "prove com curl". |
-| 2 | Servidor sumiu: descubra a causa | 4 | 150 | 2 consoles | A causa é sorteada entre interface, cabo, porta do switch e rota. |
+| 2 | Servidor sumiu: servidor ou switch? **(mudou)** | 4 | 150 | 2 consoles | A causa é sorteada entre interface do servidor, porta em erro e porta desligada no switch. Responde de que lado está o defeito e corrige. Cabo e rota saíram porque já aparecem em outros problemas. |
 | 3 | Web sem DNS | 3 | 110 | Infra | O Web/API rende pouco: falta um servidor DNS. Especializa um servidor como DNS. |
 | 4 | Criar o domínio | 4 | 140 | Windows | Instala o AD DS e promove a floresta `corp.datalab.local`. |
 | 5 | OU e contas da TI | 3 | 120 | Windows | Cria a OU TI e 2 usuários habilitados. |
@@ -145,11 +146,11 @@ Tema: o passo diz só o sintoma. Começa o Active Directory e entram as dependê
 | 8 | Grupo do suporte | 3 | 110 | Windows | Cria o grupo Suporte e põe 2 pessoas nele. |
 | 9 | Nome para o site | 3 | 120 | Windows | Registro A `web` apontando para o servidor web; testa com `Resolve-DnsName`. |
 | 10 | www | 3 | 110 | Windows | CNAME `www` apontando para `web`. |
-| 11 | Sala quente | 3 | 100 | Construir | Instala ar de precisão. ⚠ preciso confirmar se a temperatura da sala existe no jogo. |
-| 12 | O banco precisa de mais máquina | 3 | 120 | Construir + Infra | Troca o servidor básico por um avançado para atender o banco de dados. |
+| 11 | Sala quente | 3 | 100 | Construir | Instala ar de precisão. O jogo não simula a temperatura da sala, então o problema só pede a instalação. |
+| 12 | O banco precisa de mais máquina | 3 | 120 | Construir + Infra | Instala um servidor avançado e especializa ele como Banco de dados. |
 | 13 | Especialize o banco | 3 | 110 | Infra | Especializa um servidor como Banco de dados e cumpre os requisitos (RAM, SSD). |
 | 14 | Ataque e SSH derrubado | 4 | 130 | Linux | Responde o IP do atacante e sobe o ssh de novo. |
-| 15 | Posto de NOC | 2 | 100 | Construir + Equipe | Instala a estação de NOC e põe alguém da equipe nela. |
+| 15 | Posto de NOC **(mudou)** | 2 | 100 | Construir | Instala a estação de NOC. Pôr alguém sentado nela saiu, porque o jogo não tem como conferir quem usa cada mesa. |
 | 16 | Mexeram na porta errada | 4 | 140 | Switch | Um colega desligou a porta errada e a certa continua em erro. Arruma as duas e salva. |
 | 17 | Esqueci a senha | 3 | 110 | Windows | Redefine a senha com `Set-ADAccountPassword -Reset`. |
 | 18 | Gateway responde, internet não | 4 | 130 | Linux | Depois de um reinício a rota padrão sumiu: o gateway responde (é a mesma rede), mas o 8.8.8.8 não. |
@@ -166,22 +167,22 @@ Tema: DHCP e DNS da empresa, VMs, capacidade e falha em cascata.
 | 2 | PCs com IP e sem internet | 4 | 150 | Windows | Falta a opção Router no escopo: `Set-DhcpServerv4OptionValue`. |
 | 3 | DHCP não entrega IP | 3 | 130 | Windows | O servidor não está autorizado: `Add-DhcpServerInDC`. |
 | 4 | Quantos PCs pegaram IP? | 3 | 120 | Windows | `Get-DhcpServerv4Lease` e responde a quantidade. |
-| 5 | DNS parou, sites caíram | 4 | 150 | Windows | Para no DC, acha o serviço DNS parado, inicia e testa. |
+| 5 | As estações não pegam IP **(mudou)** | 4 | 150 | Windows | O serviço DHCP parou: acha, vê no log, inicia e confere as concessões. O caso do DNS parado ficou no nº 18, que já falava dele. |
 | 6 | Registro DNS faltando | 3 | 130 | Windows | O servidor novo não resolve pelo nome: cria o registro A. |
 | 7 | Auditoria dos 8 | 3 | 130 | Linux | *Automático* ao chegar em 8 servidores. Faz ping em todos e responde quantos estão online. |
-| 8 | Nó de VMs sobrecarregado | 4 | 150 | Infra | Desliga ou move VMs até o nó sair do vermelho. |
+| 8 | Nó de VMs no limite | 4 | 150 | Infra | Duas VMs de teste tomam 95% da RAM do nó. Desliga ou remove VMs até a RAM reservada ficar abaixo de 70%. |
 | 9 | DNS redundante | 3 | 130 | Infra | Cria uma VM DNS para o caso do DNS principal cair. |
 | 10 | Jogos precisam de 10G | 4 | 150 | Construir + Infra | O servidor de jogos não rende: instala o switch 10G e liga nele. |
 | 11 | Nobreak na sala | 3 | 130 | Construir | Instala o nobreak na sala dos servidores. |
 | 12 | Backup do banco | 3 | 130 | Construir | Instala um NAS 8 baias na sala do banco. |
 | 13 | E-mail da empresa | 3 | 130 | Infra | Especializa o E-mail e cumpre a dependência de DNS. |
-| 14 | Dois servidores novos | 4 | 170 | 2 consoles | *Automático*. Configura dois servidores seguidos sem cola. |
-| 15 | Servidor membro acha o domínio | 4 | 150 | 2 consoles | Aponta o DNS para o DC e faz ping pelo nome. |
+| 14 | Servidor novo no padrão **(mudou)** | 4 | 170 | Linux | *Automático*. Rede, nome, SSH e internet, só com o resultado esperado em cada passo. "Dois servidores seguidos" precisaria de dois servidores novos ao mesmo tempo, o que é raro. |
+| 15 | Servidor membro acha o domínio | 4 | 150 | Windows | Aponta o DNS para o DC e resolve o domínio. Para isso funcionar, o jogo passou a consultar o DC de verdade quando um servidor usa ele como DNS. |
 | 16 | Pasta do financeiro | 4 | 160 | Windows | Cria a pasta e o compartilhamento para o grupo Financeiro. |
 | 17 | Pasta aberta para todos | 4 | 170 | Windows | `icacls` mostra BUILTIN\Users: corta a herança e dá acesso só ao grupo. |
 | 18 | Falha em cascata | 4 | 170 | 3 consoles | Web e e-mail alertam ao mesmo tempo. Responde a causa raiz (o DNS) e conserta só ela. |
 | 19 | Três alertas de uma vez | 4 | 170 | 3 consoles | Disco cheio, serviço caído e porta em erro em três equipamentos. |
-| 20 | Cabe mais um cliente? | 3 | 120 | Infra | Responde quantos núcleos livres o nó de VMs tem. |
+| 20 | Cabe mais um cliente? | 3 | 120 | Infra | Responde quantos vCPUs ainda estão livres no nó (threads menos os das VMs ligadas). |
 
 ## 7 · Pleno III — trabalhar com a equipe
 Missão: *dar 15 ordens à equipe* · Libera: servidor high-end, storage SAN, cilindros FM-200.
@@ -190,9 +191,9 @@ Tema: triar, delegar e montar acessos para pessoas. Parte da solução é atribu
 | # | Problema | Dif | XP | Onde | O que o jogador faz |
 |---|---|---|---|---|---|
 | 1 | Triagem | 4 | 170 | 3 consoles + Equipe | Três alertas: diagnostica e responde a causa de cada um, conserta um e atribui dois. |
-| 2 | Quem resolve isso? | 3 | 130 | Equipe | Para cada alerta, responde qual função cuida dele (redes, sysadmin…) e atribui. |
+| 2 | Quem resolve isso? | 3 | 130 | Equipe | Um alerta (porta do switch ou serviço). Responde qual função cuida dele, conforme as tarefas que cada função tem no jogo, e dá a ordem. |
 | 3 | Funcionário novo | 4 | 180 | Windows | Cria a conta na OU, põe no grupo e dá acesso à pasta. |
-| 4 | Desligamento | 3 | 140 | Windows | Desabilita a conta e responde de quais grupos ela fazia parte. |
+| 4 | Desligamento | 3 | 140 | Windows | Responde de quantos grupos a pessoa fazia parte e desabilita a conta. |
 | 5 | Permissão do jeito certo | 4 | 180 | Windows | Grupo Global dentro de grupo DomainLocal, e a permissão vai para o DomainLocal. |
 | 6 | Uma pasta por departamento | 4 | 170 | Windows | Cria 3 pastas, cada uma restrita ao seu grupo. |
 | 7 | Quem errou a senha? | 4 | 150 | Windows | `Get-WinEvent -LogName Security` e responde o usuário. |
@@ -205,10 +206,10 @@ Tema: triar, delegar e montar acessos para pessoas. Parte da solução é atribu
 | 14 | DNS de todos os servidores | 4 | 160 | Windows | Cria 3 registros A. |
 | 15 | Salvar todos os switches | 3 | 140 | 2 consoles | Dois switches com mudança não salva: salva os dois. |
 | 16 | Padronizar os nomes | 3 | 140 | 2 consoles | Renomeia dois servidores. |
-| 17 | Cobertura da noite | 3 | 130 | Equipe | Garante alguém de redes e alguém de sysadmin no turno da noite. ⚠ preciso confirmar a sonda de turnos. |
+| 17 | A auditoria precisa ler o Financeiro **(mudou)** | 3 | 130 | Windows | Dá leitura (Read), e só leitura, ao grupo Auditoria no compartilhamento. "Cobertura da noite" saiu porque os turnos não têm como ser conferidos pelo problema. |
 | 18 | Incidente com a equipe | 4 | 180 | 3 consoles + Equipe | Conserta dois servidores e atribui o terceiro. |
 | 19 | Atacante em três servidores | 4 | 160 | 3 consoles + Equipe | Responde o IP comum aos três e atribui o bloqueio à segurança. |
-| 20 | DHCP esgotado | 4 | 170 | Windows | Os leases acabaram: responde quantos são e cria um segundo escopo. |
+| 20 | DHCP esgotado **(mudou)** | 4 | 170 | Windows | O escopo só tem 3 endereços. Responde quantos empresta hoje e recria o escopo com 50 ou mais. Não dá para criar um segundo escopo na mesma rede. |
 
 ---
 

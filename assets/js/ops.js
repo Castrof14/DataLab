@@ -43,6 +43,9 @@
       // opts.ip: a given address (another server's); otherwise a free one in the same network
       apply: (d, o, api) => { const bad = (o && o.ip) || api.freeIp(); e0(d).ips = [bad + '/24']; d.os.badIp = bad; },
       fixed: (d) => hasIp(d, d.ip) && !hasIp(d, d.os.badIp), fix: (d) => { e0(d).ips = [d.ip + '/24']; } },
+    // the default route is gone (a reboot without it saved): the gateway answers, the internet doesn't
+    noroute: { problem: true, kinds: ['server'], when: linux, short: 'Sem rota padrão', msg: (d) => 'Servidor ' + d.name + ' sem acesso à internet',
+      apply: (d) => { d.os.route = null; }, fixed: (d) => d.os.route === GW, fix: (d) => { d.os.route = GW; } },
     badroute: { problem: true, kinds: ['server'], when: linux, short: 'Rota errada', msg: (d) => 'Servidor ' + d.name + ' sem acesso à internet',
       apply: (d) => { d.os.route = '10.0.1.254'; }, fixed: (d) => d.os.route === GW, fix: (d) => { d.os.route = GW; } },
     sshstop: { problem: true, kinds: ['server'], when: linux, short: 'SSH parado', msg: (d) => 'Acesso remoto (SSH) do ' + d.name + ' não responde',
@@ -413,7 +416,8 @@
         d.sw.bad = opts && used.indexOf(opts.port) >= 0 ? opts.port : pick(used);
         d.sw.fixed = false;
         if (d.sw.shut === d.sw.bad) d.sw.shut = null;
-        if (t === 'port2') { d.sw.off = pick(used.filter((p) => p !== d.sw.bad)); d.sw.ports[d.sw.off] = 'disabled'; }
+        // opts.port2: the port shut down by hand (another server's)
+        if (t === 'port2') { const rest = used.filter((p) => p !== d.sw.bad); d.sw.off = opts && rest.indexOf(opts.port2) >= 0 ? opts.port2 : pick(rest); d.sw.ports[d.sw.off] = 'disabled'; }
       } else if (t === 'portoff') {
         if (!used.length) return null;
         d.sw.off = opts && used.indexOf(opts.port) >= 0 ? opts.port : pick(used);
@@ -622,7 +626,7 @@
       const out = [];
       const probs = game.problems ? game.problems.list() : [];
       // the fault / the new server a problem is about shows up once, as the problem
-      const taken = new Set([].concat(...probs.filter((p) => p.x && (p.def.complete !== 'lesson' || (p.def.setup && p.def.setup.fault))).map(game.problems.devicesOf)));
+      const taken = new Set([].concat(...probs.filter((p) => p.x && (p.def.complete !== 'lesson' || (DL.problemBreaks && DL.problemBreaks(p.def)))).map(game.problems.devicesOf)));
       for (const d of devices()) {
         if (taken.has(d)) continue;
         if (d.fault && d.fault.found) out.push({ d, kind: 'fault', title: FAULTS[d.fault.type].msg(d), by: d.fault.by });

@@ -123,6 +123,17 @@
         { text: 'O ping até a internet (8.8.8.8) volta.', help: ['ping'], auto: 'ping -c 3 8.8.8.8', check: { ran: 'ping-ok:8.8.8.8' } },
       ],
     },
+    // Pleno: the company standard, results only (the help shows one card)
+    setup_pl: {
+      title: 'Servidor no padrão · {{dev.name}}',
+      goal: 'Padrão da empresa para servidor novo: IP {{dev.ip}}/24, gateway {{gw}}, nome {{dev.host}}, acesso remoto (SSH) escutando e saída para a internet. Entregue pronto.',
+      steps: [
+        { text: 'Rede: {{dev.ip}}/24 na eth0 ativa, rota padrão pelo {{gw}}.', help: ['ip-addr-add'], auto: 'sudo ip link set eth0 up\nsudo ip addr add {{dev.ip}}/24 dev eth0\nsudo ip route add default via {{gw}}', check: { all: [{ state: 'eth0.up' }, { state: 'eth0.ip' }, { state: 'route', eq: '{{gw}}' }] } },
+        { text: 'Nome: {{dev.host}}.', help: ['hostnamectl'], auto: 'sudo hostnamectl set-hostname {{dev.host}}', check: { state: 'hostname', eq: '{{dev.host}}' } },
+        { text: 'O SSH escuta na porta 22 (confira).', help: ['ss'], auto: 'sudo ss -tlnp', check: { all: [{ state: 'service', arg: 'ssh', eq: 'active' }, { ran: 'ss' }] } },
+        { text: 'A internet responde.', help: ['ping'], auto: 'ping -c 3 8.8.8.8', check: { ran: 'ping-ok:8.8.8.8' } },
+      ],
+    },
     // a setup ticket with the wrong gateway: the player finds the right one in notas.txt
     setup_ticket: {
       title: 'Chamado de configuração · {{dev.name}}',
@@ -162,6 +173,10 @@
   const WIN = { kind: 'server', state: 'online', os: 'windows', win: 'ready', healthy: true };
   const NEW = { kind: 'server', state: 'link', own: true, os: 'linux' };
   const MSW = { kind: 'switch', managed: true, healthy: true };
+  const DC = Object.assign({}, WIN, { domain: true });
+  const NODE = { kind: 'server', state: 'online', healthy: true, svc: 'virt' };
+  // the domain's account for the auto-play (a strong password the domain accepts)
+  const PW = '(ConvertTo-SecureString "Datalab@2026" -AsPlainText -Force)';
   const T = (base, more) => Object.assign({}, base, more || {});
   const swEnable = { text: 'Entre no modo privilegiado.', help: ['enable'], cmd: 'enable', check: { any: [{ ran: 'enable' }, { state: 'sw.mode', ne: 'user' }] } };
   const problems = [
@@ -1041,6 +1056,657 @@
         { device: 'sw', type: 'answer', text: 'Em que porta ele está?', help: ['show-int', 'responder'], answer: { accept: ['{{port}}'], normalize: 'port' } },
       ],
     },
+
+    /* ---------------- Pleno I: diagnóstico (o passo diz o sintoma, não a causa) · Active Directory ---------------- */
+    {
+      id: 'pl1_site_fora_causa', n: 1, rank: 'pl1', title: 'Site fora no {{dev.name}}: descubra a causa', difficulty: 4, xp: 140, credits: 21,
+      skill: 'sistemas', roles: ['sysadmin', 'servidores'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'O site do {{dev.name}} saiu do ar e ninguém sabe por quê. Pode ser rede, cabo, serviço ou disco: descubra, corrija e prove.',
+      target: T(LNX, { web: true }), setup: { fault: ['service', 'link', 'disk', 'cable'] }, vars: { cause: 'fault.word' },
+      steps: [
+        { text: 'Investigue: rede, serviço web e disco.', help: ['ip-link'], auto: 'ip link\nsystemctl status nginx\ndf -h', check: { any: [{ ran: 'link-show' }, { ran: 'ip-show' }, { ran: 'status:nginx' }, { ran: 'df' }] } },
+        { type: 'answer', text: 'Qual era a causa? (cabo, interface, serviço ou disco)', help: ['responder'], answer: { accept: ['{{cause}}'], normalize: 'text' } },
+        { text: 'O servidor está na rede, com o nginx rodando e espaço em disco.', help: ['systemctl-restart'], action: 'cabling', auto: 'sudo ip link set eth0 up\nsudo journalctl --vacuum-size=200M\nsudo systemctl restart nginx', check: { state: 'ok.web' } },
+        { text: 'O site responde.', help: ['curl'], auto: 'curl localhost', check: { ran: 'curl-ok' } },
+      ],
+    },
+    {
+      id: 'pl1_servidor_sumiu', n: 2, rank: 'pl1', title: '{{dev.name}} sumiu: servidor ou switch?', difficulty: 4, xp: 150, credits: 22,
+      skill: 'redes', roles: ['redes', 'tecnico', 'sysadmin'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'O {{dev.name}} sumiu da rede. O defeito pode estar no servidor ou no switch {{sw.name}}: descubra onde e corrija.',
+      target: T(LNX, { directLink: true }), devices: { sw: 'switch.of' }, setup: { fault: ['link@dev', 'port@sw', 'portoff@sw'], quiet: true }, vars: { onde: 'faultyKind', port: 'srv.port' },
+      steps: [
+        { text: 'Comece pelo servidor: interface e ping no gateway.', help: ['ip-link'], auto: 'ip link\nping -c 3 {{gw}}', check: { any: [{ ran: 'link-show' }, { ran: 'ip-show' }] } },
+        { device: 'sw', text: 'Olhe também o lado do switch.', help: ['show-int'], auto: 'enable\nshow interfaces status', check: { any: [{ ran: 'show-int' }, { at: 'dev', state: 'up' }] } },
+        { device: 'any', type: 'answer', text: 'O defeito está no servidor ou no switch?', help: ['responder'], answer: { accept: ['{{onde}}'], normalize: 'text' } },
+        { device: 'any', text: 'Corrija onde estiver o defeito.', help: ['ip-link-up', 'no-shutdown'], auto: 'sudo ip link set eth0 up\nenable\nconfigure terminal\ninterface {{port}}\nshutdown\nno shutdown\nend', check: { at: 'dev', state: 'up' } },
+        { text: 'O {{dev.name}} alcança o gateway.', help: ['ping'], auto: 'ping -c 3 {{gw}}', check: pingGw },
+      ],
+    },
+    {
+      id: 'pl1_web_sem_dns', n: 3, rank: 'pl1', title: 'Sites sem DNS', difficulty: 3, xp: 110, credits: 16,
+      // roles: [] — the specialisation is the player's call (Infra)
+      skill: 'redes', roles: [], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'steps', when: 'webNoDns',
+      summary: 'Os servidores Web/API estão no ar, mas sem DNS os clientes não acham o endereço e eles rendem menos.',
+      target: { kind: 'rack' },
+      steps: [
+        { text: 'Tenha um DNS no ar: especialize um servidor como DNS (Infra → Servidores) ou use um domínio Windows com DNS.', check: { state: 'provided', arg: 'dns' } },
+      ],
+    },
+    {
+      id: 'pl1_criar_dominio', n: 4, rank: 'pl1', title: 'Criar o domínio no {{dev.name}}', difficulty: 4, xp: 140, credits: 21,
+      skill: 'sistemas', roles: [], bot_minutes: 30, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'A empresa cresceu: as contas precisam de um lugar central. Transforme o {{dev.name}} no controlador de domínio corp.datalab.local.',
+      target: T(WIN, { domain: false }),
+      steps: [
+        { text: 'Veja as funções que o servidor pode ter.', help: ['win-features'], auto: 'Get-WindowsFeature', check: { any: [{ ran: 'win-features' }, { state: 'win.has', arg: 'AD-Domain-Services' }] } },
+        { text: 'A função AD DS está instalada, com as ferramentas.', help: ['win-feature'], auto: 'Install-WindowsFeature AD-Domain-Services -IncludeManagementTools', check: { all: [{ state: 'win.has', arg: 'AD-Domain-Services' }, { state: 'win.has', arg: 'RSAT-AD-PowerShell' }] } },
+        { text: 'O domínio corp.datalab.local existe, com DNS.', help: ['win-forest'], auto: 'Install-ADDSForest -DomainName corp.datalab.local -InstallDns', check: { state: 'win.domain' } },
+        { text: 'Confira o domínio.', help: ['win-addomain'], auto: 'Get-ADDomain', check: { ran: 'win-addomain' } },
+      ],
+    },
+    {
+      id: 'pl1_ou_ti', n: 5, rank: 'pl1', title: 'OU e contas da TI · {{dev.name}}', difficulty: 3, xp: 120, credits: 18,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Duas pessoas entraram na TI. Organize o AD com uma OU "TI" e crie as duas contas dentro dela, habilitadas.',
+      target: T(DC, { noOu: 'TI' }), vars: { dn: 'win.dn' },
+      steps: [
+        { text: 'A OU "TI" existe.', help: ['win-ou'], auto: 'New-ADOrganizationalUnit -Name TI', check: { state: 'win.ou', arg: 'TI' } },
+        { text: 'Duas contas habilitadas, com senha, dentro da OU TI.', help: ['win-newuser'], auto: 'New-ADUser -Name "Rita Lopes" -SamAccountName rita.lopes -Path "OU=TI,{{dn}}" -AccountPassword ' + PW + ' -Enabled $true\nNew-ADUser -Name "Igor Nunes" -SamAccountName igor.nunes -Path "OU=TI,{{dn}}" -AccountPassword ' + PW + ' -Enabled $true', check: { state: 'win.usersIn', arg: 'TI', gt: 1 } },
+        { text: 'Confira as contas do domínio.', help: ['win-users'], auto: 'Get-ADUser -Filter *', check: { ran: 'win-aduser-list' } },
+      ],
+    },
+    {
+      id: 'pl1_conta_travou', n: 6, rank: 'pl1', title: '"Minha conta travou" · {{dev.name}}', difficulty: 3, xp: 110, credits: 16,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'fixed', lesson: 'lockout',
+      summary: 'Um funcionário errou a senha várias vezes e a conta dele no domínio travou.',
+      target: DC, setup: { win: 'users', fault: 'lockout' },
+    },
+    {
+      id: 'pl1_desligamento', n: 7, rank: 'pl1', title: 'Desligamento: carla.mendes · {{dev.name}}', difficulty: 3, xp: 100, credits: 15,
+      skill: 'seguranca', roles: ['sysadmin', 'seguranca'], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Carla Mendes saiu da empresa hoje. A conta dela precisa parar de funcionar, sem apagar o histórico.',
+      target: DC, setup: { win: 'users' },
+      steps: [
+        { text: 'Veja as contas do domínio.', help: ['win-users'], auto: 'Get-ADUser -Filter *', check: { ran: 'win-aduser-list' } },
+        { text: 'A conta carla.mendes não entra mais (sem excluir).', help: ['win-disable'], auto: 'Disable-ADAccount -Identity carla.mendes', check: { state: 'win.user', arg: 'carla.mendes', eq: 'disabled' } },
+        { text: 'Confira as contas desabilitadas.', help: ['win-users'], auto: 'Search-ADAccount -AccountDisabled', check: { ran: 'win-disabled-search' } },
+      ],
+    },
+    {
+      id: 'pl1_grupo_suporte', n: 8, rank: 'pl1', title: 'Grupo do suporte · {{dev.name}}', difficulty: 3, xp: 110, credits: 16,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Permissões se dão a grupos, não a pessoas. Crie o grupo Suporte e coloque nele duas pessoas da equipe.',
+      target: T(DC, { noGroup: 'Suporte' }), setup: { win: 'users' },
+      steps: [
+        { text: 'Existe o grupo Suporte, de escopo Global.', help: ['win-newgroup'], auto: 'New-ADGroup -Name Suporte -GroupScope Global', check: { state: 'win.groupScope', arg: 'Suporte', eq: 'Global' } },
+        { text: 'Duas contas estão no grupo Suporte.', help: ['win-member'], auto: 'Add-ADGroupMember -Identity Suporte -Members ana.souza,bruno.alves', check: { state: 'win.members', arg: 'Suporte', gt: 1 } },
+        { text: 'Confira os membros do grupo.', help: ['win-member'], auto: 'Get-ADGroupMember -Identity Suporte', check: { ran: 'win-group-members:suporte' } },
+      ],
+    },
+    {
+      id: 'pl1_nome_site', n: 9, rank: 'pl1', title: 'Um nome para o site do {{peer.name}}', difficulty: 3, xp: 120, credits: 18,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O site do {{peer.name}} ({{peer.ip}}) precisa de um nome: web.{{dom}}. O DNS do domínio fica no {{dev.name}}.',
+      target: T(DC, { noRr: 'web' }), devices: { peer: 'server.peer' }, vars: { dom: 'win.domain' },
+      steps: [
+        { text: 'Veja as zonas deste DNS.', help: ['win-dnszones'], auto: 'Get-DnsServerZone', check: { ran: 'win-dns-zones' } },
+        { text: 'web.{{dom}} aponta para {{peer.ip}}.', help: ['win-dnsa'], auto: 'Add-DnsServerResourceRecordA -ZoneName {{dom}} -Name web -IPv4Address {{peer.ip}}', check: { state: 'win.rr', arg: 'web', eq: '{{peer.ip}}' } },
+        { text: 'O nome resolve.', help: ['win-resolve'], auto: 'Resolve-DnsName web.{{dom}}', check: { any: [{ ran: 'win-dns-ok:web.{{dom}}' }, { ran: 'win-dns-ok:web' }] } },
+      ],
+    },
+    {
+      id: 'pl1_www', n: 10, rank: 'pl1', title: 'www para o site · {{dev.name}}', difficulty: 3, xp: 110, credits: 16,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Os clientes digitam www na frente do endereço. Crie o apelido www para o web.{{dom}}, sem repetir o IP.',
+      target: T(DC, { noRr: 'www' }), devices: { peer: 'server.peer' }, setup: { win: 'webA' }, vars: { dom: 'win.domain' },
+      steps: [
+        { text: 'www.{{dom}} é um apelido (CNAME) de web.{{dom}}.', help: ['win-dnscname'], auto: 'Add-DnsServerResourceRecordCName -ZoneName {{dom}} -Name www -HostNameAlias web.{{dom}}', check: { state: 'win.rr', arg: 'www', eq: 'web.{{dom}}' } },
+        { text: 'www.{{dom}} resolve.', help: ['win-resolve'], auto: 'Resolve-DnsName www.{{dom}}', check: { any: [{ ran: 'win-dns-ok:www.{{dom}}' }, { ran: 'win-dns-ok:www' }] } },
+      ],
+    },
+    {
+      id: 'pl1_sala_quente', n: 11, rank: 'pl1', title: 'Sala dos servidores quente', difficulty: 3, xp: 100, credits: 15,
+      skill: 'servidores', roles: [], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Com mais servidores, a sala esquenta. O ar de precisão segura a temperatura do corredor frio.',
+      target: { kind: 'rack' }, vars: { n: 'items:crac' },
+      steps: [
+        { text: 'Instale um Ar de precisão na sala dos racks (Construir → Racks).', action: 'build', check: { state: 'items', arg: 'crac', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl1_banco_maquina', n: 12, rank: 'pl1', title: 'O banco de dados precisa de mais máquina', difficulty: 3, xp: 120, credits: 18,
+      skill: 'servidores', roles: [], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'O banco de dados cresceu. Instale um servidor avançado e coloque o Banco de dados nele.',
+      target: { kind: 'rack' }, vars: { n: 'devs:srv_adv', db: 'svc.model:db,srv_adv' },
+      steps: [
+        { text: 'Instale um Servidor avançado num rack.', action: 'build', check: { state: 'devs', arg: 'srv_adv', gt: '{{n}}' } },
+        { text: 'Especialize um servidor avançado como Banco de dados (Infra → Servidores).', check: { state: 'svc.model', arg: 'db,srv_adv', gt: '{{db}}' } },
+      ],
+    },
+    {
+      id: 'pl1_especialize_banco', n: 13, rank: 'pl1', title: 'Um banco de dados que rende', difficulty: 3, xp: 110, credits: 16,
+      skill: 'servidores', roles: [], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Um cliente quer hospedar o banco dele. O Banco de dados pede 8 núcleos, 64 GB e disco SSD: escolha um servidor que aguente.',
+      target: { kind: 'rack' }, vars: { n: 'svc.ok:db' },
+      steps: [
+        { text: 'Um servidor online está especializado como Banco de dados e tem tudo o que ele pede (Infra → Servidores).', check: { state: 'svc.ok', arg: 'db', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl1_ataque_ssh', n: 14, rank: 'pl1', title: 'Ataque e SSH fora no {{dev.name}}', difficulty: 4, xp: 130, credits: 20,
+      skill: 'seguranca', roles: ['seguranca', 'sysadmin'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Depois de uma onda de senhas erradas, o SSH do {{dev.name}} parou. Descubra de onde veio o ataque e devolva o acesso.',
+      handoff: 'o IP vai para a segurança bloquear',
+      target: LNX, setup: { authlog: 'bruteforce', fault: 'sshstop' }, vars: { attacker: 'auth.attacker' },
+      steps: [
+        { text: 'Encontre as tentativas de senha errada.', help: ['grep'], auto: 'grep "Failed password" /var/log/auth.log', check: { ran: 'grep-failed:/var/log/auth.log' } },
+        { type: 'answer', text: 'De qual IP veio o ataque?', help: ['responder'], answer: { accept: ['{{attacker}}'], normalize: 'ip' } },
+        { text: 'O SSH está rodando de novo e escutando.', help: ['systemctl-start'], auto: 'sudo systemctl start ssh\nsudo ss -tlnp', check: { all: [{ state: 'service', arg: 'ssh', eq: 'active' }, { ran: 'ss' }] } },
+      ],
+    },
+    {
+      id: 'pl1_noc', n: 15, rank: 'pl1', title: 'Posto de NOC', difficulty: 2, xp: 100, credits: 15,
+      skill: 'gestao', roles: [], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Com mais servidores, alguém precisa olhar o monitoramento o tempo todo. Monte uma estação de NOC.',
+      target: { kind: 'rack' }, vars: { n: 'items:desknoc' },
+      steps: [
+        { text: 'Instale uma Estação de NOC (Construir → Equipamentos → Estações).', action: 'build', check: { state: 'items', arg: 'desknoc', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl1_porta_errada', n: 16, rank: 'pl1', title: 'Mexeram na porta errada do {{sw.name}}', difficulty: 4, xp: 140, credits: 21,
+      skill: 'redes', roles: ['redes', 'tecnico'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Uma porta do {{sw.name}} entrou em erro e, tentando consertar, um colega desligou a porta errada. Agora o {{dev.name}} e o {{peer.name}} estão fora.',
+      target: T(LNX, { directLink: true }), devices: { sw: 'switch.of', peer: 'server.sameSwitch' }, setup: { fault: 'port2', on: 'sw' }, vars: { pa: 'srv.port', pb: 'srv.port@peer' },
+      steps: [
+        { device: 'sw', text: 'Veja o estado das portas do {{sw.name}}.', help: ['show-int'], auto: 'enable\nshow interfaces status', check: { ran: 'show-int' } },
+        { device: 'sw', text: 'O {{dev.name}} e o {{peer.name}} voltam para a rede.', help: ['interface'], auto: 'configure terminal\ninterface {{pa}}\nshutdown\nno shutdown\ninterface {{pb}}\nno shutdown\nend', check: { all: [{ at: 'dev', state: 'up' }, { at: 'peer', state: 'up' }] } },
+        { device: 'sw', text: 'A configuração fica salva.', help: ['copy-run-start'], auto: 'end\ncopy running-config startup-config', check: { ran: 'config-saved' } },
+      ],
+    },
+    {
+      id: 'pl1_esqueci_senha', n: 17, rank: 'pl1', title: '"Esqueci a senha" · {{dev.name}}', difficulty: 3, xp: 110, credits: 16,
+      skill: 'sistemas', roles: ['sysadmin', 'atendente'], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Bruno Alves voltou de férias e não lembra a senha. Redefina e confira a conta.',
+      target: DC, setup: { win: 'users' },
+      steps: [
+        { text: 'A senha de bruno.alves foi redefinida (forte: 8+ caracteres, 3 tipos).', help: ['win-unlock'], auto: 'Set-ADAccountPassword -Identity bruno.alves -Reset -NewPassword ' + PW, check: { ran: 'win-pwd' } },
+        { text: 'Confira a conta.', help: ['win-users'], auto: 'Get-ADUser bruno.alves', check: { ran: 'win-aduser-list' } },
+      ],
+    },
+    {
+      id: 'pl1_rota_sumiu', n: 18, rank: 'pl1', title: 'Gateway responde, internet não · {{dev.name}}', difficulty: 4, xp: 130, credits: 20,
+      skill: 'redes', roles: ['redes', 'sysadmin'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Depois de um reinício, o {{dev.name}} fala com a rede local, mas não com a internet. Descubra o que falta.',
+      target: LNX, setup: { fault: 'noroute' },
+      steps: [
+        { text: 'Teste o gateway e a internet.', help: ['ping'], auto: 'ping -c 3 {{gw}}\nping -c 3 8.8.8.8', check: { all: [{ ran: 'ping-ok:{{gw}}' }, { any: [{ ran: 'ping-fail' }, { state: 'route', eq: '{{gw}}' }] }] } },
+        { text: 'Descubra por onde os pacotes deveriam sair.', help: ['ip-route'], auto: 'ip route', check: { ran: 'route-show' } },
+        { text: 'A internet responde.', help: ['ip-route-add'], auto: 'sudo ip route add default via {{gw}}\nping -c 3 8.8.8.8', check: { all: [{ state: 'route', eq: '{{gw}}' }, { ran: 'ping-ok:8.8.8.8' }] } },
+      ],
+    },
+    {
+      id: 'pl1_primeira_vm', n: 19, rank: 'pl1', title: 'A primeira VM', difficulty: 3, xp: 120, credits: 18,
+      skill: 'sistemas', roles: [], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Um servidor físico inteiro para um site pequeno é desperdício. Crie um nó de virtualização e rode o site numa VM.',
+      target: { kind: 'rack' }, vars: { n: 'vms:web:running' },
+      steps: [
+        { text: 'Um servidor é nó de Virtualização (Infra → Servidores).', check: { state: 'svcs', arg: 'virt', gt: 0 } },
+        { text: 'Uma VM Web/API nova está rodando (Infra → VMs → Criar VM).', check: { state: 'vms', arg: 'web:running', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl1_duas_causas', n: 20, rank: 'pl1', title: '{{dev.name}} e {{peer.name}} fora, cada um por um motivo', difficulty: 4, xp: 150, credits: 22,
+      skill: 'sistemas', roles: ['sysadmin', 'redes'], bot_minutes: 25, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Dois alertas ao mesmo tempo: o {{dev.name}} sumiu da rede e o site do {{peer.name}} caiu. Não é a mesma causa.',
+      target: T(LNX, { web: true }), devices: { peer: 'server.peer' }, setup: { faults: [{ fault: ['link', 'cable'], on: 'dev' }, { fault: ['service', 'disk'], on: 'peer' }] },
+      steps: [
+        { text: 'O {{dev.name}} volta para a rede.', help: ['ip-link'], action: 'cabling', auto: 'ip link\nsudo ip link set eth0 up', check: { state: 'up' } },
+        { device: 'peer', text: 'O site do {{peer.name}} volta a responder.', help: ['systemctl-status'], auto: 'systemctl status nginx\ndf -h\nsudo journalctl --vacuum-size=200M\nsudo systemctl restart nginx\ncurl localhost', check: { all: [{ state: 'ok.web' }, { ran: 'curl-ok' }] } },
+      ],
+    },
+
+    /* ---------------- Pleno II: escala · DHCP e DNS da empresa · VMs ---------------- */
+    {
+      id: 'pl2_dhcp_escritorio', n: 1, rank: 'pl2', title: 'DHCP para o escritório · {{dev.name}}', difficulty: 4, xp: 160, credits: 24,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 25, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'As estações de trabalho precisam pegar IP sozinhas, com gateway e DNS. Monte o DHCP no controlador de domínio {{dev.name}}.',
+      target: T(DC, { lacks: 'DHCP' }),
+      steps: [
+        { text: 'A função DHCP está instalada, com as ferramentas.', help: ['win-dhcpinstall'], auto: 'Install-WindowsFeature DHCP -IncludeManagementTools', check: { all: [{ state: 'win.has', arg: 'DHCP' }, { state: 'win.has', arg: 'RSAT-DHCP' }] } },
+        { text: 'Existe um escopo para as estações (fora dos IPs fixos).', help: ['win-scope'], auto: 'Add-DhcpServerv4Scope -Name LAN -StartRange 10.0.1.100 -EndRange 10.0.1.199 -SubnetMask 255.255.255.0', check: { state: 'win.scopes', gt: 0 } },
+        { text: 'O escopo entrega o gateway {{gw}} e o DNS.', help: ['win-option'], auto: 'Set-DhcpServerv4OptionValue -ScopeId 10.0.1.0 -Router {{gw}} -DnsServer {{dev.ip}}', check: { all: [{ state: 'win.scopeRouter', eq: '{{gw}}' }, { state: 'win.scopeDns' }] } },
+        { text: 'O DHCP pode entregar IPs no domínio.', help: ['win-authorize'], auto: 'Add-DhcpServerInDC', check: { state: 'win.dhcpAuth' } },
+        { text: 'As estações pegaram IP.', help: ['win-lease'], auto: 'Get-DhcpServerv4Lease -ScopeId 10.0.1.0', check: { ran: 'win-dhcp-lease' } },
+      ],
+    },
+    {
+      id: 'pl2_sem_gateway', n: 2, rank: 'pl2', title: 'Estações sem internet · {{dev.name}}', difficulty: 4, xp: 150, credits: 22,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O DHCP do {{dev.name}} está instalado, mas as estações ficam sem IP utilizável e sem internet. Ache o que falta no escopo.',
+      target: DC, setup: { win: 'dhcpNoRouter' },
+      steps: [
+        { text: 'Veja se o escopo entrega endereços.', help: ['win-lease'], auto: 'Get-DhcpServerv4Lease -ScopeId 10.0.1.0', check: { any: [{ ran: 'cmd:get-dhcpserverv4lease' }, { ran: 'win-dhcp-lease' }] } },
+        { text: 'Veja as opções que o escopo entrega.', help: ['win-option'], auto: 'Get-DhcpServerv4OptionValue -ScopeId 10.0.1.0', check: { ran: 'cmd:get-dhcpserverv4optionvalue' } },
+        { text: 'O escopo entrega o gateway {{gw}}.', help: ['win-option'], auto: 'Set-DhcpServerv4OptionValue -ScopeId 10.0.1.0 -Router {{gw}}', check: { state: 'win.scopeRouter', eq: '{{gw}}' } },
+        { text: 'As estações pegaram IP.', help: ['win-lease'], auto: 'Get-DhcpServerv4Lease -ScopeId 10.0.1.0', check: { ran: 'win-dhcp-lease' } },
+      ],
+    },
+    {
+      id: 'pl2_dhcp_autorizar', n: 3, rank: 'pl2', title: 'O DHCP não entrega IP · {{dev.name}}', difficulty: 3, xp: 130, credits: 20,
+      skill: 'redes', roles: ['sysadmin'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O escopo do {{dev.name}} está certinho, mas nenhuma estação pega IP. Num domínio, o DHCP precisa de mais uma coisa.',
+      target: DC, setup: { win: 'dhcpNoAuth' },
+      steps: [
+        { text: 'Veja as concessões e o motivo provável.', help: ['win-lease'], auto: 'Get-DhcpServerv4Lease -ScopeId 10.0.1.0', check: { any: [{ ran: 'cmd:get-dhcpserverv4lease' }, { state: 'win.dhcpAuth' }] } },
+        { text: 'O servidor DHCP está autorizado no AD.', help: ['win-authorize'], auto: 'Add-DhcpServerInDC', check: { state: 'win.dhcpAuth' } },
+        { text: 'As estações pegaram IP.', help: ['win-lease'], auto: 'Get-DhcpServerv4Lease -ScopeId 10.0.1.0', check: { ran: 'win-dhcp-lease' } },
+      ],
+    },
+    {
+      id: 'pl2_quantos_pcs', n: 4, rank: 'pl2', title: 'Quantos aparelhos pegaram IP? · {{dev.name}}', difficulty: 3, xp: 120, credits: 18,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Inventário da rede do escritório: quantos aparelhos estão com IP emprestado pelo DHCP do {{dev.name}}?',
+      target: DC, setup: { win: 'dhcpFull' }, vars: { n: 'win.leases' },
+      steps: [
+        { text: 'Veja os escopos.', help: ['win-scope'], auto: 'Get-DhcpServerv4Scope', check: { ran: 'win-dhcp-scope-list' } },
+        { text: 'Veja as concessões.', help: ['win-lease'], auto: 'Get-DhcpServerv4Lease -ScopeId 10.0.1.0', check: { ran: 'win-dhcp-lease' } },
+        { type: 'answer', text: 'Quantos aparelhos estão com IP?', help: ['responder'], answer: { accept: ['{{n}}'], normalize: 'int' } },
+      ],
+    },
+    {
+      id: 'pl2_dhcp_parou', n: 5, rank: 'pl2', title: 'As estações não pegam IP · {{dev.name}}', difficulty: 4, xp: 150, credits: 22,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Ninguém novo consegue entrar na rede do escritório. O DHCP do {{dev.name}} parou de responder.',
+      target: DC, setup: { win: 'dhcpFull', fault: 'winsvc', opts: { svc: 'DHCPServer' } },
+      steps: [
+        { text: 'Descubra qual serviço parou.', help: ['win-service'], auto: 'Get-Service', check: { ran: 'win-svc:dhcpserver' } },
+        { text: 'Veja no log quando ele parou.', help: ['win-event'], auto: 'Get-WinEvent -LogName System -MaxEvents 5', check: { ran: 'win-events:system' } },
+        { text: 'O serviço DHCP está rodando.', help: ['win-start'], auto: 'Start-Service DHCPServer', check: { state: 'win.svc', arg: 'DHCPServer', eq: 'Running' } },
+        { text: 'As estações pegam IP de novo.', help: ['win-lease'], auto: 'Get-DhcpServerv4Lease -ScopeId 10.0.1.0', check: { ran: 'win-dhcp-lease' } },
+      ],
+    },
+    {
+      id: 'pl2_registro_faltando', n: 6, rank: 'pl2', title: 'O {{peer.name}} não tem nome no DNS', difficulty: 3, xp: 130, credits: 20,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'A equipe tenta acessar {{peer.host}}.{{dom}} e não encontra. O registro sumiu da zona do {{dev.name}}.',
+      target: DC, devices: { peer: 'server.peer' }, setup: { win: 'dropPeerRr' }, vars: { dom: 'win.domain' },
+      steps: [
+        { text: 'Veja os registros da zona {{dom}}.', help: ['win-dnszones'], auto: 'Get-DnsServerResourceRecord -ZoneName {{dom}}', check: { ran: 'win-dns-rr-list' } },
+        { text: '{{peer.host}}.{{dom}} aponta para {{peer.ip}}.', help: ['win-dnsa'], auto: 'Add-DnsServerResourceRecordA -ZoneName {{dom}} -Name {{peer.host}} -IPv4Address {{peer.ip}}', check: { state: 'win.rr', arg: '{{peer.host}}', eq: '{{peer.ip}}' } },
+        { text: 'O nome resolve.', help: ['win-resolve'], auto: 'Resolve-DnsName {{peer.host}}.{{dom}}', check: { any: [{ ran: 'win-dns-ok:{{peer.host}}.{{dom}}' }, { ran: 'win-dns-ok:{{peer.host}}' }] } },
+      ],
+    },
+    {
+      id: 'pl2_auditoria_oito', n: 7, rank: 'pl2', title: 'Auditoria: quantos servidores estão no ar?', difficulty: 3, xp: 130, credits: 20,
+      skill: 'redes', roles: ['redes', 'sysadmin'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson', when: 'eight',
+      summary: 'O gestor quer o número de servidores respondendo agora. Confira da rede, não só pelo painel.',
+      target: LNX, vars: { n: 'up.count' },
+      steps: [
+        { text: 'Do {{dev.name}}, faça ping nos outros servidores.', help: ['ping'], auto: 'ping -c 3 {{gw}}', check: { ran: 'cmd:ping' } },
+        { type: 'answer', text: 'Quantos servidores estão respondendo?', help: ['responder'], answer: { accept: ['{{n}}'], normalize: 'int', tol: 1 } },
+      ],
+    },
+    {
+      id: 'pl2_no_sobrecarregado', n: 8, rank: 'pl2', title: 'Nó de VMs no limite · {{dev.name}}', difficulty: 4, xp: 150, credits: 22,
+      skill: 'sistemas', roles: [], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Duas VMs de teste (carga-1 e carga-2) tomaram quase toda a RAM do {{dev.name}}. VM nova não cabe mais.',
+      target: NODE, setup: { vmload: true },
+      steps: [
+        { text: 'Desligue ou remova VMs do {{dev.name}} até a RAM reservada ficar abaixo de 70% (Infra → VMs).', check: { state: 'node.alloc', lt: 70 } },
+      ],
+    },
+    {
+      id: 'pl2_dns_redundante', n: 9, rank: 'pl2', title: 'DNS reserva', difficulty: 3, xp: 130, credits: 20,
+      skill: 'redes', roles: [], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Se o único DNS cair, todos os sites param de ser encontrados. Suba um DNS reserva numa VM.',
+      target: { kind: 'rack' }, vars: { n: 'vms:dns:running' },
+      steps: [
+        { text: 'Uma VM DNS nova está rodando (Infra → VMs → Criar VM).', check: { state: 'vms', arg: 'dns:running', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl2_jogos_10g', n: 10, rank: 'pl2', title: 'Rede de 10G para os jogos', difficulty: 4, xp: 150, credits: 22,
+      skill: 'redes', roles: [], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Servidores de jogos precisam de placa e porta de 10 Gb/s. Instale um switch 10G e ligue um servidor nele.',
+      target: { kind: 'rack' }, vars: { sw: 'devs:sw_10g', on: 'on.model:sw_10g' },
+      steps: [
+        { text: 'Instale um Switch 10G num rack.', action: 'build', check: { state: 'devs', arg: 'sw_10g', gt: '{{sw}}' } },
+        { text: 'Passe o cabo de um servidor para ele (Cabeamento).', action: 'cabling', check: { state: 'on.model', arg: 'sw_10g', gt: '{{on}}' } },
+      ],
+    },
+    {
+      id: 'pl2_nobreak', n: 11, rank: 'pl2', title: 'Nobreak para a sala', difficulty: 3, xp: 130, credits: 20,
+      skill: 'servidores', roles: [], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Uma queda de energia de dois segundos derrubaria tudo. Um nobreak segura a sala até o gerador ou o desligamento seguro.',
+      target: { kind: 'rack' }, vars: { n: 'items:ups' },
+      steps: [
+        { text: 'Instale um Nobreak na sala dos servidores (Construir → Energia).', action: 'build', check: { state: 'items', arg: 'ups', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl2_nas8', n: 12, rank: 'pl2', title: 'Backup do banco num NAS maior', difficulty: 3, xp: 130, credits: 20,
+      skill: 'servidores', roles: [], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Os backups do banco de dados não cabem mais. Um NAS de 8 baias dá espaço e redundância para eles.',
+      target: { kind: 'rack' }, vars: { n: 'items:nas_8' },
+      steps: [
+        { text: 'Instale um NAS 8 baias (Construir → Equipamentos → Storage).', action: 'build', check: { state: 'items', arg: 'nas_8', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl2_email', n: 13, rank: 'pl2', title: 'E-mail da empresa', difficulty: 3, xp: 130, credits: 20,
+      skill: 'sistemas', roles: [], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Os clientes pediram e-mail. O servidor de E-mail precisa de 16 GB de RAM, disco, e depende de DNS (registros MX).',
+      target: { kind: 'rack' }, vars: { n: 'svc.ok:mail' },
+      steps: [
+        { text: 'Um servidor online é E-mail e tem o que ele pede (Infra → Servidores).', check: { state: 'svc.ok', arg: 'mail', gt: '{{n}}' } },
+        { text: 'Existe DNS no ar para o e-mail funcionar.', check: { state: 'provided', arg: 'dns' } },
+      ],
+    },
+    {
+      id: 'pl2_servidor_padrao', n: 14, rank: 'pl2', title: 'Servidor novo no padrão · {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'sistemas', roles: ['sysadmin', 'servidores'], bot_minutes: 20, weight: 1, trigger: 'auto', complete: 'online', lesson: 'setup_pl',
+      summary: 'Servidor novo entra em produção no padrão da empresa: rede, nome, SSH e internet. Sem roteiro.',
+      target: NEW,
+    },
+    {
+      id: 'pl2_membro_dominio', n: 15, rank: 'pl2', title: 'O {{dev.name}} não acha o domínio', difficulty: 4, xp: 150, credits: 22,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O {{dev.name}} vai entrar no domínio {{dom}}, mas consulta um DNS público. Quem conhece o domínio é o {{dc.name}}.',
+      target: T(WIN, { domain: false }), devices: { dc: 'win.dc' }, setup: { win: 'dns' }, vars: { dom: 'win.domain@dc' },
+      steps: [
+        { text: 'Veja quais DNS o {{dev.name}} consulta.', help: ['win-dnsclient'], auto: 'Get-DnsClientServerAddress', check: { ran: 'dns-client-show' } },
+        { text: 'O {{dev.name}} consulta o {{dc.name}} ({{dc.ip}}).', help: ['win-dnsclient'], auto: 'Set-DnsClientServerAddress -InterfaceAlias Ethernet -ServerAddresses {{dc.ip}}', check: { state: 'win.dnsTo', arg: '{{dc.ip}}' } },
+        { text: 'O domínio {{dom}} resolve.', help: ['win-resolve'], auto: 'Resolve-DnsName {{dom}}', check: { ran: 'win-dns-ok:{{dom}}' } },
+      ],
+    },
+    {
+      id: 'pl2_pasta_financeiro', n: 16, rank: 'pl2', title: 'Pasta do Financeiro · {{dev.name}}', difficulty: 4, xp: 160, credits: 24,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O Financeiro precisa de uma pasta na rede para o grupo dele. Crie a pasta, o grupo e o compartilhamento.',
+      target: T(DC, { noShare: 'Financeiro' }), vars: { nb: 'win.netbios' },
+      steps: [
+        { text: 'A pasta C:\\Dados\\Financeiro existe.', help: ['win-mkdir'], auto: 'New-Item -Path C:\\Dados\\Financeiro -ItemType Directory', check: { state: 'win.dir', arg: 'C:\\Dados\\Financeiro' } },
+        { text: 'Existe o grupo Financeiro (DomainLocal: ele recebe a permissão).', help: ['win-newgroup'], auto: 'New-ADGroup -Name Financeiro -GroupScope DomainLocal', check: { state: 'win.group', arg: 'Financeiro' } },
+        { text: 'A pasta está compartilhada como "Financeiro", com alteração para o grupo.', help: ['win-share'], auto: 'New-SmbShare -Name Financeiro -Path C:\\Dados\\Financeiro -ChangeAccess "{{nb}}\\Financeiro"', check: { state: 'win.shareTo', arg: 'Financeiro:Financeiro', in: ['Change', 'Full'] } },
+      ],
+    },
+    {
+      id: 'pl2_pasta_aberta', n: 17, rank: 'pl2', title: 'Pasta do Financeiro aberta para todos · {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'seguranca', roles: ['sysadmin', 'seguranca'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Uma auditoria achou a pasta do Financeiro legível por qualquer usuário do domínio. Feche para o grupo Financeiro.',
+      target: DC, setup: { win: 'finOpen' }, vars: { nb: 'win.netbios' },
+      steps: [
+        { text: 'Veja as permissões NTFS da pasta C:\\Dados\\Financeiro.', help: ['win-icacls'], auto: 'icacls C:\\Dados\\Financeiro', check: { ran: 'win-icacls:c:\\dados\\financeiro' } },
+        { text: 'Só o grupo Financeiro (modificar) e os administradores (total) acessam a pasta.', help: ['win-inherit'], auto: 'icacls C:\\Dados\\Financeiro /inheritance:r\nicacls C:\\Dados\\Financeiro /grant "Administrators:(OI)(CI)F"\nicacls C:\\Dados\\Financeiro /grant "{{nb}}\\Financeiro:(OI)(CI)M"', check: { state: 'win.aclOnly', arg: 'C:\\Dados\\Financeiro|Financeiro' } },
+      ],
+    },
+    {
+      id: 'pl2_cascata', n: 18, rank: 'pl2', title: 'Web e e-mail alertando juntos', difficulty: 4, xp: 170, credits: 25,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Os sites e o e-mail alertaram ao mesmo tempo. Os dois dependem de uma mesma coisa no controlador de domínio {{dev.name}}.',
+      target: DC, setup: { fault: 'winsvc', opts: { svc: 'DNS' }, quiet: true }, vars: { dom: 'win.domain' },
+      steps: [
+        { text: 'Veja os serviços do {{dev.name}}.', help: ['win-service'], auto: 'Get-Service', check: { ran: 'win-svc:dns' } },
+        { type: 'answer', text: 'Qual serviço é a causa raiz dos dois alertas?', help: ['responder'], answer: { accept: ['dns', 'dns server'], normalize: 'text' } },
+        { text: 'A causa raiz está resolvida.', help: ['win-start'], auto: 'Start-Service DNS', check: { state: 'win.svc', arg: 'DNS', eq: 'Running' } },
+        { text: 'O domínio {{dom}} resolve de novo.', help: ['win-resolve'], auto: 'Resolve-DnsName {{dom}}', check: { ran: 'win-dns-ok:{{dom}}' } },
+      ],
+    },
+    {
+      id: 'pl2_tres_alertas', n: 19, rank: 'pl2', title: 'Três alertas de uma vez', difficulty: 4, xp: 170, credits: 25,
+      skill: 'sistemas', roles: ['sysadmin', 'redes'], bot_minutes: 30, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'Disco lotando no {{dev.name}}, site fora no {{peer.name}} e uma porta em erro no {{sw.name}}. Tudo ao mesmo tempo.',
+      target: T(LNX, { directLink: true }), devices: { peer: 'server.peer', sw: 'switch.of' },
+      setup: { faults: [{ fault: 'disk', on: 'dev' }, { fault: 'service', on: 'peer' }, { fault: 'port', on: 'sw' }] }, vars: { port: 'srv.port' },
+      steps: [
+        { text: 'O disco do {{dev.name}} fica abaixo de 80%.', help: ['df'], auto: 'df -h\nsudo journalctl --vacuum-size=200M', check: { state: 'disk', lt: 80 } },
+        { device: 'peer', text: 'O site do {{peer.name}} responde.', help: ['systemctl-status'], auto: 'systemctl status nginx\nsudo systemctl restart nginx\ncurl localhost', check: { all: [{ state: 'service', arg: 'nginx', eq: 'active' }, { ran: 'curl-ok' }] } },
+        { device: 'sw', text: 'Nenhuma porta do {{sw.name}} em erro.', help: ['show-int'], auto: 'enable\nshow interfaces status\nconfigure terminal\ninterface {{port}}\nshutdown\nno shutdown\nend', check: { state: 'sw.healed', arg: '{{port}}' } },
+        { text: 'O {{dev.name}} está na rede.', help: ['ping'], auto: 'ping -c 3 {{gw}}', check: pingGw },
+      ],
+    },
+    {
+      id: 'pl2_cabe_cliente', n: 20, rank: 'pl2', title: 'Cabe mais um cliente no {{dev.name}}?', difficulty: 3, xp: 120, credits: 18,
+      skill: 'servidores', roles: ['servidores', 'sysadmin'], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Um cliente quer VMs no nó {{dev.name}}. Antes de prometer, veja quantos vCPUs ainda estão livres.',
+      target: NODE, vars: { free: 'node.freeCores' },
+      steps: [
+        { text: 'Veja os threads do nó (lscpu) e as VMs ligadas nele (Infra → VMs).', help: ['lscpu'], auto: 'lscpu', check: { ran: 'cmd:lscpu' } },
+        { type: 'answer', text: 'Quantos vCPUs ainda estão livres no {{dev.name}}?', help: ['responder'], answer: { accept: ['{{free}}'], normalize: 'int' } },
+      ],
+    },
+
+    /* ---------------- Pleno III: trabalhar com a equipe · acessos para pessoas ---------------- */
+    {
+      // roles: [] — triage is the player's job; the orders go to the team (Equipe → Atribuir tarefa)
+      id: 'pl3_triagem', n: 1, rank: 'pl3', title: 'Triagem: três alertas', difficulty: 4, xp: 170, credits: 25,
+      skill: 'gestao', roles: [], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Três servidores alertaram de uma vez: {{dev.name}}, {{peer.name}} e {{alt.name}}. Diagnostique os três, resolva um e distribua os outros para a equipe.',
+      handoff: 'os outros dois alertas ficam com a equipe',
+      target: LNX, devices: { peer: 'server.peer', alt: 'server.peer' },
+      setup: { faults: [{ fault: ['link', 'cable'], on: 'dev' }, { fault: ['service', 'disk'], on: 'peer' }, { fault: ['service', 'disk'], on: 'alt' }] },
+      vars: { c1: 'fault.word', c2: 'fault.word@peer', c3: 'fault.word@alt', o: 'orders' },
+      steps: [
+        { device: 'any', type: 'answer', text: 'Qual o problema do {{dev.name}}? (cabo, interface, serviço ou disco)', help: ['responder'], answer: { accept: ['{{c1}}'], normalize: 'text' } },
+        { device: 'any', type: 'answer', text: 'E o do {{peer.name}}?', help: ['responder'], answer: { accept: ['{{c2}}'], normalize: 'text' } },
+        { device: 'any', type: 'answer', text: 'E o do {{alt.name}}?', help: ['responder'], answer: { accept: ['{{c3}}'], normalize: 'text' } },
+        { text: 'Você mesmo(a) põe o {{dev.name}} de volta na rede.', help: ['ip-link-up'], action: 'cabling', auto: 'sudo ip link set eth0 up', check: { state: 'up' } },
+        { device: 'any', text: 'Os outros dois ficam com a equipe: dê duas ordens (Equipe → clique na pessoa → Atribuir tarefa).', check: { state: 'ordersSince', arg: '{{o}}', gt: 1 } },
+      ],
+    },
+    {
+      id: 'pl3_quem_resolve', n: 2, rank: 'pl3', title: 'Quem resolve isso? · {{dev.name}}', difficulty: 3, xp: 130, credits: 20,
+      skill: 'gestao', roles: [], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Um alerta chegou para o {{dev.name}}. Descubra o problema e mande para quem da equipe sabe resolver.',
+      handoff: 'a correção fica com a equipe',
+      target: T(LNX, { directLink: true }), devices: { sw: 'switch.of' }, setup: { fault: ['port@sw', 'service@dev'] },
+      vars: { r0: 'faultRole:0', r1: 'faultRole:1', r2: 'faultRole:2', o: 'orders' },
+      steps: [
+        { text: 'Diagnostique: o servidor ou o switch?', help: ['ip-link', 'systemctl-status'], auto: 'ip link\nsystemctl status nginx\nping -c 3 {{gw}}', check: { any: [{ ran: 'status:nginx' }, { ran: 'ping-fail' }, { ran: 'link-show' }] } },
+        { device: 'any', type: 'answer', text: 'Qual função da equipe resolve isso? (Redes, Servidores, Sysadmin…)', help: ['responder'], answer: { accept: ['{{r0}}', '{{r1}}', '{{r2}}'], normalize: 'text' } },
+        { device: 'any', text: 'Dê a ordem para alguém com essa função (Equipe → Atribuir tarefa).', check: { state: 'ordersSince', arg: '{{o}}', gt: 0 } },
+      ],
+    },
+    {
+      id: 'pl3_funcionario_novo', n: 3, rank: 'pl3', title: 'Funcionário novo no Financeiro · {{dev.name}}', difficulty: 4, xp: 180, credits: 27,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Lucas Prado começa amanhã no Financeiro. Ele precisa de conta na OU Financeiro e de acesso à pasta do setor (que já é do grupo Financeiro).',
+      target: DC, setup: { win: 'newhire' }, vars: { dn: 'win.dn' },
+      steps: [
+        { text: 'A conta lucas.prado existe na OU Financeiro, habilitada e com senha.', help: ['win-newuser'], auto: 'New-ADUser -Name "Lucas Prado" -SamAccountName lucas.prado -Path "OU=Financeiro,{{dn}}" -AccountPassword ' + PW + ' -Enabled $true', check: { all: [{ state: 'win.user', arg: 'lucas.prado', eq: 'enabled' }, { state: 'win.usersIn', arg: 'Financeiro', gt: 0 }] } },
+        { text: 'Ele herda o acesso pelo grupo (nunca permissão direta para a pessoa).', help: ['win-member'], auto: 'Add-ADGroupMember -Identity Financeiro -Members lucas.prado', check: { state: 'win.memberOf', arg: 'Financeiro:lucas.prado' } },
+        { text: 'Confira quem acessa a pasta C:\\Dados\\Financeiro.', help: ['win-icacls'], auto: 'icacls C:\\Dados\\Financeiro', check: { ran: 'win-icacls:c:\\dados\\financeiro' } },
+      ],
+    },
+    {
+      id: 'pl3_desligamento', n: 4, rank: 'pl3', title: 'Desligamento: joao.lima · {{dev.name}}', difficulty: 3, xp: 140, credits: 21,
+      skill: 'seguranca', roles: ['sysadmin', 'seguranca'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'João Lima saiu da empresa. Antes de desabilitar, o RH quer saber de quantos grupos ele fazia parte.',
+      target: DC, setup: { win: 'leaver' }, vars: { n: 'win.groupsOf:joao.lima' },
+      steps: [
+        { type: 'answer', text: 'De quantos grupos joao.lima faz parte, sem contar Domain Users?', help: ['win-pass', 'responder'], answer: { accept: ['{{n}}'], normalize: 'int' } },
+        { text: 'A conta joao.lima não entra mais.', help: ['win-disable'], auto: 'Disable-ADAccount -Identity joao.lima', check: { state: 'win.user', arg: 'joao.lima', eq: 'disabled' } },
+      ],
+    },
+    {
+      id: 'pl3_agdlp', n: 5, rank: 'pl3', title: 'Permissão do jeito certo: Comercial · {{dev.name}}', difficulty: 4, xp: 180, credits: 27,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O grupo Comercial (Global) precisa da pasta C:\\Dados\\Comercial. Do jeito certo (AGDLP): pessoas → grupo Global → grupo DomainLocal → permissão.',
+      target: DC, setup: { win: 'comercial' }, vars: { nb: 'win.netbios' },
+      steps: [
+        { text: 'Existe o grupo DL_Comercial, de escopo DomainLocal.', help: ['win-newgroup'], auto: 'New-ADGroup -Name DL_Comercial -GroupScope DomainLocal', check: { state: 'win.groupScope', arg: 'DL_Comercial', eq: 'DomainLocal' } },
+        { text: 'O grupo Comercial está dentro do DL_Comercial.', help: ['win-member'], auto: 'Add-ADGroupMember -Identity DL_Comercial -Members Comercial', check: { state: 'win.memberOf', arg: 'DL_Comercial:Comercial' } },
+        { text: 'O DL_Comercial pode modificar a pasta C:\\Dados\\Comercial.', help: ['win-icacls'], auto: 'icacls C:\\Dados\\Comercial /grant "{{nb}}\\DL_Comercial:(OI)(CI)M"', check: { state: 'win.aclHas', arg: 'C:\\Dados\\Comercial|DL_Comercial' } },
+      ],
+    },
+    {
+      id: 'pl3_pastas_depto', n: 6, rank: 'pl3', title: 'Uma pasta por departamento · {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'sistemas', roles: ['sysadmin'], bot_minutes: 30, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'RH, Compras e Vendas querem cada um a sua pasta em C:\\Dados, fechada para o próprio grupo (os grupos já existem).',
+      target: DC, setup: { win: 'depts' }, vars: { nb: 'win.netbios' },
+      steps: [
+        { text: 'C:\\Dados\\RH: só o grupo RH e os administradores.', help: ['win-mkdir', 'win-inherit'], auto: 'New-Item -Path C:\\Dados\\RH -ItemType Directory\nicacls C:\\Dados\\RH /inheritance:r\nicacls C:\\Dados\\RH /grant "Administrators:(OI)(CI)F"\nicacls C:\\Dados\\RH /grant "{{nb}}\\RH:(OI)(CI)M"', check: { state: 'win.aclOnly', arg: 'C:\\Dados\\RH|RH' } },
+        { text: 'C:\\Dados\\Compras: só o grupo Compras e os administradores.', help: ['win-mkdir', 'win-inherit'], auto: 'New-Item -Path C:\\Dados\\Compras -ItemType Directory\nicacls C:\\Dados\\Compras /inheritance:r\nicacls C:\\Dados\\Compras /grant "Administrators:(OI)(CI)F"\nicacls C:\\Dados\\Compras /grant "{{nb}}\\Compras:(OI)(CI)M"', check: { state: 'win.aclOnly', arg: 'C:\\Dados\\Compras|Compras' } },
+        { text: 'C:\\Dados\\Vendas: só o grupo Vendas e os administradores.', help: ['win-mkdir', 'win-inherit'], auto: 'New-Item -Path C:\\Dados\\Vendas -ItemType Directory\nicacls C:\\Dados\\Vendas /inheritance:r\nicacls C:\\Dados\\Vendas /grant "Administrators:(OI)(CI)F"\nicacls C:\\Dados\\Vendas /grant "{{nb}}\\Vendas:(OI)(CI)M"', check: { state: 'win.aclOnly', arg: 'C:\\Dados\\Vendas|Vendas' } },
+      ],
+    },
+    {
+      id: 'pl3_quem_errou', n: 7, rank: 'pl3', title: 'Quem está errando a senha? · {{dev.name}}', difficulty: 4, xp: 150, credits: 22,
+      skill: 'seguranca', roles: ['seguranca', 'sysadmin'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'O log de segurança do {{dev.name}} está cheio de falhas de logon. Descubra de qual conta, antes que ela trave.',
+      target: DC, setup: { win: 'badpwd' }, vars: { bad: 'win.badUser' },
+      steps: [
+        { text: 'Veja os eventos de segurança recentes (4625 = falha de logon).', help: ['win-event'], auto: 'Get-WinEvent -LogName Security -MaxEvents 8', check: { ran: 'win-events:security' } },
+        { type: 'answer', text: 'Qual conta está errando a senha?', help: ['responder'], answer: { accept: ['{{bad}}'], normalize: 'text' } },
+      ],
+    },
+    {
+      id: 'pl3_san', n: 8, rank: 'pl3', title: 'Storage SAN para os arquivos', difficulty: 3, xp: 140, credits: 21,
+      skill: 'servidores', roles: [], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Os servidores de arquivos e o banco pedem disco rápido e grande. Uma storage SAN na sala aumenta o que eles rendem.',
+      target: { kind: 'rack' }, vars: { n: 'items:storage' },
+      steps: [
+        { text: 'Instale uma Storage SAN na sala dos servidores (Construir → Equipamentos → Storage).', action: 'build', check: { state: 'items', arg: 'storage', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl3_fm200', n: 9, rank: 'pl3', title: 'Proteção contra incêndio', difficulty: 3, xp: 130, credits: 20,
+      skill: 'servidores', roles: [], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'Água estraga servidor. Os cilindros FM-200 apagam fogo sem molhar nada: instale na sala dos racks.',
+      target: { kind: 'rack' }, vars: { n: 'items:fm200' },
+      steps: [
+        { text: 'Instale Cilindros FM-200 na sala dos servidores.', action: 'build', check: { state: 'items', arg: 'fm200', gt: '{{n}}' } },
+      ],
+    },
+    {
+      id: 'pl3_banco_highend', n: 10, rank: 'pl3', title: 'Banco de dados num servidor high-end', difficulty: 4, xp: 160, credits: 24,
+      skill: 'servidores', roles: [], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'steps',
+      summary: 'O banco principal cresceu de novo. Instale um servidor high-end e passe o Banco de dados para ele.',
+      target: { kind: 'rack' }, vars: { n: 'devs:srv_hi', db: 'svc.model:db,srv_hi' },
+      steps: [
+        { text: 'Instale um Servidor high-end num rack.', action: 'build', check: { state: 'devs', arg: 'srv_hi', gt: '{{n}}' } },
+        { text: 'Um servidor high-end é o Banco de dados (Infra → Servidores).', check: { state: 'svc.model', arg: 'db,srv_hi', gt: '{{db}}' } },
+      ],
+    },
+    {
+      id: 'pl3_nao_durou', n: 11, rank: 'pl3', title: 'O conserto não durou · {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'servidores', roles: ['sysadmin', 'servidores'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson', bot: 'fix',
+      summary: 'A equipe reiniciou o nginx do {{dev.name}} ontem e o site caiu de novo. Reiniciar não resolve: ache a causa raiz.',
+      target: T(LNX, { web: true }), setup: { fault: 'disksvc' },
+      steps: [
+        { text: 'Investigue por que o nginx cai.', help: ['systemctl-status'], auto: 'systemctl status nginx\ndf -h', check: { all: [{ ran: 'status:nginx' }, { ran: 'df' }] } },
+        { type: 'answer', text: 'Qual é a causa raiz?', help: ['responder'], answer: { accept: ['disco', 'disco cheio', 'espaco em disco', 'falta de espaco'], normalize: 'text' } },
+        { text: 'A causa raiz está resolvida e o site responde.', help: ['journalctl-vacuum'], auto: 'sudo journalctl --vacuum-size=200M\nsudo systemctl restart nginx\ncurl localhost', check: { all: [{ state: 'ok.web' }, { ran: 'curl-ok' }] } },
+      ],
+    },
+    {
+      id: 'pl3_passagem_turno', n: 12, rank: 'pl3', title: 'Passagem de turno', difficulty: 3, xp: 140, credits: 21,
+      skill: 'gestao', roles: [], bot_minutes: 10, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Seu turno acaba. Antes de sair, passe para o próximo turno o estado dos alertas (Tarefas e Monitor).',
+      handoff: 'o próximo turno assume os alertas',
+      target: LNX, devices: { peer: 'server.peer' }, setup: { faults: [{ fault: 'link', on: 'dev', quiet: true }, { fault: 'disk', on: 'peer', quiet: true }] },
+      vars: { n: 'faults.count', down: 'faulty:link' },
+      steps: [
+        { device: 'any', type: 'answer', text: 'Quantos alertas estão abertos agora?', help: ['responder'], answer: { accept: ['{{n}}'], normalize: 'int' } },
+        { device: 'any', type: 'answer', text: 'Qual servidor está fora da rede?', help: ['responder'], answer: { accept: ['{{down}}'], normalize: 'text' } },
+      ],
+    },
+    {
+      id: 'pl3_conta_servico', n: 13, rank: 'pl3', title: 'A conta do backup trava toda hora · {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'seguranca', roles: ['sysadmin', 'seguranca'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'A conta svc_backup trava toda noite: alguma máquina ainda usa a senha antiga. Ache qual antes de desbloquear.',
+      handoff: 'a máquina de origem vai receber a senha nova',
+      target: DC, devices: { peer: 'server.peer' }, setup: { win: 'svclock' }, vars: { src: 'win.lockSrc' },
+      steps: [
+        { text: 'Veja as contas bloqueadas.', help: ['win-locked'], auto: 'Search-ADAccount -LockedOut', check: { ran: 'win-locked-search' } },
+        { text: 'Veja no log Security de onde vêm as falhas.', help: ['win-event'], auto: 'Get-WinEvent -LogName Security -MaxEvents 8', check: { ran: 'win-events:security' } },
+        { type: 'answer', text: 'De qual IP vêm as senhas erradas?', help: ['responder'], answer: { accept: ['{{src}}'], normalize: 'ip' } },
+        { text: 'A conta svc_backup está desbloqueada.', help: ['win-unlock'], auto: 'Unlock-ADAccount -Identity svc_backup', check: { state: 'win.user', arg: 'svc_backup', eq: 'enabled' } },
+      ],
+    },
+    {
+      id: 'pl3_dns_todos', n: 14, rank: 'pl3', title: 'Nomes para três servidores · {{dev.name}}', difficulty: 4, xp: 160, credits: 24,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'A equipe vive decorando IP. Publique no DNS do domínio o {{peer.name}}, o {{alt.name}} e o {{third.name}} pelo nome.',
+      target: DC, devices: { peer: 'server.peer', alt: 'server.peer', third: 'server.peer' }, setup: { win: 'dropPeerRr' }, vars: { dom: 'win.domain' },
+      steps: [
+        { text: '{{peer.host}}.{{dom}} → {{peer.ip}}.', help: ['win-dnsa'], auto: 'Add-DnsServerResourceRecordA -ZoneName {{dom}} -Name {{peer.host}} -IPv4Address {{peer.ip}}', check: { state: 'win.rr', arg: '{{peer.host}}', eq: '{{peer.ip}}' } },
+        { text: '{{alt.host}}.{{dom}} → {{alt.ip}}.', help: ['win-dnsa'], auto: 'Add-DnsServerResourceRecordA -ZoneName {{dom}} -Name {{alt.host}} -IPv4Address {{alt.ip}}', check: { state: 'win.rr', arg: '{{alt.host}}', eq: '{{alt.ip}}' } },
+        { text: '{{third.host}}.{{dom}} → {{third.ip}}.', help: ['win-dnsa'], auto: 'Add-DnsServerResourceRecordA -ZoneName {{dom}} -Name {{third.host}} -IPv4Address {{third.ip}}', check: { state: 'win.rr', arg: '{{third.host}}', eq: '{{third.ip}}' } },
+        { text: 'Teste um dos nomes.', help: ['win-resolve'], auto: 'Resolve-DnsName {{third.host}}.{{dom}}', check: { ran: 'cmd:resolve-dnsname' } },
+      ],
+    },
+    {
+      id: 'pl3_salvar_switches', n: 15, rank: 'pl3', title: 'Dois switches sem salvar', difficulty: 3, xp: 140, credits: 21,
+      skill: 'redes', roles: ['redes', 'tecnico'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Ontem mexeram no {{dev.name}} e no {{sw.name}} e não salvaram nenhum dos dois. Vai ter manutenção elétrica hoje à noite.',
+      target: T(MSW, { linked: true }), devices: { sw: 'switch.other' }, setup: { swconfig: 'unsaved2' },
+      steps: [
+        { text: 'A configuração em uso do {{dev.name}} está salva.', help: ['copy-run-start'], auto: 'enable\ncopy running-config startup-config', check: { state: 'sw.saved' } },
+        { device: 'sw', text: 'A do {{sw.name}} também.', help: ['copy-run-start'], auto: 'enable\ncopy running-config startup-config', check: { state: 'sw.saved' } },
+      ],
+    },
+    {
+      id: 'pl3_padronizar_nomes', n: 16, rank: 'pl3', title: 'Padronizar os nomes: {{dev.name}} e {{peer.name}}', difficulty: 3, xp: 140, credits: 21,
+      skill: 'sistemas', roles: ['sysadmin', 'tecnico'], bot_minutes: 15, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Dois servidores voltaram de reinstalação como "localhost". O padrão é o nome do equipamento em minúsculas.',
+      target: LNX, devices: { peer: 'server.peer' }, setup: { hostname: 'localhost', hostnameOn: ['dev', 'peer'] },
+      steps: [
+        { text: 'O {{dev.name}} se chama {{dev.host}}.', help: ['hostnamectl'], auto: 'sudo hostnamectl set-hostname {{dev.host}}', check: { state: 'hostname', eq: '{{dev.host}}' } },
+        { device: 'peer', text: 'O {{peer.name}} se chama {{peer.host}}.', help: ['hostnamectl'], auto: 'sudo hostnamectl set-hostname {{peer.host}}', check: { state: 'hostname', eq: '{{peer.host}}' } },
+      ],
+    },
+    {
+      id: 'pl3_auditoria_leitura', n: 17, rank: 'pl3', title: 'A auditoria precisa ler o Financeiro · {{dev.name}}', difficulty: 3, xp: 130, credits: 20,
+      skill: 'seguranca', roles: ['sysadmin'], bot_minutes: 12, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'A auditoria externa vai ler os arquivos do Financeiro por uma semana. Leitura, e só leitura, para o grupo Auditoria.',
+      target: DC, setup: { win: 'audit' }, vars: { nb: 'win.netbios' },
+      steps: [
+        { text: 'Veja quem acessa o compartilhamento Financeiro.', help: ['win-share'], auto: 'Get-SmbShareAccess -Name Financeiro', check: { ran: 'win-share-access:financeiro' } },
+        { text: 'O grupo Auditoria tem leitura (Read) no compartilhamento.', help: ['win-share'], auto: 'Grant-SmbShareAccess -Name Financeiro -AccountName "{{nb}}\\Auditoria" -AccessRight Read', check: { state: 'win.shareTo', arg: 'Financeiro:Auditoria', eq: 'Read' } },
+      ],
+    },
+    {
+      id: 'pl3_incidente_equipe', n: 18, rank: 'pl3', title: 'Incidente com a equipe', difficulty: 4, xp: 180, credits: 27,
+      skill: 'gestao', roles: [], bot_minutes: 25, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Incidente grande: {{dev.name}}, {{peer.name}} e {{alt.name}} com problemas. Resolva os dois primeiros e delegue o terceiro.',
+      handoff: 'o terceiro servidor fica com a equipe',
+      target: T(LNX, { web: true }), devices: { peer: 'server.peer', alt: 'server.peer' },
+      setup: { faults: [{ fault: 'link', on: 'dev' }, { fault: 'service', on: 'peer' }, { fault: 'disk', on: 'alt' }] }, vars: { o: 'orders' },
+      steps: [
+        { text: 'O {{dev.name}} está na rede.', help: ['ip-link-up'], auto: 'sudo ip link set eth0 up', check: { state: 'up' } },
+        { device: 'peer', text: 'O site do {{peer.name}} responde.', help: ['systemctl-restart'], auto: 'sudo systemctl restart nginx\ncurl localhost', check: { all: [{ state: 'ok.web' }, { ran: 'curl-ok' }] } },
+        { device: 'any', text: 'O {{alt.name}} fica com a equipe: dê a ordem (Equipe → Atribuir tarefa).', check: { state: 'ordersSince', arg: '{{o}}', gt: 0 } },
+      ],
+    },
+    {
+      id: 'pl3_atacante_tres', n: 19, rank: 'pl3', title: 'Atacante em três servidores', difficulty: 4, xp: 160, credits: 24,
+      skill: 'seguranca', roles: [], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Tentativas de login no {{dev.name}}, no {{peer.name}} e no {{alt.name}}. Ache o IP comum e passe para a segurança.',
+      handoff: 'a segurança bloqueia o IP no firewall',
+      target: LNX, devices: { peer: 'server.peer', alt: 'server.peer' }, setup: { authlog: 'bruteforce2' }, vars: { attacker: 'auth.attacker', o: 'orders' },
+      steps: [
+        { text: 'Senhas erradas no {{dev.name}}.', help: ['grep'], auto: 'grep "Failed password" /var/log/auth.log', check: { ran: 'grep-failed:/var/log/auth.log' } },
+        { device: 'peer', text: 'No {{peer.name}}.', help: ['grep'], auto: 'grep "Failed password" /var/log/auth.log', check: { ran: 'grep-failed:/var/log/auth.log' } },
+        { device: 'alt', text: 'No {{alt.name}}.', help: ['grep'], auto: 'grep "Failed password" /var/log/auth.log', check: { ran: 'grep-failed:/var/log/auth.log' } },
+        { device: 'alt', type: 'answer', text: 'Qual IP ataca os três?', help: ['responder'], answer: { accept: ['{{attacker}}'], normalize: 'ip' } },
+        { device: 'any', text: 'Passe para a segurança (Equipe → Atribuir tarefa).', check: { state: 'ordersSince', arg: '{{o}}', gt: 0 } },
+      ],
+    },
+    {
+      id: 'pl3_dhcp_esgotado', n: 20, rank: 'pl3', title: 'DHCP esgotado · {{dev.name}}', difficulty: 4, xp: 170, credits: 25,
+      skill: 'redes', roles: ['sysadmin', 'redes'], bot_minutes: 20, weight: 1, trigger: 'random', complete: 'lesson',
+      summary: 'Estações novas não pegam IP: o escopo do {{dev.name}} foi criado pequeno demais, só para os primeiros PCs.',
+      target: DC, setup: { win: 'dhcpTiny' }, vars: { n: 'win.leases' },
+      steps: [
+        { text: 'Veja o escopo.', help: ['win-scope'], auto: 'Get-DhcpServerv4Scope', check: { ran: 'win-dhcp-scope-list' } },
+        { text: 'Veja as concessões.', help: ['win-lease'], auto: 'Get-DhcpServerv4Lease -ScopeId 10.0.1.0', check: { ran: 'win-dhcp-lease' } },
+        { type: 'answer', text: 'Quantos endereços o escopo consegue emprestar hoje?', help: ['responder'], answer: { accept: ['{{n}}'], normalize: 'int' } },
+        { text: 'O escopo tem 50 endereços ou mais, com gateway e DNS.', help: ['win-scope'], auto: 'Remove-DhcpServerv4Scope -ScopeId 10.0.1.0\nAdd-DhcpServerv4Scope -Name LAN -StartRange 10.0.1.100 -EndRange 10.0.1.199 -SubnetMask 255.255.255.0\nSet-DhcpServerv4OptionValue -ScopeId 10.0.1.0 -Router {{gw}} -DnsServer {{dev.ip}}', check: { all: [{ state: 'win.scopeSize', gt: 49 }, { state: 'win.scopeRouter', eq: '{{gw}}' }] } },
+      ],
+    },
   ];
 
   // what each rank requires besides its mission (the levels with problems of their own)
@@ -1049,6 +1715,9 @@
     { id: 'jr1', level: 2, name: 'Júnior I', xp_to_next: 450, distinct_to_next: 7 },
     { id: 'jr2', level: 3, name: 'Júnior II', xp_to_next: 600, distinct_to_next: 8 },
     { id: 'jr3', level: 4, name: 'Júnior III', xp_to_next: 800, distinct_to_next: 9 },
+    { id: 'pl1', level: 5, name: 'Pleno I', xp_to_next: 1000, distinct_to_next: 10 },
+    { id: 'pl2', level: 6, name: 'Pleno II', xp_to_next: 1300, distinct_to_next: 10 },
+    { id: 'pl3', level: 7, name: 'Pleno III', xp_to_next: 1600, distinct_to_next: 11 },
   ];
 
   DL.SCENARIO_DATA = { lessons, problems, ranks };

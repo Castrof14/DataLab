@@ -14,9 +14,16 @@
   const GW = '10.0.1.1';
   let OPS = null; // the running game's ops (switch.near needs it)
   let WORLD = null; // () → the running game's world (what was built)
+  let CREW = null; // the running game's crew (orders given)
+  // the server specialisations and VMs (infra.js, created after the problems)
+  const INFRA = () => (window.DataLabDemo && window.DataLabDemo.infra) || null;
+  const upNow = (d) => !!OPS && d.kind === 'server' && d.state === 'online' && !d.fault && OPS.health(d).up;
   const low = (s) => String(s == null ? '' : s).toLowerCase();
   const win = (d) => (d && d.os && d.os.win) || null;
   const ipCmp = (a, b) => +a.split('.').pop() - +b.split('.').pop();
+  // a problem that breaks something when it starts (setup.fault or setup.faults)
+  const breaks = (def) => !!(def && def.setup && (def.setup.fault || def.setup.faults));
+  DL.problemBreaks = breaks;
 
   /* ------------------------------------------------------------------ */
   /* Templates: {{dev.ip}} · {{rack.id}} · {{gw}} · lesson vars          */
@@ -122,7 +129,28 @@
       if (on.length && rand() < 0.5) return { ip: pick(on).ip, used: 'sim' };
       return { ip: OPS.freeIp(), used: 'nao' };
     },
-    // Windows Server (winserver.js keeps it in d.os.win)
+    // a server online and answering (right now: the fault record clears a moment later) · with its site up and room on the disk
+    up: (d) => !!OPS && d.kind === 'server' && d.state === 'online' && OPS.health(d).up,
+    'ok.web': (d) => !!OPS && d.kind === 'server' && d.state === 'online' && OPS.health(d).up && d.os.services.nginx === 'active' && d.os.disk < 80,
+    // the whole datacenter: servers up · alerts open
+    'up.count': () => (OPS ? OPS.devices().filter(upNow).length : null),
+    'faults.count': () => (OPS ? OPS.devices().filter((d) => d.fault && d.fault.found).length : null),
+    // a fault in the player's words
+    'fault.word': (d) => (d.fault ? { service: 'servico', link: 'interface', disk: 'disco', cable: 'cabo', disksvc: 'disco', port: 'porta', portoff: 'porta', badroute: 'rota', noroute: 'rota' }[d.fault.type] || null : null),
+    // specialisations (infra.js): servers with one · one provided somewhere · servers with one and everything it needs ·
+    // 'type,model': servers of that model with it
+    svcs: (x, type) => (OPS ? OPS.devices().filter((d) => d.kind === 'server' && d.svc === type).length : null),
+    provided: (x, type) => !!INFRA() && INFRA().provided(type),
+    'svc.ok': (x, type) => (OPS && INFRA() ? OPS.devices().filter((d) => d.kind === 'server' && d.svc === type && upNow(d) && !INFRA().needsOf(d).length).length : null),
+    'svc.model': (x, a) => { const [type, model] = String(a).split(','); return OPS ? OPS.devices().filter((d) => d.kind === 'server' && d.svc === type && d.model && d.model.id === model).length : null; },
+    // VMs ('svc:status', either may be empty) · a node: RAM promised to its VMs (%) · cores still free
+    vms: (x, a) => { const [svc, st] = String(a || '').split(':'); return INFRA() ? INFRA().vms.filter((v) => (!svc || v.svc === svc) && (!st || v.status === st)).length : null; },
+    'node.alloc': (d) => { const I = INFRA(); if (!I || d.kind !== 'server') return null; const ram = I.vms.filter((v) => v.node === d.key && v.status !== 'stopped').reduce((s, v) => s + v.ram, 0); return Math.round((ram / I.capOf(d).ram) * 100); },
+    'node.freeCores': (d) => { const I = INFRA(); if (!I || d.kind !== 'server') return null; return I.capOf(d).cores - I.vms.filter((v) => v.node === d.key && v.status !== 'stopped').reduce((s, v) => s + v.cores, 0); },
+    // orders given to the team (crew.js) · since a number read when the problem started
+    orders: () => (CREW ? CREW.assignedCount || 0 : 0),
+    ordersSince: (x, base) => (CREW ? CREW.assignedCount || 0 : 0) - (+base || 0),
+    // Windows Server (winserver.js keeps it in d.os.win; its problem states are added there)
     'win.named': (d) => !!win(d) && low(win(d).host) === low(d.name) && !win(d).pending.name,
     'win.has': (d, f) => !!win(d) && win(d).features.indexOf(f) >= 0,
     'win.iis': (d) => (win(d) ? (win(d).features.indexOf('Web-Server') >= 0 ? 'sim' : 'nao') : null),
@@ -165,6 +193,26 @@
         !d.hold && !d.fault && !d.broken && !d.out && OPS.health(d).up);
       return list.length ? pick(list) : null;
     },
+    // another server on the same switch as this one (straight cable)
+    'server.sameSwitch': (x, taken) => {
+      if (!OPS || !x || x.kind !== 'server') return null;
+      const t = x.path || OPS.trace(x);
+      if (!t.ok) return null;
+      const list = direct(t.sw).map(([d]) => d).filter((d) => d !== x && (taken || []).indexOf(d) < 0 && !(DL.isWin && DL.isWin(d)) && !d.hold && upNow(d));
+      return list.length ? pick(list) : null;
+    },
+    // another managed switch that works
+    'switch.other': (x, taken) => {
+      if (!OPS) return null;
+      const list = OPS.devices().filter((d) => d.kind === 'switch' && (taken || []).indexOf(d) < 0 && !(d.model && d.model.managed === false) && !d.broken && !d.out && !d.hold && !d.fault);
+      return list.length ? pick(list) : null;
+    },
+    // the domain controller (a Windows Server with the domain, online)
+    'win.dc': (x, taken) => {
+      if (!OPS) return null;
+      const list = OPS.devices().filter((d) => (taken || []).indexOf(d) < 0 && win(d) && win(d).stage === 'ready' && win(d).domain && !d.hold && upNow(d));
+      return list.length ? pick(list) : null;
+    },
     // another rack with cables
     'rack.other': (x, taken) => {
       if (!WORLD) return null;
@@ -190,10 +238,19 @@
       return m[1] === 'sum' ? vals.reduce((a, [, v]) => a + v, 0) : vals.sort((a, b) => b[1] - a[1])[0][0].name;
     }
     if ((m = /^ips:([\w,]+)$/.exec(spec))) return m[1].split(',').map((r) => devs && devs[r]).filter(Boolean).map((d) => d.ip).sort(ipCmp).join(', ');
-    if ((m = /^faulty(Role)?:(\w+)$/.exec(spec))) {
-      // the name of the device with that fault · faultyRole: its role in the problem (for check.at)
-      const d = all.find((q) => q.fault && q.fault.type === m[2]);
-      return !d ? null : m[1] ? Object.keys(devs || { dev: x }).find((r) => (devs || { dev: x })[r] === d) || null : d.name;
+    if ((m = /^faulty(Role|Kind)?(?::(\w+))?$/.exec(spec))) {
+      // the name of the device with that fault (or any fault) · faultyRole: its role in the problem (for check.at) ·
+      // faultyKind: 'servidor' or 'switch'
+      const d = all.find((q) => q.fault && (!m[2] || q.fault.type === m[2])), by = devs || { dev: x };
+      if (!d) return null;
+      return m[1] === 'Role' ? Object.keys(by).find((r) => by[r] === d) || null : m[1] === 'Kind' ? (d.kind === 'switch' ? 'switch' : 'servidor') : d.name;
+    }
+    // the names of the crew roles that fix the fault the problem set up (jobs.js), one per index
+    if ((m = /^faultRole:(\d)$/.exec(spec))) {
+      const d = all.find((q) => q.fault);
+      if (!d || !DL.JOBS || !DL.ROLES) return null;
+      const ids = Object.keys(DL.JOBS.BY_ROLE).filter((r) => DL.ROLES[r] && DL.JOBS.BY_ROLE[r].some((t) => t.kind === 'fix' && t.types.indexOf(d.fault.type) >= 0));
+      return ids[+m[1]] ? DL.ROLES[ids[+m[1]]].name : null;
     }
     m = /^([\w.]+)(?::([^@]+))?(?:@(\w+))?$/.exec(spec);
     if (!m || !PROBES[m[1]]) return null;
@@ -341,7 +398,7 @@
     hold: 240,              // above the problem's rank: the crew leaves it to the player this long
     expire: 900,            // above the problem's rank: a console / checklist problem left untouched goes away
   };
-  const DIFF = { 1: 'fácil', 2: 'médio', 3: 'difícil' };
+  const DIFF = { 1: 'fácil', 2: 'médio', 3: 'difícil', 4: 'muito difícil', 5: 'especialista' };
   // the player's share of the XP when a crew member they assigned solves it (the server uses the same: career_settle)
   const CREW_SHARE = 0.15;
   DL.PROBLEM_PACE = PACE;
@@ -350,6 +407,7 @@
     const ops = sys.ops, scene = game.scene;
     OPS = ops;
     WORLD = () => scene.world;
+    CREW = sys.crew || null;
     // looked up each time: the data may come from the database after the game started (scenario-service.js)
     const byId = (id) => DATA.problems.find((p) => p.id === id);
     const levelOf = (def) => { const r = DATA.ranks.find((x) => x.id === def.rank); return r ? r.level : 1; };
@@ -362,6 +420,10 @@
     const WHEN = {
       // no server yet, or one of the player's own still without its cable
       firstServer: () => { const s = ops.devices().filter((d) => d.kind === 'server'); return !s.length || s.some((d) => !d.pre && d.state === 'new'); },
+      // a Web/API server is up, and nothing provides DNS for it
+      webNoDns: () => !!INFRA() && ops.devices().some((d) => d.svc === 'web' && upNow(d)) && !INFRA().provided('dns'),
+      // eight servers up at the same time (the Pleno II mission)
+      eight: () => ops.devices().filter(upNow).length >= 8,
     };
 
     /* ---------- the equipment a problem happens on ---------- */
@@ -374,6 +436,13 @@
       if (t.win === 'ready' && !(win(x) && win(x).stage === 'ready')) return false;
       if (t.domain != null && !!(win(x) && win(x).domain) !== t.domain) return false;
       if (t.lacks && (!win(x) || win(x).features.indexOf(t.lacks) >= 0)) return false;
+      // …without this OU / group / record in its zone / share yet (the problem creates it)
+      if (t.noOu && win(x) && win(x).ous.some((o) => low(o) === low(t.noOu))) return false;
+      if (t.noGroup && win(x) && win(x).groups[low(t.noGroup)]) return false;
+      if (t.noRr && win(x) && win(x).domain) { const z = win(x).zones[low(win(x).domain.name)]; if (z && z.records.some((r) => r.name === low(t.noRr))) return false; }
+      if (t.noShare && win(x) && win(x).shares[low(t.noShare)]) return false;
+      // a server with this specialisation (infra.js)
+      if (t.svc && x.svc !== t.svc) return false;
       if (t.own && x.pre) return false;
       if (t.healthy && (x.fault || x.broken || x.out || x.state !== 'online' || !ops.health(x).up)) return false;
       if (t.web && !(x.os && x.os.services.nginx === 'active')) return false;
@@ -452,7 +521,7 @@
         if (!o) return false;
         x.os.hostname = o.os.hostname === 'localhost' ? o.name.toLowerCase() : o.os.hostname;
         x.os.dupOf = o.name;
-      } else if (s.hostname && x.os) x.os.hostname = s.hostname;
+      } else if (s.hostname && x.os) for (const r of [].concat(s.hostnameOn || 'dev')) if (devs[r] && devs[r].os) devs[r].os.hostname = s.hostname;
       // messy: this rack · messy2: this one and the other racks of the problem
       if (s.rack === 'messy' || s.rack === 'messy2') {
         for (const r of s.rack === 'messy2' ? Object.values(devs) : [x]) if (r && r.kind === 'rack') { r.tidy = false; r.messyNoted = true; }
@@ -466,7 +535,22 @@
       // a quiet log with a known last login
       if (s.authlog === 'logins' && x.os && DL.authLogins) DL.authLogins(x, v.last);
       // a port description changed after the last save of the switch configuration
-      if (s.swconfig === 'unsaved' && x.sw) { x.sw.unsaved = true; x.sw.unsavedPort = v.port || pick(Array.from(x.sw.linked || []).filter((q) => q !== 'te1')) || null; }
+      // unsaved2: on every switch of the problem
+      if ((s.swconfig === 'unsaved' || s.swconfig === 'unsaved2') && x.sw) {
+        for (const sw of s.swconfig === 'unsaved2' ? Object.values(devs).filter((d) => d && d.sw) : [x]) {
+          sw.sw.unsaved = true;
+          sw.sw.unsavedPort = (sw === x && v.port) || pick(Array.from(sw.sw.linked || []).filter((q) => q !== 'te1')) || null;
+        }
+      }
+      // a virtualization node with its RAM nearly all promised to two VMs
+      if (s.vmload) {
+        const I = INFRA();
+        if (!I || x.kind !== 'server') return false;
+        const used = I.vms.filter((q) => q.node === x.key && q.status !== 'stopped').reduce((n, q) => n + q.ram, 0), cap = I.capOf(x);
+        const each = Math.floor((cap.ram * 0.95 - used) / 2);
+        if (each < 2 && !I.vms.some((q) => q.name === 'carga-1')) return false;
+        for (const name of ['carga-1', 'carga-2']) if (!I.vms.some((q) => q.name === name)) I.createVm({ node: x.key, name, svc: 'db', cores: Math.max(1, Math.floor(cap.cores / 4)), ram: each, disk: 40 });
+      }
       // one server of the problem with its disk fuller than the others (still below the 80% alert)
       if (s.diskpct) {
         const pool = servers(), d = (v.top && pool.find((q) => q.name === v.top)) || pick(pool);
@@ -474,9 +558,11 @@
       }
       // switched on some hours ago (minutes [min, max])
       if (s.uptime && x.os) x.os.boot = Date.now() - (v.h != null ? v.h * 60 + 10 : Math.round(between(s.uptime[0], s.uptime[1]))) * 60000;
-      // Windows Server: the default name back (after a reinstall) · DNS pointing outside · a restart someone made
+      // Windows Server: the default name back (after a reinstall) · DNS pointing outside · a restart someone made ·
+      // the rest (accounts, DHCP, folders…) is winserver.js's own (DL.winSetup)
       if (s.win && win(x)) {
-        const w = win(x);
+        const w = win(x), rest = [].concat(s.win).filter((n) => ['host', 'dns', 'reboot'].indexOf(n) < 0);
+        if (rest.length && !(DL.winSetup && DL.winSetup(x, rest, { devs, vars: v }))) return false;
         if (s.win === 'host') { w.host = 'WIN-' + Array.from({ length: 7 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(rand() * 32)]).join(''); w.pending.name = null; x.os.hostname = w.host; }
         if (s.win === 'dns') w.dnsClient = ['8.8.8.8'];
         if (s.win === 'reboot' && DL.winEvent) {
@@ -485,24 +571,35 @@
           DL.winEvent(x, 'System', 6005, 'Information', 'O serviço de log de eventos foi iniciado.');
         }
       }
-      // --- a fault (not saved: the problem isn't either) ---
-      if (s.fault) {
+      // --- faults (not saved: the problem isn't either) ---
+      // setup.fault (one) or setup.faults (a list, each with its own on / pick / quiet)
+      const jobs = s.faults || (s.fault ? [s] : []);
+      if (jobs.length && quiet) return false;
+      for (const j of jobs) {
+        // fault: a type or a list (one of them, at random) · 'type@role': the fault and the device it goes on
         // on: the device(s) it goes on (roles of the problem; default the main one) · pick: only one of them, at random
-        // fault: a type, or a list (one of them, at random)
-        let on = [].concat(s.on || 'dev').map((r) => devs[r]).filter(Boolean);
-        if (s.pick) on = [pick(on)];
-        if (quiet || !on.length) return false;
-        for (const fx of on) {
-          const opts = Object.assign({}, s.opts || {});
-          // a switch fault for a server's problem: the port at the end of its cable
-          if (fx.kind === 'switch' && x.kind === 'server') opts.port = PROBES['srv.port'](x);
-          // ipOf: the address of another device of the problem (two servers with the same IP)
-          if (s.ipOf && devs[s.ipOf]) opts.ip = devs[s.ipOf].ip;
-          let ok = null;
-          for (const ty of [].concat(s.fault).sort(() => rand() - 0.5)) if ((ok = ops.injectFault(fx, ty, opts))) break;
-          if (!ok) return false;
-          // setup.quiet: no alert (it would give away the answer, e.g. the port in err-disabled); the problem tells it
-          if (s.quiet) Object.assign(fx.fault, { found: true, foundAt: now(), by: null });
+        const types = [].concat(j.fault).sort(() => rand() - 0.5), byRole = types.some((e) => e.indexOf('@') > 0);
+        let on = byRole ? [null] : [].concat(j.on || 'dev').map((r) => devs[r]).filter(Boolean);
+        if (j.pick) on = [pick(on)];
+        if (!on.length) return false;
+        for (const fixed of on) {
+          let fx = null;
+          for (const e of types) {
+            const [ty, role] = e.split('@'), d = fixed || devs[role || 'dev'];
+            if (!d) continue;
+            const opts = Object.assign({}, s.opts || {}, j.opts || {});
+            // a switch fault for a server's problem: the port at the end of its cable (port2: and the peer's)
+            if (d.kind === 'switch' && x.kind === 'server') {
+              opts.port = PROBES['srv.port'](x);
+              if (devs.peer && devs.peer.kind === 'server') opts.port2 = PROBES['srv.port'](devs.peer);
+            }
+            // ipOf: the address of another device of the problem (two servers with the same IP)
+            if (s.ipOf && devs[s.ipOf]) opts.ip = devs[s.ipOf].ip;
+            if ((fx = ops.injectFault(d, ty, opts))) break;
+          }
+          if (!fx) return false;
+          // quiet: no alert (it would give away the answer, e.g. the port in err-disabled); the problem tells it
+          if (j.quiet || s.quiet) Object.assign(fx.fault, { found: true, foundAt: now(), by: null });
           else ops.report(fx, null, 'chamado');
           if (fx.fault) fx.fault.problem = p.uid;
         }
@@ -523,7 +620,7 @@
       if (x && def.complete === 'lesson') for (const d of devicesOf(p)) { d.ran = new Set(); d.lessonKey = null; }
       P.open.push(p);
       if (!opts.quiet) {
-        if (def.setup && def.setup.fault && game.director) game.director.started('problem', titleOf(p));
+        if (breaks(def) && game.director) game.director.started('problem', titleOf(p));
         ops.logEvent('info', '🧩 Problema: ' + titleOf(p) + ' · +' + xpFor(p) + ' XP');
         game.toast('info', 'Problema · +' + xpFor(p) + ' XP', esc(titleOf(p)) + ' · Tarefas (T)');
         game.sfx('ping');
@@ -593,7 +690,7 @@
       const open = new Set(P.open.map((p) => p.def.id));
       return DATA.problems.filter((def) => def.trigger !== 'auto' && levelOf(def) <= level && !open.has(def.id) &&
         (!def.when || (WHEN[def.when] && WHEN[def.when]())) &&
-        (!def.setup || !def.setup.fault || !game.director || game.director.canStart('fault')) &&
+        (!breaks(def) || !game.director || game.director.canStart('fault')) &&
         candidates(def).length);
     }
     // onlyFaults: just the ones that break something (they take an incident slot the director just opened)
@@ -601,7 +698,7 @@
       const level = playerLevel(), home = DATA.problems.some((d) => levelOf(d) === level);
       const max = home ? PACE.maxHome : PACE.maxUp;
       if (P.open.filter((p) => p.def.trigger !== 'auto').length >= max) return;
-      const defs = eligible(level).filter((d) => !onlyFaults || (d.setup && d.setup.fault));
+      const defs = eligible(level).filter((d) => !onlyFaults || breaks(d));
       if (!defs.length) return;
       // never solved: twice as likely
       const w = defs.map((d) => (d.weight || 1) * (sys.career && sys.career.solvedCount(d.id) ? 1 : 2));
@@ -656,7 +753,7 @@
     /* ---------- actions (Tarefas panel) ---------- */
     // the console lesson of a problem on this device, if any (ops.openTerminal asks). When the device already has
     // a lesson of its own (a fault), only a problem that caused that fault goes first (identify the broken port).
-    const consoleFor = (d, busy) => P.open.find((p) => devicesOf(p).indexOf(d) >= 0 && p.def.complete === 'lesson' && (!busy || (p.def.setup && p.def.setup.fault))) || null;
+    const consoleFor = (d, busy) => P.open.find((p) => devicesOf(p).indexOf(d) >= 0 && p.def.complete === 'lesson' && (!busy || breaks(p.def))) || null;
     // a new server whose career problem has a setup lesson of its own (setup_jr1…: fewer hints than the classic one)
     function setupLesson(d) {
       // (a Windows server only takes a Windows lesson, and a Linux one only a Linux lesson)
@@ -726,13 +823,13 @@
       const x = p.x, def = p.def, name = a.crew.name;
       if (def.complete === 'fixed') return !!x.fault && ops.fix(x, a);
       // bot_action 'fix': a console problem whose faults the crew member also fixes (the port of the server's switch…)
-      if (def.bot === 'fix' && def.setup && def.setup.fault) {
+      if (def.bot === 'fix' && breaks(def)) {
         for (const fx of devicesOf(p)) if (fx.fault && fx.fault.problem === p.uid && !ops.fix(fx, a)) return false;
       }
       if (def.complete === 'online') return ops.configure(x);
       const s = def.setup || {};
       if (s.rack === 'messy' || s.rack === 'messy2') ops.tidy(devicesOf(p).filter((r) => r.kind === 'rack'), name);
-      if (s.hostname && x.os) x.os.hostname = String(x.name).toLowerCase();
+      if (s.hostname) for (const d of devicesOf(p)) if (d.os && d.kind === 'server') d.os.hostname = String(d.name).toLowerCase();
       if (s.swconfig && x.sw) x.sw.unsaved = false;
       if (s.win === 'host' && win(x)) { win(x).host = String(x.name).toUpperCase(); win(x).pending.name = null; x.os.hostname = win(x).host; }
       if (s.win === 'dns' && win(x)) win(x).dnsClient = ['127.0.0.1'];
@@ -833,7 +930,7 @@
     function snapshot() {
       return {
         next: Math.round(P.next),
-        open: P.open.filter((p) => p.def.complete !== 'fixed' && !(p.def.setup && p.def.setup.fault)).map((p) => ({
+        open: P.open.filter((p) => p.def.complete !== 'fixed' && !breaks(p.def)).map((p) => ({
           id: p.def.id, age: Math.round(now() - p.at), vars: p.vars || {},
           dev: p.x && p.x.kind !== 'rack' ? p.x.key : null, rack: p.x && p.x.kind === 'rack' ? p.x.uid || p.x.id : null,
           // the other devices (the peer server, the second rack…), so the texts and answers stay the same

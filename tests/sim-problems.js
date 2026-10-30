@@ -10,11 +10,12 @@ const inRank = (x) => !ranks || ranks.includes(x.rank);
 
 const noop = () => el;
 const el = new Proxy(function () {}, { get: (t, k) => (k === 'hidden' ? true : k === Symbol.toPrimitive ? () => '' : el), apply: () => el, set: () => true });
-const sandbox = { console, setTimeout: () => 0, clearTimeout: () => {}, setInterval: () => 0, document: { getElementById: () => el, createElement: () => el, head: el, body: el } };
+const sandbox = { console, setTimeout: () => 0, clearTimeout: () => {}, setInterval: () => 0, document: { getElementById: () => el, createElement: () => el, head: el, body: el, activeElement: el } };
 sandbox.window = sandbox;
-sandbox.DL = {};
+// (crew.js needs the sprites: only the role names it defines)
+sandbox.DL = { money: (v) => '$' + Math.round(v), ROLES: { redes: { name: 'Redes' }, servidores: { name: 'Servidores' }, sysadmin: { name: 'Sysadmin' }, tecnico: { name: 'Técnico de TI' }, seguranca: { name: 'Segurança' }, atendente: { name: 'Atendente' } } };
 vm.createContext(sandbox);
-for (const f of ['hardware.js', 'terminal.js', 'problems-data.js', 'problems.js', 'ops.js', 'winserver.js'])
+for (const f of ['hardware.js', 'props.js', 'jobs.js', 'terminal.js', 'problems-data.js', 'problems.js', 'ops.js', 'winserver.js', 'infra.js'])
   vm.runInContext(fs.readFileSync(path.join(root, 'assets/js', f), 'utf8'), sandbox, { filename: f });
 const DL = sandbox.DL;
 const HELP = DL.CMD_HELP;
@@ -31,7 +32,7 @@ function walk(c, id) {
   if (c.not) walk(c.not, id);
   if (c.state && !states.has(c.state)) fail(id, 'estado desconhecido ' + c.state);
 }
-const okVar = (s) => /^(max|sum):/.test(s) ? states.has(s.split(':')[1]) : /^(ips|faulty|faultyRole):/.test(s) || states.has(s.split(/[:@]/)[0]);
+const okVar = (s) => /^(max|sum):/.test(s) ? states.has(s.split(':')[1]) : /^(ips|faulty\w*|faultRole)(:|$)/.test(s) || states.has(s.split(/[:@]/)[0]);
 for (const p of D.problems.filter((x) => inRank(x))) {
   for (const s of p.steps || []) {
     for (const k of s.help || []) if (!HELP[k]) fail(p.id, 'ajuda desconhecida ' + k);
@@ -40,7 +41,7 @@ for (const p of D.problems.filter((x) => inRank(x))) {
   }
   for (const v of Object.values(p.vars || {})) if (!okVar(v)) fail(p.id, 'var desconhecida ' + v);
   for (const r of Object.values(p.devices || {})) if (!DL.SCENARIO_RESOLVE[r]) fail(p.id, 'resolver desconhecido ' + r);
-  if (p.setup && p.setup.fault) for (const f of [].concat(p.setup.fault)) if (!DL.FAULTS[f]) fail(p.id, 'falha desconhecida ' + f);
+  for (const j of p.setup ? p.setup.faults || (p.setup.fault ? [p.setup] : []) : []) for (const f of [].concat(j.fault)) if (!DL.FAULTS[f.split('@')[0]]) fail(p.id, 'falha desconhecida ' + f);
   if (p.lesson && !DL.LESSONS[p.lesson]) fail(p.id, 'lição desconhecida ' + p.lesson);
   // templates: only roots the problem knows
   const roots = new Set(['gw', 'dev', 'rack'].concat(Object.keys(p.vars || {}), Object.keys(p.devices || {})));
@@ -60,10 +61,13 @@ if (DL.SCENARIO_DATA.problems.length !== before) fail('applyScenarioData', 'prob
 function makeWorld() {
   const rack = (id, tx, units, models) => ({ kind: 'rack', id, uid: id, tx, ty: 2, px: tx * 16, py: 32, units: units.concat(new Array(9 - units.length).fill(null)), unitModel: (models || []).concat(new Array(9).fill(null)).slice(0, 9) });
   const W = 30, H = 20;
+  // RACK-A01: a PoE switch and five Linux servers · RACK-A02: a Linux server and two Windows Servers (a domain
+  // controller and a member) · RACK-A03: a second switch, a virtualization node and two more servers · four desks
   return { W, H, roomAt: new Array(W * H).fill(0), rooms: [{ id: 'room1' }], items: [
     rack('RACK-A01', 2, ['switch', 'server', 'server', 'server', 'server', 'server'], ['sw_24poe']),
     rack('RACK-A02', 4, ['server', 'server', 'server']),
-  ] };
+    rack('RACK-A03', 6, ['switch', 'server', 'server', 'server']),
+  ].concat([0, 1, 2, 3].map((i) => ({ kind: 'desk', defId: 'desk', tx: 10 + i * 2, ty: 8 }))) };
 }
 function setup() {
   const handlers = {};
@@ -75,9 +79,11 @@ function setup() {
     problems: { list: () => [], devicesOf: () => [], key: () => '', setupLesson: () => null, consoleFor: () => null },
   };
   const captured = {};
-  const sys = { crew: { members: [], api: { cancelJob() {} } }, terminal: { open: (d, lesson, done) => Object.assign(captured, { d, lesson, done }) }, cabling: { open() {} } };
+  const sys = { crew: { members: [], api: { cancelJob() {} }, assignedCount: 0 }, terminal: { open: (d, lesson, done) => Object.assign(captured, { d, lesson, done }) }, cabling: { open() {} } };
   const ops = DL.createOps(game, sys);
   sys.ops = ops;
+  // what winserver.js / problems.js reach through window.DataLabDemo
+  sandbox.DataLabDemo = { ops, scene: game.scene };
   game.reach = (d, h) => ops.reach(d, h);
   game.peer = (d, port) => { const l = ops.linkAt(d.key, port); if (!l) return ''; const o = ops.get(l.a.dev === d.key ? l.b.dev : l.a.dev); return o ? o.name : ''; };
   ops.preinstall = true;
@@ -99,11 +105,17 @@ function setup() {
   }
   { const dc = winSrv[0], sh = (l) => DL.winShell(dc, l, ctxOf(ops)); sh('Install-WindowsFeature AD-Domain-Services -IncludeManagementTools'); sh('Install-ADDSForest -DomainName corp.datalab.local -InstallDns'); if (!dc.os.win.domain) throw new Error('domínio não criado'); }
   ops.recompute();
+  // the specialisations and VMs: a virtualization node in RACK-A03 and a Web/API server
+  const infra = DL.createInfra(game, { ops });
+  sandbox.DataLabDemo.infra = infra;
+  const a03 = ops.devices().filter((d) => d.kind === 'server' && d.rack.id === 'RACK-A03');
+  a03[0].svc = 'virt';
+  ops.devices().find((d) => d.kind === 'server' && d.rack.id === 'RACK-A01').svc = 'web';
   const career = { level: 10, LEVELS: [], xpFor: (d) => d.xp, solve: (d) => d.xp, solvedCount: () => 0 };
   sys.career = career;
   const problems = DL.createProblems(game, sys);
   game.problems = problems;
-  return { game, sys, ops, problems, world, state, captured };
+  return { game, sys, ops, problems, world, state, captured, infra };
 }
 const ctxOf = (ops) => ({ reach: (d, h) => ops.reach(d, h), peer: (d, port) => { const l = ops.linkAt(d.key, port); if (!l) return ''; const o = ops.get(l.a.dev === d.key ? l.b.dev : l.a.dev); return o ? o.name : ''; }, clear() {}, close() {}, history: [] });
 
@@ -125,22 +137,42 @@ function run(env, d, line, key, log) {
 }
 // what a player does outside the console
 function act(env, s, d, p) {
-  const { ops, world } = env;
+  const { ops, world, infra, sys } = env;
   const chk = JSON.stringify(s.check || {});
+  const arg = (st) => { const m = new RegExp('"state":"' + st.replace('.', '\\.') + '","arg":"([^"]+)"').exec(chk); return m && m[1]; };
+  const settle = () => { for (let i = 0; i < 6; i++) infra.update(1); ops.recompute(); };
+  // Infra (I): the specialisations and the VMs
+  if (arg('provided')) { const x = ops.devices().find((q) => q.kind === 'server' && q.state === 'online' && !DL.isWin(q) && !q.svc && !q.fault); x.svc = arg('provided'); return 'especializou ' + x.name + ' como ' + x.svc; }
+  if (arg('svcs')) { const x = ops.devices().find((q) => q.kind === 'server' && q.state === 'online' && !DL.isWin(q)); x.svc = arg('svcs'); return 'especializou ' + x.name; }
+  if (arg('svc.model')) { const [ty, model] = arg('svc.model').split(','); const x = ops.devices().find((q) => q.model && q.model.id === model); x.svc = ty; return 'especializou ' + x.name + ' (' + model + ') como ' + ty; }
+  if (arg('svc.ok')) {
+    const ty = arg('svc.ok');
+    for (const x of ops.devices().filter((q) => q.kind === 'server' && q.state === 'online' && !DL.isWin(q) && q.svc !== 'virt' && !q.fault)) { const was = x.svc; x.svc = ty; if (!infra.needsOf(x).length) return 'especializou ' + x.name + ' como ' + ty; x.svc = was; }
+    return null;
+  }
+  if (arg('vms')) {
+    const [svc] = arg('vms').split(':'), node = infra.nodes()[0];
+    const why = infra.createVm({ node: node.key, name: 'vm-' + svc + '-' + Math.floor(Math.random() * 1e4), svc, cores: 2, ram: 4, disk: 20 }); settle();
+    return why || 'criou uma VM ' + svc;
+  }
+  if (/node\.alloc/.test(chk)) { settle(); for (const v of infra.vms.filter((q) => q.node === d.key && /^carga/.test(q.name))) infra.act(v, 'shutdown'); settle(); return 'desligou as VMs de carga'; }
+  // Equipe: orders
+  if (arg('ordersSince')) { sys.crew.assignedCount += 2; return 'deu ordens à equipe'; }
   if (s.action === 'build') {
     const m = /"state":"(items|devs)","arg":"([^"]+)"/.exec(chk);
     if (m && m[1] === 'items') { const id = m[2].split(',')[0]; world.items.push({ kind: id, defId: id, powered: true }); return 'construiu ' + id; }
     if (m && m[1] === 'devs') {
       const r = world.items.find((e) => e.kind === 'rack' && e.units.indexOf(null) >= 0); const k = r.units.indexOf(null);
-      r.units[k] = 'switch'; r.unitModel[k] = m[2]; ops.sync(); return 'instalou switch ' + m[2];
+      r.units[k] = /^srv/.test(m[2]) ? 'server' : 'switch'; r.unitModel[k] = m[2]; ops.sync(); return 'instalou ' + m[2];
     }
   }
   if (s.action === 'cabling') {
     if (/on\.model/.test(chk)) {
-      const sw = ops.devices().find((x) => x.kind === 'switch' && x.model.id === 'sw_48');
+      const model = arg('on.model');
+      const sw = ops.devices().find((x) => x.kind === 'switch' && x.model.id === model);
       const srv = ops.devices().find((x) => x.kind === 'server' && x.state === 'online' && !DL.isWin(x));
       const l = ops.linkNear(srv.key, 'eth0'), end = l.a.dev === srv.key ? 'b' : 'a';
-      ops.moveEnd(l, end, { dev: sw.key, port: 'gi0/1' }); return 'moveu ' + srv.name + ' para o sw_48';
+      ops.moveEnd(l, end, { dev: sw.key, port: 'gi0/1' }); return 'moveu ' + srv.name + ' para o ' + model;
     }
     if (/rack\.tidy/.test(chk)) { ops.tidy([d]); return 'organizou ' + d.id; }
     if (d.kind === 'server' && d.state === 'new') {
@@ -152,9 +184,10 @@ function act(env, s, d, p) {
   return null;
 }
 
-function playSteps(env, steps, key, devsList, mainDev, log) {
+// raw: the steps as written in the data (their checks tell the player's action), when there are
+function playSteps(env, steps, key, devsList, mainDev, log, raw) {
   for (let k = 0; k < steps.length; k++) {
-    const s = steps[k];
+    const s = Object.assign({}, steps[k], { check: raw && raw[k] ? raw[k].check : undefined });
     const consoles = s.on ? [s.on] : devsList.length ? devsList : [mainDev];
     const isDone = () => consoles.some((d) => s.done(d, d.lessonKey === key ? d.ran : new Set()));
     if (s.answer) {
@@ -172,7 +205,7 @@ function playSteps(env, steps, key, devsList, mainDev, log) {
       for (const c of commandsOf(s)) { if (isDone()) break; run(env, d, c, key, log); }
       if (isDone()) break;
     }
-    if (!isDone() && s.action) { const what = act(env, s, s.on || mainDev, null); if (what) log.push('[ação] ' + what); env.ops.recompute(); }
+    if (!isDone()) { const what = act(env, s, s.on || mainDev, null); if (what) log.push('[ação] ' + what); env.ops.recompute(); }
     if (!isDone()) return 'passo ' + (k + 1) + ' não concluiu: "' + s.text + '"';
   }
   return null;
@@ -202,7 +235,7 @@ for (const def of D.problems.filter((x) => inRank(x))) {
     if (def.complete === 'lesson') {
       const key = 'p:' + def.id, L = DL.LESSONS[key](p.x);
       if (/\{\{|undefined|null/.test(L.title + L.goal + L.steps.map((s) => s.text).join())) throw new Error('texto com template vazio: ' + L.title + ' / ' + L.steps.map((s) => s.text).join(' | '));
-      err = playSteps(env, L.steps, key, devs.filter((d) => d.kind !== 'rack'), p.x, log);
+      err = playSteps(env, L.steps, key, devs.filter((d) => d.kind !== 'rack'), p.x, log, def.steps);
       if (!err) problems.api.finish(p, 'player');
     } else if (def.complete === 'online' || def.complete === 'fixed') {
       ops.openTerminal(p.x);
@@ -219,6 +252,7 @@ for (const def of D.problems.filter((x) => inRank(x))) {
         const what = act(env, Object.assign({}, s, { check: s.check }), d, p);
         log.push('[ação] ' + what);
         ops.recompute();
+        if (!problems.list().includes(p)) break;
       }
     }
     // let the game notice (faults resolved → 'fixed', checklists done)
@@ -233,7 +267,7 @@ for (const def of D.problems.filter((x) => inRank(x))) {
 }
 // ---------- save / restore: a problem without a fault comes back the same (texts, answers, other devices) ----------
 const sig = (p) => { const L = DL.LESSONS['p:' + p.def.id](p.x); return JSON.stringify([L.title, L.steps.map((s) => [s.text, s.answer && s.answer.accept, s.on && s.on.name])]); };
-for (const def of D.problems.filter((x) => inRank(x) && x.complete === 'lesson' && !(x.setup && x.setup.fault))) {
+for (const def of D.problems.filter((x) => inRank(x) && x.complete === 'lesson' && !DL.problemBreaks(x))) {
   const env = setup();
   const list = env.problems.api.candidates(def.id);
   const p = list.length && env.problems.api.start(def.id, list[0]);

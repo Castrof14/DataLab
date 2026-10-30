@@ -221,6 +221,9 @@
     const self = dns === '127.0.0.1' || dns === myIp(d);
     if (!self) {
       if (!d.os.route && !(ipOk(dns) && net24(dns) === net24(myIp(d)))) return { err: 'o servidor DNS ' + dns + ' está inacessível', hint: 'Sem rota até ele: confira o gateway (Get-NetIPConfiguration).' };
+      // a member server asking the domain controller: the DC answers from its own zones
+      const D = game(), dc = D && D.ops ? D.ops.devices().find((x) => x !== d && x.ip === dns && ready(x) && has(W(x), 'DNS')) : null;
+      if (dc) return dc.state === 'online' && D.ops.health(dc).up ? resolve(dc, name, '127.0.0.1') : { err: 'o servidor DNS ' + dns + ' não responde', hint: 'O ' + dc.name + ' está fora do ar.' };
       if (w.domain && fq.endsWith(low(w.domain.name))) return { err: 'DNS name does not exist', hint: 'O DNS ' + dns + ' não conhece a zona interna ' + w.domain.name + '. Num domínio, o servidor deve usar o próprio DC como DNS (127.0.0.1).' };
       return external(d, fq);
     }
@@ -1550,8 +1553,9 @@
     kinds: ['server'], short: 'Serviço do Windows parado',
     when: (d) => ready(d) && roleSvcs(W(d)).some((s) => running(W(d), s)),
     msg: (d) => 'Serviço ' + (SERVICES[W(d).faultSvc] || 'do Windows') + ' parou no ' + d.name,
-    apply: (d) => {
-      const w = W(d), s = pick(roleSvcs(w).filter((x) => running(w, x)));
+    // opts.svc: the one to stop (a problem about DNS / DHCP), when it is running
+    apply: (d, o) => {
+      const w = W(d), up = roleSvcs(w).filter((x) => running(w, x)), s = o && o.svc && up.indexOf(o.svc) >= 0 ? o.svc : pick(up);
       w.svc[s] = 'Stopped';
       w.faultSvc = s;
       event(w, 'System', 7031, 'Error', 'O serviço ' + SERVICES[s] + ' foi encerrado inesperadamente.');
@@ -1582,6 +1586,132 @@
   };
   // an event in a Windows log (problems.js: "who restarted the server?")
   DL.winEvent = (d, log, id, lvl, msg) => { if (isWin(d)) event(W(d), log, id, lvl, msg); };
+
+  /* ------------------------------------------------------------------ */
+  /* Career problems (problems.js): what a problem sets up on a Windows  */
+  /* Server (setup.win) and the states its steps check. Each setup can   */
+  /* run again (a save brings the problem back) without doubling things. */
+  /* ------------------------------------------------------------------ */
+  const zoneOf = (w) => (w.domain ? w.zones[low(w.domain.name)] || w.zones[w.domain.name] : null);
+  // (an account the problem needs comes back as the problem expects it: enabled, unlocked, with a password)
+  const addUser = (w, sam, name) => Object.assign(w.users[sam] || (w.users[sam] = { sam, name, ou: null }), { enabled: true, locked: false, pwd: true });
+  const addGroup = (w, name, scope) => { const k = low(name); if (!w.groups[k]) w.groups[k] = { name, scope: scope || 'Global', cat: 'Security', ou: null, members: [] }; return w.groups[k]; };
+  const join = (g, sam) => { if (g.members.indexOf(sam) < 0) g.members.push(sam); };
+  const installRole = (w, f) => { for (const x of [f].concat(FEATURES[f].tools || [])) if (!has(w, x)) w.features.push(x); for (const s of FEATURES[f].svc || []) w.svc[s] = 'Running'; };
+  const scope = (d, from, to, opts) => {
+    const w = W(d);
+    w.dhcp.scopes = w.dhcp.scopes.filter((s) => s.id !== '10.0.1.0');
+    w.dhcp.scopes.push(Object.assign({ id: '10.0.1.0', name: 'LAN', start: from, end: to, mask: '255.255.255.0', state: 'Active', router: '10.0.1.1', dns: [myIp(d)], dnsDomain: null }, opts || {}));
+  };
+  const SETUP = {
+    // three ordinary accounts in the domain
+    users: (d) => { const w = W(d); addUser(w, 'ana.souza', 'Ana Souza'); addUser(w, 'bruno.alves', 'Bruno Alves'); addUser(w, 'carla.mendes', 'Carla Mendes'); },
+    // web → the peer server (the CNAME problem needs it)
+    webA: (d, c) => { const z = zoneOf(W(d)), p = c.devs.peer; if (z && p) { z.records = z.records.filter((r) => r.name !== 'web'); z.records.push({ name: 'web', type: 'A', data: p.ip }); } },
+    // the peer server has no name in the zone
+    dropPeerRr: (d, c) => { const z = zoneOf(W(d)), p = c.devs.peer; if (z && p) z.records = z.records.filter((r) => r.name !== low(p.name)); },
+    // DHCP installed, with a scope missing one thing (or nothing)
+    dhcpNoRouter: (d) => { installRole(W(d), 'DHCP'); W(d).dhcp.authorized = true; scope(d, '10.0.1.100', '10.0.1.199', { router: null }); },
+    dhcpNoAuth: (d) => { installRole(W(d), 'DHCP'); W(d).dhcp.authorized = false; scope(d, '10.0.1.100', '10.0.1.199'); },
+    dhcpFull: (d) => { installRole(W(d), 'DHCP'); W(d).dhcp.authorized = true; scope(d, '10.0.1.100', '10.0.1.199'); },
+    // three addresses only: the office has more PCs than that
+    dhcpTiny: (d) => { installRole(W(d), 'DHCP'); W(d).dhcp.authorized = true; scope(d, '10.0.1.100', '10.0.1.102'); },
+    // the Financeiro folder shared with its group, NTFS still inherited (BUILTIN\Users reads it)
+    finOpen: (d) => {
+      const w = W(d);
+      mkdir(w, 'C:\\Dados\\Financeiro');
+      const dir = w.dirs['c:\\dados\\financeiro'];
+      dir.inherit = true; dir.acl = [];
+      addGroup(w, 'Financeiro', 'DomainLocal');
+      w.shares.financeiro = { name: 'Financeiro', path: dir.path, access: [{ who: w.domain.netbios + '\\Financeiro', right: 'Change' }] };
+    },
+    // the group with its folder already closed to it (a new hire only needs the account and the group)
+    newhire: (d) => {
+      const w = W(d);
+      // (a second time: the new hire isn't there yet)
+      delete w.users['lucas.prado'];
+      for (const g of Object.values(w.groups)) g.members = g.members.filter((m) => m !== 'lucas.prado');
+      SETUP.finOpen(d);
+      w.dirs['c:\\dados\\financeiro'].inherit = false;
+      w.dirs['c:\\dados\\financeiro'].acl = [{ who: BUILTIN.administrators, perm: 'F' }, { who: w.domain.netbios + '\\Financeiro', perm: 'M' }];
+      if (!w.ous.some((o) => low(o) === 'financeiro')) w.ous.push('Financeiro');
+    },
+    // three departments, one group each
+    depts: (d) => { const w = W(d); for (const g of ['RH', 'Compras', 'Vendas']) addGroup(w, g, 'DomainLocal'); },
+    // someone leaving, in two groups
+    leaver: (d) => { const w = W(d); SETUP.users(d); addUser(w, 'joao.lima', 'João Lima'); join(addGroup(w, 'Suporte'), 'joao.lima'); join(addGroup(w, 'Projetos'), 'joao.lima'); },
+    // a Global group with people in it and the folder it should reach
+    comercial: (d) => { const w = W(d); SETUP.users(d); const g = addGroup(w, 'Comercial'); join(g, 'ana.souza'); join(g, 'bruno.alves'); mkdir(w, 'C:\\Dados\\Comercial'); },
+    // one user typing the wrong password (Security log, 4625)
+    badpwd: (d, c) => {
+      const w = W(d);
+      SETUP.users(d);
+      w.badUser = c.vars.bad || pick(['ana.souza', 'bruno.alves', 'carla.mendes']);
+      for (let i = 0; i < 4; i++) event(w, 'Security', 4625, 'Information', 'Falha de logon da conta ' + w.badUser + ': senha incorreta.');
+    },
+    // a service account locked by a machine with the old password (Security log says from where)
+    svclock: (d, c) => {
+      const w = W(d), src = (c.devs.peer && c.devs.peer.ip) || '10.0.1.50';
+      addUser(w, 'svc_backup', 'Conta do backup').locked = true;
+      w.lockSrc = src;
+      for (let i = 0; i < 3; i++) event(w, 'Security', 4625, 'Information', 'Falha de logon da conta svc_backup: senha incorreta. Endereço de origem: ' + src);
+      event(w, 'Security', 4740, 'Information', 'Uma conta de usuário foi bloqueada: svc_backup (origem ' + src + ').');
+    },
+    // the audit team needs to read the Financeiro share
+    audit: (d) => { SETUP.finOpen(d); addGroup(W(d), 'Auditoria'); },
+  };
+  // name: a setup above (or a list of them) · ctx: { devs: the devices of the problem, vars: what a save kept }
+  DL.winSetup = function (d, name, ctx) {
+    if (!ready(d)) return false;
+    for (const n of [].concat(name)) {
+      if (!SETUP[n]) continue;
+      if (n !== 'dhcpNoRouter' && n !== 'dhcpNoAuth' && n !== 'dhcpFull' && n !== 'dhcpTiny' && !W(d).domain) return false;
+      SETUP[n](d, ctx || { devs: {}, vars: {} });
+    }
+    return true;
+  };
+  // the states the steps check (problems.js reads them like its own)
+  const userState = (u) => (!u ? null : u.locked ? 'locked' : u.enabled ? 'enabled' : 'disabled');
+  const grantOf = (w, path, group) => aclOf(w, path).filter((e) => low(e.who.replace(/^.*\\/, '')) === low(group));
+  if (DL.SCENARIO_PROBES) Object.assign(DL.SCENARIO_PROBES, {
+    'win.ou': (d, n) => isWin(d) && W(d).ous.some((o) => low(o) === low(n)),
+    'win.usersIn': (d, ou) => (isWin(d) ? Object.values(W(d).users).filter((u) => !u.builtin && u.enabled && u.pwd && low(u.ou) === low(ou)).length : null),
+    'win.user': (d, sam) => (isWin(d) ? userState(W(d).users[low(sam)]) : null),
+    'win.group': (d, n) => isWin(d) && !!W(d).groups[low(n)],
+    'win.groupScope': (d, n) => (isWin(d) && W(d).groups[low(n)] ? W(d).groups[low(n)].scope : null),
+    'win.members': (d, n) => (isWin(d) && W(d).groups[low(n)] ? W(d).groups[low(n)].members.length : null),
+    // 'grupo:membro'
+    'win.memberOf': (d, a) => { const [g, m] = String(a).split(':'); return isWin(d) && !!W(d).groups[low(g)] && W(d).groups[low(g)].members.indexOf(low(m)) >= 0; },
+    // the groups a user is in (besides Domain Users)
+    'win.groupsOf': (d, sam) => (isWin(d) ? Object.values(W(d).groups).filter((g) => !g.builtin && g.members.indexOf(low(sam)) >= 0).length : null),
+    // a record of the domain's zone: what it points to (an IP or, for a CNAME, a name)
+    'win.rr': (d, n) => { const z = isWin(d) && zoneOf(W(d)); const r = z && z.records.find((x) => x.name === low(n)); return r ? low(r.data) : null; },
+    'win.svc': (d, s) => (isWin(d) ? W(d).svc[s] || null : null),
+    'win.scopes': (d) => (isWin(d) ? W(d).dhcp.scopes.length : null),
+    'win.scopeRouter': (d) => (isWin(d) && W(d).dhcp.scopes[0] ? W(d).dhcp.scopes[0].router : null),
+    'win.scopeDns': (d) => isWin(d) && W(d).dhcp.scopes.some((s) => s.dns.length > 0),
+    'win.scopeSize': (d) => (isWin(d) ? Math.max(0, ...W(d).dhcp.scopes.map((s) => ipNum(s.end) - ipNum(s.start) + 1)) : null),
+    'win.dhcpAuth': (d) => isWin(d) && W(d).dhcp.authorized,
+    'win.leases': (d) => (isWin(d) ? W(d).dhcp.scopes.reduce((n, s) => n + leasesOf(d, s).length, 0) : null),
+    'win.dir': (d, p) => isWin(d) && !!W(d).dirs[dirKey(p)],
+    // 'share:grupo' → the group's right on that share (Full / Change / Read)
+    'win.shareTo': (d, a) => { const [s, g] = String(a).split(':'); const sh = isWin(d) && W(d).shares[low(s)]; const e = sh && sh.access.find((x) => low(x.who.replace(/^.*\\/, '')) === low(g)); return e ? e.right : null; },
+    // 'path|grupo': the group can modify the folder (explicit or inherited)
+    'win.aclHas': (d, a) => { const [p, g] = String(a).split('|'); return isWin(d) && grantOf(W(d), p, g).some((e) => e.perm === 'M' || e.perm === 'F'); },
+    // 'path|grupo': only that group (and the administrators) — the folder closed to everyone else
+    'win.aclOnly': (d, a) => {
+      const [p, g] = String(a).split('|');
+      if (!isWin(d) || !W(d).dirs[dirKey(p)]) return false;
+      const acl = aclOf(W(d), p);
+      return grantOf(W(d), p, g).some((e) => e.perm === 'M' || e.perm === 'F') && !acl.some((e) => /^(BUILTIN\\Users|Everyone|NT AUTHORITY\\Authenticated Users)$/i.test(e.who)) && acl.some((e) => /Administrators$/i.test(e.who) && e.perm === 'F');
+    },
+    'win.dnsTo': (d, ip) => isWin(d) && W(d).dnsClient[0] === ip,
+    // the domain as the commands write it: DC=corp,DC=datalab,DC=local · CORP
+    'win.dn': (d) => (isWin(d) && W(d).domain ? dn(W(d)) : null),
+    'win.netbios': (d) => (isWin(d) && W(d).domain ? W(d).domain.netbios : null),
+    'win.badUser': (d) => (isWin(d) && W(d).badUser) || null,
+    'win.lockSrc': (d) => (isWin(d) && W(d).lockSrc) || null,
+  });
   // Linux-only faults never hit a Windows server
   for (const k of ['service', 'disk']) { const f = DL.FAULTS[k], was = f.when; f.when = (d) => !isWin(d) && (!was || was(d)); }
 
