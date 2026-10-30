@@ -515,6 +515,7 @@
   // Keys: the menu owns the keyboard while it is up (runs before demo.js' own handler).
   addEventListener('keydown', (ev) => {
     if (root.hidden) return;
+    if (DL.Welcome && DL.Welcome.isOpen) { DL.Welcome.key(ev); return; }
     if (DL.AccountUI && DL.AccountUI.isOpen) { if (ev.code === 'Escape') { DL.AccountUI.close(); ev.preventDefault(); } ev.stopImmediatePropagation(); return; }
     ev.stopImmediatePropagation();
     const typing = document.activeElement && document.activeElement.tagName === 'INPUT';

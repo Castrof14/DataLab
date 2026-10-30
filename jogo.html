@@ -29,6 +29,7 @@
   <link rel="stylesheet" href="assets/css/auth.css">
   <link rel="stylesheet" href="assets/css/spotify.css">
   <link rel="stylesheet" href="assets/css/multiplayer.css">
+  <link rel="stylesheet" href="assets/css/welcome.css">
   <!-- The CSP <meta> above turns off Chrome's preload scanner, so the scripts at the end of <body> would
        download one after another (~45 round trips). Listing them here fetches them all at once; they
        still run in the same order. Keep this list in step with the <script> tags below. -->
@@ -90,6 +91,7 @@
   <link rel="preload" href="assets/js/services/net-service.js" as="script">
   <link rel="preload" href="assets/js/multiplayer.js" as="script">
   <link rel="preload" href="assets/js/lobby.js" as="script">
+  <link rel="preload" href="assets/js/welcome.js" as="script">
   <style>
     /* loading cover: the landing's last frame (index.html: CARREGANDO + a full bar) stays on screen until
        auth-gate.js shows the login or the menu; it hides itself after 15 s in case something failed */
@@ -541,6 +543,10 @@
       </div>
     </div>
 
+    <div class="overlay overlay--welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" aria-hidden="true" hidden>
+      <div class="welcome"></div>
+    </div>
+
     <div class="overlay" id="mpDialog" role="dialog" aria-modal="true" aria-label="Sala multijogador">
       <div class="card card--modal card--narrow" id="mpDialogBody"></div>
     </div>
@@ -724,5 +730,6 @@
   <script src="assets/js/services/net-service.js"></script>
   <script src="assets/js/multiplayer.js"></script>
   <script src="assets/js/lobby.js"></script>
+  <script src="assets/js/welcome.js"></script>
 </body>
 </html>
