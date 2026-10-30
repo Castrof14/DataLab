@@ -5,7 +5,7 @@
    Os comandos vêm da mesma definição usada nas dicas e na ajuda: step.cmd (com a porta / IP / nome reais
    da instância) ou, sem ele, os exemplos das chaves de help do passo, em ordem.
    Carregado pelo jogo.html só em desenvolvimento (localhost / file:// ou ?dev=1, lembrado; ?dev=0 desliga)
-   e fora do deploy (.vercelignore). Aparece ao lado de "Precisa de ajuda?" quando há um cenário aberto.
+   e no site publicado só com ?dev=1. Aparece ao lado de "Precisa de ajuda?" quando há um cenário aberto.
    Para remover: apague assets/js/dev/ e as linhas marcadas DEV-AUTOPLAY. */
 (function () {
   'use strict';
