@@ -32,7 +32,7 @@ function walk(c, id) {
   if (c.not) walk(c.not, id);
   if (c.state && !states.has(c.state)) fail(id, 'estado desconhecido ' + c.state);
 }
-const okVar = (s) => /^(max|sum):/.test(s) ? states.has(s.split(':')[1]) : /^(ips|faulty\w*|faultRole)(:|$)/.test(s) || states.has(s.split(/[:@]/)[0]);
+const okVar = (s) => /^(max|maxRole|sum):/.test(s) ? states.has(s.split(':')[1]) : /^(ips|faulty\w*|faultRole)(:|$)/.test(s) || states.has(s.split(/[:@]/)[0]);
 for (const p of D.problems.filter((x) => inRank(x))) {
   for (const s of p.steps || []) {
     for (const k of s.help || []) if (!HELP[k]) fail(p.id, 'ajuda desconhecida ' + k);
@@ -66,7 +66,7 @@ function makeWorld() {
   return { W, H, roomAt: new Array(W * H).fill(0), rooms: [{ id: 'room1' }], items: [
     rack('RACK-A01', 2, ['switch', 'server', 'server', 'server', 'server', 'server'], ['sw_24poe']),
     rack('RACK-A02', 4, ['server', 'server', 'server']),
-    rack('RACK-A03', 6, ['switch', 'server', 'server', 'server']),
+    rack('RACK-A03', 6, ['switch', 'server', 'server', 'server', 'server'], [null, null, null, null, 'srv_gpu']),
   ].concat([0, 1, 2, 3].map((i) => ({ kind: 'desk', defId: 'desk', tx: 10 + i * 2, ty: 8 }))) };
 }
 function setup() {
@@ -155,9 +155,18 @@ function act(env, s, d, p) {
     const why = infra.createVm({ node: node.key, name: 'vm-' + svc + '-' + Math.floor(Math.random() * 1e4), svc, cores: 2, ram: 4, disk: 20 }); settle();
     return why || 'criou uma VM ' + svc;
   }
+  // VMs by name: the test ones shut down, the old ones removed
+  if (arg('vmsNamed')) {
+    const pre = arg('vmsNamed').split(':')[0];
+    settle();
+    for (const v of infra.vms.filter((q) => q.name.indexOf(pre) === 0)) { if (v.status === 'running') infra.act(v, 'shutdown'); }
+    settle();
+    if (/:"?,"eq":0|antigo:"/.test(chk) && pre === 'antigo') for (const v of infra.vms.filter((q) => q.name.indexOf(pre) === 0)) infra.act(v, 'remove');
+    return 'mexeu nas VMs ' + pre + '-*';
+  }
   if (/node\.alloc/.test(chk)) { settle(); for (const v of infra.vms.filter((q) => q.node === d.key && /^carga/.test(q.name))) infra.act(v, 'shutdown'); settle(); return 'desligou as VMs de carga'; }
   // Equipe: orders
-  if (arg('ordersSince')) { sys.crew.assignedCount += 2; return 'deu ordens à equipe'; }
+  if (arg('ordersSince')) { sys.crew.assignedCount += 3; return 'deu ordens à equipe'; }
   // a VLAN on the newest switch, through its console
   if (arg('vlan.any')) {
     const [id, nm] = arg('vlan.any').split(':'), sw = ops.devices().filter((q) => q.kind === 'switch').pop();
@@ -166,7 +175,7 @@ function act(env, s, d, p) {
   }
   if (s.action === 'build') {
     const m = /"state":"(items|devs)","arg":"([^"]+)"/.exec(chk);
-    if (m && m[1] === 'items') { const id = m[2].split(',')[0]; world.items.push({ kind: id, defId: id, powered: true }); return 'construiu ' + id; }
+    if (m && m[1] === 'items') { const id = m[2].split(',')[0]; world.items.push({ kind: id, defId: id, powered: true, tx: 1, ty: 1 }); return 'construiu ' + id; }
     if (m && m[1] === 'devs') {
       const r = world.items.find((e) => e.kind === 'rack' && e.units.indexOf(null) >= 0); const k = r.units.indexOf(null);
       r.units[k] = /^srv/.test(m[2]) ? 'server' : 'switch'; r.unitModel[k] = m[2]; ops.sync(); return 'instalou ' + m[2];

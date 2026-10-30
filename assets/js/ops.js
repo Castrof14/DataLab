@@ -82,6 +82,10 @@
     porttrunk: { problem: true, loss: 'port', kinds: ['switch'], short: 'Porta de servidor em trunk', msg: (d) => 'Servidor ligado no ' + d.name + ' fora da rede (porta ' + String(d.sw.vport).replace('gi', 'Gi') + ')',
       apply: (d, o) => { const s = DL.swVlans(d.sw), p = o && o.port; if (!p) return; s.pmode[p] = 'trunk'; s.trunk[p] = [10, 99]; s.vport = p; },
       fixed: (d) => !d.sw.vport || !d.sw.pmode || d.sw.pmode[d.sw.vport] !== 'trunk', fix: (d) => { if (d.sw.vport) { d.sw.pmode[d.sw.vport] = 'access'; delete d.sw.trunk[d.sw.vport]; } } },
+    // a server's port forced to 100 Mb/s half duplex: slow, with errors piling up (ethtool, ip -s link)
+    duplex: { problem: true, kinds: ['switch'], short: 'Porta com duplex errado', msg: (d) => 'Servidor ligado no ' + d.name + ' lento e com erros de rede',
+      apply: (d, o) => { const p = o && o.port; if (!p) return; d.sw.speed = d.sw.speed || {}; d.sw.duplex = d.sw.duplex || {}; d.sw.speed[p] = 100; d.sw.duplex[p] = 'half'; d.sw.dport = p; },
+      fixed: (d) => !d.sw.dport || (!(d.sw.duplex || {})[d.sw.dport] && !(d.sw.speed || {})[d.sw.dport]), fix: (d) => { if (d.sw.dport) { delete d.sw.duplex[d.sw.dport]; delete d.sw.speed[d.sw.dport]; } } },
     // the firewall turned on letting only SSH in: the site is unreachable from outside
     fwblock: { problem: true, loss: 'service', kinds: ['server'], when: linux, short: 'Firewall bloqueando o site', msg: (d) => 'Site do ' + d.name + ' fora do ar para os clientes',
       apply: (d) => { DL.linuxSys(d).fw = { on: true, rules: [{ act: 'allow', port: '22' }] }; },
@@ -389,7 +393,8 @@
       // the address the server answers on has to be its own (a wrong IP can't reach the gateway's network)
       if (!e0.ips.some((ip) => ip.split('.').slice(0, 3).join('.') === '10.0.1')) return { ok: false, msg: 'connect: Network is unreachable', hint: 'o IP da eth0 não é da rede 10.0.1.0/24 — veja ip addr' };
       if (host === GW || host === '8.8.8.8' || host === '1.1.1.1') return { ok: true };
-      const o = devices().find((x) => x.ip === host);
+      // a device's own address, or an extra one it carries (a virtual IP that moves between servers)
+      const o = devices().find((x) => x.ip === host) || devices().find((x) => x.kind === 'server' && x.os && x.os.ifaces.eth0.ips.indexOf(host + '/24') >= 0 && health(x).up);
       if (o) return { ok: o.state === 'online' && health(o).up, hint: !health(o).up ? o.name + ' está fora do ar' : null };
       return { ok: false, msg: 'From ' + e0.ips[0].split('/')[0] + ' icmp_seq=1 Destination Host Unreachable' };
     }

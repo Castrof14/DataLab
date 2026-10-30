@@ -6,8 +6,8 @@ Os 180 problemas novos: 20 para cada patente, de Júnior I a Tech Lead. Eles seg
 - **Fase 1 (Júnior I a III) está implementada.** Os 60 problemas estão em `problems-data.js` e no `seed_scenarios.sql`.
 - **Fase 2 (Pleno I a III) está implementada** (31/10/2026). São mais 60 problemas, testados de ponta a ponta com `node tests/sim-problems.js`.
 - **Fase 3 (Sênior) está implementada** (31/10/2026): 20 problemas e os comandos novos de switch e Linux.
+- **Fase 4 (Especialista e Tech Lead) está implementada** (31/10/2026): 40 problemas e os comandos de diagnóstico avançado. Com ela, as 200 missões estão prontas.
 - As tabelas abaixo mostram a versão implementada. Onde ela mudou em relação à proposta, a linha diz **(mudou)** e explica o motivo.
-- Fase 4 (Especialista e Tech Lead): só a proposta, ainda não programada.
 
 Decisões que valem para este documento:
 - O jogo continua com **10 níveis**: a Trainee segue dentro do Estagiário.
@@ -248,83 +248,77 @@ Missão: *expandir o terreno e resolver mais 5 problemas* · Libera: switch 25G,
 ## 9 · Especialista — desempenho, confiabilidade e custo
 Missão: *fechar 3 meses com caixa positivo* · Libera: servidor GPU (IA).
 
-**Comandos novos**
-- **Processos**: `top` / `ps aux`, `kill`.
+**Comandos novos (implementados)**
+- **Processos**: `top`, `ps aux --sort=-%cpu|-%mem`, `kill` / `pkill`. A carga do `uptime` passa a vir dos processos.
 - **Logs**: `journalctl -u <serviço> --since`, `dmesg`.
-- **Discos**: `cat /proc/mdstat`, `mdadm --add`, `smartctl -H`.
-- **Certificados**: `openssl x509 -enddate`, `certbot renew`.
-- **nginx e rede**: `nginx -t`, `ip -s link`, `ethtool`.
-- **Hardware e banco**: `nvidia-smi`, `psql -c`, `pg_dump`, `traceroute`.
-- **Switch**: `speed` / `duplex`.
+- **Discos**: `cat /proc/mdstat`, `mdadm --detail/--fail/--remove/--add` (a reconstrução leva uns 20 segundos), `smartctl -H`.
+- **Certificados**: `openssl x509 -enddate`, `certbot certificates/renew`, `systemctl reload`.
+- **Configuração**: `nginx -t`, `sed -i 's/…/…/'`, `cp`.
+- **Rede**: `ethtool`, `ip -s link`, `traceroute`, `ping` por nome (usa o DNS do `/etc/resolv.conf`), `ss -tn`. No switch: `speed` / `duplex`.
+- **Hardware e banco**: `nvidia-smi` (e `-pl`), `sudo -u postgres psql -c "…"`, `pg_dump app > arquivo`, `psql app < arquivo`, `tar xzf … -C /`, `timedatectl`.
 
 | # | Problema | Dif | XP | Onde | O que o jogador faz |
 |---|---|---|---|---|---|
-| 1 | CPU em 100% | 5 | 200 | Linux | `top`, acha o processo descontrolado, `kill`. |
-| 2 | Morto por falta de memória | 5 | 210 | Linux | `dmesg` mostra o OOM: responde o processo e reinicia o serviço. |
-| 3 | RAID degradado | 5 | 240 | Linux + Construir | `mdstat` mostra [U_]: troca o disco e faz o `mdadm --add`. |
-| 4 | Disco morrendo | 5 | 220 | Linux + Construir | `smartctl -H` mostra FAILING: troca o disco antes que ele quebre. |
-| 5 | Certificado vencendo | 5 | 200 | Linux | Responde em quantos dias vence, renova com `certbot renew` e recarrega o nginx. |
-| 6 | nginx não sobe depois da mudança | 5 | 210 | Linux | `nginx -t` mostra a linha errada: volta a configuração anterior e reinicia. |
-| 7 | Link lento | 5 | 220 | 2 consoles | `ethtool` mostra 100 Mb half-duplex: põe a porta do switch em auto. |
-| 8 | Erros na interface | 5 | 200 | Linux + Construir | Os erros no `ip -s link` só crescem: troca o cabo. |
-| 9 | Servidor de IA | 5 | 240 | Construir + Infra | GPU, ar de precisão e especialização IA; confere com `nvidia-smi`. |
-| 10 | GPU a 90 °C | 5 | 220 | Linux + Construir | `nvidia-smi` mostra a temperatura alta: melhora a refrigeração. |
-| 11 | Banco recusando conexões | 5 | 220 | Linux | `psql` conta as conexões abertas: responde o número e reinicia a aplicação. |
-| 12 | Backup antes da migração | 5 | 200 | Linux | `pg_dump` e confere o arquivo. |
-| 13 | Apagaram um arquivo | 5 | 200 | Linux | Restaura do backup tar. |
-| 14 | Conta de luz | 5 | 180 | Economia | Responde qual sala gasta mais e desliga os servidores ociosos. |
-| 15 | Servidores ociosos | 5 | 220 | Infra | Consolida 3 servidores parados em VMs. |
-| 16 | SLA do cliente | 5 | 180 | Monitor | Responde a disponibilidade (%) do mês. |
-| 17 | Planejamento do trimestre | 5 | 200 | Infra | Responde quantos servidores faltam para X clientes. |
-| 18 | Erro da aplicação | 5 | 200 | Linux | `journalctl -u app --since` e responde o código do erro. |
-| 19 | Onde o pacote para? | 5 | 210 | Linux | `traceroute` e responde o salto que falha. |
-| 20 | Corrente de falhas | 5 | 260 | 3 consoles | Disco do banco cheio → banco parado → ERP fora. Responde a causa raiz e resolve na ordem certa. |
+| 1 | CPU em 100% | 5 | 200 | Linux | `top`, responde o PID do processo descontrolado, `kill` e confere a carga. |
+| 2 | A aplicação sumiu | 5 | 210 | Linux | `dmesg` mostra o OOM killer: responde o processo (java), reinicia e confere o `journalctl -u app`. |
+| 3 | RAID degradado **(mudou)** | 5 | 240 | Linux | `mdstat` mostra [U_]: responde a partição com falha, tira do RAID e põe o disco reserva (sdc1). O servidor já tem um disco reserva, então não precisa construir nada. |
+| 4 | Disco morrendo **(mudou)** | 5 | 220 | Linux | `smartctl -H` mostra FAILED: marca como falho, remove e põe o reserva, antes de ele quebrar. Mesmo motivo do nº 3. |
+| 5 | Certificado vencendo | 5 | 200 | Linux | Responde em quantos dias vence, `certbot renew` e `systemctl reload nginx`. |
+| 6 | nginx não volta depois da mudança | 5 | 210 | Linux | `nginx -t` mostra a linha com erro: corrige com `sed` (ou volta o `.bak` com `cp`) e reinicia. |
+| 7 | Link lento | 5 | 220 | 2 consoles | `ethtool` mostra 100 Mb half duplex e o `ip -s link` mostra erros. Põe a porta do switch em `speed auto` / `duplex auto` e salva. |
+| 8 | Vive no swap **(mudou)** | 5 | 200 | Linux | `free -h` e `ps aux --sort=-%mem` mostram o java vazando memória: reinicia a aplicação. Era "erros na interface", que entrou no nº 7. |
+| 9 | Servidor de IA | 5 | 240 | Construir + Infra | Servidor GPU, ar de precisão e especialização IA com tudo o que ela pede. |
+| 10 | GPU a 91 °C **(mudou)** | 5 | 220 | Linux | `nvidia-smi` e limite de potência com `nvidia-smi -pl 250` até ficar abaixo de 80 °C. O ar de precisão já aparece no nº 9. |
+| 11 | Banco recusando conexões | 5 | 220 | Linux | `journalctl -u app` mostra "too many clients"; `psql` conta as conexões (responde) e reinicia a aplicação. |
+| 12 | Backup antes da migração | 5 | 200 | Linux | `pg_dump app > /backup/app.sql`. |
+| 13 | Apagaram a configuração da aplicação | 5 | 200 | Linux | A aplicação não sobe sem o `config.env`: acha o backup de ontem, `tar xzf … -C /` e sobe a aplicação. |
+| 14 | Quem abriu a porta 8080? **(mudou)** | 5 | 200 | Linux | `ss -tlnp` e `ps aux`: responde o usuário que deixou um servidor de arquivos aberto e encerra o processo. "Conta de luz" saiu: o jogo não mostra o consumo por sala de um jeito que dê para conferir. |
+| 15 | O relógio está errado **(mudou)** | 4 | 180 | Linux | `timedatectl` mostra o NTP desligado: `timedatectl set-ntp true`. "Servidores ociosos" saiu porque o Tech Lead nº 15 já trata de VMs paradas. |
+| 16 | Erro da aplicação **(mudou)** | 4 | 200 | Linux | `journalctl -u app --since` e responde o código do erro. Era o nº 18; "SLA do cliente" saiu porque o Monitor não guarda o histórico do mês. |
+| 17 | A internet some no caminho **(mudou)** | 5 | 210 | Linux | `traceroute`: responde o último salto que responde e se o problema é dentro ou na operadora. Era o nº 19; "Planejamento do trimestre" saiu porque não há dados de clientes para conferir. |
+| 18 | Corrente de falhas | 5 | 260 | 2 consoles | O log da aplicação mostra timeout no banco: responde em qual servidor está, libera o disco cheio lá e reinicia a aplicação. |
+| 19 | Carga alta toda hora **(novo)** | 5 | 220 | Linux | `top` cheio de gzip: o cron roda a compactação todo minuto. Corrige para "0 * * * *" e encerra os gzip acumulados. |
+| 20 | Não acha nenhum nome **(novo)** | 4 | 190 | Linux | `ping` por nome falha: o `/etc/resolv.conf` aponta para um DNS que não existe. Corrige com `sed` e testa. |
 
 ## 10 · Tech Lead — incidentes grandes e decisões
 Missão: *ter 15 servidores seus online ao mesmo tempo* · Libera: storage all-flash.
 
-**Comandos novos**
-- **Alta disponibilidade e energia**: IP virtual de failover (`ip addr add` do VIP no reserva), `upsc` (status do nobreak).
-- **Manutenção**: `sshd_config` simplificado e modo manutenção de servidor (tirar do balanceamento).
+**Comandos novos (implementados)**
+- **Alta disponibilidade e energia**: IP virtual (o `ip addr add` de um IP extra num servidor faz o IP responder por ele) e `upsc` (nobreak).
+- **Temperatura e acessos**: `sensors`, `gpasswd -d`.
+- **SSH**: o `/etc/ssh/sshd_config` existe e é corrigido com `sed`.
 
 | # | Problema | Dif | XP | Onde | O que o jogador faz |
 |---|---|---|---|---|---|
-| 1 | Post-mortem | 5 | 240 | Linux | Pelos logs, responde quando começou, a causa e o que resolveu. |
-| 2 | Janela de manutenção | 5 | 260 | 2 consoles + Equipe | Tira um servidor do ar, atualiza e devolve sem derrubar o site. |
-| 3 | Failover do site | 5 | 280 | 2 consoles | O principal caiu: move o IP virtual para o reserva e testa. |
-| 4 | Teste de recuperação de desastre | 5 | 300 | 2 consoles | Restaura o banco do backup no servidor reserva e confere. |
-| 5 | Storage all-flash | 5 | 240 | Construir + Infra | Migra os dados mais acessados para a all-flash. |
-| 6 | Auditoria de acessos | 5 | 260 | Windows + Linux | Responde quais contas estão paradas e quem tem sudo; desabilita as que sobram. |
-| 7 | Quatro alertas, uma pessoa | 5 | 280 | Equipe + consoles | Escolhe o mais crítico para você e delega os outros três. |
-| 8 | Contenção de ransomware | 5 | 300 | Windows | Desabilita a conta, tira o compartilhamento e restaura do backup. |
-| 9 | Pico de tráfego | 5 | 260 | Linux | Bloqueia a faixa de IPs atacante e limita as conexões. |
-| 10 | Troca do switch core | 5 | 300 | 2 consoles | Leva as VLANs e o trunk para o switch novo. |
-| 11 | Auditoria dos 15 | 4 | 220 | Linux | *Automático* ao chegar em 15. Varredura e responde quantos estão online. |
-| 12 | Queda de energia | 5 | 280 | Linux + Infra | `upsc` mostra o nobreak na bateria: desliga primeiro o que não é crítico. |
-| 13 | Ar-condicionado parou | 5 | 260 | Infra | Responde a ordem de desligamento (GPU primeiro) e executa. |
-| 14 | Três contratações | 5 | 260 | Windows + Linux | Contas no AD e no Linux, nos grupos certos. |
-| 15 | Cortar 20% do custo | 5 | 240 | Economia + Infra | Consolida servidores e VMs até atingir a meta. |
-| 16 | Certificados de todos os sites | 5 | 260 | 3 consoles | Renova os certificados em todos os servidores web. |
-| 17 | Atualização sem parar o site | 5 | 300 | 3 consoles | Atualiza um servidor por vez, sempre com o site no ar. |
-| 18 | Backup 3-2-1 | 5 | 240 | Infra | Responde se a regra 3-2-1 está cumprida e completa o que falta. |
-| 19 | Endurecer o SSH | 5 | 260 | Linux | Proíbe login de root no `sshd_config`, reinicia o ssh e testa. |
-| 20 | Crise no datacenter | 5 | 320 | Tudo | Incidente em cadeia que usa rede, servidor, Windows e equipe. |
+| 1 | Post-mortem | 5 | 240 | Linux | Lê o syslog da madrugada e responde o que caiu, a causa raiz e o comando que resolveu. |
+| 2 | Janela de manutenção | 5 | 260 | 2 consoles | Confere que o outro servidor segura o site, atualiza este e devolve com o nginx novo. |
+| 3 | Failover do site | 5 | 280 | 3 consoles | O principal caiu: o reserva assume o IP virtual 10.0.1.250 e um terceiro servidor confirma. |
+| 4 | Teste de recuperação de desastre | 5 | 300 | Linux | Restaura o dump no servidor reserva (`psql app < /backup/app.sql`) e responde quantos pedidos voltaram. |
+| 5 | Storage all-flash **(mudou)** | 5 | 240 | Construir | Instala a all-flash. Não existe "migrar dados" para conferir no jogo. |
+| 6 | Quem tem sudo? **(mudou)** | 5 | 240 | Linux | Responde a conta que sobrou no grupo sudo e tira com `gpasswd -d`. A parte do Windows já existe no Pleno. |
+| 7 | Quatro alertas, uma pessoa | 5 | 280 | Linux + Equipe | Resolve você mesmo o site do maior cliente e dá três ordens para os outros. |
+| 8 | Contenção de ransomware **(mudou)** | 5 | 300 | Windows | O log Security mostra a conta criptografando: responde, desabilita e tira o compartilhamento da rede. A restauração fica com a equipe (não há restauração de arquivos no Windows do jogo). |
+| 9 | Enxurrada de conexões | 5 | 260 | Linux | `ss -tn`: responde a rede /24 do ataque e liga o firewall bloqueando ela, sem derrubar o SSH e o site. |
+| 10 | Troca do switch core | 5 | 300 | 2 consoles | O switch novo recebe as mesmas VLANs e uma porta trunk com 10, 20 e 30, e salva. |
+| 11 | Auditoria dos 15 | 4 | 220 | Linux | Com 15 servidores no ar: varredura e responde quantos estão respondendo. |
+| 12 | Queda de energia **(mudou)** | 5 | 280 | Linux + Infra | `upsc` mostra o nobreak na bateria: responde os minutos que restam e desliga as VMs de teste. |
+| 13 | O ar-condicionado parou **(mudou)** | 5 | 260 | 3 consoles | `sensors` nos três: responde o mais quente e para a aplicação de relatórios nele. Era "desligar GPU primeiro", mas nem todo jogador tem GPU. |
+| 14 | Três engenheiros novos | 5 | 260 | Windows + Linux | OU Engenharia com três contas no AD e as mesmas três no Linux, no grupo deploy. |
+| 15 | Cortar custo: VMs esquecidas **(mudou)** | 4 | 240 | Infra | Remove três VMs paradas há semanas. "Cortar 20%" não teria como ser conferido. |
+| 16 | Certificados de todos os sites | 5 | 260 | 3 consoles | Renova e recarrega o certificado em três servidores web. |
+| 17 | Atualizar os dois sem parar o site | 5 | 300 | 2 consoles | Um de cada vez: o problema confere que o outro estava no ar enquanto um atualizava. |
+| 18 | Backup 3-2-1 | 5 | 240 | 2 consoles + Construir | Cópia local (`tar`), cópia em outro servidor (`rsync`) e cópia fora do prédio (biblioteca de fitas). |
+| 19 | Endurecer o SSH | 5 | 260 | Linux | `PermitRootLogin no` e `PasswordAuthentication no` com `sed`, e reinicia o ssh. |
+| 20 | Crise no datacenter | 5 | 320 | 4 consoles | DNS do domínio parado, site caído por disco cheio e servidor fora por porta em erro: resolve tudo. |
 
 ---
 
-## Ordem de implementação proposta
+## Como as fases foram feitas
 
-Você aprova cada fase antes de eu começar a seguinte.
-
-1. **Fase 1: Júnior I a III** (60 problemas). Sem comandos novos. São cerca de 12 cenários novos (IP errado, rota errada, ssh parado, duas portas em erro, porta desligada, link instável, hostname duplicado, IP extra, nginx que não sobe com o disco cheio…) e sondas de construção (estação, câmera, AP, placa perfurada, NAS, PDU).
-2. **Fase 2: Pleno I a III** (60). Sem comandos novos. Cenários com causa sorteada, cenários no Windows (conta bloqueada, DNS parado, escopo sem gateway, pasta aberta) e sondas de Infra, VMs, equipe e turnos.
-3. **Fase 3: Sênior** (20). VLAN no switch e o pacote Linux de usuários, pacotes, firewall e backup.
-4. **Fase 4: Especialista e Tech Lead** (40). Processos, discos, certificados, banco e alta disponibilidade.
-
-Em toda fase entram também:
+As quatro fases estão implementadas. Em cada uma entraram:
 - os dados em `problems-data.js`;
 - o seed do Supabase (`seed_scenarios.sql`) e o `datalab_full.sql`;
-- o XP de cada patente na tabela `ranks`;
+- o XP de cada patente na tabela de ranks;
 - o botão Auto funcionando nos problemas novos.
 
-Itens marcados com ⚠ dependem de algo que eu ainda preciso conferir no jogo. Se não existir, troco o problema por outro do mesmo tema.
+O teste `node tests/sim-problems.js` resolve todos os problemas de ponta a ponta num datacenter de mentira. Rode depois de qualquer mudança nos problemas, no terminal ou nas falhas.

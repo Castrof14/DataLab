@@ -1659,6 +1659,15 @@
     },
     // the audit team needs to read the Financeiro share
     audit: (d) => { SETUP.finOpen(d); addGroup(W(d), 'Auditoria'); },
+    // a compromised account encrypting the Financeiro share (Security log: thousands of changes)
+    ransom: (d, c) => {
+      const w = W(d);
+      SETUP.finOpen(d);
+      SETUP.users(d);
+      w.ransomUser = c.vars.who || pick(['ana.souza', 'bruno.alves', 'carla.mendes']);
+      event(w, 'Security', 4624, 'Information', 'Logon da conta ' + w.ransomUser + ' a partir de 10.0.1.' + (100 + Math.floor(rand() * 50)) + '.');
+      for (let i = 0; i < 3; i++) event(w, 'Security', 4663, 'Information', 'A conta ' + w.ransomUser + ' modificou ' + (900 + Math.floor(rand() * 400)) + ' arquivos em C:\\Dados\\Financeiro (extensão nova: .locked).');
+    },
   };
   // name: a setup above (or a list of them) · ctx: { devs: the devices of the problem, vars: what a save kept }
   DL.winSetup = function (d, name, ctx) {
@@ -1710,6 +1719,8 @@
     'win.dn': (d) => (isWin(d) && W(d).domain ? dn(W(d)) : null),
     'win.netbios': (d) => (isWin(d) && W(d).domain ? W(d).domain.netbios : null),
     'win.badUser': (d) => (isWin(d) && W(d).badUser) || null,
+    'win.ransomUser': (d) => (isWin(d) && W(d).ransomUser) || null,
+    'win.share': (d, n) => isWin(d) && !!W(d).shares[low(n)],
     'win.lockSrc': (d) => (isWin(d) && W(d).lockSrc) || null,
   });
   // Linux-only faults never hit a Windows server

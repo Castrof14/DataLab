@@ -20,6 +20,7 @@
   const upNow = (d) => !!OPS && d.kind === 'server' && d.state === 'online' && !d.fault && OPS.health(d).up;
   // the Linux parts of a server (terminal.js), null on Windows / switches
   const lx = (d) => (d && d.kind === 'server' && d.os && !(DL.isWin && DL.isWin(d)) && DL.linuxSys ? DL.linuxSys(d) : null);
+  const dp = (d) => (lx(d) && DL.linuxDeep ? DL.linuxDeep(d) : null);
   const low = (s) => String(s == null ? '' : s).toLowerCase();
   const win = (d) => (d && d.os && d.os.win) || null;
   const ipCmp = (a, b) => +a.split('.').pop() - +b.split('.').pop();
@@ -157,6 +158,37 @@
     'cron.has': (d, script) => !!lx(d) && lx(d).cron.some((x) => x.indexOf(script) >= 0),
     // the IP a leaked account logged in from
     'auth.leak': (d) => (d.os && d.os.leakIp) || null,
+    // Especialista / Tech Lead (terminal.js DL.linuxDeep): processes · RAID · disks · certificate · nginx config ·
+    // memory · GPU · database · files · clock · app errors · route · temperatures · UPS
+    'proc.count': (d, txt) => (dp(d) ? dp(d).procs.filter((p) => p.cmd.indexOf(txt) >= 0).length : null),
+    'proc.top': (d) => { const o = dp(d); if (!o) return null; const p = o.procs.slice().sort((x, y) => y.cpu - x.cpu)[0]; return p ? p.pid : null; },
+    'raid.state': (d) => (dp(d) ? DL.raidState(d) : null),
+    'raid.has': (d, disk) => !!dp(d) && ['active', 'rebuilding'].indexOf(dp(d).raid.devs[disk]) >= 0,
+    // the disk is still part of the array (active, faulty or rebuilding)
+    'raid.in': (d, disk) => !!dp(d) && !!dp(d).raid.devs[disk],
+    'raid.bad': (d) => { const o = dp(d); return o ? Object.keys(o.raid.devs).find((k) => o.raid.devs[k] === 'faulty') || null : null; },
+    'smart.bad': (d) => { const o = dp(d); return o ? Object.keys(o.smart).find((k) => o.smart[k] !== 'PASSED') || null : null; },
+    'cert.days': (d) => (dp(d) ? Math.floor((dp(d).cert.until - Date.now()) / 86400000) : null),
+    // renewed (more than 30 days left) and loaded by nginx
+    'cert.live': (d) => !!dp(d) && dp(d).cert.live && dp(d).cert.until - Date.now() > 30 * 86400000,
+    'nginx.conf': (d) => !!dp(d) && !DL.nginxBad(d),
+    'sw.duplexOk': (d, p) => !!d.sw && !(d.sw.duplex && d.sw.duplex[p]) && !(d.sw.speed && d.sw.speed[p]),
+    swap: (d) => (dp(d) ? dp(d).swap || 0 : null),
+    'gpu.temp': (d) => (dp(d) ? dp(d).gpuTemp || 62 : null),
+    'db.conns': (d) => (DL.dbOf && dp(d) && DL.dbOf(d) ? DL.dbOf(d).conns : null),
+    'db.restored': (d) => !!(DL.dbOf && dp(d) && DL.dbOf(d) && DL.dbOf(d).restored),
+    'file.exists': (d, p) => !!dp(d) && !!dp(d).files[p],
+    // 'path|texto': a line of the file has that text
+    'file.has': (d, a) => { const [p, txt] = String(a).split('|'), f = dp(d) && dp(d).files[p]; return !!f && !!f.text && f.text.some((l) => l.indexOf(txt) >= 0); },
+    'ntp.on': (d) => !!dp(d) && dp(d).ntp && !dp(d).clockOff,
+    'app.code': (d) => (dp(d) && dp(d).appCode) || null,
+    // the last hop of traceroute that answers (the provider breaks after it)
+    'trace.last': (d) => { const o = dp(d); return o && o.hopFail ? ['10.0.1.1', '189.45.0.1', '189.45.12.66', '200.230.0.9'][o.hopFail - 2] : null; },
+    'rogue.user': (d) => (dp(d) && dp(d).rogueUser) || null,
+    'cpu.temp': (d) => (dp(d) ? dp(d).cpuTemp || 48 : null),
+    'ups.min': (d) => (dp(d) && dp(d).ups ? Math.round(dp(d).ups.runtime / 60) : null),
+    // VMs by name prefix ('prefixo:status', status may be empty)
+    vmsNamed: (x, a) => { const [pre, st] = String(a).split(':'); return INFRA() ? INFRA().vms.filter((v) => v.name.indexOf(pre) === 0 && (!st || v.status === st)).length : null; },
     // switch VLANs (terminal.js DL.swVlans): a VLAN's name · a port's access VLAN · its mode · a trunk carries a VLAN ('porta:vlan')
     'sw.vlan': (d, id) => (d.sw && d.sw.vlans ? d.sw.vlans[id] || null : null),
     'sw.portVlan': (d, p) => (d.sw ? (d.sw.pvlan && d.sw.pvlan[p]) || 10 : null),
@@ -265,11 +297,14 @@
   }
   function readVar(spec, x, devs) {
     const all = (devs ? Object.values(devs) : [x]).filter((d) => d && d.kind !== 'rack');
-    let m = /^(max|sum):([\w.]+)$/.exec(spec);
+    let m = /^(max|maxRole|sum):([\w.]+)$/.exec(spec);
     if (m) {
+      // max: the name of the device with the highest value · maxRole: its role in the problem (for check.at)
       const p = PROBES[m[2]], vals = p ? all.map((d) => [d, p(d)]).filter(([, v]) => typeof v === 'number') : [];
       if (!vals.length) return null;
-      return m[1] === 'sum' ? vals.reduce((a, [, v]) => a + v, 0) : vals.sort((a, b) => b[1] - a[1])[0][0].name;
+      if (m[1] === 'sum') return vals.reduce((a, [, v]) => a + v, 0);
+      const top = vals.sort((a, b) => b[1] - a[1])[0][0], by = devs || { dev: x };
+      return m[1] === 'max' ? top.name : Object.keys(by).find((r) => by[r] === top) || null;
     }
     if ((m = /^ips:([\w,]+)$/.exec(spec))) return m[1].split(',').map((r) => devs && devs[r]).filter(Boolean).map((d) => d.ip).sort(ipCmp).join(', ');
     if ((m = /^faulty(Role|Kind)?(?::(\w+))?$/.exec(spec))) {
@@ -458,6 +493,8 @@
       webNoDns: () => !!INFRA() && ops.devices().some((d) => d.svc === 'web' && upNow(d)) && !INFRA().provided('dns'),
       // eight servers up at the same time (the Pleno II mission)
       eight: () => ops.devices().filter(upNow).length >= 8,
+      // fifteen (the Tech Lead mission)
+      fifteen: () => ops.devices().filter(upNow).length >= 15,
     };
 
     /* ---------- the equipment a problem happens on ---------- */
@@ -475,8 +512,9 @@
       if (t.noGroup && win(x) && win(x).groups[low(t.noGroup)]) return false;
       if (t.noRr && win(x) && win(x).domain) { const z = win(x).zones[low(win(x).domain.name)]; if (z && z.records.some((r) => r.name === low(t.noRr))) return false; }
       if (t.noShare && win(x) && win(x).shares[low(t.noShare)]) return false;
-      // a server with this specialisation (infra.js)
+      // a server with this specialisation (infra.js) · with a GPU
       if (t.svc && x.svc !== t.svc) return false;
+      if (t.gpu && !(DL.isGpu && DL.isGpu(x))) return false;
       if (t.own && x.pre) return false;
       if (t.healthy && (x.fault || x.broken || x.out || x.state !== 'online' || !ops.health(x).up)) return false;
       if (t.web && !(x.os && x.os.services.nginx === 'active')) return false;
@@ -569,7 +607,22 @@
       // a quiet log with a known last login
       if (s.authlog === 'logins' && x.os && DL.authLogins) DL.authLogins(x, v.last);
       // the Linux server's accounts, files, packages, cron, firewall (terminal.js DL.linuxSetup)
-      if (s.linux && !(DL.linuxSetup && DL.linuxSetup(x, s.linux, { vars: v }))) return false;
+      if (s.linux && !(DL.linuxSetup && DL.linuxSetup(x, s.linux, { vars: v, devs }))) return false;
+      // the same on other servers of the problem (linuxOn: roles)
+      if (s.linuxOn) for (const r of [].concat(s.linuxOn)) if (devs[r] && devs[r] !== x && DL.linuxSetup) DL.linuxSetup(devs[r], s.linuxOn2 || s.linux, { vars: v, devs });
+      // a hot room: each server of the problem at its own temperature, one clearly the hottest (vars.top)
+      if (s.hotOn && DL.linuxSetup) {
+        const list = [].concat(s.hotOn).map((r) => devs[r]).filter(Boolean), top = (v.top && list.find((q) => q.name === v.top)) || pick(list), rest = [84, 79, 76];
+        let i = 0;
+        for (const q of list) DL.linuxSetup(q, 'hot', { vars: v, temp: q === top ? 91 : rest[i++] });
+      }
+      // VMs on the first virtualization node: test ones running (vms: 'teste') or old ones stopped for weeks ('antigo')
+      if (s.vms) {
+        const I = INFRA(), node = I && I.readyNodes()[0];
+        if (!node) return false;
+        const run = s.vms === 'teste';
+        for (let k = 1; k <= (run ? 2 : 3); k++) if (!I.vms.some((q) => q.name === s.vms + '-' + k)) I.createVm({ node: node.key, name: s.vms + '-' + k, svc: 'web', cores: 1, ram: 2, disk: 16, start: run });
+      }
       // a port description changed after the last save of the switch configuration
       // unsaved2: on every switch of the problem
       if ((s.swconfig === 'unsaved' || s.swconfig === 'unsaved2') && x.sw) {
@@ -578,6 +631,8 @@
           sw.sw.unsavedPort = (sw === x && v.port) || pick(Array.from(sw.sw.linked || []).filter((q) => q !== 'te1')) || null;
         }
       }
+      // the old core switch's VLANs (the new one has to get the same)
+      if (s.swcore && x.sw && DL.swVlans) { const sv = DL.swVlans(x.sw); sv.vlans[20] = 'SERVIDORES'; sv.vlans[30] = 'CAMERAS'; }
       // a virtualization node with its RAM nearly all promised to two VMs
       if (s.vmload) {
         const I = INFRA();

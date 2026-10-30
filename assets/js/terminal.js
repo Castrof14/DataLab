@@ -73,6 +73,34 @@
     'apt-install': { cmd: 'sudo apt install -y <pacote>', ex: 'sudo apt install -y fail2ban', what: 'Instala um pacote (e o serviço dele, se tiver).', when: 'Para acrescentar uma ferramenta ao servidor.' },
     tar: { cmd: 'sudo tar czf <arquivo.tar.gz> <pasta>', ex: 'sudo tar czf /backup/etc.tar.gz /etc', what: 'Junta e comprime uma pasta num arquivo só (c criar, z comprimir, f arquivo). tar tzf lista o que tem dentro.', when: 'Para fazer backup de configurações antes de mexer.' },
     rsync: { cmd: 'rsync -a <origem>/ <usuário>@<ip>:<pasta>/', ex: 'rsync -a /var/www/ backup@10.0.1.12:/srv/backup/www/', what: 'Copia uma pasta para outro servidor pela rede, mandando só o que mudou (-a mantém permissões e datas).', when: 'Para manter uma cópia do site ou dos dados em outro servidor.' },
+    // Linux: Especialista / Tech Lead
+    ps: { cmd: 'ps aux --sort=-%cpu', ex: 'ps aux --sort=-%cpu\nps aux --sort=-%mem', what: 'Lista os processos com dono, PID, %CPU e %MEM. --sort=-%cpu põe quem mais gasta em cima.', when: 'Servidor lento: descubra quem está comendo CPU ou memória.' },
+    top: { cmd: 'top', ex: 'top', what: 'Uma foto do servidor: carga (load average), swap e os processos que mais usam CPU.', when: 'Primeira olhada num servidor lento.' },
+    kill: { cmd: 'sudo kill <pid>', ex: 'sudo kill 4242', what: 'Encerra um processo pelo número (PID). pkill <nome> encerra pelo nome.', when: 'Processo travado ou descontrolado (confirme antes que não é algo importante).' },
+    dmesg: { cmd: 'sudo dmesg', ex: 'sudo dmesg | grep -i memory', what: 'As mensagens do kernel: discos, rede, e quando o sistema mata processos por falta de memória (Out of memory).', when: 'Um serviço sumiu sem deixar erro no próprio log.' },
+    'journalctl-u': { cmd: 'journalctl -u <serviço> --since "1 hour ago"', ex: 'journalctl -u app --since "1 hour ago"', what: 'O log de um serviço só (no padrão do systemd).', when: 'Para ver por que uma aplicação falhou e com qual erro.' },
+    mdstat: { cmd: 'cat /proc/mdstat', ex: 'cat /proc/mdstat\nsudo mdadm --detail /dev/md0', what: 'O estado do RAID por software: [UU] = os dois discos bons, [U_] = um faltando, (F) = disco com falha.', when: 'Alerta de disco, ou antes de mexer nos discos.' },
+    mdadm: { cmd: 'sudo mdadm /dev/md0 --fail|--remove|--add /dev/sdX1', ex: 'sudo mdadm /dev/md0 --fail /dev/sdb1\nsudo mdadm /dev/md0 --remove /dev/sdb1\nsudo mdadm /dev/md0 --add /dev/sdc1', what: 'Gerencia o RAID: marca um disco como falho, tira do conjunto e põe outro no lugar (ele é reconstruído).', when: 'Para trocar um disco com defeito sem desligar o servidor.' },
+    smartctl: { cmd: 'sudo smartctl -H /dev/sdX', ex: 'sudo smartctl -H /dev/sdb', what: 'Pergunta ao próprio disco como ele está (SMART): PASSED ou FAILED.', when: 'Para trocar um disco ANTES de ele morrer.' },
+    'openssl-cert': { cmd: 'openssl x509 -enddate -noout -in <certificado>', ex: 'openssl x509 -enddate -noout -in /etc/letsencrypt/live/site/cert.pem', what: 'Mostra a data em que o certificado vence (notAfter).', when: 'Antes que o navegador dos clientes mostre "conexão não segura".' },
+    certbot: { cmd: 'sudo certbot certificates · sudo certbot renew', ex: 'sudo certbot certificates\nsudo certbot renew', what: 'certificates lista os certificados e quantos dias faltam; renew renova os que vencem em menos de 30 dias.', when: 'Certificado perto de vencer. Depois recarregue o nginx.' },
+    reload: { cmd: 'sudo systemctl reload <serviço>', ex: 'sudo systemctl reload nginx', what: 'Faz o serviço reler a configuração (e certificados) sem derrubar as conexões.', when: 'Depois de renovar um certificado ou mudar uma configuração.' },
+    'nginx-t': { cmd: 'sudo nginx -t', ex: 'sudo nginx -t', what: 'Testa a configuração do nginx e diz o arquivo e a linha do erro.', when: 'Sempre antes de reiniciar o nginx depois de uma mudança.' },
+    sed: { cmd: "sudo sed -i 's/velho/novo/' <arquivo>", ex: "sudo sed -i 's/server_nmae/server_name/' /etc/nginx/sites-enabled/site", what: 'Troca um texto dentro de um arquivo, direto (-i). Com g no fim, troca todas as vezes na linha.', when: 'Para corrigir uma linha de configuração sem editor.' },
+    cp: { cmd: 'sudo cp <origem> <destino>', ex: 'sudo cp /etc/nginx/sites-enabled/site.bak /etc/nginx/sites-enabled/site', what: 'Copia um arquivo (por cima do destino, se ele existir).', when: 'Para voltar uma configuração a partir da cópia de segurança (.bak).' },
+    ethtool: { cmd: 'ethtool eth0', ex: 'ethtool eth0', what: 'Mostra a velocidade e o duplex da placa de rede. Half duplex ou 100Mb/s numa placa de 1 Gb/s = algo forçado no switch.', when: 'Servidor lento na rede, com erros.' },
+    'ip-stats': { cmd: 'ip -s link', ex: 'ip -s link', what: 'Os contadores da placa: pacotes, erros e colisões. Erros subindo = problema físico ou de duplex.', when: 'Rede lenta ou instável.' },
+    'sw-duplex': { cmd: 'speed auto · duplex auto', ex: 'interface gi0/5\nspeed auto\nduplex auto', what: 'Na porta do switch (config-if), volta velocidade e duplex para o automático (o servidor e o switch combinam o melhor).', when: 'Quando alguém forçou 100 Mb/s ou half duplex na porta de um servidor.' },
+    'nvidia-smi': { cmd: 'nvidia-smi', ex: 'nvidia-smi\nsudo nvidia-smi -pl 250', what: 'Mostra a GPU: temperatura, consumo e uso. -pl limita a potência (em watts): menos calor, um pouco menos de desempenho.', when: 'Servidor de IA esquentando.' },
+    psql: { cmd: 'sudo -u postgres psql -c "<consulta>"', ex: 'sudo -u postgres psql -c "select count(*) from pg_stat_activity;"', what: 'Roda uma consulta no PostgreSQL como o usuário do banco. pg_stat_activity = as conexões abertas.', when: 'Banco lento ou recusando conexões.' },
+    'pg-dump': { cmd: 'sudo -u postgres pg_dump <banco> > <arquivo>', ex: 'sudo -u postgres pg_dump app > /backup/app.sql', what: 'Exporta o banco inteiro para um arquivo. Para restaurar: sudo -u postgres psql app < /backup/app.sql.', when: 'Antes de qualquer mudança no banco.' },
+    traceroute: { cmd: 'traceroute <destino>', ex: 'traceroute 8.8.8.8', what: 'Mostra cada salto (roteador) do caminho até o destino. * * * = o salto não respondeu.', when: 'Para saber se o problema é dentro da empresa ou na operadora.' },
+    'tar-x': { cmd: 'sudo tar xzf <arquivo> -C /', ex: 'sudo tar xzf /backup/etc-ontem.tar.gz -C /', what: 'Extrai um backup feito com tar czf, devolvendo os arquivos aos lugares de origem (-C / = a partir da raiz).', when: 'Alguém apagou ou estragou um arquivo de configuração.' },
+    timedatectl: { cmd: 'timedatectl · sudo timedatectl set-ntp true', ex: 'timedatectl\nsudo timedatectl set-ntp true', what: 'Mostra a hora e se ela é sincronizada pela rede (NTP). set-ntp true liga a sincronização.', when: 'Logs com horário errado, certificados "do futuro", login do domínio falhando.' },
+    sensors: { cmd: 'sensors', ex: 'sensors', what: 'As temperaturas da CPU. Acima do "high" o servidor começa a reduzir o desempenho para não queimar.', when: 'Sala quente ou ar-condicionado com problema.' },
+    upsc: { cmd: 'upsc ups', ex: 'upsc ups', what: 'O estado do nobreak: OL = na energia, OB = na bateria; battery.runtime = segundos de bateria que restam.', when: 'Queda de energia: quanto tempo você tem para desligar com segurança.' },
+    gpasswd: { cmd: 'sudo gpasswd -d <usuário> <grupo>', ex: 'sudo gpasswd -d estagio sudo', what: 'Tira a pessoa de um grupo (o contrário do usermod -aG).', when: 'Revisão de acessos: quem não precisa mais de sudo sai do grupo.' },
+    'ss-conn': { cmd: 'ss -tn', ex: 'ss -tn', what: 'As conexões TCP abertas agora, com o IP de quem está conectado.', when: 'Site lento por excesso de acessos: veja de onde eles vêm.' },
     crontab: { cmd: 'crontab -l  ·  echo "<linha>" | crontab -', ex: 'crontab -l\necho "0 2 * * * /usr/local/bin/backup.sh" | crontab -', what: 'O agendador: cada linha é minuto, hora, dia, mês, dia-da-semana e o comando (* = todos). crontab -l mostra; o echo | crontab - grava.', when: 'Para rodar um backup todo dia sem ninguém lembrar.' },
     responder: { cmd: 'responder <valor>', ex: 'responder 10.0.1.25', what: 'Responde a pergunta do passo atual (um IP, uma porta, um número). O campo no painel ao lado faz o mesmo.', when: 'Quando o passo é uma pergunta: rode o comando que mostra a informação, leia a saída e responda.' },
     cabling: { cmd: 'Cabeamento do rack', ex: 'Tarefas → Cabeamento  (ou o botão abaixo)', what: 'Mostra os cabos do rack: azul = ligado e correto, amarelo = incompleto, vermelho = conexão errada, laranja = cabo solto.', when: 'Quando ip link mostra NO-CARRIER: não é configuração, é a camada física (cabo).' },
@@ -249,7 +277,7 @@
     // the app's password file readable by everyone
     openfile: (d) => { const f = sysOf(d).files['/etc/app/config.env']; Object.assign(f, { mode: '644', owner: 'root', group: 'root' }); },
     // the new developer has no account yet
-    nouser: (d) => { delete sysOf(d).users.rafael; },
+    nouser: (d) => { const os = sysOf(d); for (const u of ['rafael', 'lia', 'davi', 'beto']) { delete os.users[u]; delete os.groups[u]; } },
     nofail2ban: (d) => { delete sysOf(d).pkgs.fail2ban; delete d.os.services.fail2ban; },
     fwoff: (d) => { sysOf(d).fw = { on: false, rules: [] }; },
     // the firewall already on, letting SSH and the site in
@@ -267,6 +295,134 @@
     // no archive in /backup yet
     nobackup: (d) => { const os = sysOf(d); for (const k of Object.keys(os.files)) if (k.indexOf('/backup/') === 0) delete os.files[k]; },
   };
+  /* ---- Especialista / Tech Lead: processes, kernel and service logs, RAID, disks' health, certificates, the
+     database, time, temperatures, the UPS (all created on first use, like the rest of sysOf) ---- */
+  function deep(d) {
+    const os = sysOf(d);
+    if (!os.procs) os.procs = [
+      { pid: 1, user: 'root', cpu: 0.0, mem: 0.1, cmd: '/sbin/init' }, { pid: 511, user: 'systemd-resolve', cpu: 0.0, mem: 0.1, cmd: '/lib/systemd/systemd-resolved' },
+      { pid: 640, user: 'root', cpu: 0.0, mem: 0.1, cmd: 'sshd: /usr/sbin/sshd -D' }, { pid: 812, user: 'www-data', cpu: 0.3, mem: 0.4, cmd: 'nginx: worker process' },
+      { pid: 901, user: 'root', cpu: 0.0, mem: 0.0, cmd: '/usr/sbin/cron -f' },
+    ];
+    if (!os.dmesg) os.dmesg = ['[    0.000000] Linux version 6.8.0-45-generic', '[    1.204411] EXT4-fs (sda1): mounted filesystem with ordered data mode', '[    2.871003] e1000e: eth0 NIC Link is Up 1000 Mbps Full Duplex'];
+    if (!os.journal) os.journal = {};
+    if (!os.raid) os.raid = { devs: { sda1: 'active', sdb1: 'active' }, spare: 'sdc1', until: 0 };
+    if (!os.smart) os.smart = { sda: 'PASSED', sdb: 'PASSED', sdc: 'PASSED' };
+    if (!os.cert) os.cert = { path: '/etc/letsencrypt/live/site/cert.pem', until: Date.now() + 61 * 86400000, live: true };
+    if (!os.files['/etc/nginx/sites-enabled/site']) Object.assign(os.files, {
+      '/etc/nginx': dirE(), '/etc/nginx/sites-enabled': dirE(), '/etc/ssh': dirE(),
+      '/etc/nginx/sites-enabled/site': { mode: '644', owner: 'root', group: 'root', size: 268, text: ['server {', '    listen 80;', '    server_name ' + d.name.toLowerCase() + '.datalab.local;', '    root /var/www/html;', '}'] },
+      '/etc/ssh/sshd_config': { mode: '644', owner: 'root', group: 'root', size: 3254, text: ['Port 22', 'PermitRootLogin prohibit-password', 'PasswordAuthentication no', 'UsePAM yes'] },
+      '/etc/resolv.conf': { mode: '644', owner: 'root', group: 'root', size: 64, text: ['nameserver 127.0.0.53', 'options edns0 trust-ad'] },
+    });
+    if (os.ntp == null) os.ntp = true;
+    return os;
+  }
+  DL.linuxDeep = deep;
+  const stampNow = (ago) => stamp(ago);
+  // RAID 1 of sda1 + sdb1 (a rebuild takes ~20 s of real time) → { state, devs }
+  function raidState(os) {
+    const r = os.raid;
+    for (const k of Object.keys(r.devs)) if (r.devs[k] === 'rebuilding' && Date.now() > r.until) r.devs[k] = 'active';
+    const act = Object.values(r.devs).filter((s) => s === 'active').length, reb = Object.values(r.devs).some((s) => s === 'rebuilding');
+    return act >= 2 ? 'clean' : reb ? 'recovering' : 'degraded';
+  }
+  DL.raidState = (d) => raidState(deep(d));
+  const nginxBad = (os) => { const f = os.files && os.files['/etc/nginx/sites-enabled/site']; return !!f && f.text.some((l) => /server_nmae/.test(l)); };
+  DL.nginxBad = (d) => nginxBad(deep(d));
+  const isGpu = (d) => { const m = DL.hwOf ? DL.hwOf(d) : null; return !!m && /gpu/i.test((m.name || '') + (m.cpu || '') + (m.tier || '')); };
+  DL.isGpu = isGpu;
+  // the database of a server specialised as Banco de dados (or set up by a problem)
+  const dbOf = (d) => { const os = deep(d); if (!os.db && (d.svc === 'db' || os.dbReady)) os.db = { conns: 14, max: 100, restored: false }; return os.db || null; };
+  DL.dbOf = dbOf;
+  Object.assign(LSETUP, {
+    // a report script stuck at 100% CPU
+    runaway: (d) => { const os = deep(d); if (!os.procs.some((p) => p.pid === 4242)) os.procs.push({ pid: 4242, user: 'app', cpu: 99.7, mem: 2.1, cmd: 'python3 /opt/relatorios/gerar.py --todos' }); },
+    // the app killed by the kernel for lack of memory
+    oom: (d) => {
+      const os = deep(d);
+      os.services.app = 'failed';
+      os.dmesg.push('[86412.551209] Out of memory: Killed process 3170 (java) total-vm:9216000kB, anon-rss:7340032kB', '[86412.551890] oom_reaper: reaped process 3170 (java), now anon-rss:0kB');
+      os.journal.app = [stampNow(14) + ' ' + os.hostname + ' systemd[1]: app.service: A process of this unit has been killed by the OOM killer.', stampNow(14) + ' ' + os.hostname + ' systemd[1]: app.service: Failed with result \'oom-kill\'.'];
+    },
+    // one RAID disk out · one disk dying (still in the array)
+    raiddeg: (d) => { const os = deep(d); os.raid = { devs: { sda1: 'active', sdb1: 'faulty' }, spare: 'sdc1', until: 0 }; os.smart.sdb = 'FAILED'; os.dmesg.push('[52211.004418] md/raid1:md0: Disk failure on sdb1, disabling device.'); },
+    smartfail: (d) => { const os = deep(d); os.raid = { devs: { sda1: 'active', sdb1: 'active' }, spare: 'sdc1', until: 0 }; os.smart.sdb = 'FAILED'; },
+    // the site's certificate expires in a few days
+    certexp: (d, c) => { const os = deep(d); os.cert = { path: '/etc/letsencrypt/live/site/cert.pem', until: Date.now() + (c.vars.days != null ? +c.vars.days : 3 + rint(0, 4)) * 86400000 + 3600000, live: true }; },
+    // a typo in the site's config: nginx doesn't come back
+    nginxbroken: (d) => {
+      const os = deep(d), f = os.files['/etc/nginx/sites-enabled/site'];
+      os.files['/etc/nginx/sites-enabled/site.bak'] = Object.assign({}, f, { text: f.text.slice() });
+      f.text[2] = '    server_nmae ' + d.name.toLowerCase() + '.datalab.local;';
+      os.services.nginx = 'failed';
+    },
+    // a memory leak: the app eats the RAM and the server swaps
+    swapleak: (d) => { const os = deep(d); os.services.app = 'active'; os.swap = 88; if (!os.procs.some((p) => p.pid === 3170)) os.procs.push({ pid: 3170, user: 'app', cpu: 34.0, mem: 91.2, cmd: 'java -jar /opt/app/app.jar' }); },
+    // a GPU at 91 °C
+    gpuhot: (d) => { const os = deep(d); os.gpuTemp = 91; os.gpuPl = 400; },
+    // the database full of connections the app never closed
+    dbconns: (d) => {
+      const os = deep(d); os.dbReady = true; os.services.app = 'active';
+      const db = dbOf(d); db.conns = 100;
+      os.journal.app = [stampNow(6) + ' ' + os.hostname + ' app[3170]: FATAL: sorry, too many clients already', stampNow(3) + ' ' + os.hostname + ' app[3170]: FATAL: sorry, too many clients already'];
+    },
+    dbready: (d) => { deep(d).dbReady = true; dbOf(d); },
+    // someone deleted the app's config; last night's /etc backup has it
+    filedel: (d) => {
+      const os = deep(d), f = os.files['/etc/app/config.env'] || { mode: '640', owner: 'root', group: 'app', size: 182, text: ['DB_HOST=10.0.1.20', 'DB_USER=app', 'DB_PASSWORD=Pr0d#Datalab2026'] };
+      os.files['/backup/etc-ontem.tar.gz'] = { mode: '644', owner: 'root', group: 'root', size: 214533, from: '/etc', snap: { '/etc/app/config.env': Object.assign({}, f, { mode: '640', owner: 'root', group: 'app' }) } };
+      delete os.files['/etc/app/config.env'];
+      os.services.app = 'failed';
+    },
+    // someone left a test web server open on 8080
+    rogue: (d, c) => { const os = deep(d); os.rogueUser = c.vars.who || ['marina', 'deploy', 'tiago'][rint(0, 2)]; if (!os.procs.some((p) => p.pid === 5150)) os.procs.push({ pid: 5150, user: os.rogueUser, cpu: 0.4, mem: 0.6, cmd: 'python3 -m http.server 8080' }); },
+    // the clock drifted: NTP off
+    clock: (d) => { const os = deep(d); os.ntp = false; os.clockOff = 17; },
+    // the app failing with an error code in its journal
+    apperr: (d, c) => {
+      // (the database: the problem's other server when it has one)
+      const os = deep(d), code = c.vars.code || 'E' + rint(4000, 4999), dbIp = c.devs && c.devs.peer ? c.devs.peer.ip : '10.0.1.20';
+      os.services.app = 'active'; os.appCode = code;
+      os.journal.app = [stampNow(55) + ' ' + os.hostname + ' app[3170]: INFO pedido 88121 gravado', stampNow(30) + ' ' + os.hostname + ' app[3170]: ERROR ' + code + ' timeout ao gravar no banco (' + dbIp + ':5432)', stampNow(29) + ' ' + os.hostname + ' app[3170]: WARN tentando de novo em 5s'];
+    },
+    // the provider's network drops packets after its second hop
+    hopfail: (d) => { deep(d).hopFail = 3; },
+    // a compression job scheduled every minute instead of every hour
+    cronstorm: (d) => {
+      const os = deep(d);
+      os.cron = ['* * * * * /usr/local/bin/compacta-logs.sh'];
+      os.files['/usr/local/bin/compacta-logs.sh'] = { mode: '755', owner: 'root', group: 'root', size: 96, text: ['#!/bin/bash', 'gzip -9 /var/log/app/*.log'] };
+      for (let i = 0; i < 9; i++) if (!os.procs.some((p) => p.pid === 7000 + i)) os.procs.push({ pid: 7000 + i, user: 'root', cpu: 11 + rint(0, 3), mem: 0.2, cmd: 'gzip -9 /var/log/app/app-' + (i + 1) + '.log' });
+    },
+    // the DNS in resolv.conf is gone
+    resolvbad: (d) => { deep(d).files['/etc/resolv.conf'].text = ['nameserver 10.0.1.250', 'options edns0 trust-ad']; },
+    // last night's incident, in the syslog (post-mortem)
+    incident: (d) => {
+      const h = d.os.hostname;
+      deep(d);
+      DL.syslogAdd(d, 600, 'kernel: EXT4-fs warning (device sda1): ext4_end_bio: I/O error 28 writing to inode (No space left on device)');
+      DL.syslogAdd(d, 590, 'nginx[812]: [emerg] write() to "/var/log/nginx/access.log" failed (28: No space left on device)');
+      DL.syslogAdd(d, 589, 'systemd[1]: nginx.service: Failed with result \'exit-code\'.');
+      DL.syslogAdd(d, 545, 'sudo:    admin : TTY=pts/0 ; PWD=/home/admin ; USER=root ; COMMAND=/usr/bin/journalctl --vacuum-size=200M');
+      DL.syslogAdd(d, 540, 'systemd[1]: Started nginx.service - A high performance web server.');
+      d.os.incidentHost = h;
+    },
+    // traffic from a whole network flooding the site
+    ddos: (d) => { deep(d).conns = Array.from({ length: 14 }, (_, i) => '203.0.113.' + (20 + i * 13)); },
+    // an intern who still has sudo
+    sudoextra: (d) => { const os = deep(d); os.users.estagio = { uid: 1003, groups: ['estagio', 'sudo'], locked: false }; },
+    // root can log in over SSH with a password
+    sshroot: (d) => { const f = deep(d).files['/etc/ssh/sshd_config']; f.text = ['Port 22', 'PermitRootLogin yes', 'PasswordAuthentication yes', 'UsePAM yes']; },
+    // the room is hot: this server's CPU temperature (°C)
+    hot: (d, c) => { const os = deep(d); os.cpuTemp = c.temp || 88; os.services.app = 'active'; if (!os.procs.some((p) => p.pid === 3170)) os.procs.push({ pid: 3170, user: 'app', cpu: 96.0, mem: 22.0, cmd: 'java -jar /opt/app/relatorios.jar' }); },
+    // on battery (the UPS sees the power cut)
+    ups: (d, c) => { deep(d).ups = { status: 'OB DISCHRG', charge: 74, runtime: (c.vars.min || 14 + rint(0, 9)) * 60 }; },
+    // the standby server got the database dump to restore
+    drready: (d) => { const os = deep(d); os.dbReady = true; const db = dbOf(d); db.restored = false; os.files['/backup/app.sql'] = { mode: '640', owner: 'postgres', group: 'postgres', size: 52428800, from: 'db:app' }; },
+    // the site's address (VIP) lives on this server
+    vip: (d) => { const e = d.os.ifaces.eth0; if (e.ips.indexOf('10.0.1.250/24') < 0) e.ips.push('10.0.1.250/24'); },
+  });
   DL.linuxSetup = function (d, name, ctx) {
     if (!d.os || (DL.isWin && DL.isWin(d))) return false;
     for (const n of [].concat(name)) if (LSETUP[n]) LSETUP[n](d, ctx || { vars: {} });
@@ -313,15 +469,253 @@
     return { out, ran };
   }
 
+  // the commands of the Especialista / Tech Lead problems (true: it was one of them). redirect: { op: '<' | '>', file }
+  function linuxDeep(d, c, a, root, line, ctx, out, ran, redirect) {
+    const os = deep(d), deny = (msg) => { out.push(msg); out.push('<span class="m">dica: esse comando precisa de sudo na frente.</span>'); ran.push('error'); };
+    const procRow = (p) => p.user.slice(0, 8).padEnd(9) + String(p.pid).padStart(6) + String(p.cpu.toFixed(1)).padStart(6) + String(p.mem.toFixed(1)).padStart(6) + '  ' + esc(p.cmd);
+    switch (c) {
+      case 'ps': {
+        const list = os.procs.slice();
+        const sort = a.find((x) => /^--sort=/.test(x));
+        if (sort) list.sort((x, y) => (/mem/.test(sort) ? y.mem - x.mem : y.cpu - x.cpu));
+        out.push('USER         PID  %CPU  %MEM  COMMAND', ...list.map(procRow));
+        ran.push('ps');
+        return true;
+      }
+      case 'top': {
+        const load = os.procs.reduce((s, p) => s + p.cpu, 0) / 100;
+        out.push('top - ' + new Date().toTimeString().slice(0, 8) + ' up 3 days,  1 user,  load average: ' + [load, load * 0.95, load * 0.9].map((x) => x.toFixed(2)).join(', '),
+          'Tasks: ' + (os.procs.length + 180) + ' total,   ' + os.procs.filter((p) => p.cpu > 5).length + ' running', 'MiB Swap:   4096.0 total,  ' + Math.round(4096 * (os.swap || 0) / 100) + '.0 used', '',
+          'USER         PID  %CPU  %MEM  COMMAND', ...os.procs.slice().sort((x, y) => y.cpu - x.cpu).slice(0, 10).map(procRow), '<span class="m">(no jogo o top mostra uma foto e volta ao prompt)</span>');
+        ran.push('top');
+        return true;
+      }
+      case 'kill': case 'pkill': {
+        const pids = c === 'pkill' ? os.procs.filter((p) => a.some((x) => !/^-/.test(x) && p.cmd.indexOf(x) >= 0)).map((p) => p.pid) : a.filter((x) => /^\d+$/.test(x)).map(Number);
+        if (!pids.length) { out.push(c === 'pkill' ? 'uso: pkill <nome do processo>' : 'uso: kill <pid>   (o PID aparece no ps aux ou no top)'); ran.push('error'); return true; }
+        for (const pid of pids) {
+          const p = os.procs.find((x) => x.pid === pid);
+          if (!p) { out.push('kill: (' + pid + ') - No such process'); ran.push('error'); continue; }
+          if (!root && p.user !== 'admin') { deny('kill: (' + pid + ') - Operation not permitted'); continue; }
+          os.procs = os.procs.filter((x) => x !== p);
+          if (/^nginx/.test(p.cmd)) os.services.nginx = 'failed';
+          ran.push('kill:' + pid);
+        }
+        return true;
+      }
+      case 'dmesg': for (const l of os.dmesg) out.push(esc(l)); ran.push('dmesg'); return true;
+      case 'mdadm': {
+        // mdadm --detail /dev/md0 · mdadm [--manage] /dev/md0 --fail|--remove|--add /dev/sdX1
+        const r = os.raid, st = raidState(os), act = ['--fail', '--remove', '--add'].find((x) => a.indexOf(x) >= 0), dev = act && (a[a.indexOf(act) + 1] || '').replace('/dev/', '');
+        if (a.indexOf('--detail') >= 0) {
+          out.push('/dev/md0:', '           Version : 1.2', '        Raid Level : raid1', '      Raid Devices : 2', '             State : ' + (st === 'clean' ? 'clean' : st === 'recovering' ? 'clean, degraded, recovering' : 'clean, degraded'), '',
+            '    Number   Major   Minor   RaidDevice State', ...Object.keys(r.devs).map((k, i) => '       ' + i + '       8       ' + (i * 16 + 1) + '        ' + i + '      ' + ({ active: 'active sync', faulty: 'faulty', rebuilding: 'spare rebuilding', removed: 'removed' }[r.devs[k]]) + '   /dev/' + k));
+          ran.push('mdadm-detail');
+          return true;
+        }
+        if (!act || !dev) { out.push('uso: mdadm --detail /dev/md0 · sudo mdadm /dev/md0 --fail|--remove|--add /dev/sdX1'); ran.push('error'); return true; }
+        if (!root) { deny('mdadm: must be super-user to perform this action'); return true; }
+        if (act === '--fail') { if (!r.devs[dev]) { out.push('mdadm: ' + dev + ' is not part of /dev/md0'); ran.push('error'); return true; } r.devs[dev] = 'faulty'; out.push('mdadm: set /dev/' + dev + ' faulty in /dev/md0'); }
+        else if (act === '--remove') {
+          if (!r.devs[dev]) { out.push('mdadm: ' + dev + ' is not part of /dev/md0'); ran.push('error'); return true; }
+          if (r.devs[dev] === 'active') { out.push('mdadm: hot remove failed for /dev/' + dev + ': Device or resource busy', '<span class="m">um disco ativo não sai do RAID: marque como falho antes (--fail).</span>'); ran.push('error'); return true; }
+          delete r.devs[dev]; out.push('mdadm: hot removed /dev/' + dev + ' from /dev/md0');
+        } else {
+          if (r.devs[dev]) { out.push('mdadm: /dev/' + dev + ' is already a member of /dev/md0'); ran.push('error'); return true; }
+          if (dev !== r.spare) { out.push('mdadm: cannot find /dev/' + dev + ': No such file or directory', '<span class="m">' + (r.spare ? 'o disco novo (reserva) desta máquina é o /dev/' + r.spare + '.' : 'não há outro disco reserva nesta máquina.') + '</span>'); ran.push('error'); return true; }
+          if (Object.keys(r.devs).filter((k) => r.devs[k] !== 'faulty').length >= 2) { out.push('mdadm: /dev/md0 has no free slot', '<span class="m">tire o disco com defeito do RAID antes (--fail e --remove).</span>'); ran.push('error'); return true; }
+          r.devs[dev] = 'rebuilding'; r.spare = null; r.until = Date.now() + 20000;
+          out.push('mdadm: added /dev/' + dev);
+        }
+        ran.push('mdadm' + act.replace('--', '-'));
+        return true;
+      }
+      case 'smartctl': {
+        const dev = (a.find((x) => /^\/dev\/sd[a-z]$/.test(x)) || '').replace('/dev/', '');
+        if (!dev || !os.smart[dev]) { out.push('uso: sudo smartctl -H /dev/sdX   (discos: sda, sdb, sdc)'); ran.push('error'); return true; }
+        if (!root) { deny('Smartctl open device: /dev/' + dev + ' failed: Permission denied'); return true; }
+        const ok = os.smart[dev] === 'PASSED';
+        out.push('=== START OF READ SMART DATA SECTION ===', 'SMART overall-health self-assessment test result: <span class="' + (ok ? 'ok' : 'w') + '">' + os.smart[dev] + (ok ? '' : '!') + '</span>');
+        if (!ok) out.push('Drive failure expected in less than 24 hours. SAVE ALL DATA.', '  5 Reallocated_Sector_Ct   0x0033   002   002   036    Pre-fail  Always   FAILING_NOW 3012');
+        ran.push('smart:' + dev);
+        return true;
+      }
+      case 'openssl': {
+        if (a[0] !== 'x509' || a.indexOf('-enddate') < 0) { out.push('uso: openssl x509 -enddate -noout -in <certificado>'); ran.push('error'); return true; }
+        const p = a[a.indexOf('-in') + 1];
+        if (p !== os.cert.path) { out.push('Could not open file or uri for loading certificate from ' + esc(p || '')); ran.push('error'); return true; }
+        out.push('notAfter=' + new Date(os.cert.until).toUTCString().replace(/^\w+, (\d+) (\w+) (\d+) (\S+) GMT$/, '$2 $1 $4 $3 GMT'));
+        ran.push('cert-show');
+        return true;
+      }
+      case 'certbot': {
+        const days = Math.floor((os.cert.until - Date.now()) / 86400000);
+        if (a[0] === 'certificates') {
+          out.push('Found the following certs:', '  Certificate Name: site', '    Domains: ' + d.name.toLowerCase() + '.datalab.local', '    Expiry Date: ' + new Date(os.cert.until).toISOString().slice(0, 10) + ' (VALID: ' + days + ' days)', '    Certificate Path: ' + os.cert.path);
+          ran.push('cert-show');
+          return true;
+        }
+        if (a[0] !== 'renew') { out.push('uso: sudo certbot certificates · sudo certbot renew'); ran.push('error'); return true; }
+        if (!root) { deny('The following error was encountered: [Errno 13] Permission denied'); return true; }
+        if (days > 30) { out.push('Cert not yet due for renewal', 'No renewals were attempted.'); ran.push('cert-renew'); return true; }
+        os.cert.until = Date.now() + 90 * 86400000; os.cert.live = false;
+        out.push('Renewing an existing certificate for ' + d.name.toLowerCase() + '.datalab.local', 'Congratulations, all renewals succeeded:', '  ' + os.cert.path + ' (success)', '<span class="m">o nginx continua com o certificado antigo na memória até ser recarregado (systemctl reload nginx).</span>');
+        ran.push('cert-renew');
+        return true;
+      }
+      case 'nginx': {
+        if (a[0] !== '-t') { out.push('<span class="m">use nginx -t para testar a configuração; o serviço é com systemctl.</span>'); ran.push('error'); return true; }
+        if (nginxBad(os)) { out.push('nginx: [emerg] unknown directive "server_nmae" in /etc/nginx/sites-enabled/site:3', 'nginx: configuration file /etc/nginx/nginx.conf test failed'); ran.push('nginx-t-fail'); }
+        else { out.push('nginx: the configuration file /etc/nginx/nginx.conf syntax is ok', 'nginx: configuration file /etc/nginx/nginx.conf test is successful'); ran.push('nginx-t-ok'); }
+        return true;
+      }
+      case 'sed': {
+        // sed -i 's/velho/novo/[g]' <arquivo>
+        const w = words(line.trim().replace(/^sudo\s+/, '')), expr = w.find((x) => /^s(.).*\1.*\1g?$/.test(x)), p = w[w.length - 1], f = os.files[p];
+        if (w.indexOf('-i') < 0 || !expr) { out.push("uso: sudo sed -i 's/texto velho/texto novo/' <arquivo>"); ran.push('error'); return true; }
+        if (!f || f.dir) { out.push("sed: can't read " + esc(p) + ': No such file or directory'); ran.push('error'); return true; }
+        if (!root && f.owner !== 'admin') { deny('sed: couldn\'t open temporary file ' + esc(p) + ': Permission denied'); return true; }
+        const sep = expr[1], parts = expr.slice(2).split(sep), from = parts[0], to = parts[1] || '', g = parts[2] === 'g';
+        let n = 0;
+        f.text = f.text.map((l) => { if (l.indexOf(from) < 0) return l; n++; return g ? l.split(from).join(to) : l.replace(from, to); });
+        ran.push('sed:' + p);
+        if (!n) out.push('<span class="m">(nada mudou: o texto "' + esc(from) + '" não aparece no arquivo)</span>');
+        return true;
+      }
+      case 'cp': {
+        const [src, dst] = a.filter((x) => !/^-/.test(x)), f = os.files[src];
+        if (!src || !dst) { out.push('uso: cp <origem> <destino>'); ran.push('error'); return true; }
+        if (!f || f.dir) { out.push("cp: cannot stat '" + esc(src) + "': No such file or directory"); ran.push('error'); return true; }
+        if (!root && (os.files[parentDir(dst)] || {}).owner !== 'admin') { deny("cp: cannot create regular file '" + esc(dst) + "': Permission denied"); return true; }
+        os.files[dst] = Object.assign({}, f, { text: f.text ? f.text.slice() : undefined });
+        ran.push('cp:' + dst);
+        return true;
+      }
+      case 'ethtool': {
+        // speed / duplex of eth0: what the switch port at the other end forces
+        const D = window.DataLabDemo, t = D && D.ops ? d.path || D.ops.trace(d) : null, s = t && t.ok ? t.sw.sw : null;
+        const half = !!s && s.duplex && s.duplex[t.port] === 'half', sp = s && s.speed && s.speed[t.port] ? s.speed[t.port] : 1000;
+        out.push('Settings for eth0:', '	Speed: ' + sp + 'Mb/s', '	Duplex: ' + (half ? '<span class="w">Half</span>' : 'Full'), '	Auto-negotiation: ' + (half ? 'off' : 'on'), '	Link detected: ' + (os.cable ? 'yes' : 'no'));
+        ran.push('ethtool');
+        return true;
+      }
+      case 'nvidia-smi': {
+        if (!isGpu(d)) { out.push('NVIDIA-SMI has failed because it couldn\'t communicate with the NVIDIA driver.', '<span class="m">(este servidor não tem GPU)</span>'); ran.push('error'); return true; }
+        const pl = a.indexOf('-pl') >= 0 ? +a[a.indexOf('-pl') + 1] : null;
+        if (pl) {
+          if (!root) { deny('Changing power management limit is not supported for current user.'); return true; }
+          if (!(pl >= 150 && pl <= 400)) { out.push('Provided power limit ' + pl + ' W is not a valid power limit (150 W a 400 W).'); ran.push('error'); return true; }
+          os.gpuPl = pl; os.gpuTemp = Math.min(os.gpuTemp || 62, Math.round(48 + pl / 10));
+          out.push('Power limit for GPU 00000000:3B:00.0 was set to ' + pl + '.00 W from 400.00 W.');
+          ran.push('nvidia-pl');
+          return true;
+        }
+        const temp = os.gpuTemp || 62;
+        out.push('+-----------------------------------------------------------------------------+', '| GPU  Name        Temp  Perf  Pwr:Usage/Cap |  Memory-Usage   | GPU-Util |',
+          '|   0  NVIDIA H100  <span class="' + (temp >= 85 ? 'w' : 'ok') + '">' + temp + 'C</span>   P0    ' + Math.round((os.gpuPl || 400) * 0.96) + 'W / ' + (os.gpuPl || 400) + 'W | 71210MiB / 81559MiB |    98%   |', '+-----------------------------------------------------------------------------+');
+        ran.push('nvidia-smi');
+        return true;
+      }
+      case 'psql': {
+        const db = dbOf(d);
+        if (!db) { out.push('psql: error: connection to server on socket "/var/run/postgresql/.s.PGSQL.5432" failed: No such file or directory', '<span class="m">(este servidor não tem banco de dados)</span>'); ran.push('error'); return true; }
+        if (!root) { out.push('psql: error: FATAL:  role "admin" does not exist', '<span class="m">use o usuário do banco: sudo -u postgres psql …</span>'); ran.push('error'); return true; }
+        if (redirect && redirect.op === '<') {
+          const f = os.files[redirect.file];
+          if (!f || f.from !== 'db:app') { out.push('bash: ' + esc(redirect.file) + ': No such file or directory'); ran.push('error'); return true; }
+          db.restored = true;
+          out.push('SET', 'CREATE TABLE', 'COPY 48213', 'CREATE INDEX', 'ALTER TABLE');
+          ran.push('db-restore');
+          return true;
+        }
+        const ci = a.indexOf('-c'), sql = ci >= 0 ? words(line).slice(words(line).indexOf('-c') + 1).join(' ').toLowerCase() : '';
+        if (!sql) { out.push('<span class="m">no jogo o psql roda uma consulta por vez: sudo -u postgres psql -c "select count(*) from pg_stat_activity;"</span>'); ran.push('error'); return true; }
+        if (/pg_stat_activity/.test(sql) && /count/.test(sql)) { out.push(' count ', '-------', String(db.conns).padStart(6), '(1 row)'); ran.push('db-conns'); }
+        else if (/max_connections/.test(sql)) { out.push(' max_connections ', '-----------------', ' ' + db.max, '(1 row)'); ran.push('db-max'); }
+        else if (/pedidos/.test(sql) && /count/.test(sql)) {
+          if (!db.restored && os.dbReady && db.conns === 14 && os.files['/backup/app.sql']) { out.push('ERROR:  relation "pedidos" does not exist'); ran.push('error'); return true; }
+          out.push(' count ', '-------', ' 48213', '(1 row)'); ran.push('db-rows');
+        } else { out.push('<span class="m">consultas que o jogo conhece: select count(*) from pg_stat_activity · show max_connections · select count(*) from pedidos</span>'); ran.push('error'); }
+        return true;
+      }
+      case 'pg_dump': {
+        const db = dbOf(d), fi = a.indexOf('-f'), file = fi >= 0 ? a[fi + 1] : redirect && redirect.op === '>' ? redirect.file : null;
+        if (!db) { out.push('pg_dump: error: connection to server failed: No such file or directory'); ran.push('error'); return true; }
+        if (!root) { out.push('pg_dump: error: FATAL:  role "admin" does not exist'); ran.push('error'); return true; }
+        if (!file) { out.push('uso: sudo -u postgres pg_dump app > /backup/app.sql'); ran.push('error'); return true; }
+        if (!os.files[parentDir(file)]) { out.push('bash: ' + esc(file) + ': No such file or directory'); ran.push('error'); return true; }
+        os.files[file] = { mode: '644', owner: 'postgres', group: 'postgres', size: 52428800, from: 'db:app' };
+        ran.push('pgdump');
+        return true;
+      }
+      case 'traceroute': {
+        const host = a.find((x) => !/^-/.test(x));
+        if (!host) { out.push('uso: traceroute <destino>'); ran.push('error'); return true; }
+        if (!ctx.reach(d, '10.0.1.1').ok) { out.push('traceroute to ' + esc(host) + ', 30 hops max', ' 1  * * *', '<span class="m">nem o gateway respondeu: o problema é aqui dentro.</span>'); ran.push('traceroute'); return true; }
+        const hops = ['10.0.1.1', '189.45.0.1', '189.45.12.66', '200.230.0.9', '142.250.79.14'];
+        out.push('traceroute to ' + esc(host) + ', 30 hops max, 60 byte packets');
+        for (let i = 0; i < hops.length; i++) {
+          if (os.hopFail && i + 1 >= os.hopFail) { out.push(String(i + 1).padStart(2) + '  * * *'); if (i + 1 >= os.hopFail + 2) break; continue; }
+          out.push(String(i + 1).padStart(2) + '  ' + hops[i] + '  ' + (1 + i * 3.4).toFixed(3) + ' ms  ' + (1.1 + i * 3.5).toFixed(3) + ' ms');
+        }
+        ran.push('traceroute');
+        return true;
+      }
+      case 'timedatectl': {
+        if (a[0] === 'set-ntp') {
+          if (!root) { deny('Failed to set ntp: Access denied'); return true; }
+          os.ntp = a[1] === 'true' || a[1] === 'yes' || a[1] === 'on'; if (os.ntp) os.clockOff = 0;
+          ran.push('ntp-set');
+          return true;
+        }
+        const now = new Date(Date.now() + (os.clockOff || 0) * 60000);
+        out.push('               Local time: ' + now.toString().split(' (')[0], '           Universal time: ' + now.toUTCString(), '                Time zone: America/Sao_Paulo (-03, -0300)',
+          'System clock synchronized: ' + (os.ntp ? 'yes' : '<span class="w">no</span>'), '              NTP service: ' + (os.ntp ? 'active' : '<span class="w">inactive</span>'));
+        ran.push('timedatectl');
+        return true;
+      }
+      case 'sensors': {
+        const t = os.cpuTemp || 48;
+        out.push('coretemp-isa-0000', 'Adapter: ISA adapter', 'Package id 0:  <span class="' + (t >= 85 ? 'w' : 'ok') + '">+' + t + '.0°C</span>  (high = +84.0°C, crit = +100.0°C)', 'Core 0:        +' + (t - 2) + '.0°C', 'Core 1:        +' + (t - 1) + '.0°C');
+        ran.push('sensors');
+        return true;
+      }
+      case 'upsc': {
+        if (!os.ups) { out.push('Error: Driver not connected', '<span class="m">(nenhum nobreak ligado neste servidor)</span>'); ran.push('error'); return true; }
+        out.push('battery.charge: ' + os.ups.charge, 'battery.runtime: ' + os.ups.runtime, 'input.voltage: 0.0', 'ups.load: 61', 'ups.status: ' + os.ups.status);
+        ran.push('upsc');
+        return true;
+      }
+      case 'gpasswd': {
+        // gpasswd -d <usuário> <grupo>: takes someone out of a group
+        const u = a[1], g = a[2], x = os.users[u];
+        if (a[0] !== '-d' || !u || !g) { out.push('uso: sudo gpasswd -d <usuário> <grupo>'); ran.push('error'); return true; }
+        if (!root) { deny('gpasswd: Permission denied.'); return true; }
+        if (!x || x.groups.indexOf(g) < 0) { out.push('gpasswd: user \'' + esc(u) + '\' is not a member of \'' + esc(g) + '\''); ran.push('error'); return true; }
+        x.groups = x.groups.filter((y) => y !== g);
+        out.push('Removing user ' + esc(u) + ' from group ' + esc(g));
+        ran.push('gpasswd:' + u);
+        return true;
+      }
+    }
+    return false;
+  }
+
   // Linux shell. Returns { out: [lines], ran: [events] }.
   function linux(d, line, ctx) {
     const bar = line.indexOf('|');
     if (bar >= 0) return pipe(d, line.slice(0, bar), line.slice(bar + 1), ctx);
+    // "< arquivo" / "> arquivo" (the database commands read and write files this way)
+    let redirect = null;
+    const rm = /^(.*?)\s*([<>])\s*(\S+)\s*$/.exec(line);
+    if (rm && /\b(psql|pg_dump)\b/.test(rm[1])) { redirect = { op: rm[2], file: rm[3] }; line = rm[1]; }
     const os = d.os, out = [], ran = [];
     let t = line.trim().split(/\s+/).filter(Boolean);
     if (!t.length) return { out, ran };
     let root = false;
     if (t[0] === 'sudo') { root = true; t = t.slice(1); if (!t.length) return { out: ['uso: sudo <comando>'], ran }; }
+    // sudo -u <usuário> <comando> (the database's own user: postgres)
+    if (root && t[0] === '-u') { t = t.slice(2); if (!t.length) return { out: ['uso: sudo -u <usuário> <comando>'], ran }; }
     const deny = (msg) => { out.push(msg); out.push('<span class="m">dica: comandos que alteram o sistema precisam de sudo na frente.</span>'); ran.push('error'); };
     const c = t[0], a = t.slice(1);
     const e0 = os.ifaces.eth0;
@@ -367,7 +761,9 @@
         // like the real one: "up 42 min", "up 3:25", "up 2 days, 3:25"
         const m = Math.max(1, Math.round((Date.now() - os.boot) / 60000)), days = Math.floor(m / 1440), hm = Math.floor((m % 1440) / 60) + ':' + String(m % 60).padStart(2, '0');
         const up = m < 60 ? m + ' min' : (days ? days + (days > 1 ? ' days, ' : ' day, ') : '') + (m % 1440 < 60 ? (m % 60) + ' min' : hm);
-        out.push(' ' + new Date().toTimeString().slice(0, 8) + ' up ' + up + ',  1 user,  load average: 0.08, 0.12, 0.10');
+        // the load: what the processes use (1.00 = one core busy)
+        const ld = Math.max(0.08, deep(d).procs.reduce((s, p) => s + p.cpu, 0) / 100);
+        out.push(' ' + new Date().toTimeString().slice(0, 8) + ' up ' + up + ',  1 user,  load average: ' + [ld, ld * 0.96, ld * 0.9].map((x) => x.toFixed(2)).join(', '));
         break;
       }
       case 'pwd': out.push('/home/admin'); break;
@@ -389,7 +785,16 @@
         break;
       }
       case 'cat': {
-        const fx = sysOf(d).files[a[0]];
+        if (a[0] === '/proc/mdstat') {
+          const o = deep(d), r = o.raid, st = raidState(o), ks = Object.keys(r.devs).filter((k) => r.devs[k] !== 'removed');
+          out.push('Personalities : [raid1]', 'md0 : active raid1 ' + ks.map((k, i) => k + '[' + i + ']' + (r.devs[k] === 'faulty' ? '(F)' : r.devs[k] === 'rebuilding' ? '(S)' : '')).join(' '),
+            '      976630464 blocks super 1.2 [2/' + ks.filter((k) => r.devs[k] === 'active').length + '] [' + (ks.filter((k) => r.devs[k] === 'active').length >= 2 ? 'UU' : 'U_') + ']');
+          if (st === 'recovering') out.push('      [====>................]  recovery = ' + Math.max(5, Math.min(99, Math.round(100 - (r.until - Date.now()) / 200))) + '.0% finish=0.' + Math.max(1, Math.round((r.until - Date.now()) / 1000)) + 'min');
+          out.push('', 'unused devices: &lt;none&gt;');
+          ran.push('cat:/proc/mdstat', 'mdstat');
+          break;
+        }
+        const fx = deep(d).files[a[0]];
         if (fx && !fx.dir && !can(os, fx, root ? 'root' : 'admin', 4)) { out.push('cat: ' + esc(a[0]) + ': Permission denied', '<span class="m">(ls -l mostra quem pode ler; como administrador, sudo cat lê mesmo assim)</span>'); ran.push('error'); break; }
         const lines = a[0] ? fileLines(d, a[0]) : null;
         if (!lines) { out.push('cat: ' + esc(a[0] || '') + ': Arquivo ou diretório inexistente'); ran.push('error'); break; }
@@ -424,7 +829,10 @@
         const flags = a.filter((x) => /^-/.test(x)).join('').replace(/-/g, '');
         if (flags.indexOf('l') < 0) {
           out.push('<span class="m">sem -l aparecem só as conexões abertas; para as portas em escuta: ss -tlnp</span>');
-          out.push('ESTAB  0  0  ' + ipOnly(e0.ips[0] || '10.0.1.10/24') + ':22  10.0.1.' + rint(50, 60) + ':' + rint(40000, 60000));
+          out.push('State  Recv-Q Send-Q  Local Address:Port   Peer Address:Port');
+          out.push('ESTAB  0      0       ' + ipOnly(e0.ips[0] || '10.0.1.10/24') + ':22      10.0.1.' + rint(50, 60) + ':' + rint(40000, 60000));
+          // a flood of connections to the site (setup ddos)
+          for (const ip of deep(d).conns || []) for (let k = 0; k < 3; k++) out.push('ESTAB  0      0       ' + ipOnly(e0.ips[0] || '10.0.1.10/24') + ':80      ' + ip + ':' + rint(30000, 65000));
           ran.push('ss-conn');
           break;
         }
@@ -432,6 +840,8 @@
         const rows = [];
         if (os.services.ssh === 'active') rows.push(['0.0.0.0:22', 'sshd', 640, 3, 128]);
         if (os.services.nginx === 'active') rows.push(['0.0.0.0:80', 'nginx', 812, 6, 511]);
+        // a process someone left listening (setup rogue)
+        if (deep(d).procs.some((p) => p.pid === 5150)) rows.push(['0.0.0.0:8080', 'python3', 5150, 3, 5]);
         rows.push(['127.0.0.53%lo:53', 'systemd-resolve', 511, 14, 4096]);
         if (c === 'ss') {
           out.push('State   Recv-Q  Send-Q  Local Address:Port      Peer Address:Port  Process');
@@ -477,6 +887,12 @@
           os.ifaces[dev].up = st === 'up';
           ran.push('link-set');
           if (st === 'up' && dev === 'eth0' && !os.cable) out.push('<span class="m">(a interface subiu, mas não há cabo: o link continua DOWN)</span>');
+        } else if (isLink && a.indexOf('-s') >= 0 || sub === '-s') {
+          // ip -s link: packet counters (a half-duplex port on the switch makes the errors pile up)
+          const D = window.DataLabDemo, tr = D && D.ops ? d.path || D.ops.trace(d) : null, s = tr && tr.ok ? tr.sw.sw : null;
+          const errs = s && s.duplex && s.duplex[tr.port] === 'half' ? 4812 + Math.floor((Date.now() / 1000) % 600) * 7 : 0;
+          out.push('2: eth0: &lt;BROADCAST,MULTICAST,UP,LOWER_UP&gt; mtu 1500 state ' + (e0.up && os.cable ? 'UP' : 'DOWN'), '    RX:  bytes  packets  errors  dropped', '    9184412   71203   <span class="' + (errs ? 'w' : 'ok') + '">' + String(errs).padStart(6) + '</span>       0', '    TX:  bytes  packets  errors  dropped  collisions', '    6618201   52110        0       0   ' + String(Math.round(errs / 3)).padStart(6));
+          ran.push('ip-stats');
         } else if (isLink) {
           let n = 1;
           for (const [name, f] of Object.entries(os.ifaces)) {
@@ -508,6 +924,18 @@
         const host = a.filter((x) => !/^-/.test(x) && !/^\d+$/.test(x) || /\./.test(x)).pop();
         const ci = a.indexOf('-c'), n = ci >= 0 ? Math.min(6, parseInt(a[ci + 1], 10) || 3) : 4;
         if (!host) { out.push('ping: uso: ping -c 3 <destino>'); ran.push('error'); break; }
+        // a name: asked to the DNS in /etc/resolv.conf (127.0.0.53, the local resolver, or a server that answers)
+        if (/[a-z]/i.test(host) && host !== 'localhost') {
+          const ns = ((deep(d).files['/etc/resolv.conf'].text.find((l) => /^nameserver /.test(l)) || '').split(/\s+/)[1]) || '';
+          const D = window.DataLabDemo, srv = D && D.ops ? D.ops.devices().find((x) => x.ip === ns) : null;
+          const dnsUp = ns === '127.0.0.53' || ((ns === '8.8.8.8' || ns === '1.1.1.1' || (srv && (srv.svc === 'dns' || (DL.isWin && DL.isWin(srv))))) && ctx.reach(d, ns).ok);
+          if (!dnsUp) { out.push('ping: ' + esc(host) + ': Temporary failure in name resolution'); ran.push('error', 'ping-dnsfail'); break; }
+          const r2 = ctx.reach(d, '8.8.8.8');
+          if (!r2.ok) { out.push('ping: connect: Network is unreachable'); ran.push('ping-fail'); break; }
+          out.push('PING ' + esc(host) + ' (142.250.79.14) 56(84) bytes of data.', '64 bytes from 142.250.79.14: icmp_seq=1 ttl=117 time=12.4 ms', '<span class="ok">1 packets transmitted, 1 received, 0% packet loss</span>');
+          ran.push('ping-ok:' + host, 'dns-ok');
+          break;
+        }
         const reach = ctx.reach(d, host);
         out.push('PING ' + esc(host) + ' 56(84) bytes of data.');
         if (reach.ok) {
@@ -528,19 +956,47 @@
         if (!(svc in os.services)) { out.push('Unit ' + esc(svc) + '.service could not be found.'); ran.push('error'); break; }
         if (verb === 'status') {
           const st = os.services[svc];
-          out.push('● ' + svc + '.service - ' + ({ nginx: 'A high performance web server', ssh: 'OpenBSD Secure Shell server', fail2ban: 'Fail2Ban Service' }[svc] || svc));
+          out.push('● ' + svc + '.service - ' + ({ nginx: 'A high performance web server', ssh: 'OpenBSD Secure Shell server', fail2ban: 'Fail2Ban Service', app: 'Aplicação de pedidos (Java)' }[svc] || svc));
           out.push('     Loaded: loaded (/lib/systemd/system/' + svc + '.service; enabled)');
           out.push('     Active: <span class="' + (st === 'active' ? 'ok' : 'w') + '">' + (st === 'active' ? 'active (running)' : st === 'failed' ? 'failed (Result: exit-code)' : 'inactive (dead)') + '</span>');
           if (st === 'failed') out.push('<span class="m">     ' + svc + '[812]: ' + (svc === 'nginx' && os.disk >= 95 ? '[emerg] write() to "/var/log/nginx/access.log" failed (28: No space left on device)' : 'worker process exited on signal 9') + '</span>');
           ran.push('status:' + svc);
-        } else if (verb === 'restart' || verb === 'start' || verb === 'stop') {
+        } else if (verb === 'restart' || verb === 'start' || verb === 'stop' || verb === 'reload') {
           if (!root) { deny('Failed to ' + verb + ' ' + svc + '.service: Access denied'); break; }
+          // a config error keeps nginx down (nginx -t shows the line)
+          if (verb !== 'stop' && svc === 'nginx' && nginxBad(deep(d))) {
+            os.services.nginx = 'failed';
+            out.push('<span class="w">Job for nginx.service failed because the control process exited with error code.</span>', '<span class="m">See "systemctl status nginx.service" and "nginx -t" for details.</span>');
+            ran.push('error');
+            break;
+          }
+          if (verb === 'reload') {
+            if (os.services[svc] !== 'active') { out.push('nginx.service is not active, cannot reload.'); ran.push('error'); break; }
+            if (svc === 'nginx' && os.cert) os.cert.live = true;
+            ran.push('svc-reload:' + svc);
+            break;
+          }
+          if (svc === 'nginx' && verb !== 'stop' && os.cert) os.cert.live = true;
           // nginx can't open its logs on a full disk: it only comes back after space is freed
           if (verb !== 'stop' && svc === 'nginx' && os.disk >= 95) {
             os.services.nginx = 'failed';
             out.push('<span class="w">Job for nginx.service failed because the control process exited with error code.</span>', '<span class="m">See "systemctl status nginx.service" and "df -h" for details.</span>');
             ran.push('error');
             break;
+          }
+          // the app (Especialista problems): it needs its config file; a restart frees the memory it leaked and the
+          // database connections it held; stopping it cools a hot server down
+          if (svc === 'app') {
+            const o = deep(d);
+            if (verb !== 'stop' && !o.files['/etc/app/config.env']) {
+              os.services.app = 'failed';
+              out.push('<span class="w">Job for app.service failed because the control process exited with error code.</span>', '<span class="m">See "journalctl -u app" for details.</span>');
+              o.journal.app = (o.journal.app || []).concat(stamp(0) + ' ' + os.hostname + ' app[3201]: FATAL /etc/app/config.env: No such file or directory');
+              ran.push('error');
+              break;
+            }
+            if (verb !== 'stop') { if (o.db) o.db.conns = 14; o.swap = 6; const j = o.procs.find((p) => p.pid === 3170); if (j) { j.mem = 18.4; j.cpu = 3.1; } }
+            else { o.procs = o.procs.filter((p) => p.pid !== 3170); if (o.cpuTemp) o.cpuTemp = Math.min(o.cpuTemp, 66); }
           }
           os.services[svc] = verb === 'stop' ? 'inactive' : 'active';
           // an nginx updated by apt only runs the new version after a restart
@@ -574,6 +1030,15 @@
         break;
       }
       case 'journalctl': {
+        // journalctl -u <serviço> [--since …]: that service's log
+        if (a.indexOf('-u') >= 0) {
+          const svc = (a[a.indexOf('-u') + 1] || '').replace(/\.service$/, ''), j = deep(d).journal[svc];
+          if (!svc) { out.push('uso: journalctl -u <serviço> --since "1 hour ago"'); ran.push('error'); break; }
+          out.push('-- Logs begin at ' + new Date(Date.now() - 86400000).toDateString() + ' --');
+          for (const l of j || [stamp(120) + ' ' + os.hostname + ' systemd[1]: Started ' + svc + '.service.']) out.push(esc(l));
+          ran.push('journal:' + svc);
+          break;
+        }
         const v = a.find((x) => x.indexOf('--vacuum-size=') === 0);
         if (!v) { out.push('-- Logs begin at ' + new Date().toDateString() + ' --', '... (use --vacuum-size=200M para limpar logs antigos)'); break; }
         if (!root) { deny('Failed to open journal directory: Permission denied'); break; }
@@ -746,7 +1211,15 @@
           const base = f.from.replace(/^\//, '');
           out.push(base + '/', base + '/hostname', base + '/app/', base + '/app/config.env', base + '/nginx/nginx.conf');
           ran.push('tar-list:' + arch);
-        } else { out.push('<span class="m">extrair (x) fica para mais adiante: aqui use c (criar) ou t (listar).</span>'); ran.push('error'); }
+        } else {
+          // tar xzf <arquivo> -C /: puts back what the archive holds (sysOf files kept in it: snap)
+          const f = sys.files[arch];
+          if (!f || !f.from) { out.push('tar: ' + esc(arch) + ': Cannot open: No such file or directory'); ran.push('error'); break; }
+          if (!root) { deny('tar: ' + f.from.replace(/^\//, '') + ': Cannot open: Permission denied'); break; }
+          if (a.indexOf('-C') < 0 || a[a.indexOf('-C') + 1] !== '/') { out.push('<span class="m">o arquivo guarda os caminhos sem a / do começo (etc/…): extraia na raiz com -C / para cada arquivo voltar ao lugar.</span>'); ran.push('error'); break; }
+          for (const [p, x] of Object.entries(f.snap || {})) sys.files[p] = Object.assign({}, x, { text: x.text ? x.text.slice() : undefined });
+          ran.push('tar-extract:' + arch);
+        }
         break;
       }
       case 'rsync': {
@@ -769,6 +1242,7 @@
         break;
       }
       default:
+        if (linuxDeep(d, c, a, root, line, ctx, out, ran, redirect)) break;
         out.push(esc(c) + ': comando não encontrado');
         ran.push('error', 'unknown');
     }
@@ -878,7 +1352,8 @@
         for (const [p, st] of Object.entries(s.ports)) {
           if (st === 'notconnect') { idle++; continue; }
           const vl = s.pmode[p] === 'trunk' ? 'trunk' : String(s.pvlan[p] || 10);
-          out.push((p.replace('gi', 'Gi')).padEnd(10) + (ctx.peer(d, p) || '').padEnd(19) + '<span class="' + (st === 'err-disabled' ? 'w' : st === 'connected' ? 'ok' : 'm') + '">' + st.padEnd(15) + '</span>' + vl.padEnd(7) + 'a-full  a-1000');
+          const dx = s.duplex && s.duplex[p] ? s.duplex[p] : 'a-full', sp = s.speed && s.speed[p] ? String(s.speed[p]) : 'a-1000';
+          out.push((p.replace('gi', 'Gi')).padEnd(10) + (ctx.peer(d, p) || '').padEnd(19) + '<span class="' + (st === 'err-disabled' ? 'w' : st === 'connected' ? 'ok' : 'm') + '">' + st.padEnd(15) + '</span>' + vl.padEnd(7) + dx.padEnd(8) + sp);
         }
         if (idle) out.push('<span class="m">… mais ' + idle + ' portas sem cabo (notconnect)</span>');
         ran.push('show-int');
@@ -937,6 +1412,17 @@
       s.vlans[s.curVlan] = t[1];
       s.unsaved = true;
       ran.push('vlan-name:' + s.curVlan);
+      return { out, ran };
+    }
+    // speed auto|100|1000 · duplex auto|half|full (a port forced to 100 / half slows the server and piles up errors)
+    if (c === 'speed' || c === 'duplex') {
+      if (s.mode !== 'if') { bad(c + ' vale dentro da porta: interface gi0/N antes.'); return { out, ran }; }
+      const v = (t[1] || '').toLowerCase(), okV = c === 'speed' ? ['auto', '10', '100', '1000'] : ['auto', 'half', 'full'];
+      if (okV.indexOf(v) < 0) { bad('Uso: ' + c + ' ' + okV.join('|')); return { out, ran }; }
+      const m = c === 'speed' ? (s.speed = s.speed || {}) : (s.duplex = s.duplex || {});
+      if (v === 'auto' || (c === 'speed' && v === '1000') || (c === 'duplex' && v === 'full')) delete m[s.cur]; else m[s.cur] = c === 'speed' ? +v : v;
+      s.unsaved = true;
+      ran.push('sw-' + c + ':' + s.cur);
       return { out, ran };
     }
     // switchport mode access|trunk · switchport access vlan <N> · switchport trunk allowed vlan <lista>
@@ -1072,7 +1558,8 @@
     const stepText = (s, hidden) => (hidden && !s.answer ? 'Descubra o próximo passo.' : s.text);
     // why a command failed, in plain words (Iniciante)
     const FIRST = ['ip', 'ping', 'sudo', 'systemctl', 'curl', 'df', 'du', 'journalctl', 'hostnamectl', 'hostname', 'help', 'clear', 'exit', 'enable', 'show', 'configure', 'interface', 'shutdown', 'no', 'end', 'lscpu', 'free', 'uptime', 'whoami', 'uname', 'responder', 'tail', 'grep', 'cat', 'ss', 'netstat', 'copy', 'write',
-      'ufw', 'ls', 'chmod', 'chown', 'useradd', 'usermod', 'passwd', 'id', 'groups', 'apt', 'tar', 'rsync', 'crontab', 'echo', 'vlan', 'name', 'switchport'];
+      'ufw', 'ls', 'chmod', 'chown', 'useradd', 'usermod', 'passwd', 'id', 'groups', 'apt', 'tar', 'rsync', 'crontab', 'echo', 'vlan', 'name', 'switchport',
+      'ps', 'top', 'kill', 'pkill', 'dmesg', 'mdadm', 'smartctl', 'openssl', 'certbot', 'nginx', 'sed', 'cp', 'ethtool', 'nvidia-smi', 'psql', 'pg_dump', 'traceroute', 'timedatectl', 'sensors', 'upsc', 'gpasswd', 'speed', 'duplex'];
     function closest(w) {
       let best = null, bd = 3;
       for (const c of X.dev && isWin(X.dev) && DL.WIN_FIRST ? DL.WIN_FIRST : FIRST) {
@@ -1183,7 +1670,7 @@
       let h = '<p class="term__hint">' + (stepLabel ? 'Para ' + (m.stepText === 'hidden' ? '' : 'este passo: ') + '<b>' + esc(stepLabel) + '</b>' : 'Comandos mais usados aqui:') +
         ' <span class="term__depth">Ajuda do modo ' + esc(m.name) + '</span></p>' + helpCard(m.helpDepth === 'syntax' ? keys.slice(0, 1) : keys, m.helpDepth, ex);
       const SWITCH_KEYS = ['enable', 'show-int', 'conf-t', 'interface', 'shutdown', 'no-shutdown', 'end', 'show-run', 'show-start', 'copy-run-start', 'sw-ping',
-        'show-vlan', 'sw-vlan', 'sw-access', 'sw-mode', 'sw-trunk', 'show-trunk', 'show-mac'];
+        'show-vlan', 'sw-vlan', 'sw-access', 'sw-mode', 'sw-trunk', 'show-trunk', 'show-mac', 'sw-duplex'];
       const forDev = (k) => (X.dev.kind === 'switch' ? SWITCH_KEYS.includes(k) || k === 'responder' : win ? HELP[k].os === 'win' || k === 'cabling' : !HELP[k].os && !SWITCH_KEYS.includes(k));
       h += '<details class="term__all"><summary>Todos os comandos</summary>' + Object.keys(HELP).filter(forDev)
         .map((k) => '<button type="button" class="chip" data-help="' + k + '">' + esc(HELP[k].cmd.split(' <')[0]) + '</button>').join('') + '<div data-help-out></div></details>';
@@ -1340,7 +1827,9 @@
 
     const COMPLETE = ['ip addr', 'ip link', 'ip route', 'ip link set eth0 up', 'ip addr add ', 'ip addr del ', 'ip route add default via ', 'ip route del default', 'ping -c 3 ', 'systemctl status ', 'systemctl restart ', 'systemctl start ', 'cat notas.txt', 'tail -n 20 /var/log/syslog', 'grep -c ', 'curl localhost', 'df -h', 'du -sh /var/log', 'journalctl --vacuum-size=200M', 'hostnamectl set-hostname ', 'hostname', 'whoami', 'uname -a', 'uptime', 'lscpu', 'free -h', 'responder ', 'tail -n 20 /var/log/auth.log', 'grep "Failed password" /var/log/auth.log', 'ss -tlnp', 'show running-config', 'show startup-config', 'copy running-config startup-config', 'enable', 'show interfaces status', 'configure terminal', 'interface gi0/', 'shutdown', 'no shutdown', 'end',
       'show vlan brief', 'show mac address-table', 'show interfaces trunk', 'switchport access vlan ', 'switchport mode access', 'switchport mode trunk', 'switchport trunk allowed vlan ',
-      'ufw status', 'ufw enable', 'ufw allow ', 'ufw deny from ', 'ls -l ', 'chmod ', 'chown ', 'useradd -m -s /bin/bash ', 'usermod -aG ', 'passwd -l ', 'apt update', 'apt list --upgradable', 'apt upgrade -y', 'apt install -y ', 'tar czf ', 'rsync -a ', 'crontab -l'];
+      'ufw status', 'ufw enable', 'ufw allow ', 'ufw deny from ', 'ls -l ', 'chmod ', 'chown ', 'useradd -m -s /bin/bash ', 'usermod -aG ', 'passwd -l ', 'apt update', 'apt list --upgradable', 'apt upgrade -y', 'apt install -y ', 'tar czf ', 'rsync -a ', 'crontab -l',
+      'ps aux --sort=-%cpu', 'ps aux --sort=-%mem', 'top', 'kill ', 'dmesg', 'journalctl -u ', 'cat /proc/mdstat', 'mdadm --detail /dev/md0', 'smartctl -H /dev/sd', 'certbot certificates', 'certbot renew', 'nginx -t',
+      'systemctl reload ', 'ethtool eth0', 'ip -s link', 'nvidia-smi', 'traceroute ', 'timedatectl', 'sensors', 'upsc ups', 'speed auto', 'duplex auto'];
     el.input.addEventListener('keydown', (ev) => {
       if (ev.key === 'Enter') {
         const v = el.input.value;
