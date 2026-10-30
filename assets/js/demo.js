@@ -1075,6 +1075,45 @@
   }
 
   /* ---------------- loop ---------------- */
+  /* ---------------- sound around the listener ---------------- */
+  // The ears are on the player while exploring, on the camera while building / managing the team.
+  // Coworkers' footsteps and the racks' fans get quieter with distance and come from their side of the
+  // screen (isometric: screen x follows x − y).
+  const stepOf = new WeakMap();
+  let earAcc = 0, stepIds = 0;
+  function listen(dt) {
+    const L = S.mode === 'explore' ? player : scene.cam;
+    const fade = (d, r) => 1 / (1 + (d / r) * (d / r));
+    const panTo = (x, y) => Math.max(-1, Math.min(1, ((x - y) - (L.x - L.y)) / 96)) * 0.8;
+    for (const a of scene.npcs.concat(crew.members)) {
+      if (!a.moving || a.hidden) continue;
+      const st = stepOf.get(a) || { id: ++stepIds, n: 0 };
+      const n = Math.floor(a.dist / 13);
+      if (n !== st.n) {
+        const d = Math.hypot(a.x - L.x, a.y - L.y);
+        if (d < 160) DL.audio.play('foot', { vol: 0.6 * fade(d, 48), pan: panTo(a.x, a.y), key: st.id });
+      }
+      st.n = n;
+      stepOf.set(a, st);
+    }
+    earAcc += dt;
+    if (earAcc < 0.1) return;
+    earAcc = 0;
+    if (S.phase === 'intro') { DL.audio.near(0, 0); return; }
+    // each rack hums by how many of its machines are running; nearby racks add up (and saturate)
+    const racks = new Map();
+    for (const d of ops.devices()) if (d.rack && d.state === 'online' && !d.broken && !d.out) racks.set(d.rack, (racks.get(d.rack) || 0) + 1);
+    let quiet = 1, pan = 0, sum = 0;
+    racks.forEach((n, e) => {
+      const x = e.px + (e.tw || 1) * 8, y = e.py + (e.th || 1) * 8;
+      const g = 0.6 * Math.min(1, 0.5 + 0.1 * n) * fade(Math.hypot(x - L.x, y - L.y), 24);
+      quiet *= 1 - g;
+      pan += g * panTo(x, y);
+      sum += g;
+    });
+    DL.audio.near(1 - quiet, sum ? pan / sum : 0);
+  }
+
   let lastClock = '';
   function step(dt) {
     if (S.phase !== 'intro') S.time += dt;
@@ -1083,6 +1122,7 @@
     zoomStep(dt);
     S.target = canMove() ? findTarget() : null;
     crew.update(dt);
+    listen(dt);
     if (S.phase !== 'intro') director.update(dt);
     ops.update(dt);
     if (S.phase !== 'intro') economy.update(dt);
@@ -1102,9 +1142,9 @@
     S.liveAcc += dt;
     if (S.liveAcc > 0.25) {
       S.liveAcc = 0;
-      // the room gets louder as more machines come online (full at 12)
+      // the room tone grows a little as more machines come online (full at 12); up close, listen() does the rest
       const up = S.phase === 'intro' ? -1 : ops.devices().filter((d) => d.state === 'online' && !d.broken && !d.out).length;
-      DL.audio.hum(up < 0 ? 0 : 0.15 + 0.85 * Math.min(1, up / 12));
+      DL.audio.hum(up < 0 ? 0 : 0.15 + 0.45 * Math.min(1, up / 12));
       if (S.panel) {
         const e = S.panel;
         let k = '';
