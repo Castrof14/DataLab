@@ -65,6 +65,7 @@
   <link rel="preload" href="assets/js/shifts.js" as="script">
   <link rel="preload" href="assets/js/infra.js" as="script">
   <link rel="preload" href="assets/js/inventory.js" as="script">
+  <link rel="preload" href="assets/js/audio.js" as="script">
   <link rel="preload" href="assets/js/supabase/config.js" as="script">
   <link rel="preload" href="assets/js/services/cloud.js" as="script">
   <link rel="preload" href="assets/js/services/auth-service.js" as="script">
@@ -333,6 +334,14 @@
           <label class="setting" for="zoomSens">
             <span class="setting__txt"><b>Sensibilidade do zoom</b><small>Roda do mouse, trackpad e pinça</small></span>
             <span class="setting__ctl"><small>Devagar</small><input type="range" id="zoomSens" min="1" max="10" step="1" value="5"><small>Rápido</small><b id="zoomSensVal">5</b></span>
+          </label>
+          <label class="setting" for="sfxVol">
+            <span class="setting__txt"><b>Efeitos sonoros</b><small>Construção, alertas, moedas, passos · 0 desliga</small></span>
+            <span class="setting__ctl"><small>Mudo</small><input type="range" id="sfxVol" min="0" max="10" step="1" value="6"><small>Alto</small><b id="sfxVolVal">6</b></span>
+          </label>
+          <label class="setting" for="ambVol">
+            <span class="setting__txt"><b>Som ambiente</b><small>Ventoinhas dos servidores · cresce com o datacenter</small></span>
+            <span class="setting__ctl"><small>Mudo</small><input type="range" id="ambVol" min="0" max="10" step="1" value="3"><small>Alto</small><b id="ambVolVal">3</b></span>
           </label>
         </div>
         <p class="eyebrow-sm settings__sub">Controles</p>
@@ -648,6 +657,7 @@
   <script src="assets/js/shifts.js"></script>
   <script src="assets/js/infra.js"></script>
   <script src="assets/js/inventory.js"></script>
+  <script src="assets/js/audio.js"></script>
   <!-- Supabase: public config (publishable key only) + one service per concern -->
   <script src="assets/js/supabase/config.js"></script>
   <script src="assets/js/services/cloud.js"></script>

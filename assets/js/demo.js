@@ -43,6 +43,7 @@
 
   /* ---------------- toasts ---------------- */
   function toast(tone, label, text) {
+    DL.audio.play(tone === 'warn' ? 'warn' : tone === 'ok' ? 'ok' : 'tick');
     const el = document.createElement('div');
     el.className = 'toast toast--' + tone;
     el.innerHTML = '<span class="dot ' + (tone === 'warn' ? 'dot--warn dot--live' : tone === 'ok' ? '' : 'dot--info') + '"></span><b>' + label + '</b><span>' + text + '</span>';
@@ -60,7 +61,7 @@
   const G = {
     scene, player, toast, root: game,
     wanderers: false,
-    sfx() {},
+    sfx: (name) => DL.audio.play(name),
     lockReason: () => null,
     actors: () => [player].concat(scene.npcs, crew ? crew.members : []),
     on(ev, fn) { (handlers[ev] = handlers[ev] || []).push(fn); },
@@ -131,6 +132,13 @@
   const shifts = DL.createShifts(G, { crew });
   $('shiftsBtn').addEventListener('click', () => { $('shiftsBtn').blur(); shifts.open(); });
   G.on('payday', () => updateMeta());
+  // sounds for money, levels and milestones (the sound bank is in audio.js)
+  let heardLevel = null;
+  G.on('wallet', (w) => { if (w.amount) DL.audio.play(w.amount > 0 ? 'coin' : 'buy'); });
+  G.on('payday', () => DL.audio.play('coin'));
+  G.on('career', (k) => { if (heardLevel !== null && k.level > heardLevel) DL.audio.play('levelup'); heardLevel = k.level; });
+  G.on('datacenter-done', () => DL.audio.play('fanfare'));
+  document.addEventListener('click', (ev) => { if (ev.target.closest && ev.target.closest('button')) DL.audio.play('click'); }, true);
   // server specialisations + virtualization (Infra, I)
   const infra = DL.createInfra(G, { ops });
   tutSys.infra = infra;
@@ -639,6 +647,7 @@
   const modeBtns = Array.from(document.querySelectorAll('[data-mode]'));
   function setMode(m) {
     if (m === S.mode) return;
+    DL.audio.play(m === 'explore' ? 'modeOut' : 'modeIn');
     if (S.mode === 'build') builder.exit();
     S.mode = m;
     if (m !== 'explore') {
@@ -721,18 +730,29 @@
   // Smooth zoom: the wheel / trackpad moves a target and the scale glides to it every frame (zoomStep).
   // At the default (5) it is deliberately slow: a full trackpad swipe (~300px) is about one zoom level.
   // The player picks 1 (≈ ⅓ as fast) … 10 (≈ 4× as fast) in Configurações; it stays in this browser.
+  // Sound: effects and the server-room hum have their own volume (0 = off), also kept in this browser.
   const SETTINGS_KEY = 'datalab.settings.v1';
-  const settings = { zoomSens: 5 };
+  const settings = { zoomSens: 5, sfxVol: 6, ambVol: 3 };
   try { Object.assign(settings, JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}')); } catch (e) { /* defaults */ }
-  settings.zoomSens = Math.max(1, Math.min(10, Math.round(Number(settings.zoomSens) || 5)));
+  const clamp10 = (v, d) => { v = Math.round(Number(v)); return Number.isFinite(v) ? Math.max(0, Math.min(10, v)) : d; };
+  settings.zoomSens = Math.max(1, clamp10(settings.zoomSens, 5) || 5);
+  settings.sfxVol = clamp10(settings.sfxVol, 6);
+  settings.ambVol = clamp10(settings.ambVol, 3);
   const zoomSens = () => (1 / 320) * Math.pow(2, (settings.zoomSens - 5) / 2.5);
-  const sensIn = $('zoomSens'), sensVal = $('zoomSensVal');
-  sensIn.value = sensVal.textContent = settings.zoomSens;
-  sensIn.addEventListener('input', () => {
-    settings.zoomSens = Number(sensIn.value);
-    sensVal.textContent = settings.zoomSens;
-    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ }
+  const applyVolume = () => DL.audio.setVolume(settings.sfxVol / 10, settings.ambVol / 10);
+  applyVolume();
+  [['zoomSens', null], ['sfxVol', applyVolume], ['ambVol', applyVolume]].forEach(([key, then]) => {
+    const input = $(key), out = $(key + 'Val');
+    input.value = out.textContent = settings[key];
+    input.addEventListener('input', () => {
+      settings[key] = Number(input.value);
+      out.textContent = settings[key];
+      if (then) then();
+      try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ }
+    });
   });
+  // a sample of the new volume when the slider is let go
+  $('sfxVol').addEventListener('change', () => DL.audio.play('done'));
   const zoomRange = () => [2 - scene.autoS, 3];
   const wheelZ = { target: 0 };
   canvas.addEventListener('wheel', (ev) => {
@@ -842,6 +862,8 @@
     player.moving = len > 0.1 && moved > 0.05;
     updateUse(dt, len > 0.1);
     if (player.moving && !was) player.dist = 0;
+    // a footstep on every other walk frame (scene.js swaps frames each 6.5 px)
+    if (player.moving && Math.floor((player.dist + moved) / 13) !== Math.floor(player.dist / 13)) DL.audio.play('foot');
     player.dist += moved;
     S.walked += moved;
 
@@ -1076,6 +1098,9 @@
     S.liveAcc += dt;
     if (S.liveAcc > 0.25) {
       S.liveAcc = 0;
+      // the room gets louder as more machines come online (full at 12)
+      const up = S.phase === 'intro' ? -1 : ops.devices().filter((d) => d.state === 'online' && !d.broken && !d.out).length;
+      DL.audio.hum(up < 0 ? 0 : 0.15 + 0.85 * Math.min(1, up / 12));
       if (S.panel) {
         const e = S.panel;
         let k = '';
