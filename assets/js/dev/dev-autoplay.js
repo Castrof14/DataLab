@@ -4,8 +4,8 @@
    dicas e conclusão de passo são os de sempre — nada é marcado como feito por aqui).
    Os comandos vêm da mesma definição usada nas dicas e na ajuda: step.cmd (com a porta / IP / nome reais
    da instância) ou, sem ele, os exemplos das chaves de help do passo, em ordem.
-   Carregado pelo jogo.html só em desenvolvimento (localhost / file:// ou ?dev=1, lembrado; ?dev=0 desliga)
-   e no site publicado só com ?dev=1. Aparece ao lado de "Precisa de ajuda?" quando há um cenário aberto.
+   Carregado pelo jogo.html para todos os jogadores, também no site publicado (?dev=0 desliga, lembrado;
+   ?dev=1 religa). Aparece ao lado de "Precisa de ajuda?" quando há um cenário aberto.
    Para remover: apague assets/js/dev/ e as linhas marcadas DEV-AUTOPLAY. */
 (function () {
   'use strict';

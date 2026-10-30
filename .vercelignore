@@ -8,4 +8,4 @@
 /PROXIMOS-PASSOS.txt
 /DESIGN-x.ai.md
 /tests/
-# DEV-AUTOPLAY: assets/js/dev/ vai para o deploy; no site o botão Auto só carrega com ?dev=1 (ver demo.js)
+# DEV-AUTOPLAY: assets/js/dev/ vai para o deploy; o botão Auto aparece para todos (ver demo.js)
