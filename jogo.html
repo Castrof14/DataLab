@@ -11,8 +11,9 @@
   <!-- Scripts only from this site + the pinned Supabase SDK (with SRI); network only to Supabase.
        A custom Supabase domain must be added to connect-src, and so must the Agent Gateway's address
        (agentGatewayUrl in config.js; localhost:8787 is already there for development).
-       127.0.0.1/localhost:9863 (http + ws) = YTMDesktop on the player's own computer (ytmusic-service.js). -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://*.googleusercontent.com https://*.ytimg.com https://*.ggpht.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321 http://127.0.0.1:8787 http://localhost:8787 http://127.0.0.1:9863 http://localhost:9863 ws://127.0.0.1:9863 ws://localhost:9863; object-src 'none'; base-uri 'self'; form-action 'self'">
+       127.0.0.1/localhost:9863 (http + ws) = YTMDesktop on the player's own computer (ytmusic-service.js).
+       ipc: / ipc.localhost = the desktop app's bridge (desktop.js), unreachable from a browser. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://*.googleusercontent.com https://*.ytimg.com https://*.ggpht.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321 http://127.0.0.1:8787 http://localhost:8787 http://127.0.0.1:9863 http://localhost:9863 ws://127.0.0.1:9863 ws://localhost:9863 ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +33,7 @@
   <link rel="stylesheet" href="assets/css/auth.css">
   <link rel="stylesheet" href="assets/css/spotify.css">
   <link rel="stylesheet" href="assets/css/ytmusic.css">
+  <link rel="stylesheet" href="assets/css/desktop.css">
   <link rel="stylesheet" href="assets/css/multiplayer.css">
   <link rel="stylesheet" href="assets/css/welcome.css">
   <link rel="stylesheet" href="assets/css/feedback.css">
@@ -232,6 +234,8 @@
             <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
             <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
             <button class="btn btn--sm ops-btn ops-btn--ytm" id="ytmBtn" type="button" title="YouTube Music (YTMDesktop): conectar e controlar a sua música" aria-controls="ytm" aria-expanded="false" hidden><span class="ytm-ico" aria-hidden="true"></span>YouTube Music</button>
+            <!-- only in the desktop app (desktop.js): the game keeps running, the character stays in a corner of the screen -->
+            <button class="btn btn--sm" id="bgBtn" type="button" title="O jogo continua rodando e o seu personagem fica no canto da tela" hidden>Segundo plano</button>
             <button class="btn btn--sm" id="dlBtn" type="button" title="Baixar o DataLab para Windows e macOS (abre numa nova aba)">Baixar para PC</button>
             <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
             <button class="btn btn--sm" id="fbBtn" type="button" title="Relatar um bug (com print da tela) ou mandar uma ideia para o jogo">Relatar bug</button>
@@ -809,5 +813,7 @@
   <script src="assets/js/multiplayer.js"></script>
   <script src="assets/js/lobby.js"></script>
   <script src="assets/js/welcome.js"></script>
+  <!-- desktop app (desktop/, Tauri) only: does nothing in a browser -->
+  <script src="assets/js/desktop.js"></script>
 </body>
 </html>
