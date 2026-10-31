@@ -19,6 +19,8 @@
       const sheet = DL.petSheet(kind);
       a.frame = function () {
         const s = this.dir === 'left' ? sheet.left : sheet.right;
+        // the Gato Glitch "fails" now and then: a few frames in other colours
+        if (s.glitch && DL.hash(Math.floor(P.anim * 5) * 13 + 7) < 0.08) return s.glitch[Math.floor(P.anim * 10) % 2];
         return this.moving ? s.walk[Math.floor(Math.abs(this.dist) / 4) % 4] : s.idle[Math.floor(P.anim * 3) % 2];
       };
       return a;

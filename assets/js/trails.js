@@ -1,23 +1,35 @@
 /* DataLab — trails (Rastros): an effect left on the floor while a character walks, gone after a second or
    two. One trail equipped at a time (inventory slot 'trail'); other players in an online room see it too
    (multiplayer.js sends the trail with the look). The shop sells six simple ones (cosmetics.js, tab
-   Rastros); the season pass (battlepass.js) gives seven fancier ones with more motion, glow and colour.
-   Particles are born from the distance walked (never from the frame rate) and are capped on screen, so a
-   room full of players never slows the game down. A particle is plain numbers: where and when it was
-   born and how it moves — its state at any age is computed, so the shop preview draws the same effect
-   without simulating anything. Drawn in the scene's underlay (demo.js), under people and furniture. */
+   Rastros); the season pass (battlepass.js) gives seven fancier ones: more particles, more motion, glow and
+   its gold. Particles are born from the distance walked (never from the frame rate), a few pixels behind the
+   feet (so the character never hides them), and are capped on screen, so a room full of players never
+   slows the game down. A particle is plain numbers: where and when it was born and how it moves — its state
+   at any age is computed, so the shop preview draws the same effect without simulating anything. Drawn in
+   the scene's underlay (demo.js), on the isometric floor, under people and furniture.
+   Also here: the season pass' Aura Boot (slot 'aura'): golden particles rising around the character and a
+   ring of light at the feet, drawn with the character (iso.js / sprites.js drawActor → DL.drawAuraBoot). */
 (function () {
   'use strict';
   const DL = window.DL;
   const R = (g, x, y, w, h, c) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
   const MAX = 220; // particles on screen, all trails together
-  const PAL = { turq: '#2de2c8', turqL: '#a5f7ea', turqD: '#14897a', blue: '#3d7bd9', blueL: '#7fb2f0', blueD: '#21477f', slate: '#56657d', slateL: '#8797b0', navy: '#0b1730', navyL: '#1a2b4d', ice: '#b8f3ff', white: '#ffffff' };
-  const RAINBOW = ['#ff5a5a', '#ffa23a', '#ffe15a', '#5aff8c', '#4dc3ff', '#9b7bff'];
-  const CODE = 'DATALB01<>_';
+  const BEHIND = 4; // world px behind the feet where a particle is born
+  const PAL = {
+    turq: '#2de2c8', turqL: '#a5f7ea', turqD: '#14897a', blue: '#3d7bd9', blueL: '#7fb2f0', blueD: '#21477f', slate: '#56657d', slateL: '#8797b0',
+    navy: '#0b1730', navyL: '#1a2b4d', ice: '#b8f3ff', white: '#ffffff',
+    gold: '#f2b51e', goldL: '#ffe680', goldD: '#bd7c10', goldW: '#fff8d6', red: '#ff4d5e',
+  };
+  const RAINBOW = ['#ff4d5e', '#ff9a2e', '#ffe14d', '#4dff88', '#3fc8ff', '#9b6bff'];
+  const CODE = 'DATALB01<>_/';
   const rgba = (hex, a) => 'rgba(' + parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) + ',' + parseInt(hex.slice(5, 7), 16) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
   const glyph = (g, ch, x, y, c) => { if (DL.pixText) DL.pixText(g, ch, x, y, c); };
+  // a soft square of light around a point (cheap: two rects)
+  const halo = (g, X, Y, r, hex, a) => { R(g, X - r, Y - r + 1, r * 2 + 1, r * 2 - 1, rgba(hex, a * 0.5)); R(g, X - r + 1, Y - r, r * 2 - 1, r * 2 + 1, rgba(hex, a * 0.5)); };
+  // a 4-point sparkle
+  const star = (g, X, Y, hex, a, big) => { R(g, X - 1, Y, 3, 1, rgba(hex, a)); R(g, X, Y - 1, 1, 3, rgba(hex, a)); if (big) { R(g, X - 2, Y, 5, 1, rgba(hex, a * 0.55)); R(g, X, Y - 2, 1, 5, rgba(hex, a * 0.55)); R(g, X, Y, 1, 1, rgba(PAL.white, a)); } };
 
-  // p: { x, y, h, vx, vy, vh, gh, life, s (seed 0..1), n (step), flat, f (draw) }
+  // p: { x, y, h, vx, vy, vh, gh, life, s (seed 0..1), flat, f (draw) }
   // pos(p, age) → world x, y and the height above the floor
   function pos(p, age) {
     let h = (p.h || 0) + (p.vh || 0) * age + 0.5 * (p.gh || 0) * age * age;
@@ -27,124 +39,133 @@
 
   /* ------------------------------------------------------------------ */
   /* The effects. every: world px walked between births; spawn(add,…)    */
-  /* adds particles at the feet (x, y) walking along (dx, dy); i counts   */
-  /* the steps, r(k) is a seeded random number for that step.            */
+  /* adds particles behind the feet (x, y) walking along (dx, dy); i      */
+  /* counts the steps, r(k) is a seeded random number for that step.     */
   /* ------------------------------------------------------------------ */
   const FX = {
     // ---------- shop: simple ----------
     steps: { every: 7, spawn(add, x, y, dx, dy, i) {
-      const side = i % 2 ? 1.6 : -1.6;
-      add({ x: x - dy * side, y: y + dx * side, life: 1.5, flat: true, f(g, X, Y, h, k) { R(g, X - 1, Y - 1, 2, 2, rgba(PAL.turq, 0.75 * (1 - k))); R(g, X, Y - 2, 1, 1, rgba(PAL.turqL, 0.6 * (1 - k))); } });
+      // a footprint on each side, turquoise, fading
+      const side = i % 2 ? 2 : -2;
+      add({ x: x - dy * side, y: y + dx * side, life: 1.8, flat: true, f(g, X, Y, h, k) {
+        const a = 1 - k * k;
+        R(g, X - 1, Y - 1, 3, 3, rgba(PAL.turqD, 0.7 * a)); R(g, X - 1, Y - 1, 2, 2, rgba(PAL.turq, 0.85 * a)); R(g, X, Y - 3, 2, 1, rgba(PAL.turqL, 0.8 * a));
+      } });
     } },
     dust: { every: 5, spawn(add, x, y, dx, dy, i, r) {
-      for (let j = 0; j < 2; j++) add({ x: x + (r(j) - 0.5) * 4, y, h: r(j + 2), vx: (r(j + 4) - 0.5) * 8 - dx * 4, vh: 6 + r(j + 6) * 5, life: 0.9, s: r(j + 8),
-        f(g, X, Y, h, k, p) { R(g, X, Y - h, 1, 1, rgba(p.s > 0.5 ? PAL.slateL : '#aab4bf', 0.8 * (1 - k))); } });
+      for (let j = 0; j < 3; j++) add({ x: x + (r(j) - 0.5) * 6, y: y + (r(j + 9) - 0.5) * 3, h: r(j), vx: (r(j + 4) - 0.5) * 10 - dx * 5, vh: 7 + r(j + 6) * 6, life: 1.1, s: r(j + 8),
+        f(g, X, Y, h, k, p) { const s = k < 0.4 ? 2 : 1; R(g, X, Y - h, s, s, rgba(p.s > 0.5 ? PAL.slateL : '#c3ccd9', 0.9 * (1 - k))); } });
     } },
     stars: { every: 8, spawn(add, x, y, dx, dy, i, r) {
-      add({ x: x + (r(0) - 0.5) * 8, y: y + (r(1) - 0.5) * 3, h: 1 + r(2) * 4, life: 1.3, s: r(3), f(g, X, Y, h, k, p, t) {
-        const a = 1 - k, tw = Math.sin(t * 12 + p.s * 9) > 0.2, c = p.s > 0.5 ? PAL.ice : PAL.blueL;
-        R(g, X, Y - h, 1, 1, rgba(c, a));
-        if (tw) { R(g, X - 1, Y - h, 3, 1, rgba(c, a * 0.6)); R(g, X, Y - h - 1, 1, 3, rgba(c, a * 0.6)); }
+      for (let j = 0; j < 2; j++) add({ x: x + (r(j) - 0.5) * 10, y: y + (r(j + 2) - 0.5) * 4, h: 2 + r(j + 4) * 6, vh: 2, life: 1.5, s: r(j + 6), f(g, X, Y, h, k, p, t) {
+        const a = 1 - k, tw = Math.sin(t * 12 + p.s * 9) > 0.1;
+        star(g, X, Y - h, p.s > 0.5 ? PAL.ice : PAL.blueL, a, tw);
       } });
     } },
     bubbles: { every: 8, spawn(add, x, y, dx, dy, i, r) {
-      add({ x: x + (r(0) - 0.5) * 6, y, h: 2, vh: 8 + r(1) * 4, vx: (r(2) - 0.5) * 4, life: 1.4, s: r(3), f(g, X, Y, h, k) {
+      add({ x: x + (r(0) - 0.5) * 8, y, h: 2, vh: 10 + r(1) * 5, vx: (r(2) - 0.5) * 5, life: 1.5, s: r(3), f(g, X, Y, h, k) {
         const y0 = Y - h;
-        if (k > 0.86) { const d = 1 + (k - 0.86) * 20; for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) R(g, X + ox * d, y0 + oy * d, 1, 1, rgba(PAL.ice, 1 - k)); return; }
-        R(g, X - 1, y0 - 2, 2, 1, rgba(PAL.blueL, 0.85)); R(g, X - 1, y0 + 1, 2, 1, rgba(PAL.blueL, 0.85));
-        R(g, X - 2, y0 - 1, 1, 2, rgba(PAL.blueL, 0.85)); R(g, X + 1, y0 - 1, 1, 2, rgba(PAL.blueL, 0.85));
-        R(g, X - 1, y0 - 1, 1, 1, rgba(PAL.white, 0.7));
+        if (k > 0.86) { const d = 1 + (k - 0.86) * 24; for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) R(g, X + ox * d, y0 + oy * d, 1, 1, rgba(PAL.ice, 1 - k)); return; }
+        R(g, X - 1, y0 - 2, 3, 1, rgba(PAL.blueL, 0.9)); R(g, X - 1, y0 + 2, 3, 1, rgba(PAL.blueL, 0.9));
+        R(g, X - 2, y0 - 1, 1, 3, rgba(PAL.blueL, 0.9)); R(g, X + 2, y0 - 1, 1, 3, rgba(PAL.blueL, 0.9));
+        R(g, X - 1, y0 - 1, 3, 3, rgba(PAL.blue, 0.18)); R(g, X - 1, y0 - 1, 1, 1, rgba(PAL.white, 0.85));
       } });
     } },
     smoke: { every: 6, spawn(add, x, y, dx, dy, i, r) {
-      add({ x: x - dx * 2, y: y - dy * 2, h: 3, vh: 3 + r(0) * 2, vx: -dx * 5 + (r(1) - 0.5) * 3, vy: -dy * 3, life: 1.6, f(g, X, Y, h, k) {
-        const s = 2 + Math.round(k * 3);
-        R(g, X - s / 2, Y - h - s / 2, s, s - 1, rgba(PAL.slateL, 0.42 * (1 - k)));
-        R(g, X - s / 2 + 1, Y - h - s / 2 - 1, s - 1, 1, rgba('#c3ccd9', 0.3 * (1 - k)));
+      add({ x: x - dx * 2, y: y - dy * 2, h: 3, vh: 4 + r(0) * 2, vx: -dx * 6 + (r(1) - 0.5) * 4, vy: -dy * 3, life: 1.7, f(g, X, Y, h, k) {
+        const s = 3 + Math.round(k * 4);
+        R(g, X - s / 2, Y - h - s / 2, s, s - 1, rgba(PAL.slateL, 0.5 * (1 - k)));
+        R(g, X - s / 2 + 1, Y - h - s / 2 - 1, s - 2, 1, rgba('#c3ccd9', 0.4 * (1 - k)));
       } });
     } },
     lights: { every: 6, spawn(add, x, y, dx, dy, i, r) {
-      add({ x: x + (r(0) - 0.5) * 8, y: y + (r(1) - 0.5) * 2, h: 4 + r(2) * 9, vh: 1.5, life: 2.2, f(g, X, Y, h, k) {
+      add({ x: x + (r(0) - 0.5) * 10, y: y + (r(1) - 0.5) * 3, h: 4 + r(2) * 10, vh: 1.5, life: 2, f(g, X, Y, h, k) {
         const a = 1 - k * k;
-        R(g, X - 1, Y - h - 1, 3, 3, rgba(PAL.blue, 0.18 * a));
-        R(g, X, Y - h, 1, 1, rgba(PAL.blueL, a));
+        halo(g, X, Y - h, 2, PAL.blue, 0.45 * a);
+        R(g, X, Y - h, 2, 2, rgba(PAL.blueL, a)); R(g, X, Y - h, 1, 1, rgba(PAL.white, a));
       } });
     } },
 
-    // ---------- season pass: more motion, glow and colour ----------
+    // ---------- season pass: more particles, motion, glow and gold ----------
     binary: { every: 6, spawn(add, x, y, dx, dy, i, r) {
-      // a 0 or 1 falls from the air, lands where the foot was and glows there
-      add({ x: x + (r(0) - 0.5) * 6, y, h: 14 + r(1) * 5, vh: -26, life: 1.6, s: r(2), f(g, X, Y, h, k, p) {
-        const ch = p.s > 0.5 ? '1' : '0', landed = h <= 0, a = landed ? 1 - k : 1;
-        if (landed) { R(g, X - 2, Y - 6, 5, 7, rgba(PAL.turq, 0.16 * a)); R(g, X - 2, Y, 5, 1, rgba(PAL.turq, 0.5 * a)); }
-        else R(g, X - 1, Y - h - 6, 3, 1, rgba(PAL.turq, 0.25));
-        glyph(g, ch, X - 1, Y - h - 5, rgba(landed ? PAL.turqL : PAL.ice, a));
+      // a 0 or 1 falls from the air, lands where the foot was and glows there, with a golden spark
+      add({ x: x + (r(0) - 0.5) * 8, y, h: 16 + r(1) * 6, vh: -30, life: 1.7, s: r(2), f(g, X, Y, h, k, p) {
+        const ch = p.s > 0.5 ? '1' : '0', landed = h <= 0, a = landed ? 1 - k : 1, gold = p.s > 0.7;
+        if (landed) { halo(g, X, Y - 3, 3, gold ? PAL.gold : PAL.turq, 0.45 * a); R(g, X - 2, Y, 5, 1, rgba(gold ? PAL.goldL : PAL.turq, 0.8 * a)); }
+        else R(g, X, Y - h - 8, 1, 3, rgba(PAL.turq, 0.35));
+        glyph(g, ch, X - 1, Y - h - 5, rgba(gold ? PAL.goldL : landed ? PAL.turqL : PAL.ice, a));
       } });
+      if (i % 3 === 0) add({ x: x + (r(3) - 0.5) * 6, y, h: 1, vh: 9, life: 0.7, f(g, X, Y, h, k) { star(g, X, Y - h, PAL.goldL, 1 - k, k < 0.3); } });
     } },
     sparks: { every: 5, spawn(add, x, y, dx, dy, i, r) {
-      // three hot sparks jump and fall; every few steps a small lightning bolt flickers
-      for (let j = 0; j < 3; j++) add({ x, y, h: 1, vx: (r(j) - 0.5) * 50, vy: (r(j + 3) - 0.5) * 16, vh: 24 + r(j + 6) * 20, gh: -140, life: 0.55, s: r(j + 9), f(g, X, Y, h, k, p) {
-        const c = p.s > 0.66 ? PAL.white : p.s > 0.33 ? PAL.ice : PAL.turq;
-        R(g, X, Y - h, 1, 1, rgba(c, 1 - k * 0.6));
-        R(g, X - Math.sign(p.vx), Y - h + 1, 1, 1, rgba(PAL.blueL, 0.5 * (1 - k)));
+      // golden sparks jump and fall, each with a little tail; every few steps a lightning bolt cracks the floor
+      for (let j = 0; j < 4; j++) add({ x, y, h: 1, vx: (r(j) - 0.5) * 60, vy: (r(j + 4) - 0.5) * 18, vh: 26 + r(j + 8) * 24, gh: -150, life: 0.6, s: r(j + 12), f(g, X, Y, h, k, p) {
+        const c = p.s > 0.66 ? PAL.white : p.s > 0.33 ? PAL.goldL : PAL.gold;
+        R(g, X, Y - h, 2, 2, rgba(c, 1 - k * 0.5));
+        R(g, X - Math.sign(p.vx), Y - h + 2, 1, 1, rgba(PAL.goldD, 0.7 * (1 - k)));
       } });
-      if (i % 3 === 0) add({ x, y, life: 0.22, s: r(12), f(g, X, Y, h, k, p) {
+      if (i % 3 === 0) add({ x, y, life: 0.3, s: r(16), f(g, X, Y, h, k, p) {
         let px = X;
-        for (let s = 0; s < 5; s++) { R(g, px, Y - 2 - s * 2, 1, 2, rgba(s % 2 ? PAL.ice : PAL.white, 0.9)); px += (DL.hash(p.s * 97 + s) > 0.5 ? 1 : -1); }
-        R(g, X - 2, Y - 1, 5, 1, rgba(PAL.turq, 0.5));
+        halo(g, X, Y - 5, 4, PAL.gold, 0.35 * (1 - k));
+        for (let s = 0; s < 6; s++) { R(g, px, Y - 2 - s * 2, 1, 2, s % 2 ? PAL.goldL : PAL.white); px += (DL.hash(p.s * 97 + s) > 0.5 ? 1 : -1); }
+        R(g, X - 3, Y, 7, 1, rgba(PAL.goldL, 0.7));
       } });
     } },
-    cables: { every: 9, spawn(add, x, y, dx, dy, i, r) {
-      // a coloured wire snakes along the floor behind the feet, then pulls back
-      const cols = [PAL.turq, PAL.blue, PAL.blueL, PAL.slateL, PAL.ice];
-      add({ x, y, life: 1.8, flat: true, s: r(0), dx, dy, c: cols[Math.floor(r(1) * cols.length)], f(g, X, Y, h, k, p) {
-        const grow = Math.min(1, k * 5), shrink = k > 0.7 ? (1 - k) / 0.3 : 1, len = Math.round(10 * grow * shrink);
+    cables: { every: 8, spawn(add, x, y, dx, dy, i, r) {
+      // a coloured wire (2 px) snakes along the floor behind the feet with a golden plug, then pulls back
+      const cols = [PAL.turq, PAL.gold, PAL.blueL, PAL.red, '#4dff88'];
+      add({ x, y, life: 1.9, flat: true, s: r(0), dx, dy, c: cols[Math.floor(r(1) * cols.length)], f(g, X, Y, h, k, p) {
+        const grow = Math.min(1, k * 5), shrink = k > 0.7 ? (1 - k) / 0.3 : 1, len = Math.round(12 * grow * shrink);
         for (let s = 0; s < len; s++) {
-          const w = Math.round(Math.sin(s * 0.9 + p.s * 6) * 1.6);
-          R(g, Math.round(X - p.dx * s - p.dy * w), Math.round(Y - p.dy * s + p.dx * w), 1, 1, p.c);
+          const w = Math.round(Math.sin(s * 0.8 + p.s * 6) * 2);
+          R(g, Math.round(X - p.dx * s - p.dy * w), Math.round(Y - p.dy * s + p.dx * w), 2, 2, p.c);
         }
-        if (len > 2) R(g, Math.round(X - 1), Math.round(Y - 1), 2, 2, PAL.slate);
+        if (len > 2) { R(g, Math.round(X - 1), Math.round(Y - 1), 3, 3, PAL.goldD); R(g, Math.round(X - 1), Math.round(Y - 1), 2, 1, PAL.goldL); }
       } });
     } },
     ghost: { every: 8, spawn(add, x, y, dx, dy, i, r) {
-      // see-through blue footprints, and a wisp of light rising off each one
-      const side = i % 2 ? 1.8 : -1.8, fx = x - dy * side, fy = y + dx * side;
+      // see-through blue footprints, and a little ghost of light rising off each one
+      const side = i % 2 ? 2 : -2, fx = x - dy * side, fy = y + dx * side;
       add({ x: fx, y: fy, life: 2, flat: true, f(g, X, Y, h, k) {
         const a = 1 - k;
-        R(g, X - 2, Y - 2, 5, 4, rgba(PAL.blue, 0.14 * a));
-        R(g, X - 1, Y - 1, 3, 2, rgba(PAL.blueL, 0.5 * a)); R(g, X, Y - 2, 1, 1, rgba(PAL.ice, 0.6 * a));
+        R(g, X - 2, Y - 2, 5, 5, rgba(PAL.blue, 0.2 * a));
+        R(g, X - 1, Y - 1, 3, 3, rgba(PAL.blueL, 0.6 * a)); R(g, X, Y - 3, 2, 1, rgba(PAL.ice, 0.7 * a));
       } });
-      add({ x: fx, y: fy, h: 1, vh: 7, vx: (r(0) - 0.5) * 3, life: 1.2, f(g, X, Y, h, k) { R(g, X, Y - h, 1, 2, rgba(PAL.turqL, 0.45 * (1 - k))); } });
+      add({ x: fx, y: fy, h: 2, vh: 9, vx: (r(0) - 0.5) * 4, life: 1.4, s: r(1), f(g, X, Y, h, k, p, t) {
+        // the ghost's frilled hem waves
+        const a = 0.75 * (1 - k), y0 = Y - h, wave = Math.sin(t * 8 + p.s * 6) > 0 ? 1 : 0;
+        R(g, X - 1, y0 - 4, 4, 4, rgba(PAL.ice, a)); R(g, X - 1, y0, 1, 1 + wave, rgba(PAL.blueL, a)); R(g, X + 1, y0, 1, 2 - wave, rgba(PAL.blueL, a)); R(g, X + 2, y0, 1, 1 + wave, rgba(PAL.blueL, a));
+        R(g, X, y0 - 3, 1, 1, rgba(PAL.navy, a)); R(g, X + 2, y0 - 3, 1, 1, rgba(PAL.navy, a));
+      } });
     } },
     code: { every: 5, spawn(add, x, y, dx, dy, i, r) {
-      // turquoise letters rise from the floor like code scrolling up a screen
-      add({ x: x + (r(0) - 0.5) * 8, y, h: 1, vh: 11 + r(1) * 4, vx: (r(2) - 0.5) * 3, life: 1.5, s: r(3), f(g, X, Y, h, k, p) {
-        const ch = CODE[Math.floor(p.s * CODE.length)], c = k < 0.2 ? PAL.ice : k < 0.6 ? PAL.turq : PAL.turqD;
-        R(g, X - 2, Y - h - 6, 5, 7, rgba(PAL.turq, 0.1 * (1 - k)));
+      // turquoise and golden letters rise from the floor like code scrolling up a screen
+      add({ x: x + (r(0) - 0.5) * 10, y, h: 1, vh: 12 + r(1) * 5, vx: (r(2) - 0.5) * 3, life: 1.6, s: r(3), f(g, X, Y, h, k, p) {
+        const ch = CODE[Math.floor(p.s * CODE.length)], gold = p.s > 0.72, c = k < 0.2 ? PAL.white : gold ? PAL.goldL : k < 0.6 ? PAL.turqL : PAL.turq;
+        halo(g, X + 1, Y - h - 3, 3, gold ? PAL.gold : PAL.turq, 0.3 * (1 - k));
         glyph(g, ch, X - 1, Y - h - 5, rgba(c, 1 - k * k));
       } });
+      if (i % 2 === 0) add({ x: x + (r(4) - 0.5) * 8, y: y + (r(5) - 0.5) * 3, life: 0.9, flat: true, f(g, X, Y, h, k) { R(g, X - 3, Y, 7, 1, rgba(PAL.turq, 0.6 * (1 - k))); } });
     } },
     glitch: { every: 6, spawn(add, x, y, dx, dy, i, r) {
       // the floor "fails": bands of colour jump sideways and flicker where the feet were
-      for (let j = 0; j < 2; j++) add({ x: x + (r(j) - 0.5) * 6, y: y + (r(j + 2) - 0.5) * 4, life: 0.85, flat: true, s: r(j + 4), f(g, X, Y, h, k, p, t) {
+      for (let j = 0; j < 3; j++) add({ x: x + (r(j) - 0.5) * 8, y: y + (r(j + 3) - 0.5) * 6, life: 0.95, flat: true, s: r(j + 6), f(g, X, Y, h, k, p, t) {
         const n = Math.floor(t * 22 + p.s * 50);
-        if (DL.hash(n * 7) > 0.78) return; // flicker
-        const off = Math.round((DL.hash(n * 13) - 0.5) * 5), w = 4 + Math.round(p.s * 8), a = 1 - k;
-        R(g, X - w / 2 + off, Y, w, 1, rgba(p.s > 0.5 ? PAL.turq : PAL.blue, 0.8 * a));
-        R(g, X - w / 2 - off, Y + 1, Math.max(2, w - 3), 1, rgba(PAL.navyL, 0.9 * a));
-        if (DL.hash(n * 31) > 0.6) R(g, X + off + 2, Y - 1, 2, 1, rgba(PAL.white, 0.7 * a));
+        if (DL.hash(n * 7) > 0.8) return; // flicker
+        const off = Math.round((DL.hash(n * 13) - 0.5) * 6), w = 5 + Math.round(p.s * 9), a = 1 - k;
+        R(g, X - w / 2 + off, Y, w, 2, rgba(p.s > 0.66 ? PAL.red : p.s > 0.33 ? PAL.turq : PAL.gold, 0.85 * a));
+        R(g, X - w / 2 - off, Y + 2, Math.max(2, w - 3), 1, rgba(PAL.blueL, 0.8 * a));
+        if (DL.hash(n * 31) > 0.55) R(g, X + off + 2, Y - 1, 2, 1, rgba(PAL.white, 0.85 * a));
       } });
     } },
     rainbow: { every: 2, spawn(add, x, y, dx, dy, i, r) {
-      // a pixel rainbow ribbon that waves a little, with sparkles now and then
-      add({ x, y, life: 1.4, s: i, f(g, X, Y, h, k, p, t) {
-        const a = 1 - k, lift = 3 + Math.round(Math.sin(t * 5 + p.s * 0.6));
-        for (let c = 0; c < 6; c++) R(g, X, Y - lift - c, 2, 1, rgba(RAINBOW[5 - c], 0.9 * a));
+      // a pixel rainbow ribbon that waves behind you, with sparkles now and then
+      add({ x, y, life: 1.5, s: i, f(g, X, Y, h, k, p, t) {
+        const a = 1 - k, lift = 3 + Math.round(Math.sin(t * 5 + p.s * 0.6) * 1.5);
+        for (let c = 0; c < 6; c++) R(g, X, Y - lift - c, 2, 1, rgba(RAINBOW[5 - c], 0.95 * a));
       } });
-      if (i % 6 === 0) add({ x: x + (r(0) - 0.5) * 6, y, h: 4 + r(1) * 8, vh: 4, life: 0.9, s: r(2), f(g, X, Y, h, k, p, t) {
-        const a = 1 - k;
-        R(g, X, Y - h, 1, 1, rgba(PAL.white, a));
-        if (Math.sin(t * 16 + p.s * 9) > 0) { R(g, X - 1, Y - h, 3, 1, rgba(PAL.ice, a * 0.7)); R(g, X, Y - h - 1, 1, 3, rgba(PAL.ice, a * 0.7)); }
+      if (i % 5 === 0) add({ x: x + (r(0) - 0.5) * 8, y, h: 4 + r(1) * 10, vh: 5, life: 1, s: r(2), f(g, X, Y, h, k, p, t) {
+        star(g, X, Y - h, p.s > 0.5 ? PAL.white : PAL.goldL, 1 - k, Math.sin(t * 16 + p.s * 9) > 0);
       } });
     } },
   };
@@ -161,6 +182,32 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Aura Boot (slot 'aura'): drawn with the character, no particles kept */
+  /* ------------------------------------------------------------------ */
+  // layer 'back': a soft golden glow and a ring of light running round the feet (before the sprite);
+  // 'front': golden particles rising around the body (after it)
+  DL.drawAuraBoot = function (g, X, Y, t, layer) {
+    const ga = g.globalAlpha;
+    if (layer === 'back') {
+      const k = 0.75 + 0.25 * Math.sin(t * 2.2);
+      g.globalAlpha = ga * 0.16 * k;
+      R(g, X - 9, Y - 26, 19, 28, PAL.gold); R(g, X - 7, Y - 29, 15, 33, PAL.gold);
+      g.globalAlpha = ga;
+      for (let i = 0; i < 24; i++) {
+        const ang = (i / 24) * Math.PI * 2, lit = (i + Math.floor(t * 10)) % 8 < 3;
+        R(g, Math.round(X + Math.cos(ang) * 8), Math.round(Y + Math.sin(ang) * 3.4), 1, 1, lit ? PAL.goldW : rgba(PAL.gold, 0.55));
+      }
+      return;
+    }
+    for (let i = 0; i < 7; i++) {
+      const ph = (t * 0.55 + i / 7) % 1, x = X + Math.round(Math.sin(i * 2.3 + t * 0.9) * (6 + (i % 3) * 2)), y = Y - 2 - Math.round(ph * 30);
+      g.globalAlpha = ga * Math.sin(ph * Math.PI);
+      R(g, x, y, i % 3 ? 1 : 2, i % 3 ? 1 : 2, i % 2 ? PAL.goldW : PAL.goldL);
+    }
+    g.globalAlpha = ga;
+  };
+
+  /* ------------------------------------------------------------------ */
   /* The live system (demo.js creates it)                               */
   /* ------------------------------------------------------------------ */
   DL.createTrails = function (game) {
@@ -168,12 +215,19 @@
     const list = [];
     const track = new WeakMap(); // actor → { x, y, d (distance since the last birth), i (steps) }
     let clock = 0;
+    const equipped = (slot) => { const id = DL.Skins && DL.Skins.equipped[slot], it = id && DL.cosmetic(id); return it ? it.value : null; };
     // whose trail: mine (the inventory) or another player's (their look, multiplayer.js)
     function trailOf(a) {
-      if (a === player) { const id = DL.Skins && DL.Skins.equipped.trail, it = id && DL.cosmetic(id); return it ? it.value : null; }
+      if (a === player) { const v = equipped('trail'); return FX[v] ? v : null; }
       const look = a.remotePlayer && a.remotePlayer.look;
       return look && FX[look.trail] ? look.trail : null;
     }
+    // whose aura (the same way): iso.js / sprites.js ask while drawing each character
+    DL.actorAura = function (a) {
+      if (a === player) return equipped('aura');
+      const look = a.remotePlayer && a.remotePlayer.look;
+      return (look && look.aura) || null;
+    };
     function feed(a, kind, dt) {
       let s = track.get(a);
       if (!s) { s = { x: a.x, y: a.y, d: 0, i: 0 }; track.set(a, s); }
@@ -188,11 +242,12 @@
         s.d -= fx.every;
         s.i++;
         const seed = (s.i * 131 + (a === player ? 7 : 3)) % 9973;
+        // born a few pixels behind the feet: the character, walking on, never covers it
         fx.spawn((p) => {
           p.born = clock;
           if (list.length >= MAX) list.shift(); // the oldest goes first: never more than MAX
           list.push(p);
-        }, a.x, a.y, dx, dy, s.i, (k) => DL.hash(seed + k * 17.3));
+        }, a.x - dx * BEHIND, a.y - dy * BEHIND, dx, dy, s.i, (k) => DL.hash(seed + k * 17.3));
       }
     }
     function update(dt) {
@@ -211,7 +266,8 @@
       for (const p of list) drawP(g, sc, base, p, clock);
       g.setTransform(base);
     }
-    return { update, draw, get count() { return list.length; }, MAX };
+    // (clear: a new game / a new map)
+    return { update, draw, clear() { list.length = 0; }, get count() { return list.length; }, MAX };
   };
 
   /* ------------------------------------------------------------------ */
@@ -233,7 +289,7 @@
         const tau = (i * fx.every) / speed, born = tau - back * LOOP;
         if (born > now) break;
         const seed = (i * 131 + (cyc - back) * 17) % 9973;
-        fx.spawn((p) => { p.born = born; if (now - born < p.life) drawP(g, null, null, p, now); }, at(tau), GY, 1, 0, i, (k) => DL.hash(seed + k * 17.3));
+        fx.spawn((p) => { p.born = born; if (now - born < p.life) drawP(g, null, null, p, now); }, at(tau) - BEHIND, GY, 1, 0, i, (k) => DL.hash(seed + k * 17.3));
       }
     }
     // the walker on top

@@ -24,7 +24,7 @@
     epic: { name: 'Épico', color: '#c084fc', rank: 3 },
     legendary: { name: 'Lendário', color: '#f2c14e', rank: 4 },
     // only in the season pass (battlepass.js): never sold, gone when the season ends, kept forever
-    exclusive_t1: { name: 'Exclusivo T1', color: '#b8f3ff', rank: 5 },
+    exclusive_t1: { name: 'Exclusivo T1', color: '#ffcf3f', rank: 5 },
   };
   DL.RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'exclusive_t1'];
 
@@ -146,38 +146,53 @@
 
   // --- Passe Boot Inicial · Temporada 1 (battlepass.js): rewards only, never sold, rarity EXCLUSIVO T1.
   // When the season ends nobody can earn them any more; whoever has one keeps it forever.
+  // Their icons are pixel art of their own (pass-art.js); the pass' colours are gold on charcoal.
   const PASS = (o) => add(Object.assign({ price: 0, sell: false, grantOnly: true, pass: 's1', rarity: 'exclusive_t1', theme: 'Passe T1' }, o));
-  PASS({ id: 'bp_frame_t1', cat: 'pass', slot: 'frame', value: 't1', name: 'Moldura T1', desc: 'Moldura de perfil turquesa com cantos em pixel e o selo T1. Aparece na Conta e na sala online.' });
-  PASS({ id: 'bp_title_pioneer', cat: 'pass', slot: 'title', value: 'pioneer', name: 'Título Pioneiro', desc: 'O único título do Passe Boot. Aparece embaixo do seu nome no jogo e na sala online.' });
+  PASS({ id: 'bp_frame_t1', cat: 'pass', slot: 'frame', value: 't1', name: 'Moldura Dourada T1', desc: 'Moldura de perfil dourada, com cantos em pixel, pedras turquesa e um brilho que gira em volta. Aparece na Conta e na sala online.' });
+  PASS({ id: 'bp_icon_chip', cat: 'pass', slot: 'icon', value: 'chip', name: 'Ícone de Perfil "Chip Boot"', desc: 'O chip dourado do passe, com o símbolo de ligar no meio. Aparece ao lado do seu nome no jogo e na sala online.' });
+  PASS({ id: 'bp_title_pioneer', cat: 'pass', slot: 'title', value: 'pioneer', name: 'Título "Pioneiro"', desc: 'Texto dourado com um brilho passando, embaixo do seu nome no jogo e na sala online. O prêmio final do passe.' });
   PASS({ id: 'bp_emote_hack', cat: 'emote', slot: 'emote', value: 'hack', name: 'Invasão ⌨️', desc: 'Digita rapidíssimo num teclado holográfico e aparece "ACESSO LIBERADO" em cima do personagem. Tecla 4.' });
-  PASS({ id: 'bp_pet_bitzero', cat: 'char', slot: 'pet', value: 'bitzero', name: 'BIT ZERO', desc: 'Robozinho de tela quadrada que pisca 0 e 1 em binário e segue você pelo datacenter.' });
-  PASS({ id: 'bp_glasses001', cat: 'char', slot: 'face', value: 'g001', name: 'Óculos 001', desc: 'Óculos escuros com "001" aceso em turquesa nas lentes.' });
-  PASS({ id: 'bp_skin_founder', cat: 'char', slot: 'shirt', value: 'bp_founder', name: 'Skin Fundador', desc: 'Hacker de sobretudo preto com bordas turquesa e "001" brilhando nas costas.' });
+  PASS({ id: 'bp_emote_reboot', cat: 'emote', slot: 'emote', value: 'reboot', name: 'Reboot 🔌', desc: 'O personagem "desliga", fica com a tela azul no rosto e "liga" de novo, com barra de carregamento. Tecla 5.' });
+  PASS({ id: 'bp_pet_bitzero', cat: 'char', slot: 'pet', value: 'bitzero', name: 'BIT ZERO', desc: 'Robozinho de tela quadrada que pisca 0 e 1 no rosto e flutua atrás de você com um jato de luz.' });
+  PASS({ id: 'bp_pet_glitchcat', cat: 'char', slot: 'pet', value: 'glitchcat', name: 'Gato Glitch', desc: 'Gatinho em pixel que de vez em quando "falha": treme e muda de cor.' });
+  PASS({ id: 'bp_glasses001', cat: 'char', slot: 'face', value: 'g001', name: 'Óculos 001', desc: 'Óculos escuros com "001" dourado passando nas lentes.' });
+  PASS({ id: 'bp_gloves_t1', cat: 'char', slot: 'hands', value: 'gloves_t1', name: 'Luvas de Circuito Douradas', desc: 'Luvas pretas com linhas de circuito douradas que acendem uma depois da outra.' });
+  PASS({ id: 'bp_cooler', cat: 'char', slot: 'back', value: 'cooler', name: 'Mochila Cooler', desc: 'Mochila preta com uma ventoinha girando nas costas e um LED piscando.' });
+  PASS({ id: 'bp_cable_cape', cat: 'char', slot: 'back', value: 'cablecape', name: 'Capa de Cabos', desc: 'Uma capa feita de fios coloridos que balançam quando você anda.' });
+  PASS({ id: 'bp_led_crown', cat: 'char', slot: 'head', value: 'ledcrown', name: 'Coroa de LED', desc: 'Coroa dourada com LEDs coloridos que acendem em sequência.' });
+  PASS({ id: 'bp_data_wings', cat: 'char', slot: 'back', value: 'datawings', name: 'Asas de Dados', desc: 'Asas feitas de pixels de código turquesa e dourado, que batem devagar.' });
+  PASS({ id: 'bp_aura_boot', cat: 'pass', slot: 'aura', value: 'boot', name: 'Aura Boot', desc: 'Partículas douradas sobem em volta do personagem, com um anel de luz nos pés. Os outros jogadores veem na sala online.' });
+  PASS({ id: 'bp_skin_founder', cat: 'char', slot: 'shirt', value: 'bp_founder', name: 'Skin Fundador', desc: 'Sobretudo longo preto com forro dourado e gola alta, "001" pulsando nas costas, olhos turquesa, luvas e botas douradas. A barra balança quando você anda.' });
   PASS({ id: 'bp_term_boot', cat: 'equip', slot: 'terminal', value: 'boot', name: 'Terminal Boot', desc: 'Tela verde de quem liga a máquina pela primeira vez: "iniciando sistema…" com a barra de carga.' });
-  PASS({ id: 'bp_relic', cat: 'equip', slot: 'rack', value: 'm_relic', name: 'Servidor Relíquia', desc: 'Gabinete antigo, bege-acinzentado e rachado, com um LED âmbar teimoso: o primeiro servidor do mundo.' });
+  PASS({ id: 'bp_relic', cat: 'equip', slot: 'rack', value: 'm_relic', name: 'Servidor Relíquia', desc: 'Gabinete antigo, bege e rachado, com luz dourada saindo pelas rachaduras: o primeiro servidor do mundo.' });
   PASS({ id: 'bp_xp2', cat: 'special', slot: 'use', value: 'bpxp', stack: true, name: 'Bônus de XP do Passe', desc: 'Consumível: o XP do passe vale em dobro por 1 hora jogando.' });
   for (const [id, name, desc] of [
-    ['bp_trail_binary', 'Rastro Binário', 'Zeros e uns turquesa caem do ar e brilham onde o personagem pisa.'],
-    ['bp_trail_sparks', 'Rastro de Faíscas', 'Faíscas elétricas pequenas estalam e pulam a cada passo.'],
-    ['bp_trail_cables', 'Rastro de Cabos', 'Fios coloridos que serpenteiam pelo chão, aparecem e somem.'],
-    ['bp_trail_ghost', 'Rastro Fantasma', 'Pegadas azuis meio transparentes, com um vapor de luz subindo delas.'],
-    ['bp_trail_code', 'Rastro de Código', 'Letrinhas turquesa sobem do chão como código rolando.'],
+    ['bp_trail_binary', 'Rastro Binário', 'Zeros e uns dourados e turquesa caem do ar, pousam onde você pisou e brilham.'],
+    ['bp_trail_sparks', 'Rastro de Faíscas', 'Faíscas elétricas douradas pulam a cada passo, com um raio estalando no chão.'],
+    ['bp_trail_cables', 'Rastro de Cabos', 'Fios coloridos que serpenteiam pelo chão atrás de você, aparecem e somem.'],
+    ['bp_trail_ghost', 'Rastro Fantasma', 'Pegadas azuis meio transparentes, com fantasminhas de luz subindo delas.'],
+    ['bp_trail_code', 'Rastro de Código', 'Letras de código turquesa e douradas sobem do chão como uma tela rolando.'],
     ['bp_trail_glitch', 'Rastro Glitch', 'O chão "falha" e treme em faixas de cor onde o personagem pisa.'],
-    ['bp_trail_rainbow', 'Rastro Arco-íris Pixel', 'Uma faixa de arco-íris em pixel com brilhos, o prêmio final do passe.'],
+    ['bp_trail_rainbow', 'Rastro Arco-íris Pixel', 'Uma faixa de arco-íris em pixel que ondula atrás de você, cheia de brilhos.'],
   ]) PASS({ id, cat: 'trail', slot: 'trail', value: id.slice(9), name, desc });
   for (const [id, name, desc] of [
-    ['bp_hello', 'Quadro "Hello World"', 'Na parede: o primeiro programa de todo mundo, com o cursor piscando. 2 tiles.'],
+    ['bp_hello', 'Quadro "Hello World"', 'Na parede: o primeiro programa de todo mundo, numa moldura dourada, com o cursor piscando. 2 tiles.'],
+    ['bp_graffiti', 'Grafite "BOOT"', 'Na parede: "BOOT" pichado em neon dourado, com a tinta escorrendo. 2 tiles.'],
+    ['bp_founder_chair', 'Cadeira do Fundador', 'Cadeira gamer preta com detalhes dourados e o selo 001 no encosto.'],
+    ['bp_hacker_desk', 'Mesa Hacker', 'Mesa com 3 monitores com código rolando e teclado aceso. 2 tiles.'],
+    ['bp_crt_terminal', 'Terminal de Tubo', 'Computador antigo de tela verde, com chiado na tela e o prompt piscando.'],
+    ['bp_arcade_boot', 'Fliperama Boot', 'Fliperama com o logo do DataLab no letreiro e um joguinho animado na tela.'],
+    ['bp_server_throne', 'Trono do Servidor', 'Um trono feito de racks, com luzes piscando nos braços e no encosto.'],
+    ['bp_neon_boot', 'Placa Neon "BOOT 001"', 'Letreiro neon dourado e turquesa para pendurar na parede. 2 tiles.'],
+  ]) PASS({ id, cat: 'decor', slot: 'furniture', value: id, name, desc });
+  // left the pass (the new reward list): whoever already earned one keeps it, nobody earns them any more
+  for (const [id, name, desc] of [
     ['bp_rug_mobo', 'Tapete Placa-Mãe', 'Tapete 2 × 2 com o desenho de uma placa-mãe: trilhas turquesa, chips e slots.'],
     ['bp_led_lamp', 'Luminária de LED Piscando', 'Uma coluna de LEDs que acende devagar, como um servidor ligando.'],
     ['bp_coffee8', 'Máquina de Café 8-bit', 'Máquina de café quadradona que solta fumacinha em pixel.'],
     ['bp_floppy_shelf', 'Estante de Disquetes', 'Prateleira cheia de disquetes coloridos de 3½".'],
-    ['bp_founder_chair', 'Cadeira do Fundador', 'Cadeira gamer preta com detalhes turquesa e o selo 001 no encosto.'],
     ['bp_data_vault', 'Cofre de Dados', 'Cofre de aço com um cadeado digital piscando no painel.'],
-    ['bp_hacker_desk', 'Mesa Hacker', 'Mesa com 3 monitores mostrando código, teclado aceso e café. 2 tiles.'],
-    ['bp_crt_terminal', 'Terminal de Tubo', 'Computador antigo de tela verde, com o prompt piscando.'],
-    ['bp_arcade_boot', 'Fliperama Boot', 'Fliperama com o logo do DataLab no letreiro e um jogo de boot na tela.'],
-    ['bp_neon_boot', 'Placa Neon "BOOT 001"', 'Letreiro neon para pendurar na parede. 2 tiles.'],
-  ]) PASS({ id, cat: 'decor', slot: 'furniture', value: id, name, desc });
+  ]) PASS({ id, cat: 'decor', slot: 'furniture', value: id, name, desc, oldPass: true });
 
   // --- Retired items (no longer sold or kept): their price is given back once, in Gold, to whoever had
   // them (inventory.js; the server does the same for accounts). Gifts were free: nothing to give back.
@@ -241,8 +256,8 @@
     { id: 'hack', name: 'Skins de hacks', test: (it) => it.slot === 'terminal' },
     { id: 'rack', name: 'Skins de PCs e servidores', test: (it) => it.slot === 'rack' },
     { id: 'decor', name: 'Cosméticos', test: (it) => it.slot === 'furniture' },
-    { id: 'trail', name: 'Rastros', test: (it) => it.slot === 'trail' },
-    { id: 'profile', name: 'Moldura e título', test: (it) => it.slot === 'frame' || it.slot === 'title' },
+    { id: 'trail', name: 'Rastros e auras', test: (it) => it.slot === 'trail' || it.slot === 'aura' },
+    { id: 'profile', name: 'Perfil: moldura, ícone e título', test: (it) => it.slot === 'frame' || it.slot === 'title' || it.slot === 'icon' },
     { id: 'special', name: 'Itens especiais', test: (it) => it.cat === 'special' },
     { id: 'legend', name: 'Bots lendários', test: (it) => it.cat === 'legend' },
   ];
@@ -350,7 +365,9 @@
     if (P.pattern === 'crystal') R(g, px + 3, py - 22, 10, 3, 'rgba(45,226,200,0.35)');
     // the relic's lid: a crack across it and the amber power LED that blinks now and then
     const relicLed = Math.sin(t * 1.7 + (e.seed || 0)) > -0.2 || Math.sin(t * 11) > 0.6 ? P.accent2 : '#6b4a1e';
-    if (P.pattern === 'relic') { R(g, px + 4, py - 23, 2, 1, P.accent); R(g, px + 6, py - 22, 1, 1, P.accent); R(g, px + 7, py - 21, 3, 1, P.accent); R(g, px + 12, py - 22, 2, 1, relicLed); }
+    // (Passe T1: golden light leaks out of the relic's cracks, breathing slowly)
+    const relicK = 0.5 + 0.5 * Math.sin(t * 2 + (e.seed || 0)), relicCrack = 'rgb(255,' + Math.round(170 + 70 * relicK) + ',' + Math.round(50 + 90 * relicK) + ')';
+    if (P.pattern === 'relic') { R(g, px + 4, py - 23, 2, 1, relicCrack); R(g, px + 6, py - 22, 1, 1, relicCrack); R(g, px + 7, py - 21, 3, 1, relicCrack); R(g, px + 5, py - 24, 4, 1, 'rgba(255,214,77,' + (0.15 + 0.25 * relicK).toFixed(2) + ')'); R(g, px + 12, py - 22, 2, 1, relicLed); }
     if (e.tag) R(g, rot === 2 ? px + 12 : rot === 3 ? px + 1 : px + 12, py - 23, 3, 2, e.tag);
     if (rot === 1) return; // the rear door keeps its mesh; the cap already says which skin it is
     if (rot === 2 || rot === 3) {
@@ -378,7 +395,7 @@
       }
       if (P.pattern === 'relic') {
         // a long crack down the side panel and a dent with rust at the bottom
-        for (const [x, y, w] of [[9, -15, 1], [8, -13, 2], [7, -10, 1], [8, -8, 1], [6, -6, 2], [5, -3, 1], [6, -1, 1]]) R(g, px + x, py + y, w, 2, P.accent);
+        for (const [x, y, w] of [[9, -15, 1], [8, -13, 2], [7, -10, 1], [8, -8, 1], [6, -6, 2], [5, -3, 1], [6, -1, 1]]) { R(g, px + x, py + y, w, 2, relicCrack); R(g, px + x + w, py + y, 1, 2, 'rgba(255,214,77,' + (0.12 + 0.25 * relicK).toFixed(2) + ')'); }
         R(g, px + 3, py + 7, 4, 3, P.dk); R(g, px + 4, py + 8, 2, 1, '#7a5a35');
       }
       return;
@@ -432,7 +449,7 @@
     if (P.pattern === 'crystal') { const y = Math.floor((t * 18) % 30); R(g, px + 1, py - 17 + y, 1, 2, 'rgba(255,255,255,0.75)'); R(g, px + 14, py + 12 - y, 1, 2, 'rgba(255,255,255,0.6)'); }
     if (P.pattern === 'relic') {
       // cracks running down both rails, a chipped corner and the amber LED on the bottom bar
-      for (const [x, y] of [[1, -16], [1, -15], [0, -13], [1, -12], [1, -9], [0, -8], [14, -2], [15, 0], [14, 1], [14, 4], [15, 6]]) R(g, px + x, py + y, 1, 1, P.accent);
+      for (const [x, y] of [[1, -16], [1, -15], [0, -13], [1, -12], [1, -9], [0, -8], [14, -2], [15, 0], [14, 1], [14, 4], [15, 6]]) R(g, px + x, py + y, 1, 1, relicCrack);
       R(g, px + 14, py - 18, 2, 2, P.dk); R(g, px + 15, py - 18, 1, 1, '#2a2722');
       R(g, px + 2, py + 12, 2, 1, relicLed);
     }
@@ -608,7 +625,7 @@
       case 'hx_bot': return Object.assign({}, BARE, SUIT, { shirt: HX.metal, pants: HX.slateD, shoes: '#1c2433', skin: '#7d93b5' });
       case 'hx_ghost': return Object.assign({}, BARE, SUIT, { shirt: '#4f8fe0', pants: HX.blueD, shoes: HX.blueD, skin: HX.blueL, hair: '#5a9ae6' });
       case 'hx_master': return Object.assign({}, BARE, SUIT, { shirt: HX.navyD, pants: HX.navyD, shoes: HX.ink });
-      case 'bp_founder': return Object.assign({}, OPEN, SUIT, { shirt: '#11141b', pants: HX.navyD, shoes: HX.ink });
+      case 'bp_founder': return Object.assign({}, OPEN, SUIT, { shirt: '#0d0d13', pants: '#08080d', shoes: '#06060a' });
       case 'astronaut': return Object.assign({}, BARE, SUIT, { shirt: ASTRO.suit, pants: ASTRO.suit, shoes: ASTRO.suitD, skin: ASTRO.suitD });
       case 'ninja': return Object.assign({}, BARE, SUIT, { shirt: NINJA.cloth, pants: NINJA.clothD, shoes: NINJA.clothD });
       case 'robot': return Object.assign({}, BARE, SUIT, { shirt: ROBOT.metal, pants: ROBOT.metalD, shoes: ROBOT.joint, skin: ROBOT.metal });
@@ -686,18 +703,20 @@
         }
         return true;
       case 'bp_founder':
-        // Passe T1: black open coat with turquoise edges, the tails over the legs and "001" lit on the back
+        // Passe T1: long black coat, open in front over a dark shirt, with the golden lining on its edges and
+        // "001" lit on the back (charTop adds the high collar, the swinging hem and the boots' gold; charFx
+        // makes the 001 breathe)
         if (dir === 'down') {
-          R(g, ax - 1, ty, 2, 8, '#1d2433'); R(g, ax, ty + 1, 1, 1, HX.turqL); R(g, ax - 4, ty, 2, 2, '#232a38'); R(g, ax + 2, ty, 2, 2, '#232a38');
-          R(g, ax - 4, ty + 8, 3, 4, shirt); R(g, ax + 1, ty + 8, 3, 4, shirt);
-          R(g, ax - 2, ty, 1, 12, HX.turq); R(g, ax + 1, ty, 1, 12, HX.turq);
-          R(g, ax - 4, ty + 11, 3, 1, HX.turqD); R(g, ax + 1, ty + 11, 3, 1, HX.turqD);
+          R(g, ax - 1, ty, 2, 8, '#1d2433'); R(g, ax - 1, ty + 1, 2, 1, '#2a3346'); R(g, ax, ty + 3, 1, 1, GOLD);
+          R(g, ax - 4, ty, 1, 8, '#22222e'); R(g, ax + 3, ty, 1, 8, '#060609');
+          R(g, ax - 2, ty, 1, 8, GOLD); R(g, ax + 1, ty, 1, 8, GOLD_D); R(g, ax - 2, ty, 1, 1, GOLD_L);
+          R(g, ax - 4, ty + 6, 2, 1, '#22222e'); R(g, ax + 2, ty + 6, 2, 1, '#060609');
         } else if (dir === 'up') {
-          R(g, ax - 4, ty + 8, 8, 4, shirt); R(g, ax - 4, ty, 1, 12, HX.turqD); R(g, ax + 3, ty, 1, 12, HX.turqD); R(g, ax - 4, ty + 11, 8, 1, HX.turq);
-          founderDigits(g, ax, ty + 3, HX.turqL);
+          R(g, ax - 4, ty, 1, 8, '#22222e'); R(g, ax + 3, ty, 1, 8, '#060609'); R(g, ax, ty + 1, 1, 6, '#060609');
+          founderDigits(g, ax, ty + 3, GOLD_L);
         } else {
-          R(g, ax - 3, ty + 8, 5, 4, shirt); R(g, ax + 2, ty, 1, 12, HX.turq);
-          R(g, ax - 3, ty + 11, 5, 1, HX.turqD); R(g, ax - 3, ty + 4, 1, 1, HX.turqL);
+          R(g, ax + 2, ty, 1, 8, GOLD); R(g, ax + 2, ty, 1, 1, GOLD_L); R(g, ax + 3, ty + 1, 1, 6, '#1d2433');
+          R(g, ax - 3, ty + 1, 1, 6, '#22222e'); R(g, ax - 2, ty + 4, 1, 1, GOLD_D);
         }
         return true;
       case 'hx_bot':
@@ -1110,8 +1129,38 @@
 
   // Accessories (DL.GEAR_POS): drawn after the skin, so they sit over any of them. Back first, then the
   // neck, the face and the head on top. Gloves recolour the hands in sprites.js (DL.charGlove).
-  function gear(g, dir, L, o) {
+  function gear(g, dir, L, o, pose) {
     const G = L.gear, ax = AX, ty = o.ty, hy = o.hy, hx = o.hx, side = o.side;
+    // the walk's swing (the cape's wires follow it)
+    const sw = pose === 'A' ? -1 : pose === 'B' ? 1 : 0;
+    if (G.back === 'cooler' && !o.sit) {
+      // Passe T1 · Mochila Cooler: black pack with a golden trim, the fan (its blades turn with the walk) and a LED
+      const blade = (cx, cy) => { R(g, cx - 1, cy - 1, 3, 3, HX.slateD); if (pose === 'A' || pose === 'B') { R(g, cx - 1, cy, 3, 1, HX.turq); R(g, cx, cy, 1, 1, GOLD); } else { R(g, cx, cy - 1, 1, 3, HX.turq); R(g, cx, cy, 1, 1, GOLD); } };
+      if (dir === 'up') {
+        R(g, ax - 4, ty, 8, 8, '#11141b'); R(g, ax - 4, ty, 8, 1, '#2a2f3d'); R(g, ax - 4, ty, 1, 8, '#232a38'); R(g, ax - 4, ty + 7, 8, 1, GOLD_D);
+        blade(ax - 1, ty + 3); R(g, ax + 2, ty + 1, 1, 1, HX.turqL);
+      } else if (dir === 'down') {
+        R(g, ax - 4, ty, 1, 6, '#11141b'); R(g, ax + 3, ty, 1, 6, '#11141b'); R(g, ax - 4, ty + 2, 1, 1, GOLD); R(g, ax + 3, ty + 2, 1, 1, GOLD_D);
+        R(g, ax - 3, ty - 1, 6, 1, '#11141b');
+      } else {
+        R(g, ax - 7, ty, 4, 8, '#11141b'); R(g, ax - 7, ty, 4, 1, '#2a2f3d'); R(g, ax - 7, ty + 7, 4, 1, GOLD_D); R(g, ax - 6, ty + 3, 2, 2, HX.turq); R(g, ax - 6, ty + 3, 1, 1, GOLD);
+        R(g, ax - 3, ty, 1, 5, '#11141b');
+      }
+    }
+    if (G.back === 'cablecape' && !o.sit) {
+      // Passe T1 · Capa de Cabos: a cape of coloured wires, swinging with the walk
+      const W = [HX.turq, GOLD, '#e8444f', HX.blueL, '#3fd36a', '#9b6bff', GOLD_L, HX.turqL];
+      if (dir === 'up') {
+        R(g, ax - 5, ty - 1, 10, 1, '#11141b'); R(g, ax - 5, ty - 1, 2, 1, GOLD); R(g, ax + 3, ty - 1, 2, 1, GOLD);
+        for (let i = 0; i < 10; i++) for (let y = 0; y < 13; y++) { if ((i + y) % 7 === 6) continue; R(g, ax - 5 + i + (y > 7 ? sw : 0) + (y > 10 && i % 2 ? sw : 0), ty + y, 1, 1, W[i % W.length]); }
+      } else if (dir === 'down') {
+        R(g, ax - 5, ty, 1, 1, GOLD); R(g, ax + 4, ty, 1, 1, GOLD);
+        for (let y = 1; y < 13; y++) { R(g, ax - 6 + (y > 7 ? sw : 0), ty + y, 1, 1, W[y % 3]); R(g, ax + 5 + (y > 7 ? sw : 0), ty + y, 1, 1, W[(y + 1) % 3 + 3]); }
+      } else {
+        R(g, ax - 3, ty - 1, 3, 1, GOLD);
+        for (let i = 0; i < 4; i++) for (let y = 0; y < 13; y++) R(g, ax - 4 - i - Math.floor(y / 5) + (y > 6 ? sw : 0), ty + y, 1, 1, W[(i * 2 + y) % W.length]);
+      }
+    }
     if (G.back === 'laptop' && !o.sit) {
       if (dir === 'up') {
         R(g, ax - 3, ty + 1, 6, 6, HX.slate); R(g, ax - 3, ty + 1, 6, 1, HX.slateL); R(g, ax - 2, ty + 4, 4, 2, HX.slateD);
@@ -1164,6 +1213,12 @@
         break;
     }
     switch (G.head) {
+      case 'ledcrown':
+        // Passe T1 · Coroa de LED: a golden band with three points and four LEDs (charFx lights them in turn)
+        R(g, hx - 5, hy - 2, 10, 2, GOLD); R(g, hx - 5, hy - 2, 10, 1, GOLD_L); R(g, hx - 5, hy - 1, 1, 1, GOLD_D); R(g, hx + 4, hy - 2, 1, 2, GOLD_D);
+        for (const x of [-5, -1, 3]) { R(g, hx + x, hy - 4, 2, 2, GOLD); R(g, hx + x, hy - 4, 1, 1, GOLD_L); }
+        for (const [x, c] of [[-4, HX.turqD], [-2, '#a3202a'], [1, GOLD_D], [3, HX.blueD]]) R(g, hx + x, hy - 1, 1, 1, c);
+        break;
       case 'antenna':
         R(g, hx - 4, hy - 1, 8, 1, HX.navy); R(g, hx - 5, hy, 10, 3, HX.navy); R(g, hx - 3, hy, 3, 1, HX.navyL);
         if (dir === 'down') { R(g, hx - 6, hy + 3, 12, 1, HX.navyD); R(g, hx - 1, hy + 1, 2, 1, HX.turq); }
@@ -1181,14 +1236,59 @@
         break;
     }
   }
-  // circuit gloves: dark hands with a turquoise trace (sprites.js paints every hand with this)
-  DL.charGlove = (L) => (L.gear && L.gear.hands === 'gloves' ? { c: '#121a2b', d: '#0a101c', glow: HX.turq } : null);
+  // circuit gloves: dark hands with a turquoise trace (sprites.js paints every hand with this); the
+  // season pass' golden ones: black with a golden trace
+  // (the Founder skin wears golden-trimmed black gloves of its own when no gloves are equipped)
+  DL.charGlove = (L) => {
+    const h = L.gear && L.gear.hands;
+    if (h === 'gloves') return { c: '#121a2b', d: '#0a101c', glow: HX.turq };
+    if (h === 'gloves_t1' || L.outfit === 'bp_founder') return { c: '#101015', d: '#060609', glow: GOLD };
+    return null;
+  };
+
+  // Founder skin pieces drawn after the body (they need the walk's pose): the hem that swings, the boots'
+  // golden caps, the high collar with its golden lining and the turquoise eyes
+  function founderTop(g, dir, pose, o) {
+    const ax = AX, ay = AY, ty = o.ty, hy = o.hy, hx = o.hx, side = o.side, sit = o.sit;
+    const sw = pose === 'A' ? -1 : pose === 'B' ? 1 : 0, coat = '#0d0d13', coatL = '#22222e', coatD = '#060609';
+    if (!sit) {
+      if (!side) {
+        // the boots: a golden cap on each
+        const lDy = pose === 'B' ? -1 : 0, rDy = pose === 'A' ? -1 : 0;
+        R(g, ax - 3, ay - 2 + lDy, 3, 1, GOLD_D); R(g, ax - 3, ay - 2 + lDy, 1, 1, GOLD); R(g, ax, ay - 2 + rDy, 3, 1, GOLD_D); R(g, ax, ay - 2 + rDy, 1, 1, GOLD);
+        // the hem down to the boots, flaring and swinging with each step
+        const hem = (x, w, k) => { R(g, x + sw * k, ty + 8, w, 4, coat); R(g, x + sw * k, ty + 8, 1, 4, coatL); R(g, x + sw * k, ty + 11, w, 1, GOLD_D); };
+        if (dir === 'down') { hem(ax - 5, 3, 1); hem(ax + 2, 3, 1); R(g, ax - 3 + sw, ty + 8, 1, 4, GOLD); R(g, ax + 2 + sw, ty + 8, 1, 4, GOLD_D); }
+        else { hem(ax - 5, 10, 1); R(g, ax + sw, ty + 8, 1, 3, coatD); R(g, ax - 5 + sw, ty + 11, 10, 1, GOLD); }
+      } else {
+        const front = pose === 'A' ? ax + 1 : pose === 'B' ? ax - 4 : ax - 1;
+        R(g, front, ay - 2, 3, 1, GOLD_D); R(g, front + 2, ay - 2, 1, 1, GOLD);
+        R(g, ax - 4 - sw, ty + 8, 6, 4, coat); R(g, ax - 5 - sw, ty + 10, 2, 2, coat); R(g, ax - 4 - sw, ty + 8, 1, 4, coatL);
+        R(g, ax - 5 - sw, ty + 11, 7, 1, GOLD_D); R(g, ax + 1, ty + 8, 1, 3, GOLD);
+      }
+    }
+    // the high collar
+    if (dir === 'down') {
+      R(g, hx - 6, hy + 7, 2, 4, coat); R(g, hx + 4, hy + 7, 2, 4, coatD); R(g, hx - 6, hy + 7, 1, 1, coatL);
+      R(g, hx - 4, hy + 8, 1, 3, GOLD); R(g, hx + 3, hy + 8, 1, 3, GOLD_D);
+    } else if (dir === 'up') {
+      R(g, hx - 6, hy + 7, 12, 3, coat); R(g, hx - 6, hy + 7, 12, 1, coatL); R(g, hx - 5, hy + 7, 10, 1, GOLD_D);
+    } else {
+      R(g, hx - 5, hy + 6, 3, 5, coat); R(g, hx - 5, hy + 6, 1, 1, coatL); R(g, hx - 2, hy + 7, 1, 4, GOLD);
+    }
+    // turquoise eyes (open)
+    if (!o.closed) {
+      if (dir === 'down') { R(g, hx - 3, hy + 5, 1, 2, HX.turq); R(g, hx + 2, hy + 5, 1, 2, HX.turq); R(g, hx - 3, hy + 5, 1, 1, HX.turqL); R(g, hx + 2, hy + 5, 1, 1, HX.turqL); }
+      else if (side) { R(g, hx + 2, hy + 5, 1, 2, HX.turq); R(g, hx + 2, hy + 5, 1, 1, HX.turqL); }
+    }
+  }
 
   // skin heads, then the costumes' head pieces and the legendary visor; accessories last, on top of all
   DL.charTop = function (g, dir, pose, L, o) {
     const ax = AX, ty = o.ty, hy = o.hy, side = o.side;
     const hx = o.hx;
     hxHead(g, dir, L, o);
+    if (L.outfit === 'bp_founder') founderTop(g, dir, pose, o);
     if (L.outfit === 'astronaut') {
       // glass dome helmet: a white shell, a green-tinted visor and a neon rim
       const shell = '#dfe7ed', shellD = '#b6c1ca', shellL = '#ffffff';
@@ -1427,7 +1527,7 @@
       else if (side) { R(g, ax, hy + 4, 6, 2, GOLD); R(g, ax + 2, hy + 5, 3, 1, GOLD_L); }
       else R(g, ax - 5, hy + 4, 10, 1, GOLD_D);
     }
-    if (L.gear) gear(g, dir, L, o);
+    if (L.gear) gear(g, dir, L, o, pose);
   };
 
   // after a frame is drawn and outlined: the Digital Ghost is half see-through, with faint scan lines
@@ -1443,17 +1543,70 @@
     return o;
   };
 
+  // the season pass' accessories that move all the time: the Data Wings beating (slowly when standing,
+  // faster when walking), the LED crown's lights running in sequence, the cooler's fan spinning
+  function passGearFx(g, a, G, X, Y, t) {
+    const dir = a.dir, m = dir === 'left' ? -1 : 1, top = Y - AY + 6, ty = Y - AY + 16;
+    // frame x offset (from the body's axis) → world x, mirrored when facing left
+    const px = (dx) => (m > 0 ? X + dx : X - dx - 1);
+    if (G.back === 'datawings') {
+      const k = Math.sin(t * (a.moving ? 6 : 2.2)), ga = g.globalAlpha;
+      const wing = (s, x0, len0, behind) => {
+        for (let r = 0; r < 5; r++) {
+          const len = len0 - r;
+          for (let i = 0; i < len; i++) {
+            if ((i * 7 + r * 3) % 5 === 4) continue; // gaps: it reads as code
+            const y = ty - 4 + r * 2 - Math.round(i * (0.55 + 0.3 * k)) + (behind ? -1 : 0);
+            g.globalAlpha = ga * (behind ? 0.85 : 0.95);
+            R(g, px(x0 + s * i), y, 1, 1, (i + r) % 3 === 0 ? GOLD_L : r < 2 ? HX.turqL : r < 4 ? HX.turq : HX.turqD);
+          }
+        }
+        g.globalAlpha = ga;
+      };
+      if (dir === 'down') { wing(-1, -7, 7, true); wing(1, 6, 7, true); }
+      else if (dir === 'up') { wing(-1, -2, 10, false); wing(1, 1, 10, false); }
+      else wing(-1, -5, 9, true);
+    }
+    if (a.moving) return;
+    if (G.head === 'ledcrown') {
+      const lit = Math.floor(t * 6) % 4, LED = [[-4, HX.turqL], [-2, '#ff7a85'], [1, GOLD_L], [3, '#9cc6ff']];
+      const [dx, c] = LED[lit];
+      R(g, px(dx), top - 1, 1, 1, c);
+      g.globalAlpha *= 0.35; R(g, px(dx) - 1, top - 2, 3, 3, c); g.globalAlpha /= 0.35;
+    }
+    if (G.back === 'cooler' && dir === 'up') {
+      const f = Math.floor(t * 12) % 2;
+      R(g, px(-2), ty + 2, 3, 3, HX.slateD);
+      if (f) R(g, px(-2), ty + 3, 3, 1, HX.turq); else R(g, px(-1), ty + 2, 1, 3, HX.turq);
+      R(g, px(-1), ty + 3, 1, 1, GOLD);
+      if (Math.floor(t * 2) % 2) R(g, px(2), ty + 1, 1, 1, HX.turqL);
+    }
+    if (G.hands === 'gloves_t1' && (dir === 'down' || dir === 'up')) {
+      // the golden traces light up one hand after the other
+      const on = Math.floor(t * 3) % 2;
+      R(g, px(on ? -6 : 4), ty + 6, 1, 1, '#ffffff');
+    }
+  }
+
   // live effects drawn over a character every frame (sprites.js / iso.js drawActor): the code that
   // runs down the hoodie's face, the ghost's glitches, the robot's blinking cursor
   DL.charFx = function (g, a, X, Y, t) {
     const L = a.look;
-    if (L && L.outfit === 'bp_founder' && a.dir === 'up' && !a.seated && !a.moving) {
-      // the "001" on the Founder's back breathes: a soft halo, then the digits at full light
-      const k = 0.5 + 0.5 * Math.sin(t * 2.6);
-      g.globalAlpha *= 0.25 + 0.35 * k;
-      R(g, X - 5, Y - 11, 11, 5, HX.turq);
-      g.globalAlpha /= 0.25 + 0.35 * k;
-      founderDigits(g, X, Y - 10, k > 0.5 ? '#ffffff' : HX.turqL);
+    if (L && L.gear && !a.seated) passGearFx(g, a, L.gear, X, Y, t);
+    if (L && L.outfit === 'bp_founder' && !a.seated && !a.moving) {
+      const k = 0.5 + 0.5 * Math.sin(t * 1.8), ga = g.globalAlpha;
+      if (a.dir === 'up') {
+        // the "001" on the Founder's back breathes slowly: a golden halo, then the digits at full light
+        g.globalAlpha = ga * (0.2 + 0.3 * k);
+        R(g, X - 5, Y - 11, 11, 5, GOLD);
+        g.globalAlpha = ga;
+        founderDigits(g, X, Y - 10, k > 0.55 ? '#ffffff' : GOLD_L);
+      } else if (a.dir === 'down' && !(a.blinkT > 0)) {
+        // the eyes glow
+        g.globalAlpha = ga * (0.25 + 0.35 * k);
+        R(g, X - 4, Y - AY + 10, 3, 3, HX.turq); R(g, X + 1, Y - AY + 10, 3, 3, HX.turq);
+        g.globalAlpha = ga;
+      }
       return;
     }
     if (!L || !L.outfit || L.outfit.indexOf('hx_') !== 0 || a.seated) return;
@@ -1604,7 +1757,7 @@
   /* on the same 22×31 frame as a character so drawActor can place them  */
   /* ------------------------------------------------------------------ */
   // f: animation frame (0–3), walk: legs moving. Ground row = 28 (where a character's shoes end).
-  function drawPet(g, kind, f, walk) {
+  function drawPet(g, kind, f, walk, alt) {
     const odd = f % 2 === 1, step = walk ? f % 2 : 0;
     switch (kind) {
       case 'bug': {
@@ -1643,17 +1796,33 @@
         return;
       }
       case 'bitzero': {
-        // Passe T1: a little robot whose square screen face blinks 0 and 1, antenna and two small feet
-        const bit = f % 2 ? '1' : '0';
-        R(g, 7, 12, 9, 8, HX.slateD); R(g, 7, 12, 9, 1, HX.slateL); R(g, 15, 13, 1, 7, HX.ink);
-        R(g, 8, 13, 7, 6, HX.screen); R(g, 8, 13, 7, 1, 'rgba(45,226,200,0.25)');
+        // Passe T1: a little robot floating at shoulder height, its square screen face blinking 0 and 1,
+        // golden core and a jet of light underneath (no feet: it flies)
+        const y = 7 + (f === 1 || f === 2 ? 1 : 0), bit = f % 2 ? '1' : '0';
+        R(g, 11, y, 1, 3, HX.slateL); R(g, 10, y - 1, 3, 1, odd ? GOLD : HX.turq); R(g, 11, y - 2, 1, 1, odd ? GOLD_L : HX.turqL);
+        R(g, 6, y + 3, 11, 9, HX.slateD); R(g, 6, y + 3, 11, 1, HX.slateL); R(g, 6, y + 3, 1, 9, HX.slate); R(g, 16, y + 4, 1, 8, HX.ink);
+        R(g, 8, y + 5, 7, 6, HX.screen); R(g, 8, y + 5, 7, 1, 'rgba(45,226,200,0.25)');
         const D = { 0: ['111', '101', '101', '101', '111'], 1: ['010', '110', '010', '010', '111'] }[bit];
-        D.forEach((row, r) => { for (let c = 0; c < 3; c++) if (row[c] === '1') R(g, 10 + c, 13 + r, 1, 1, HX.turqL); });
-        R(g, 11, 9, 1, 3, HX.slateL); R(g, 10, 8, 3, 1, odd ? HX.turq : HX.blueL);
-        R(g, 8, 20, 7, 5, HX.navy); R(g, 8, 20, 7, 1, HX.navyL); R(g, 10, 22, 3, 1, HX.turqD); R(g, 11, 22, 1, 1, odd ? HX.turqL : HX.turq);
-        R(g, 6, 21, 2, 1, HX.slate); R(g, 15, 21, 2, 1, HX.slate);
-        R(g, 8 + (step ? 1 : 0), 25, 2, 3, HX.slateD); R(g, 12 - (step ? 1 : 0), 25, 2, 3, HX.slateD);
-        R(g, 7 + (step ? 1 : 0), 27, 3, 1, HX.ink); R(g, 12 - (step ? 1 : 0), 27, 3, 1, HX.ink);
+        D.forEach((row, r) => { for (let c = 0; c < 3; c++) if (row[c] === '1') R(g, 10 + c, y + 5 + r, 1, 1, HX.turqL); });
+        R(g, 8, y + 12, 7, 4, '#11141b'); R(g, 8, y + 12, 7, 1, '#232a38'); R(g, 10, y + 13, 3, 2, GOLD_D); R(g, 11, y + 13, 1, 1, odd ? GOLD_L : GOLD);
+        R(g, 4, y + 7, 2, 3, HX.slate); R(g, 17, y + 7, 2, 3, HX.slateD); R(g, 4, y + 9, 2, 1, GOLD); R(g, 17, y + 9, 2, 1, GOLD_D);
+        // the jet
+        R(g, 9, y + 16, 5, 1, HX.turq); R(g, 10, y + 17, 3, 1 + (f % 2), 'rgba(45,226,200,0.7)'); R(g, 11, y + 18 + (f % 2), 1, 1, 'rgba(165,247,234,0.6)');
+        return;
+      }
+      case 'glitchcat': {
+        // Passe T1: a little grey pixel cat; its glitch frames (alt) shift colour and slide a band sideways
+        const c = alt ? ['#5a2a96', '#9b6bff', '#d9c7ff', '#ffffff'] : ['#4a5262', '#7a8496', '#aeb8c8', '#e6ecf5'];
+        const tail = walk ? (f % 2 ? 1 : 0) : (odd ? 1 : 0);
+        R(g, 3 + tail, 17, 1, 3, c[1]); R(g, 4, 19, 1, 3, c[1]); R(g, 5, 21, 1, 2, c[1]); R(g, 3 + tail, 17, 1, 1, c[2]);
+        R(g, 5, 22, 10, 5, c[1]); R(g, 5, 22, 10, 1, c[2]); R(g, 5, 22, 1, 4, c[2]); R(g, 6, 26, 9, 1, c[0]);
+        R(g, 7, 24, 5, 2, c[2]); R(g, 8, 24, 3, 1, c[3]);
+        R(g, 13, 17, 6, 6, c[1]); R(g, 13, 17, 6, 1, c[2]); R(g, 13, 17, 1, 5, c[2]); R(g, 18, 18, 1, 5, c[0]);
+        R(g, 13, 15, 2, 2, c[1]); R(g, 13, 15, 1, 1, c[2]); R(g, 17, 15, 2, 2, c[1]); R(g, 14, 16, 1, 1, '#e8a0b0'); R(g, 18, 16, 1, 1, '#e8a0b0');
+        R(g, 16, 19, 1, 2, alt ? '#ff4d5e' : odd && !walk ? c[0] : GOLD); R(g, 18, 21, 1, 1, '#e8a0b0');
+        R(g, 19, 21, 1, 1, c[2]); R(g, 19, 20, 1, 1, c[3]);
+        for (const [x, s] of [[6, 0], [8, 1], [12, 0], [14, 1]]) R(g, x + (s === step ? 1 : 0), 27, 1, 2, c[0]);
+        if (alt) { R(g, 2, 20, 18, 1, 'rgba(63,200,255,0.85)'); R(g, 6, 24, 14, 1, 'rgba(255,214,77,0.8)'); R(g, 12, 18, 7, 1, 'rgba(45,226,200,0.9)'); }
         return;
       }
       case 'holodog': {
@@ -1686,13 +1855,15 @@
     g.drawImage(src, 0, 0);
     return c;
   }
-  // { right: { idle: [2 frames], walk: [4 frames] }, left: mirrored } (cached per kind)
+  // { right: { idle: [2 frames], walk: [4 frames], glitch: [2 frames] }, left: mirrored } (cached per kind;
+  // glitch: the Gato Glitch's failing frames, shown now and then, pets.js)
   const petSheets = {};
   DL.petSheet = function (kind) {
     if (petSheets[kind]) return petSheets[kind];
-    const build = (f, walk) => { const c = DL.mk(DL.CHAR.FW, DL.CHAR.FH); drawPet(c.getContext('2d'), kind, f, walk); return petOutline(c); };
+    const build = (f, walk, alt) => { const c = DL.mk(DL.CHAR.FW, DL.CHAR.FH); drawPet(c.getContext('2d'), kind, f, walk, alt); return petOutline(c); };
     const right = { idle: [build(0, false), build(1, false)], walk: [0, 1, 2, 3].map((f) => build(f, true)) };
-    const left = { idle: right.idle.map(petMirror), walk: right.walk.map(petMirror) };
+    if (kind === 'glitchcat') right.glitch = [build(0, false, true), build(1, true, true)];
+    const left = { idle: right.idle.map(petMirror), walk: right.walk.map(petMirror), glitch: right.glitch && right.glitch.map(petMirror) };
     return (petSheets[kind] = { right, left });
   };
 

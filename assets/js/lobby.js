@@ -152,7 +152,7 @@
           '<span class="mp-hud__copy"><button class="btn btn--sm" type="button" data-mp-act="copy-code">Copiar código</button><button class="btn btn--sm" type="button" data-mp-act="copy-link">Copiar convite</button></span></div>';
       }
       h += '<ul class="mp-hud__list">' + list.map((p) =>
-        '<li><span class="mp-hud__face' + (p.look && DL.passFrameClass ? DL.passFrameClass(p.look.frame) : '') + '"><canvas data-mp-face="' + esc(p.id) + '" aria-hidden="true"></canvas></span><span class="mp-hud__who"><b>' + esc(p.name) + '</b>' +
+        '<li><span class="mp-hud__face' + (p.look && DL.passFrameClass ? DL.passFrameClass(p.look.frame) : '') + '"><canvas data-mp-face="' + esc(p.id) + '" aria-hidden="true"></canvas></span><span class="mp-hud__who"><b>' + (p.look && DL.passIconHtml ? DL.passIconHtml(p.look.icon) : '') + esc(p.name) + '</b>' +
         (p.look && p.look.title && DL.passTitleHtml ? DL.passTitleHtml(p.look.title) : '') + '<small>' + (p.role === 'host' ? 'Anfitrião' : 'Convidado') + (p.me ? ' · você' + (role === 'guest' && MP.rtt ? ' · ' + MP.rtt + ' ms' : '') : '') + '</small></span>' +
         (host && !p.me ? '<button class="cc__x" type="button" data-mp-act="kick" data-id="' + esc(p.id) + '" title="Remover da sala" aria-label="Remover ' + esc(p.name) + ' da sala">×</button>' : '') + '</li>').join('') + '</ul>';
       h += '<div class="mp-hud__acts">' + (host ? '<button class="btn btn--sm" type="button" data-mp-act="save">Salvar mundo</button><button class="btn btn--sm" type="button" data-mp-act="leave">Fechar sala</button>'
@@ -302,12 +302,13 @@
         let el = tagEls.get(p.id);
         if (!el) { el = document.createElement('span'); el.className = 'mp-tag'; tags.appendChild(el); tagEls.set(p.id, el); }
         const b = a.bubble && a.bubble.left > 0 ? a.bubble.text : '';
-        // the season pass' title (Pioneiro) goes under the name (battlepass.js)
+        // the season pass' title (Pioneiro) goes under the name, its icon (Chip Boot) before it (battlepass.js)
         const title = !b && p.look && p.look.title && DL.passTitleHtml ? DL.passTitleHtml(p.look.title) : '';
-        const text = (b || p.name) + '|' + title;
+        const icon = !b && p.look && DL.passIconHtml ? DL.passIconHtml(p.look.icon) : '';
+        const text = (b || p.name) + '|' + title + '|' + icon;
         if (el.dataset.text !== text) {
           el.dataset.text = text;
-          if (title) el.innerHTML = '<span class="mp-tag__name">' + esc(p.name) + '</span>' + title; else el.textContent = b || p.name;
+          if (title || icon) el.innerHTML = '<span class="mp-tag__name">' + icon + esc(p.name) + '</span>' + title; else el.textContent = b || p.name;
           el.classList.toggle('mp-tag--say', !!b);
           el.classList.toggle('has-ptitle', !!title);
         }

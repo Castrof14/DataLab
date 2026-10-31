@@ -63,9 +63,11 @@
     const p = V.profile || {}, g = V.progress || {}, w = D.economy.wallet;
     const company = (V.saves.find((s) => s.slot === (g.last_slot || 1)) || V.saves[0] || {}).name;
     const hours = Math.floor((g.total_play_minutes || 0) / 60);
-    // the season pass' profile frame and title (battlepass.js), when equipped
+    // the season pass' profile frame and title (battlepass.js), when equipped (the golden frame wraps the
+    // face: its light runs around it, pass.css)
     const pass = DL.lookExtras ? DL.lookExtras() : {}, passT = pass.title && DL.passTitleHtml ? DL.passTitleHtml(pass.title) : '';
-    return '<div class="acc-profile"><canvas class="acc-face' + (DL.passFrameClass ? DL.passFrameClass(pass.frame) : '') + '" data-face aria-hidden="true"></canvas><div><b>@' + esc(p.username) + '</b><span class="acc-small">' + esc(p.email || '') + '</span>' +
+    const face = '<canvas class="acc-face' + (DL.passFrameClass ? DL.passFrameClass(pass.frame) : '') + '" data-face aria-hidden="true"></canvas>';
+    return '<div class="acc-profile">' + (pass.frame === 't1' ? '<span class="acc-framed">' + face + '</span>' : face) + '<div><b>@' + esc(p.username) + '</b><span class="acc-small">' + esc(p.email || '') + '</span>' +
       '<span class="acc-small">Conta criada em ' + when(p.created_at) + '</span>' + '<span class="acc-roles">' + (V.titles.length || passT ? V.titles.map(DL.titleBadge).join('') + passT : '<span class="acc-small">Sem título ainda</span>') + '</span>' + '</div>' +
       '<div class="acc-bal"><span class="cur cur--dc"></span><b class="is-gold">' + fmt(w.gold) + '</b><small>Gold</small><span class="cur cur--cr"></span><b>' + fmt(w.credits) + '</b><small>créditos</small></div></div>' +
       '<dl class="acc-stats"><div><dt class="eyebrow-sm">Empresa</dt><dd>' + esc(company || '—') + '</dd></div><div><dt class="eyebrow-sm">Nível</dt><dd>' + (g.level || 1) + '</dd></div>' +

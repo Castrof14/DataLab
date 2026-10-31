@@ -15,7 +15,7 @@
   const DL = window.DL, D = window.DataLabDemo;
   if (!D || DL.HERO || !DL.Net || !DL.SaveService) return;
   const G = D.game, SS = DL.SaveService, T = DL.T;
-  const LOOK_KEYS = ['name', 'body', 'skin', 'hair', 'hairStyle', 'outfit', 'shirt', 'pants', 'pantsStyle', 'shoes', 'vest', 'glasses', 'beard', 'headset', 'earrings', 'hat', 'hatColor', 'shades', 'scarf', 'backpack', 'chain', 'role'];
+  const LOOK_KEYS = ['name', 'body', 'skin', 'hair', 'hairStyle', 'outfit', 'shirt', 'pants', 'pantsStyle', 'shoes', 'vest', 'glasses', 'beard', 'headset', 'earrings', 'hat', 'hatColor', 'shades', 'scarf', 'backpack', 'chain', 'role', 'gear'];
   const DIRS = ['down', 'up', 'left', 'right'];
   const LIVE_EVERY = 0.1, STRUCT_EVERY = 0.5, POS_EVERY = 0.1;
   const r1 = (v) => Math.round(v * 10) / 10;
@@ -33,7 +33,7 @@
   const playing = () => D.state.phase === 'play';
   const myProfile = () => D.crew.playerProfile || {};
   const myName = () => myProfile().name || 'Jogador';
-  // + the trail, profile frame and title equipped in the inventory (trails.js / battlepass.js)
+  // + the accessories, and the trail, aura, profile frame, icon and title equipped in the inventory (trails.js / battlepass.js)
   function myLook() { const p = myProfile(), o = {}; for (const k of LOOK_KEYS) if (p[k] !== undefined) o[k] = p[k]; return DL.lookExtras ? Object.assign(o, DL.lookExtras()) : o; }
 
   /* ------------------------------------------------------------------ */

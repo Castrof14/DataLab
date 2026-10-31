@@ -186,10 +186,10 @@
         <button class="mode" type="button" data-mode="crew" aria-pressed="false">Equipe <kbd>C</kbd></button>
       </nav>
       <span class="emo">
-        <button class="btn btn--sm ops-btn ops-btn--emo" id="emoteBtn" type="button" title="Emotes: dança (1), acenar (2), raiva (3), invasão (4, do Passe)" aria-haspopup="menu" aria-expanded="false" aria-controls="emoteWheel"><span aria-hidden="true">🙂</span><span class="hud-lbl">Emotes</span></button>
+        <button class="btn btn--sm ops-btn ops-btn--emo" id="emoteBtn" type="button" title="Emotes: dança (1), acenar (2), raiva (3), invasão (4) e reboot (5), do Passe" aria-haspopup="menu" aria-expanded="false" aria-controls="emoteWheel"><span aria-hidden="true">🙂</span><span class="hud-lbl">Emotes</span></button>
         <span class="emo__wheel" id="emoteWheel" role="menu" aria-label="Emotes" hidden></span>
       </span>
-      <button class="btn btn--sm ops-btn ops-btn--pass" id="passBtn" type="button" title="Passe Boot Inicial · Temporada 1 (J)"><span class="bp-ico" aria-hidden="true"></span><span class="hud-lbl">Passe</span><span class="bp-btn__lvl" id="passBtnLvl">0</span></button>
+      <button class="btn btn--sm ops-btn ops-btn--pass" id="passBtn" type="button" title="Passe Boot Inicial · Temporada 1 (J)"><canvas class="bp-chip" id="passChip" width="40" height="40" aria-hidden="true"></canvas><span class="hud-lbl">Passe</span><span class="bp-btn__lvl" id="passBtnLvl">0</span></button>
       <button class="btn btn--sm ops-btn ops-btn--ai" id="aiBtn" type="button" hidden title="IA da equipe: funcionários executam tarefas reais com o OpenCode"><span aria-hidden="true">🤖</span><span class="hud-lbl">IA da equipe</span><span class="ai-dot" id="aiDot" hidden></span></button>
       <div class="hud-meta eyebrow-sm">
         <span id="hudMeta">Meu datacenter</span>
@@ -340,7 +340,6 @@
     <aside class="mp-hud" id="mpHud" hidden aria-label="Sala multijogador"></aside>
 
     <div class="toasts" id="toasts" aria-live="assertive"></div>
-    <div class="bp-ups" id="passUp" hidden aria-live="polite"></div>
     <div class="talk-pings" id="talkPings" aria-live="polite"></div>
 
     <aside class="talk" id="talk" hidden aria-label="Conversa com a equipe">
@@ -420,7 +419,7 @@
           <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa (compras, terreno, contratações) e, separados, créditos e Gold (moeda dourada) · câmbio de créditos em Gold</span></li>
           <li><span class="keys"><kbd>O</kbd></span><span>Loja: skins de racks, servidores, switches e storage, LEDs, roupas, cabelos, acessórios, itens especiais, itens de evento e bots lendários — tudo em Gold</span></li>
           <li><span class="keys"><kbd>U</kbd></span><span>Inventário: filtros por categoria e raridade, equipar / desequipar, usar, vender, ativar bots lendários · itens de evento ficam guardados</span></li>
-          <li><span class="keys"><kbd>J</kbd></span><span>Passe Boot Inicial · Temporada 1: nível, XP, missões diárias e semanais e as 50 recompensas exclusivas</span></li>
+          <li><span class="keys"><kbd>J</kbd></span><span>Passe Boot Inicial · Temporada 1 (grátis): nível, XP, missões diárias e semanais e as 50 recompensas exclusivas</span></li>
           <li><span class="keys"><kbd>B</kbd></span><span>Espaços → <b>Terreno</b>: cada expansão mostra o preço antes de confirmar e fica mais cara conforme o terreno e a área construída crescem</span></li>
           <li><span class="keys"><kbd>H</kbd></span><span>Central de Atendimento: clientes, conversas ao vivo, assumir, responder e transferir</span></li>
           <li><span class="keys"><kbd>L</kbd></span><span>Laboratório de Redes: monte, configure e teste redes (ping, ipconfig, tracert) · 5 desafios</span></li>
@@ -726,6 +725,7 @@
   <script src="assets/js/furniture.js"></script>
   <script src="assets/js/build.js"></script>
   <script src="assets/js/cosmetics.js"></script>
+  <script src="assets/js/pass-art.js"></script>
   <script src="assets/js/trails.js"></script>
   <script src="assets/js/emotes.js"></script>
   <script src="assets/js/pets.js"></script>

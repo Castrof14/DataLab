@@ -2,7 +2,7 @@
    1 = dance, 2 = wave, 3 = anger. One at a time; walking stops it. The frames come from
    sprites.js (DL.makeEmoteSheet), so the skin, the accessories and the pet stay on during the emote.
    The emoji shows over the head in the speech bubble (crew.js draws the player's bubble).
-   4 = Invasão, a reward of the season pass (battlepass.js): only for whoever owns its item. */
+   4 = Invasão and 5 = Reboot, rewards of the season pass (battlepass.js): only for whoever owns their item. */
 (function () {
   'use strict';
   const DL = window.DL;
@@ -12,7 +12,10 @@
     { id: 'wave', key: '2', emoji: '👋', name: 'Acenando', dur: 2, desc: 'Levanta o braço e balança a mão para cumprimentar alguém.' },
     { id: 'angry', key: '3', emoji: '😡', name: 'Raiva', dur: 2.6, desc: 'A cabeça fica vermelha e sai fumaça. Para quando o servidor cai de novo.' },
     { id: 'hack', key: '4', emoji: '⌨️', name: 'Invasão', dur: 3.4, item: 'bp_emote_hack', desc: 'Digita rápido num teclado no ar e aparece "ACESSO LIBERADO" em cima do personagem.' },
+    { id: 'reboot', key: '5', emoji: '🔌', name: 'Reboot', dur: 3.6, item: 'bp_emote_reboot', desc: 'Desliga, fica com a tela azul no rosto e liga de novo, com barra de carregamento.' },
   ];
+  // Reboot: the moments of the emote (s)
+  const RB = { off: 0.45, boot: 2.2 };
   // the emotes this player may use: the free ones + the ones whose item is in the inventory
   DL.emoteOwned = (e) => !e.item || !!(DL.Inventory && DL.Inventory.owns(e.item));
   const HACK_DONE = 1.3; // the last seconds of Invasão: "ACESSO LIBERADO"
@@ -31,7 +34,52 @@
     }
     // types very fast, then stands still while access is granted
     if (id === 'hack') return t > dur - HACK_DONE ? sheet.hackB : Math.floor(t / 0.09) % 2 ? sheet.hackB : sheet.hackA;
+    // standing still while it shuts down and boots again (the effect is drawn over the frame)
+    if (id === 'reboot') return sheet.hackB;
     return null;
+  };
+
+  // Reboot: the body goes dark (a tint over the frame's own pixels), the face shows a pixel blue screen,
+  // then a loading bar fills over the head and the light comes back with a flash
+  const tints = new WeakMap();
+  function darkOf(img) {
+    let c = tints.get(img);
+    if (!c) {
+      c = document.createElement('canvas'); c.width = img.width; c.height = img.height;
+      const g = c.getContext('2d');
+      g.drawImage(img, 0, 0);
+      g.globalCompositeOperation = 'source-in';
+      g.fillStyle = '#05070d';
+      g.fillRect(0, 0, c.width, c.height);
+      tints.set(img, c);
+    }
+    return c;
+  }
+  function reboot(g, X, Y, t, dur, frame) {
+    const R = DL.R, C = DL.CHAR, top = Y - C.AY + 6, ga = g.globalAlpha;
+    const dark = t < RB.off ? t / RB.off : t < RB.boot ? 1 : Math.max(0, 1 - (t - RB.boot) / 0.7);
+    if (frame && dark > 0) { g.globalAlpha = ga * 0.62 * dark; g.drawImage(darkOf(frame), X - C.AX, Y - C.AY); g.globalAlpha = ga; }
+    if (t < RB.off) {
+      // the picture collapses into a bright line across the face
+      const k = t / RB.off, h = Math.max(1, Math.round(8 * (1 - k)));
+      R(g, X - 4, top + 5 - Math.floor(h / 2), 9, h, 'rgba(232,244,255,' + (0.35 + 0.5 * k).toFixed(2) + ')');
+    } else if (t < RB.boot) {
+      // the blue screen on the face: a sad face and two lines of text
+      R(g, X - 5, top + 1, 11, 8, '#1d4fd8');
+      R(g, X - 3, top + 2, 1, 1, '#fff'); R(g, X - 3, top + 4, 1, 1, '#fff'); R(g, X - 1, top + 2, 1, 3, '#fff'); R(g, X, top + 1, 1, 1, '#fff'); R(g, X, top + 5, 1, 1, '#fff');
+      R(g, X - 3, top + 6, 7, 1, '#9cc6ff'); R(g, X - 3, top + 7, Math.floor((t * 6) % 6) + 1, 1, '#9cc6ff');
+      R(g, X - 5, top + 1, 11, 1, 'rgba(255,255,255,0.25)');
+    } else {
+      // booting: the bar over the head fills, then a golden flash
+      const k = Math.min(1, (t - RB.boot) / (dur - RB.boot - 0.35));
+      R(g, X - 7, top - 9, 15, 4, '#0b0b10'); R(g, X - 6, top - 8, 13, 2, '#232333'); R(g, X - 6, top - 8, Math.round(13 * k), 2, k >= 1 ? '#ffe680' : '#f2b51e');
+      if (k >= 1) { g.globalAlpha = ga * Math.max(0, 1 - (t - (dur - 0.35)) / 0.35) * 0.5; R(g, X - 8, Y - 30, 17, 30, '#fff1b8'); g.globalAlpha = ga; }
+    }
+  }
+  // an emote's live effect (the inventory's preview draws it too): hack and reboot
+  DL.emoteFx = function (g, id, X, Y, t, dur, frame) {
+    if (id === 'hack') hack(g, X, Y, t, dur);
+    else if (id === 'reboot') reboot(g, X, Y, t, dur, frame);
   };
 
   // Invasão: a holographic keyboard in front of the player, code flying up from it, then a green flash
@@ -81,7 +129,7 @@
     function play(id) {
       const em = BY_ID[id];
       if (!em) return false;
-      if (!DL.emoteOwned(em)) { game.toast('info', 'Emote ' + em.name, 'Recompensa do Passe Boot Inicial (nível 20)'); return false; }
+      if (!DL.emoteOwned(em)) { game.toast('info', 'Emote ' + em.name, 'Recompensa do Passe Boot Inicial' + (DL.Pass && DL.Pass.levelOf(em.item) ? ' (nível ' + DL.Pass.levelOf(em.item) + ')' : '')); return false; }
       if (E.cur) return false; // one at a time
       const why = can();
       if (why) { if (typeof why === 'string') game.toast('info', 'Emote', why); return false; }
@@ -109,19 +157,23 @@
         player.bubble = { text: 'ACESSO LIBERADO', left: HACK_DONE, tone: 'emote' };
         game.sfx('ok');
       }
+      if (E.cur.id === 'reboot' && E.t > RB.boot && player.bubble && player.bubble.text === E.cur.emoji) {
+        player.bubble = { text: 'LIGANDO…', left: E.cur.dur - E.t, tone: 'emote' };
+        game.sfx('tick');
+      }
     }
     player.fx = function (g, X, Y, t) {
       if (E.cur && E.cur.id === 'angry') smoke(g, X, Y, E.t);
-      if (E.cur && E.cur.id === 'hack') hack(g, X, Y, E.t, E.cur.dur);
+      if (E.cur && (E.cur.id === 'hack' || E.cur.id === 'reboot')) DL.emoteFx(g, E.cur.id, X, Y, E.t, E.cur.dur, player.frame());
     };
     return {
       play, stop, update,
       get active() { return E.cur ? E.cur.id : null; },
       // the emote's frame for the player right now (null when no emote is running)
       frame() { return E.cur ? DL.emoteFrame(sheet(), E.cur.id, E.t, E.cur.dur) : null; },
-      // keyboard: 1 / 2 / 3, and 4 for Invasão (top row or numpad)
+      // keyboard: 1 / 2 / 3, 4 for Invasão and 5 for Reboot (top row or numpad)
       key(ev) {
-        const m = /^(?:Digit|Numpad)([1234])$/.exec(ev.code);
+        const m = /^(?:Digit|Numpad)([1-5])$/.exec(ev.code);
         if (!m || ev.repeat) return false;
         play(DL.EMOTES[+m[1] - 1].id);
         return true;

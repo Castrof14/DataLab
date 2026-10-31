@@ -1748,7 +1748,8 @@
     });
     const thumbs = new Map();
     function renderCatalog() {
-      const defs = CATALOG.filter((d) => d.cat === B.tab);
+      // (pieces that left the season pass only show for whoever owns one)
+      const defs = CATALOG.filter((d) => d.cat === B.tab && !(d.oldPass && cosmState(d) === 'locked'));
       const groups = [];
       for (const d of defs) if (d.group && groups.indexOf(d.group) < 0) groups.push(d.group);
       if (B.group && groups.indexOf(B.group) < 0) B.group = null;

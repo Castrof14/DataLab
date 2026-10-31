@@ -2388,13 +2388,14 @@
 
       // my own tag in team mode
       if (!meTag) { meTag = document.createElement('span'); meTag.className = 'nametag is-me'; el.tags.appendChild(meTag); }
-      // the season pass' title (Pioneiro) shows under my name (battlepass.js)
+      // the season pass' title (Pioneiro) shows under my name, its icon (Chip Boot) before it (battlepass.js)
       const passT = DL.Pass && DL.passTitleHtml ? DL.passTitleHtml(DL.Pass.myTitle()) : '';
-      const pl = game.player, showMe = !!pl && (C.mode === 'crew' || (C.mode !== 'build' && (!!(DL.Auth && DL.Auth.myTitles.length) || !!passT)));
-      meTag.classList.toggle('is-on', showMe && !(pl.bubble && passT));
+      const passI = DL.Pass && DL.passIconHtml ? DL.passIconHtml(DL.Pass.myIcon()) : '';
+      const pl = game.player, showMe = !!pl && (C.mode === 'crew' || (C.mode !== 'build' && (!!(DL.Auth && DL.Auth.myTitles.length) || !!passT || !!passI)));
+      meTag.classList.toggle('is-on', showMe && !(pl.bubble && (passT || passI)));
       if (showMe) {
-        const title = DL.Auth && DL.Auth.myTitles[0], k = PL.profile.name + PL.profile.role + (title || '') + passT;
-        if (meTag.dataset.k !== k) { meTag.dataset.k = k; meTag.innerHTML = '<i style="background:' + ROLES[PL.profile.role].color + '"></i>' + esc(PL.profile.name) + (title ? ' ' + DL.titleBadge(title) : '') + ' <small>você</small>' + passT; meTag.classList.toggle('has-ptitle', !!passT); }
+        const title = DL.Auth && DL.Auth.myTitles[0], k = PL.profile.name + PL.profile.role + (title || '') + passT + passI;
+        if (meTag.dataset.k !== k) { meTag.dataset.k = k; meTag.innerHTML = '<i style="background:' + ROLES[PL.profile.role].color + '"></i>' + passI + esc(PL.profile.name) + (title ? ' ' + DL.titleBadge(title) : '') + ' <small>você</small>' + passT; meTag.classList.toggle('has-ptitle', !!passT); }
         anchor(meTag, pl, 31);
       }
 

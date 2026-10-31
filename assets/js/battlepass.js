@@ -1,18 +1,22 @@
 /* DataLab — the season pass: "PASSE BOOT INICIAL – TEMPORADA 1".
-   50 levels earned by playing (pass XP), 60 days long. Everything it gives is EXCLUSIVO T1 (cosmetics.js:
+   Free for everyone: the player activates it once (ATIVAR PASSE – GRÁTIS, with a celebration) and from then
+   on earns pass XP by playing. 50 levels, 60 days. Everything it gives is EXCLUSIVO T1 (cosmetics.js:
    items with pass: 's1'): never sold in the shop, out of reach once the season ends, kept forever by
-   whoever earned it. The levels without an item give Gold.
+   whoever earned it. The levels without an item give 50 Gold.
    Pass XP comes only from what the game already does (the game's own events): fixing equipment ('fixed'),
    solving problems ('problem-done'), the crew's tasks ('job-done'), servers going online, cables,
    datacenters done and the time playing — plus 3 daily and 3 weekly missions over the same actions.
-   Same inventory, Gold and save as everything else:
-   - without an account: progress in this browser (localStorage, like the inventory) and the rewards go
-     straight into the local inventory (DL.Inventory.grant) and wallet;
+   A level reached shows a celebration (a bigger one on the ★ levels) and its card lights up with COLETAR;
+   collecting puts the item in the inventory. Same inventory, Gold and save as everything else:
+   - without an account: progress in this browser (localStorage, like the inventory); COLETAR delivers into
+     the local inventory (DL.Inventory.grant) and wallet;
    - with an account: the server keeps the pass (Edge Function "pass", services/pass-service.js). The game
      sends the XP it saw and the missions it finished; the server caps them by the time that went by,
-     counts each mission once, raises the level and puts the rewards in the account's inventory.
-   UI: the Passe button / J opens #passOv (level, XP bar, days left, missions, the 50 rewards in a row
-   that scrolls sideways); a level-up shows a short animation and the item lands in the inventory. */
+     counts each mission once, raises the level and puts the rewards in the account's inventory (COLETAR
+     then only marks the card as collected here).
+   UI (the pass' own gold-on-charcoal look, pass.css; the item art is pass-art.js): the Passe button / J
+   opens #passOv — header with the golden chip, level and the XP bar in blocks, missions, the 50 rewards in
+   a row that scrolls sideways; clicking a reward opens a big animated preview. */
 (function () {
   'use strict';
   const DL = window.DL;
@@ -21,23 +25,26 @@
   const DAY = 86400000;
 
   /* ------------------------------------------------------------------ */
-  /* The season (the server's migration has the same numbers)            */
+  /* The season (the server's migrations have the same numbers)          */
   /* ------------------------------------------------------------------ */
   const SEASON = { id: 's1', name: 'Passe Boot Inicial', tag: 'Temporada 1', from: '2026-10-31', days: 60 };
   const MAX = 50;
-  const BIG = { 10: 1, 20: 1, 30: 1, 40: 1, 50: 1 };
+  // the ★ levels: the big prizes (a bigger card and a bigger celebration)
+  const BIG = { 10: 1, 20: 1, 30: 1, 40: 1, 48: 1, 49: 1, 50: 1 };
   // XP from level L to L + 1, and the total to reach level L (each level asks a little more)
   const need = (L) => 200 + 40 * L;
   const total = (L) => 200 * L + 20 * L * (L - 1);
   const levelAt = (xp) => { let L = 0; while (L < MAX && xp >= total(L + 1)) L++; return L; };
+  // one reward per level (migration 20261101000200_pass_rewards_v2.sql has the same table)
   const REWARD = {
-    1: ['bp_frame_t1'], 3: ['bp_hello'], 5: ['bp_trail_binary'], 7: ['bp_rug_mobo'], 10: ['bp_pet_bitzero'], 12: ['bp_led_lamp'], 14: ['bp_trail_sparks'],
-    15: ['bp_xp2'], 17: ['bp_coffee8'], 19: ['bp_glasses001'], 20: ['bp_emote_hack'], 22: ['bp_floppy_shelf'], 24: ['bp_trail_cables'], 25: ['bp_xp2'],
-    27: ['bp_founder_chair'], 29: ['bp_term_boot'], 30: ['bp_relic'], 32: ['bp_data_vault'], 34: ['bp_trail_ghost'], 35: ['bp_xp2'], 37: ['bp_hacker_desk'],
-    39: ['bp_crt_terminal'], 40: ['bp_trail_code'], 42: ['bp_arcade_boot'], 44: ['bp_trail_glitch'], 46: ['bp_neon_boot'], 48: ['bp_skin_founder'],
-    50: ['bp_trail_rainbow', 'bp_title_pioneer'],
+    1: ['bp_frame_t1'], 3: ['bp_hello'], 4: ['bp_icon_chip'], 5: ['bp_trail_binary'], 7: ['bp_graffiti'], 9: ['bp_glasses001'], 10: ['bp_pet_bitzero'],
+    12: ['bp_gloves_t1'], 13: ['bp_xp2'], 14: ['bp_trail_sparks'], 15: ['bp_emote_reboot'], 17: ['bp_cooler'], 18: ['bp_term_boot'], 20: ['bp_emote_hack'],
+    22: ['bp_hacker_desk'], 23: ['bp_trail_cables'], 25: ['bp_xp2'], 26: ['bp_pet_glitchcat'], 27: ['bp_founder_chair'], 29: ['bp_cable_cape'], 30: ['bp_relic'],
+    32: ['bp_trail_ghost'], 33: ['bp_crt_terminal'], 35: ['bp_xp2'], 36: ['bp_arcade_boot'], 37: ['bp_led_crown'], 39: ['bp_data_wings'], 40: ['bp_trail_code'],
+    42: ['bp_server_throne'], 43: ['bp_trail_glitch'], 45: ['bp_neon_boot'], 46: ['bp_aura_boot'], 48: ['bp_skin_founder'], 49: ['bp_trail_rainbow'], 50: ['bp_title_pioneer'],
   };
-  const goldAt = (L) => (REWARD[L] ? 0 : L < 20 ? 10 : L < 40 ? 15 : 25);
+  const GOLD = 50;
+  const goldAt = (L) => (REWARD[L] ? 0 : GOLD);
   const start = new Date(SEASON.from + 'T00:00:00').getTime(), end = start + SEASON.days * DAY;
   const active = (now) => { const t = now || Date.now(); return t >= start && t < end; };
   const daysLeft = (now) => Math.max(0, Math.ceil((end - (now || Date.now())) / DAY));
@@ -72,28 +79,98 @@
   }
   const untilText = (ms) => { const h = Math.floor(ms / 3600000); return h >= 48 ? Math.floor(h / 24) + ' dias' : h >= 1 ? h + ' h' : Math.max(1, Math.ceil(ms / 60000)) + ' min'; };
 
-  DL.PASS = { SEASON, MAX, BIG, REWARD, need, total, levelAt, goldAt, active, daysLeft, levelOf, DAILY, WEEKLY, XP };
+  DL.PASS = { SEASON, MAX, BIG, REWARD, GOLD, need, total, levelAt, goldAt, active, daysLeft, levelOf, DAILY, WEEKLY, XP };
+
+  // what kind of thing a reward is, in the player's words
+  function kindName(it) {
+    if (!it) return 'Moedas';
+    if (it.slot === 'furniture') return 'Móvel';
+    if (it.slot === 'trail') return 'Rastro';
+    if (it.slot === 'aura') return 'Efeito';
+    if (it.slot === 'pet') return 'Pet';
+    if (it.cat === 'emote') return 'Emote';
+    if (it.slot === 'shirt') return 'Skin';
+    if (it.slot === 'terminal') return 'Skin de hack';
+    if (it.slot === 'rack') return 'Skin de servidor';
+    if (it.slot === 'frame') return 'Moldura de perfil';
+    if (it.slot === 'icon') return 'Ícone de perfil';
+    if (it.slot === 'title') return 'Título';
+    if (it.slot === 'use') return 'Bônus de XP';
+    return 'Acessório';
+  }
 
   /* ------------------------------------------------------------------ */
-  /* The frame (Moldura T1) and the title (Pioneiro): shared helpers     */
+  /* The frame, the icon and the title: shared helpers                   */
   /* ------------------------------------------------------------------ */
-  // pixel frame around a w×h box on a canvas: turquoise border, stepped corners, the T1 seal
+  // pixel frame around a w×h box on a canvas: gold border, stepped corners with turquoise stones, the T1
+  // seal, and a spark that runs around it
   DL.drawPassFrame = function (g, x, y, w, h, t) {
     const R = DL.R, glow = 0.5 + 0.5 * Math.sin((t || 0) * 2.4);
-    R(g, x - 3, y - 3, w + 6, h + 6, 'rgba(45,226,200,' + (0.12 + 0.12 * glow).toFixed(3) + ')');
-    R(g, x - 2, y - 2, w + 4, 2, '#2de2c8'); R(g, x - 2, y + h, w + 4, 2, '#14897a');
-    R(g, x - 2, y, 2, h, '#2de2c8'); R(g, x + w, y, 2, h, '#14897a');
-    for (const [cx, cy] of [[x - 3, y - 3], [x + w + 1, y - 3], [x - 3, y + h + 1], [x + w + 1, y + h + 1]]) R(g, cx, cy, 2, 2, '#b8f3ff');
-    R(g, x + w - 9, y + h - 6, 11, 8, '#060d1c'); R(g, x + w - 9, y + h - 6, 11, 1, '#2de2c8');
-    DL.pixText(g, 'T1', x + w - 8, y + h - 4, glow > 0.5 ? '#ffffff' : '#b8f3ff');
+    R(g, x - 3, y - 3, w + 6, h + 6, 'rgba(242,181,30,' + (0.14 + 0.12 * glow).toFixed(3) + ')');
+    R(g, x - 2, y - 2, w + 4, 2, '#ffe680'); R(g, x - 2, y + h, w + 4, 2, '#bd7c10');
+    R(g, x - 2, y, 2, h, '#f2b51e'); R(g, x + w, y, 2, h, '#bd7c10');
+    for (const [cx, cy] of [[x - 3, y - 3], [x + w + 1, y - 3], [x - 3, y + h + 1], [x + w + 1, y + h + 1]]) { R(g, cx, cy, 2, 2, '#2de2c8'); R(g, cx, cy, 1, 1, '#b4fff3'); }
+    // the running spark: along the border, clockwise
+    const per = 2 * (w + h), d = ((t || 0) * 40) % per;
+    const sx = d < w ? x + d : d < w + h ? x + w : d < 2 * w + h ? x + w - (d - w - h) : x - 2, sy = d < w ? y - 2 : d < w + h ? y + (d - w) : d < 2 * w + h ? y + h : y + h - (d - 2 * w - h);
+    R(g, Math.round(sx), Math.round(sy), 2, 2, '#fff8d6');
+    R(g, x + w - 9, y + h - 6, 11, 8, '#0c0a08'); R(g, x + w - 9, y + h - 6, 11, 1, '#f2b51e');
+    DL.pixText(g, 'T1', x + w - 8, y + h - 4, glow > 0.5 ? '#fff8d6' : '#ffe680');
   };
   DL.PASS_TITLES = { pioneer: { name: 'Pioneiro' } };
-  // the badge shown under a name (nametags, the room's player list, the account)
-  DL.passTitleHtml = (v) => (DL.PASS_TITLES[v] ? '<em class="ptitle ptitle--t1">' + DL.PASS_TITLES[v].name + '</em>' : '');
+  // the badge shown under a name (nametags, the room's player list, the account): golden text with a
+  // light sweeping across it (pass.css)
+  DL.passTitleHtml = (v) => (DL.PASS_TITLES[v] ? '<em class="ptitle ptitle--t1"><span>' + DL.PASS_TITLES[v].name + '</span></em>' : '');
   DL.passFrameClass = (v) => (v === 't1' ? ' pframe pframe--t1' : '');
+  // the profile icon (Chip Boot) next to a name: the golden chip as a tiny pixel image
+  let chipUrl = '';
+  DL.passIconHtml = function (v) {
+    if (v !== 'chip') return '';
+    if (!chipUrl && DL.drawPassChip) {
+      const c = document.createElement('canvas'); c.width = c.height = 20;
+      DL.drawPassChip(c.getContext('2d'), 0.3, true);
+      chipUrl = c.toDataURL();
+    }
+    return '<i class="picon picon--chip" aria-label="Ícone Chip Boot" style="background-image:url(' + chipUrl + ')"></i>';
+  };
   // what the inventory has equipped in the pass' slots (and the trail): travels with the look online
   const equippedValue = (slot) => { const id = DL.Skins && DL.Skins.equipped[slot], it = id && DL.cosmetic(id); return it ? it.value : null; };
-  DL.lookExtras = () => { const o = {}; for (const s of ['trail', 'frame', 'title']) { const v = equippedValue(s); if (v) o[s] = v; } return o; };
+  DL.lookExtras = () => { const o = {}; for (const s of ['trail', 'aura', 'frame', 'icon', 'title']) { const v = equippedValue(s); if (v) o[s] = v; } return o; };
+
+  /* ------------------------------------------------------------------ */
+  /* Celebrations: pixel confetti on a canvas over the whole screen      */
+  /* ------------------------------------------------------------------ */
+  const CONFETTI = ['#ffe680', '#f2b51e', '#fff8d6', '#2de2c8', '#a5f7ea', '#ff9a1f'];
+  function confetti(cv, n, ms) {
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = innerWidth, H = innerHeight;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const g = cv.getContext('2d'), ps = [];
+    for (let i = 0; i < n; i++) {
+      ps.push({ x: W / 2 + (Math.random() - 0.5) * 120, y: H * 0.42, vx: (Math.random() - 0.5) * 900, vy: -300 - Math.random() * 650, s: 4 + Math.floor(Math.random() * 3) * 2,
+        c: CONFETTI[i % CONFETTI.length], spin: Math.random() * 10, rain: false });
+    }
+    // and a rain from the top
+    for (let i = 0; i < n * 0.6; i++) ps.push({ x: Math.random() * W, y: -20 - Math.random() * H * 0.6, vx: (Math.random() - 0.5) * 40, vy: 80 + Math.random() * 120, s: 4 + Math.floor(Math.random() * 2) * 2, c: CONFETTI[i % CONFETTI.length], spin: Math.random() * 10, rain: true });
+    const t0 = performance.now();
+    let last = t0;
+    function step(now) {
+      const dt = Math.min(0.05, (now - last) / 1000), t = now - t0;
+      last = now;
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.clearRect(0, 0, W, H);
+      g.globalAlpha = t > ms - 600 ? Math.max(0, (ms - t) / 600) : 1;
+      for (const p of ps) {
+        p.vy += (p.rain ? 30 : 900) * dt; p.vx *= p.rain ? 1 : 0.985;
+        p.x += (p.vx + Math.sin(t / 300 + p.spin) * 30) * dt; p.y += p.vy * dt;
+        const w = Math.max(2, Math.round(Math.abs(Math.cos(t / 160 + p.spin)) * p.s));
+        g.fillStyle = p.c;
+        g.fillRect(Math.round(p.x), Math.round(p.y), w, p.s);
+      }
+      if (t < ms && cv.isConnected) requestAnimationFrame(step);
+      else g.clearRect(0, 0, W, H);
+    }
+    requestAnimationFrame(step);
+  }
 
   /* ------------------------------------------------------------------ */
   /* The pass in the game (demo.js creates it)                           */
@@ -101,17 +178,27 @@
   DL.createPass = function (game, sys) {
     const inventory = sys.inventory, economy = sys.economy;
     const $ = (id) => document.getElementById(id);
-    const el = { ov: $('passOv'), root: $('passRoot'), btn: $('passBtn'), lvl: $('passBtnLvl'), up: $('passUp') };
+    const el = { ov: $('passOv'), root: $('passRoot'), btn: $('passBtn'), lvl: $('passBtnLvl'), chip: $('passChip') };
     const KEY = 'datalab.pass.' + SEASON.id;
-    const fresh = () => ({ v: 1, season: SEASON.id, xp: 0, got: 0, pend: 0, pendM: [], boost: 0, min: 0, day: '', d: {}, dd: {}, week: '', w: {}, wd: {} });
+    // on: activated (free); got: levels already celebrated here (with an account: the levels the server
+    // delivered); col: the levels whose reward was collected (COLETAR)
+    const fresh = () => ({ v: 2, season: SEASON.id, on: false, xp: 0, got: 0, col: [], pend: 0, pendM: [], boost: 0, min: 0, day: '', d: {}, dd: {}, week: '', w: {}, wd: {} });
     let S = fresh(), key = KEY;
-    const V = { open: false, busy: false, offline: null, warned: false, evWin: 0, evXp: 0, syncT: 0, lastK: '', queue: [], showing: false, raf: 0, scrolled: false };
+    const V = { open: false, busy: false, offline: null, warned: '', evWin: 0, evXp: 0, syncT: 0, lastK: '', queue: [], showing: false, raf: 0, scrolled: false, pv: 0 };
 
     function load(k) {
       key = k;
       S = fresh();
-      try { const s = JSON.parse(localStorage.getItem(key) || 'null'); if (s && s.season === SEASON.id) Object.assign(S, s); } catch (e) { /* fresh */ }
+      let s = null;
+      try { s = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) { /* fresh */ }
+      if (s && s.season === SEASON.id) {
+        Object.assign(S, s);
+        // a pass from before the free activation and COLETAR: already on, and the levels it had
+        // delivered count as collected
+        if (!(s.v >= 2)) { S.on = S.on || s.xp > 0 || s.got > 0; S.col = []; for (let L = 1; L <= (s.got | 0); L++) S.col.push(L); S.v = 2; }
+      }
       S.pendM = Array.isArray(S.pendM) ? S.pendM : [];
+      S.col = Array.isArray(S.col) ? S.col : [];
       rollMissions();
     }
     const save = () => { try { localStorage.setItem(key, JSON.stringify(S)); } catch (e) { /* private mode */ } };
@@ -121,6 +208,7 @@
     const remote = () => signed() && !!(inventory.remote && DL.PassService);
     const level = () => levelAt(S.xp);
     const playing = () => !!(sys.playing && sys.playing());
+    const collected = (L) => S.col.indexOf(L) >= 0;
 
     /* ---------- missions ---------- */
     function current() {
@@ -135,7 +223,7 @@
       return c;
     }
     function count(ev, n) {
-      if (!active()) return;
+      if (!active() || !S.on) return;
       const c = rollMissions();
       for (const [list, prog, done, kind, period] of [[c.daily, S.d, S.dd, 'd', S.day], [c.weekly, S.w, S.wd, 'w', S.week]]) {
         for (const m of list) {
@@ -156,9 +244,10 @@
 
     /* ---------- XP ---------- */
     // returns the XP really added (double while the bonus runs). kind: 'event' (capped per minute), 'time'
-    // (a minute played) or 'mission' (its base XP reaches the server with the mission's key, not as XP)
+    // (a minute played) or 'mission' (its base XP reaches the server with the mission's key, not as XP).
+    // Nothing is earned before the pass is activated.
     function addXp(n, kind) {
-      if (!active() || !(n > 0)) return 0;
+      if (!active() || !S.on || !(n > 0)) return 0;
       if (!kind || kind === 'event') {
         const now = Date.now();
         if (now - V.evWin > 60000) { V.evWin = now; V.evXp = 0; }
@@ -178,16 +267,13 @@
       paintButton();
       return got;
     }
-    // without an account: every level reached delivers its reward here, once
+    // without an account: every level reached is celebrated here, once (its reward waits for COLETAR)
     function settleLocal() {
       if (signed()) return;
       const L = level();
-      while (S.got < L) {
-        S.got++;
-        deliver(S.got);
-        celebrate(S.got);
-      }
+      while (S.got < L) { S.got++; celebrate(S.got); }
       save();
+      paintButton();
     }
     function deliver(L) {
       for (const id of REWARD[L] || []) {
@@ -198,8 +284,52 @@
       if (g) economy.earn('gold', g, 'Passe Boot · nível ' + L, { quiet: true });
     }
 
+    /* ---------- COLETAR ---------- */
+    // a card's state: got (collected), ready (COLETAR), sending (reached, the server has not delivered it
+    // yet) or locked
+    function stateOf(L) {
+      if (collected(L)) return 'got';
+      if (signed()) return L <= S.got ? 'ready' : L <= level() ? 'sending' : 'locked';
+      return L <= level() ? 'ready' : 'locked';
+    }
+    const readyLevels = () => { const out = []; for (let L = 1; L <= MAX; L++) if (stateOf(L) === 'ready') out.push(L); return out; };
+    function collect(Ls) {
+      Ls = Ls.filter((L) => stateOf(L) === 'ready');
+      if (!Ls.length) return;
+      for (const L of Ls) {
+        if (!signed()) deliver(L);
+        S.col.push(L);
+      }
+      save();
+      const its = [].concat(...Ls.map(rewardItems)), g = Ls.reduce((n, L) => n + goldAt(L), 0);
+      const what = its.length === 1 && !g ? its[0].name : its.length ? its.length + (its.length > 1 ? ' itens' : ' item') + (g ? ' + ' + fmt(g) + ' Gold' : '') : fmt(g) + ' Gold';
+      game.toast('ok', 'Coletado!', esc(what) + (its.length ? ' · no inventário (U)' : ' · na carteira'));
+      game.sfx('coin');
+      if (V.open) { V.flash = Ls; render(); }
+      paintButton();
+    }
+
+    /* ---------- activation (free) ---------- */
+    function activate() {
+      if (S.on) return;
+      S.on = true;
+      save();
+      game.sfx('levelup');
+      showActivation();
+      paintButton();
+      if (V.open) render();
+      if (remote()) { V.pullAt = 0; pull(); }
+    }
+
     /* ---------- the server (with an account) ---------- */
     function scheduleSync(ms) { clearTimeout(V.syncT); V.syncT = setTimeout(sync, ms); }
+    // the server didn't answer: the player sees a short friendly note; the technical reason (Edge Function,
+    // ALLOWED_ORIGINS…) goes to the console, once per reason
+    function offline(r) {
+      V.offline = true;
+      const why = (r && (r.message || r.code)) || 'sem resposta';
+      if (V.warned !== why) { V.warned = why; console.warn('DataLab · Passe: o servidor não respondeu (' + ((r && (r.status || r.code)) || '?') + '): ' + why); }
+    }
     // fresh: the answer to a sync this game sent (its new levels are celebrated); otherwise the account's
     // state as it was (levels earned before, maybe on another device, are not)
     function applyServer(p, fresh) {
@@ -208,6 +338,7 @@
       // the server's XP + what it hasn't seen yet (XP and the base of finished missions)
       S.xp = Math.max(0, (p.xp | 0) + S.pend + S.pendM.reduce((n, m) => n + m.xp, 0));
       S.got = Math.min(MAX, p.level | 0);
+      if (S.xp > 0 || S.got > 0) S.on = true;
       // missions the account already finished (on any device) stay finished
       for (const k of p.missions || []) {
         const [kind, period, id] = String(k).split(':');
@@ -234,13 +365,8 @@
         if (r.data.inventory) DL.InventoryService.applied(r.data.inventory);
         applyServer(r.data.pass, true);
       } else {
-        V.offline = r.message || 'Servidor indisponível';
-        // the database / function of the pass are not there yet: say it once, keep the XP for later
-        if (!V.warned && (r.status === 404 || r.code === 'http_404' || r.code === 'not_found')) {
-          V.warned = true;
-          console.warn('DataLab: o Passe ainda não está no servidor — publique a migration 20261101000100_battle_pass.sql e a Edge Function "pass".');
-          game.toast('warn', 'Passe', 'O servidor ainda não tem o passe: seu XP fica guardado e as recompensas chegam quando ele for atualizado.');
-        }
+        offline(r);
+        if (r.status === 404 || r.code === 'http_404' || r.code === 'not_found') console.warn('DataLab: o Passe ainda não está no servidor — publique as migrations do passe (20261101000100 e 20261101000200) e a Edge Function "pass".');
         save();
         if (V.open) render();
       }
@@ -250,7 +376,7 @@
       V.pullAt = Date.now();
       const r = await DL.PassService.state();
       if (r.ok) { V.offline = null; applyServer(r.data.pass); if (S.pend || S.pendM.length) scheduleSync(1500); }
-      else V.offline = r.message;
+      else { offline(r); if (V.open) render(); }
     }
     // whose pass: this browser's, or the account's (cached here, the server decides)
     function account() {
@@ -271,9 +397,11 @@
     on('cabled', null, 'cable');
     on('datacenter-done', null, 'dc');
     game.on('pass-boost', () => { S.boost += 3600; save(); paintButton(); if (V.open) render(); });
-    // the inventory changed: the trail / frame / title other players see may have changed too
+    // the inventory changed: the trail / aura / frame / icon / title / accessories other players see may
+    // have changed too
     game.on('inventory', () => {
-      const k = JSON.stringify(DL.lookExtras());
+      const p = (sys.crew && sys.crew.playerProfile) || {};
+      const k = JSON.stringify([DL.lookExtras(), p.gear || null]);
       if (k !== V.lastK) { V.lastK = k; game.emit('look-extras', {}); }
       if (V.open) render();
     });
@@ -281,7 +409,7 @@
     // the game loop (demo.js step): time played, the bonus' clock, the periodic sync
     let syncEvery = 0;
     function update(dt) {
-      if (!(dt > 0) || !playing() || document.hidden || !active()) return;
+      if (!(dt > 0) || !playing() || document.hidden || !active() || !S.on) return;
       S.min += dt;
       if (S.boost > 0) S.boost = Math.max(0, S.boost - dt);
       if (S.min >= 60) {
@@ -293,108 +421,136 @@
       if (syncEvery > 40) { syncEvery = 0; if (remote() && (S.pend > 0 || S.pendM.length || !V.synced)) { if (V.synced) sync(); else { V.pullAt = 0; pull(); } } }
     }
 
-    /* ---------- UI: the top bar button ---------- */
+    /* ---------- UI: the top bar button (the golden chip, the level, a badge for what is waiting) ---------- */
     function paintButton() {
-      if (el.lvl) el.lvl.textContent = active() ? String(level()) : 'T1';
+      const ready = readyLevels().length;
+      if (el.lvl) el.lvl.textContent = !S.on ? 'GRÁTIS' : active() ? String(level()) : 'T1';
       if (el.btn) {
         el.btn.classList.toggle('is-boost', S.boost > 0);
-        el.btn.title = SEASON.name + ' · ' + SEASON.tag + ' · nível ' + level() + (active() ? ' · faltam ' + daysLeft() + ' dias' : ' · temporada encerrada') + ' (J)';
+        el.btn.classList.toggle('is-new', !S.on && active());
+        el.btn.classList.toggle('has-ready', ready > 0);
+        el.btn.dataset.ready = ready > 0 ? String(ready) : '';
+        el.btn.title = SEASON.name + ' · ' + SEASON.tag + (!S.on ? ' · grátis: clique para ativar' : ' · nível ' + level() + (ready ? ' · ' + ready + ' para coletar' : '')) + (active() ? ' · faltam ' + daysLeft() + ' dias' : ' · temporada encerrada') + ' (J)';
       }
     }
+    // the chip on the button shines every few seconds (a small canvas, ~8 frames a second)
+    if (el.chip && DL.paintPassChip) setInterval(() => { if (!document.hidden) DL.paintPassChip(el.chip, performance.now() / 1000, 20); }, 125);
 
     /* ---------- UI: the window ---------- */
     function rewardItems(L) { return (REWARD[L] || []).map((id) => DL.cosmetic(id)).filter(Boolean); }
-    function stateOf(L) {
-      if (L <= S.got) return 'got';
-      if (L <= level()) return signed() ? 'sending' : 'got';
-      return 'locked';
-    }
+    const rewardName = (L) => { const its = rewardItems(L); return its.length ? its.map((it) => it.name).join(' + ') : goldAt(L) + ' moedas'; };
+    const artId = (L) => (REWARD[L] ? REWARD[L][0] : 'gold');
     function cardHtml(L) {
-      const st = stateOf(L), its = rewardItems(L), g = goldAt(L), big = BIG[L];
-      const name = its.length ? its.map((it) => it.name).join(' + ') : g + ' Gold';
-      const kind = its.length ? its.map((it) => kindName(it)).join(' + ') : 'Moedas';
-      return '<li class="bp-card' + (big ? ' is-big' : '') + ' is-' + st + (L === level() + 1 ? ' is-next' : '') + '" data-lv="' + L + '">' +
+      const st = stateOf(L), its = rewardItems(L), big = BIG[L], it = its[0];
+      const flash = V.flash && V.flash.indexOf(L) >= 0;
+      const foot = st === 'ready' ? '<button class="bp-get" type="button" data-bp-get="' + L + '">COLETAR</button>'
+        : st === 'got' ? '<span class="bp-card__st is-got">✓ Coletado</span>'
+        : st === 'sending' ? '<span class="bp-card__st is-sending">Entregando…</span>'
+        : '<span class="bp-card__st">' + (L === level() + 1 && S.on ? 'Próximo' : 'Nível ' + L) + '</span>';
+      return '<li class="bp-card' + (big ? ' is-big' : '') + ' is-' + st + (L === level() + 1 && S.on ? ' is-next' : '') + (flash ? ' is-flash' : '') + '" data-lv="' + L + '" data-bp-pv="' + L + '" tabindex="0" role="button" aria-label="Nível ' + L + ': ' + esc(rewardName(L)) + ' · ver prévia">' +
         '<span class="bp-card__lv">' + (big ? '★ ' : '') + 'NÍVEL ' + L + '</span>' +
-        '<span class="bp-card__art">' + (its.length ? its.map((it) => '<canvas data-bp-art="' + it.id + '"' + (big ? ' data-big="1"' : '') + ' aria-hidden="true"></canvas>').join('') : '<canvas data-bp-gold="' + g + '" aria-hidden="true"></canvas>') +
-        (st === 'locked' ? '<span class="bp-lock" aria-label="Bloqueado">🔒</span>' : '') + '</span>' +
-        '<b class="bp-card__name">' + esc(name) + '</b><span class="bp-card__kind">' + esc(kind) + '</span>' +
-        '<span class="bp-card__st">' + (st === 'got' ? 'Coletado' : st === 'sending' ? 'Entregando…' : L === level() + 1 ? 'Próximo' : 'Bloqueado') + '</span></li>';
-    }
-    function kindName(it) {
-      if (it.slot === 'furniture') return 'Móvel';
-      if (it.slot === 'trail') return 'Rastro';
-      if (it.slot === 'pet') return 'Pet';
-      if (it.cat === 'emote') return 'Emote';
-      if (it.slot === 'shirt') return 'Skin';
-      if (it.slot === 'terminal') return 'Skin de hack';
-      if (it.slot === 'rack') return 'Skin de servidor';
-      if (it.slot === 'frame') return 'Moldura';
-      if (it.slot === 'title') return 'Título';
-      if (it.slot === 'use') return 'Bônus de XP';
-      return 'Acessório';
+        '<span class="bp-card__art"><canvas data-bp-art="' + artId(L) + '" data-px="' + (big ? 128 : 88) + '" aria-hidden="true"></canvas>' +
+        (st === 'locked' ? '<i class="bp-lock" aria-label="Bloqueado"></i>' : '') + '</span>' +
+        '<b class="bp-card__name">' + esc(rewardName(L)) + '</b><span class="bp-card__kind">' + esc(it ? kindName(it) : 'Moedas (Gold)') + '</span>' + foot + '</li>';
     }
     function missionsHtml(list, prog, done, title, until) {
       return '<section class="bp-mis"><header><b>' + title + '</b><span>trocam em ' + until + '</span></header><ul>' + list.map((m) => {
         const p = Math.min(m.n, prog[m.id] || 0), ok = !!done[m.id];
-        return '<li class="' + (ok ? 'is-done' : '') + '"><span class="bp-mis__txt">' + (ok ? '✔ ' : '') + esc(m.text.replace('{n}', m.n)) + '</span>' +
+        return '<li class="' + (ok ? 'is-done' : '') + '"><span class="bp-mis__txt">' + (ok ? '✓ ' : '') + esc(m.text.replace('{n}', m.n)) + '</span>' +
           '<span class="bp-mis__bar"><i style="width:' + Math.round((p / m.n) * 100) + '%"></i></span>' +
           '<span class="bp-mis__n">' + p + '/' + m.n + ' ' + esc(m.unit) + '</span><span class="bp-mis__xp">+' + fmt(m.xp) + ' XP</span></li>';
       }).join('') + '</ul></section>';
     }
+    // the XP bar: 20 golden blocks, the current one partly filled, a light sweeping across
+    function barHtml(into, span) {
+      const k = Math.max(0, Math.min(1, into / span)), n = 20, full = Math.floor(k * n), part = k * n - full;
+      let h = '<div class="bp-xp__bar" role="progressbar" aria-valuemin="0" aria-valuemax="' + span + '" aria-valuenow="' + Math.round(into) + '">';
+      for (let i = 0; i < n; i++) h += '<i class="' + (i < full ? 'is-on' : i === full && part > 0 ? 'is-part' : '') + '"' + (i === full && part > 0 ? ' style="--p:' + Math.round(part * 100) + '%"' : '') + '></i>';
+      return h + '</div>';
+    }
     function render() {
       if (!el.root) return;
-      const L = level(), on = active(), c = rollMissions(), now = new Date();
+      const L = level(), live = active(), c = rollMissions(), now = new Date(), ready = readyLevels();
       const into = L >= MAX ? need(MAX - 1) : S.xp - total(L), span = L >= MAX ? need(MAX - 1) : need(L);
-      let h = '<header class="app__bar bp-bar"><span class="bp-logo" aria-hidden="true"></span><span class="bp-title"><b>' + SEASON.name.toUpperCase() + '</b><span>' + SEASON.tag + ' · exclusivo T1</span></span>' +
-        '<span class="bp-days' + (on ? '' : ' is-over') + '">' + (on ? 'Faltam <b>' + daysLeft() + '</b> dias' : 'Temporada encerrada') + '</span>' +
-        '<button class="cc__x" type="button" data-bp="close" aria-label="Fechar o passe">×</button></header>';
-      h += '<div class="bp-body"><section class="bp-hero"><div class="bp-lvl"><span>NÍVEL</span><b>' + L + '</b><small>de ' + MAX + '</small></div>' +
-        '<div class="bp-xp"><div class="bp-xp__top"><b>' + (L >= MAX ? 'Passe completo!' : 'Próximo nível: ' + (L + 1)) + '</b><span>' + fmt(into) + ' / ' + fmt(span) + ' XP</span></div>' +
-        '<div class="bp-xp__bar"><i style="width:' + Math.min(100, Math.round((into / span) * 100)) + '%"></i></div>' +
-        '<p class="bp-xp__how">XP do passe: consertar (+' + XP.fix + '), resolver problemas (+' + XP.prob + '), servidores online (+' + XP.online + '), tarefas da equipe (+' + XP.job + '), cabos (+' + XP.cable + ') e +' + XP.minute + ' por minuto jogando.' +
-        (S.boost > 0 ? ' <em class="bp-boost">2× XP · ' + Math.ceil(S.boost / 60) + ' min</em>' : '') + '</p>' +
-        (signed() && (V.offline || !remote()) ? '<p class="bp-warn">Servidor: ' + esc(V.offline || 'conectando…') + ' · o XP fica guardado e é enviado depois.</p>' : '') +
-        (!DL.Cloud || !DL.Cloud.signedIn ? '<p class="bp-note">Sem conta: o passe fica salvo neste navegador.</p>' : '') + '</div></section>';
-      if (on) h += '<div class="bp-missions">' + missionsHtml(c.daily, S.d, S.dd, 'Missões diárias', untilText(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now)) +
-        missionsHtml(c.weekly, S.w, S.wd, 'Missões semanais', untilText(monday(now).getTime() + 7 * DAY - now)) + '</div>';
-      else h += '<p class="bp-over">A Temporada 1 terminou. Os itens que você ganhou são seus para sempre; ninguém mais consegue os que faltaram.</p>';
-      h += '<section class="bp-track"><header><b>Recompensas</b><span>Os níveis ★ têm os prêmios grandes · itens exclusivos, nunca vendidos na loja</span>' +
-        '<span class="bp-track__nav"><button class="btn btn--sm" type="button" data-bp="left" aria-label="Rolar para a esquerda">‹</button><button class="btn btn--sm" type="button" data-bp="right" aria-label="Rolar para a direita">›</button></span></header>' +
+      let h = '<header class="bp-bar"><canvas class="bp-logo" data-bp-chip width="96" height="96" aria-hidden="true"></canvas>' +
+        '<span class="bp-title"><b>PASSE BOOT INICIAL</b><span>' + SEASON.tag + ' · Exclusivo T1 · grátis</span></span>' +
+        '<span class="bp-days' + (live ? '' : ' is-over') + '"><i aria-hidden="true"></i>' + (live ? '<span>Faltam</span><b>' + daysLeft() + '</b><span>dias</span>' : '<span>Temporada encerrada</span>') + '</span>' +
+        '<button class="bp-x" type="button" data-bp="close" aria-label="Fechar o passe">×</button></header>';
+      h += '<div class="bp-body">';
+      if (!S.on && live) {
+        h += '<section class="bp-activate"><canvas data-bp-chip width="192" height="192" aria-hidden="true"></canvas><div><b>O Passe Boot Inicial é grátis para todo mundo</b>' +
+          '<p>Ative e ganhe XP jogando: consertando, resolvendo problemas, colocando servidores online, completando tarefas e com as missões diárias e semanais. São 50 níveis com itens exclusivos da Temporada 1, que nunca vão para a loja.</p>' +
+          '<button class="bp-cta" type="button" data-bp="activate">ATIVAR PASSE – GRÁTIS</button></div></section>';
+      } else {
+        h += '<section class="bp-hero"><div class="bp-lvl"><span>NÍVEL</span><b>' + L + '</b><small>de ' + MAX + '</small></div>' +
+          '<div class="bp-xp"><div class="bp-xp__top"><b>' + (L >= MAX ? 'Passe completo!' : 'Próximo nível: ' + (L + 1)) + '</b><span>' + fmt(into) + ' / ' + fmt(span) + ' XP</span></div>' +
+          barHtml(into, span) +
+          '<p class="bp-xp__how">XP do passe: consertar (+' + XP.fix + '), resolver problemas (+' + XP.prob + '), servidores online (+' + XP.online + '), tarefas da equipe (+' + XP.job + '), cabos (+' + XP.cable + ') e +' + XP.minute + ' por minuto jogando.' +
+          (S.boost > 0 ? ' <em class="bp-boost">2× XP · ' + Math.ceil(S.boost / 60) + ' min</em>' : '') + '</p>' +
+          (signed() && (V.offline || !remote()) ? '<p class="bp-sync">Progresso salvo. Vai sincronizar quando a conexão voltar.</p>' : '') +
+          (!signed() ? '<p class="bp-note">Sem conta: o passe fica salvo neste navegador.</p>' : '') + '</div></section>';
+        if (live) h += '<div class="bp-missions">' + missionsHtml(c.daily, S.d, S.dd, 'Missões diárias', untilText(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now)) +
+          missionsHtml(c.weekly, S.w, S.wd, 'Missões semanais', untilText(monday(now).getTime() + 7 * DAY - now)) + '</div>';
+        else h += '<p class="bp-over">A Temporada 1 terminou. Os itens que você ganhou são seus para sempre; ninguém mais consegue os que faltaram.</p>';
+      }
+      h += '<section class="bp-track"><header><b>Recompensas</b><span>Clique num item para ver a prévia · ★ = prêmio especial · exclusivos, nunca vendidos na loja</span>' +
+        (ready.length > 1 ? '<button class="bp-get bp-get--all" type="button" data-bp="all">COLETAR TUDO (' + ready.length + ')</button>' : '') +
+        '<span class="bp-track__nav"><button class="bp-nav" type="button" data-bp="left" aria-label="Rolar para a esquerda">‹</button><button class="bp-nav" type="button" data-bp="right" aria-label="Rolar para a direita">›</button></span></header>' +
         '<ol class="bp-row" data-bp-row>';
       for (let i = 1; i <= MAX; i++) h += cardHtml(i);
       h += '</ol></section></div>';
+      if (V.pv) h += previewHtml(V.pv);
       const row = el.root.querySelector('[data-bp-row]'), keep = row ? row.scrollLeft : null;
       el.root.innerHTML = h;
+      V.flash = null;
       const nrow = el.root.querySelector('[data-bp-row]');
       if (keep !== null && V.scrolled) nrow.scrollLeft = keep;
-      else { const cur = nrow.querySelector('[data-lv="' + Math.max(1, Math.min(MAX, L + 1)) + '"]'); if (cur) nrow.scrollLeft = Math.max(0, cur.offsetLeft - 24); V.scrolled = true; }
+      else {
+        const first = ready[0] || Math.max(1, Math.min(MAX, L + 1)), cur = nrow.querySelector('[data-lv="' + first + '"]');
+        if (cur) nrow.scrollLeft = Math.max(0, cur.offsetLeft - 24);
+        V.scrolled = true;
+      }
       paintArt(performance.now() / 1000);
     }
-    function paintGold(cv, n) {
-      cv.width = cv.height = 96;
-      const g = cv.getContext('2d'), R = DL.R;
-      g.imageSmoothingEnabled = false;
-      g.setTransform(2, 0, 0, 2, 0, 0);
-      R(g, 16, 12, 16, 22, '#b8892f'); R(g, 14, 14, 20, 18, '#b8892f'); R(g, 16, 13, 16, 20, '#f2c14e'); R(g, 15, 15, 18, 16, '#f2c14e');
-      R(g, 18, 15, 3, 3, '#fff1b8'); R(g, 22, 18, 4, 10, '#b8892f');
-      DL.pixText(g, String(n), 24 - String(n).length * 2, 38, '#fff1b8');
+
+    /* ---------- the big preview of a reward ---------- */
+    // the in-game look next to the icon for what has one (wearables, pets, emotes, trails, furniture, skins)
+    const inGame = (it) => it && /^(shirt|head|face|neck|back|hands|pet|emote|trail|furniture|rack|terminal)$/.test(it.slot);
+    function previewHtml(L) {
+      const it = rewardItems(L)[0], st = stateOf(L), name = rewardName(L);
+      const act = st === 'ready' ? '<button class="bp-get" type="button" data-bp-get="' + L + '">COLETAR</button>'
+        : st === 'got' ? '<span class="bp-pv__st is-got">✓ Coletado' + (it ? ' · está no inventário (U)' : '') + '</span>'
+        : st === 'sending' ? '<span class="bp-pv__st">Entregando…</span>'
+        : '<span class="bp-pv__st is-locked"><i class="bp-lock" aria-hidden="true"></i>Chegue ao nível ' + L + ' para liberar</span>';
+      return '<div class="bp-pv" data-bp-pvov role="dialog" aria-modal="true" aria-label="Prévia: ' + esc(name) + '"><div class="bp-pv__box' + (BIG[L] ? ' is-big' : '') + '">' +
+        '<button class="bp-x" type="button" data-bp="pvclose" aria-label="Fechar a prévia">×</button>' +
+        '<div class="bp-pv__art"><canvas data-bp-art="' + artId(L) + '" data-px="256" aria-hidden="true"></canvas>' +
+        (inGame(it) ? '<span class="bp-pv__game"><canvas data-bp-game="' + it.id + '" aria-hidden="true"></canvas><small>No jogo</small></span>' : '') + '</div>' +
+        '<div class="bp-pv__info"><span class="bp-pv__lv">' + (BIG[L] ? '★ PRÊMIO ESPECIAL · ' : '') + 'NÍVEL ' + L + '</span>' +
+        '<h3>' + esc(name) + '</h3><div class="bp-pv__tags"><span class="bp-tag">' + esc(it ? kindName(it) : 'Moedas (Gold)') + '</span><span class="bp-tag is-t1">EXCLUSIVO T1</span></div>' +
+        '<p>' + esc(it ? it.desc : GOLD + ' moedas de ouro para gastar na loja.') + '</p>' + act + '</div></div></div>';
     }
+    function openPreview(L) { V.pv = L; render(); const b = el.root.querySelector('.bp-pv .bp-x'); if (b) b.focus(); }
+    function closePreview() { if (!V.pv) return; const L = V.pv; V.pv = 0; render(); const c = el.root.querySelector('[data-lv="' + L + '"]'); if (c) c.focus(); }
+
     function paintArt(t) {
       if (!el.root) return;
-      el.root.querySelectorAll('canvas[data-bp-art]').forEach((cv) => { const it = DL.cosmetic(cv.dataset.bpArt); if (it && inventory.drawArt) inventory.drawArt(cv, it, t, !!cv.dataset.big); });
-      el.root.querySelectorAll('canvas[data-bp-gold]').forEach((cv) => { if (!cv.width || cv.width !== 96) paintGold(cv, cv.dataset.bpGold); });
+      el.root.querySelectorAll('canvas[data-bp-art]').forEach((cv) => DL.paintPassCanvas(cv, cv.dataset.bpArt, t, +cv.dataset.px || 96));
+      el.root.querySelectorAll('canvas[data-bp-chip]').forEach((cv) => DL.paintPassCanvas(cv, 'bp_icon_chip', t, cv.width > 100 ? 192 : 48, { fps: 2, every: 2.6 }));
+      el.root.querySelectorAll('canvas[data-bp-game]').forEach((cv) => { const it = DL.cosmetic(cv.dataset.bpGame); if (it && inventory.drawArt) inventory.drawArt(cv, it, t, true); });
     }
     let last = 0;
     function animate(now) {
       V.raf = 0;
       if (!V.open) return;
-      if (now - last > 120) { last = now; paintArt(now / 1000); }
+      if (now - last > 100) { last = now; paintArt(now / 1000); }
       V.raf = requestAnimationFrame(animate);
     }
     function open() {
       if (!el.ov) return;
       V.open = true;
       V.scrolled = false;
+      V.pv = 0;
       if (inventory.close) inventory.close();
       render();
       el.ov.classList.add('is-open');
@@ -404,48 +560,111 @@
     }
     function close() {
       V.open = false;
+      V.pv = 0;
       if (el.ov) el.ov.classList.remove('is-open');
       if (el.ov && el.ov.contains(document.activeElement)) document.activeElement.blur();
     }
-    if (el.root) el.root.addEventListener('click', (ev) => {
-      const b = ev.target.closest('[data-bp]');
-      if (!b) return;
-      const row = el.root.querySelector('[data-bp-row]');
-      if (b.dataset.bp === 'close') close();
-      else if (b.dataset.bp === 'left' && row) row.scrollBy({ left: -row.clientWidth * 0.8, behavior: 'smooth' });
-      else if (b.dataset.bp === 'right' && row) row.scrollBy({ left: row.clientWidth * 0.8, behavior: 'smooth' });
-    });
+    if (el.root) {
+      el.root.addEventListener('click', (ev) => {
+        const get = ev.target.closest('[data-bp-get]');
+        if (get) { collect([+get.dataset.bpGet]); return; }
+        const b = ev.target.closest('[data-bp]');
+        if (b) {
+          const row = el.root.querySelector('[data-bp-row]');
+          if (b.dataset.bp === 'close') close();
+          else if (b.dataset.bp === 'activate') activate();
+          else if (b.dataset.bp === 'all') collect(readyLevels());
+          else if (b.dataset.bp === 'pvclose') closePreview();
+          else if (b.dataset.bp === 'left' && row) row.scrollBy({ left: -row.clientWidth * 0.8, behavior: 'smooth' });
+          else if (b.dataset.bp === 'right' && row) row.scrollBy({ left: row.clientWidth * 0.8, behavior: 'smooth' });
+          return;
+        }
+        if (ev.target.closest('[data-bp-pvov]')) { if (!ev.target.closest('.bp-pv__box')) closePreview(); return; }
+        const pv = ev.target.closest('[data-bp-pv]');
+        if (pv) openPreview(+pv.dataset.bpPv);
+      });
+      el.root.addEventListener('keydown', (ev) => {
+        const pv = ev.target.closest && ev.target.closest('[data-bp-pv]');
+        if (pv && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); openPreview(+pv.dataset.bpPv); }
+      });
+    }
     if (el.ov) el.ov.addEventListener('pointerdown', (ev) => { if (ev.target === el.ov) close(); });
     if (el.btn) el.btn.addEventListener('click', () => { el.btn.blur(); if (V.open) close(); else open(); });
 
-    /* ---------- level up: a short animation, the item goes to the inventory ---------- */
+    /* ---------- celebrations ---------- */
+    // a layer of its own over everything (the pass window included)
+    const fx = document.createElement('div');
+    fx.className = 'bpfx';
+    fx.hidden = true;
+    document.body.appendChild(fx);
+    let fxRaf = 0, fxDone = null;
+    function fxPaint(now) {
+      fxRaf = 0;
+      if (fx.hidden) return;
+      const t = now / 1000;
+      fx.querySelectorAll('canvas[data-bp-art]').forEach((cv) => DL.paintPassCanvas(cv, cv.dataset.bpArt, t, +cv.dataset.px || 128));
+      fx.querySelectorAll('canvas[data-bp-chip]').forEach((cv) => DL.paintPassCanvas(cv, 'bp_icon_chip', t, 192, { fps: 3, every: 1.4 }));
+      fxRaf = requestAnimationFrame(fxPaint);
+    }
+    function fxShow(html, opts) {
+      clearTimeout(V.fxT);
+      fx.innerHTML = html + '<canvas class="bpfx__confetti" aria-hidden="true"></canvas>';
+      fx.className = 'bpfx' + (opts.modal ? ' is-modal' : '');
+      fx.hidden = false;
+      fxDone = opts.done || null;
+      if (opts.confetti) confetti(fx.querySelector('.bpfx__confetti'), opts.confetti, opts.ms || 3600);
+      if (!fxRaf) fxRaf = requestAnimationFrame(fxPaint);
+      if (opts.auto) V.fxT = setTimeout(fxHide, opts.auto);
+      const b = fx.querySelector('button');
+      if (b) setTimeout(() => b.focus(), 50);
+    }
+    function fxHide() {
+      clearTimeout(V.fxT);
+      if (fx.hidden) return;
+      fx.classList.add('is-out');
+      setTimeout(() => { fx.hidden = true; fx.innerHTML = ''; const d = fxDone; fxDone = null; if (d) d(); }, 260);
+    }
+    fx.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-bpfx]');
+      if (b && b.dataset.bpfx === 'pass') { fxHide(); if (!V.open) open(); return; }
+      if (b || (fx.classList.contains('is-modal') && !ev.target.closest('.bpfx__card'))) fxHide();
+    });
+    // ATIVAR PASSE – GRÁTIS: the screen dims, the chip turns and shines, confetti, the big text, BORA!
+    function showActivation() {
+      fxShow('<div class="bpfx__dim"></div><div class="bpfx__card is-act" role="dialog" aria-modal="true" aria-label="Passe ativado">' +
+        '<span class="bpfx__rays" aria-hidden="true"></span><span class="bpfx__chip"><canvas data-bp-chip aria-hidden="true"></canvas></span>' +
+        '<b class="bpfx__big">PARABÉNS!</b><b class="bpfx__mid">PASSE BOOT INICIAL ATIVADO</b>' +
+        '<span class="bpfx__small">Temporada 1 · Itens exclusivos que nunca voltam</span>' +
+        '<button class="bp-cta" type="button" data-bpfx="ok">BORA!</button></div>', { modal: true, confetti: 160, ms: 4200 });
+    }
+    // a level reached: the small one (golden glow + NÍVEL X! + the item) or, on a ★ level, the big one
     function celebrate(L) {
       V.queue.push(L);
-      if (!V.showing) nextUp();
+      // (on the next tick: the levels reached together are shown together)
+      if (!V.showing) { V.showing = true; setTimeout(nextUp, 0); }
     }
-    // several levels at once (a weekly mission, the server catching up) show as one: the highest level,
-    // up to four of the rewards and how many there were
+    // several levels at once (a weekly mission, the server catching up) show as one: the highest ★ level
+    // if there is one, else the highest level, with how many there were
     function nextUp() {
       const Ls = V.queue.splice(0);
-      if (!Ls.length || !el.up) { V.showing = false; return; }
+      if (!Ls.length) { V.showing = false; return; }
       V.showing = true;
-      const L = Math.max(...Ls), its = [].concat(...Ls.map(rewardItems)), g = Ls.reduce((n, l) => n + goldAt(l), 0);
-      const big = Ls.some((l) => BIG[l]), show = its.slice().sort((a, b) => levelOf(b.id) - levelOf(a.id)).slice(0, 4);
-      const name = its.length > 2 ? its.length + ' recompensas' + (g ? ' + ' + g + ' Gold' : '') : its.length ? its.map((it) => it.name).join(' + ') + (g ? ' + ' + g + ' Gold' : '') : '+' + g + ' Gold';
-      el.up.innerHTML = '<div class="bp-up' + (big ? ' is-big' : '') + '"><span class="bp-up__rays" aria-hidden="true"></span><span class="bp-up__tag">PASSE BOOT · T1' + (Ls.length > 1 ? ' · +' + Ls.length + ' NÍVEIS' : '') + '</span><b class="bp-up__lv">NÍVEL ' + L + '!</b>' +
-        '<span class="bp-up__art' + (show.length > 2 ? ' is-many' : '') + '">' + (show.length ? show.map((it) => '<canvas data-bp-art="' + it.id + '" data-big="1"></canvas>').join('') : '<canvas data-bp-gold="' + g + '"></canvas>') + '</span>' +
-        '<span class="bp-up__name">' + esc(name) + '</span><span class="bp-up__go">' + (its.length ? 'Enviado para o inventário (U)' : 'Já está na sua carteira') + '</span></div>';
-      el.up.hidden = false;
-      const t0 = performance.now();
-      const paint = (now) => {
-        if (el.up.hidden) return;
-        el.up.querySelectorAll('canvas[data-bp-art]').forEach((cv) => { const it = DL.cosmetic(cv.dataset.bpArt); if (it && inventory.drawArt) inventory.drawArt(cv, it, now / 1000, true); });
-        el.up.querySelectorAll('canvas[data-bp-gold]').forEach((cv) => { if (cv.width !== 96) paintGold(cv, cv.dataset.bpGold); });
-        if (now - t0 < 2900) requestAnimationFrame(paint);
-      };
-      requestAnimationFrame(paint);
+      const stars = Ls.filter((l) => BIG[l]), L = stars.length ? Math.max(...stars) : Math.max(...Ls), it = rewardItems(L)[0];
+      const more = Ls.length > 1 ? '<span class="bpfx__more">+' + (Ls.length - 1) + (Ls.length > 2 ? ' outros níveis' : ' outro nível') + '</span>' : '';
+      const art = '<canvas data-bp-art="' + artId(L) + '" data-px="' + (BIG[L] ? 192 : 112) + '" aria-hidden="true"></canvas>';
+      const go = signed() ? 'Abra o passe (J) e clique em COLETAR' : 'Pronto para coletar no passe (J)';
       game.sfx('levelup');
-      setTimeout(() => { el.up.hidden = true; el.up.innerHTML = ''; setTimeout(nextUp, 180); }, 2900);
+      if (BIG[L]) {
+        fxShow('<div class="bpfx__dim is-soft"></div><div class="bpfx__card is-star" role="dialog" aria-label="Prêmio especial do nível ' + L + '">' +
+          '<span class="bpfx__rays" aria-hidden="true"></span><span class="bpfx__tag">★ PRÊMIO ESPECIAL ★</span><b class="bpfx__big">NÍVEL ' + L + '!</b>' +
+          '<span class="bpfx__art">' + art + '</span><b class="bpfx__name">' + esc(rewardName(L)) + '</b><span class="bpfx__small">' + esc(it ? kindName(it) : 'Moedas') + ' · Exclusivo T1</span>' + more +
+          '<span class="bpfx__acts"><button class="bp-cta" type="button" data-bpfx="pass">VER NO PASSE</button><button class="bp-ghost" type="button" data-bpfx="ok">Fechar</button></span></div>',
+        { modal: true, confetti: 120, ms: 3800, auto: 7000, done: () => setTimeout(nextUp, 200) });
+      } else {
+        fxShow('<div class="bpfx__card is-small" role="status"><span class="bpfx__glow" aria-hidden="true"></span><b class="bpfx__big">NÍVEL ' + L + '!</b>' +
+          '<span class="bpfx__art">' + art + '</span><b class="bpfx__name">' + esc(rewardName(L)) + '</b>' + more + '<span class="bpfx__small">' + go + '</span></div>',
+        { auto: 3000, done: () => setTimeout(nextUp, 200) });
+      }
       if (V.open) render();
     }
 
@@ -459,20 +678,29 @@
     addEventListener('pagehide', () => { if (remote() && (S.pend || S.pendM.length)) sync(); });
 
     const api = {
-      open, close, update, sync,
-      get isOpen() { return V.open; },
-      key(ev) { if (ev.code === 'Escape') { close(); return true; } return false; },
+      open, close, update, sync, activate, collect: (L) => collect([].concat(L)), collectAll: () => collect(readyLevels()),
+      // (a modal celebration takes the keys too; the small level-up one never blocks the game)
+      get isOpen() { return V.open || (!fx.hidden && fx.classList.contains('is-modal')); },
+      key(ev) {
+        if (ev.code !== 'Escape') return false;
+        if (!fx.hidden && fx.classList.contains('is-modal')) fxHide();
+        else if (V.pv) closePreview();
+        else close();
+        return true;
+      },
       get level() { return level(); },
       get xp() { return S.xp; },
       get delivered() { return S.got; },
+      get activated() { return S.on; },
       get boost() { return S.boost; },
       get active() { return active(); },
-      levelOf,
+      levelOf, stateOf,
       // the XP bonus is used from the inventory: only while the season is on
       canBoost: () => (active() ? null : 'A temporada do passe terminou'),
       myTitle: () => equippedValue('title'),
+      myIcon: () => equippedValue('icon'),
       // exposed for automated checks
-      _: { S: () => S, addXp, count, settleLocal, missions: current, applyServer },
+      _: { S: () => S, addXp, count, settleLocal, missions: current, applyServer, celebrate, fxHide },
     };
     DL.Pass = api;
     return api;
