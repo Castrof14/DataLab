@@ -291,3 +291,74 @@
   .is-mobile .title .mm-btn { min-height: 44px; }
   .is-mobile .title .mm-btn[data-go="new"] { min-height: 52px; }
 }
+
+/* =====================================================================
+   Menu sub-screens on a phone (Carregar jogo, Jogar online, Ideias e bugs,
+   Salas da semana): a slim header that stays on top, then the content
+   ===================================================================== */
+.is-mobile .title.has-sub .mm__logo { display: none; }
+.is-mobile .title .mm__view-body {
+  padding: calc(12px + env(safe-area-inset-top)) calc(14px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) calc(14px + env(safe-area-inset-left));
+}
+.is-mobile .title .mm__view-body .mv__head {
+  position: sticky; top: calc(-12px - env(safe-area-inset-top)); z-index: 3;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 10px 12px;
+  margin: calc(-12px - env(safe-area-inset-top)) -14px 16px; padding: calc(12px + env(safe-area-inset-top)) 14px 12px;
+  background: #0d1424; box-shadow: 0 2px #262f46;
+}
+.is-mobile .title .mv__head > :not(.mv__back):not(.mv__titles) { grid-column: 1 / -1; }
+.is-mobile .title .mv__back { padding: 8px 10px 6px; font-size: 13px; }
+.is-mobile .title .mv__titles .eyebrow-sm { display: none; }
+.is-mobile .title .mv__title { font-size: 14px; line-height: 1.3; text-shadow: 0 2px #0f4a33; }
+.is-mobile .title .mv__badge { justify-self: start; }
+.is-mobile .title .mv-tabs { display: flex; width: 100%; margin-bottom: 0; }
+.is-mobile .title .mv-tab { flex: 1; justify-content: center; min-height: 40px; padding: 8px 6px 6px; font: 400 13px/1 'Silkscreen', monospace; text-align: center; }
+.is-mobile .title .mm__view-body .btn { min-height: 40px; font-size: 13px; }
+.is-mobile .title .mv-note, .is-mobile .title .mv-empty p, .is-mobile .title .mv-online__text { font-size: 19px; }
+.is-mobile .title .mv-empty { padding: 22px 14px; }
+.is-mobile .title .mv-empty b { font-size: 22px; }
+.is-mobile .title .mv__soon { font-size: 16px; }
+
+/* Carregar jogo: name and date next to the map, the numbers under them, the buttons across */
+.is-mobile .title .mv-save { grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 12px; padding: 12px; }
+.is-mobile .title .mv-save__map { width: 48px; height: 48px; }
+.is-mobile .title .mv-save__info { min-width: 0; gap: 4px; }
+.is-mobile .title .mv-save__info b { font-size: 22px; }
+.is-mobile .title .mv-save__info .eyebrow-sm { font-size: 11px; }
+.is-mobile .title .mv-save__stats { font-size: 17px; }
+.is-mobile .title .mv-save__acts { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 10px; }
+
+/* Jogar online: full-width fields and button */
+.is-mobile .title .mp-form { gap: 14px; }
+.is-mobile .title .mp-actions { flex-direction: column; align-items: stretch; gap: 10px; text-align: center; }
+.is-mobile .title .mp-world { padding: 10px; }
+.is-mobile .title .mp-world b, .is-mobile .title .mp-world small { font-size: 18px; }
+
+/* Ideias e bugs: no lead paragraph, the filters in one sliding row, buttons across */
+.is-mobile .title .fb-lead, .is-mobile .title .fb-sort > .eyebrow-sm, .is-mobile .title .fb-shot__empty > span { display: none; }
+.is-mobile .title .fb-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+.is-mobile .title .fb-bar--list { flex-direction: row; align-items: center; }
+.is-mobile .title .fb-sub, .is-mobile .title .fb-sort { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 2px 14px; }
+.is-mobile .title .fb-bar--list .fb-sub { margin: 0; padding: 2px; }
+.is-mobile .title .fb-sub::-webkit-scrollbar, .is-mobile .title .fb-sort::-webkit-scrollbar { display: none; }
+.is-mobile .title .fb-pill { flex: none; white-space: nowrap; }
+.is-mobile .title .fb-bar > .btn, .is-mobile .title .fb-actions .btn { width: 100%; justify-content: center; }
+.is-mobile .title .fb-idea { gap: 10px; padding: 10px; }
+.is-mobile .title .fb-shot { padding: 10px; }
+
+/* Salas da semana: the highlight card, then a compact list (map left, name and numbers right) */
+.is-mobile .title .mv-room--top .mv-room__art { aspect-ratio: 16 / 8; }
+.is-mobile .title .mv-room__body { gap: 6px; padding: 12px 12px 4px; }
+.is-mobile .title .mv-room--top .mv-room__body > b { font-size: 28px; }
+.is-mobile .title .mv-room__body p { font-size: 19px; }
+.is-mobile .title .mv-room__by { font-size: 18px; }
+.is-mobile .title .mv-room__stats { gap: 14px; font-size: 17px; }
+.is-mobile .title .mv-room__acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 10px 12px 12px; }
+.is-mobile .title .mv-room__acts .btn { justify-content: center; padding: 8px 6px 6px; font-size: 11px; line-height: 1.2; text-align: center; }
+.is-mobile .title .mv-rooms { grid-template-columns: 1fr; gap: 14px; }
+.is-mobile .title .mv-rooms .mv-room { display: grid; grid-template-columns: 96px minmax(0, 1fr); }
+.is-mobile .title .mv-rooms .mv-room__art { aspect-ratio: auto; min-height: 96px; }
+.is-mobile .title .mv-rooms .mv-room__tag, .is-mobile .title .mv-rooms .mv-room__body p { display: none; }
+.is-mobile .title .mv-rooms .mv-room__body { min-width: 0; padding: 10px 12px 4px; }
+.is-mobile .title .mv-rooms .mv-room__body > b { overflow: hidden; font-size: 22px; white-space: nowrap; text-overflow: ellipsis; }
+.is-mobile .title .mv-rooms .mv-room__acts { grid-column: 1 / -1; }
