@@ -407,3 +407,79 @@
 .is-mobile .term:has(#termIn:focus) .term__steps li:not(.is-current),
 .is-mobile .term:has(#termIn:focus) .term__note { display: none; }
 .is-mobile .term__note { display: none; }
+
+/* =====================================================================
+   In-game windows on a phone: the close button always in reach, nothing
+   wider than the screen, tables turned into cards
+   ===================================================================== */
+/* while a side panel or conversation is open, the joystick steps aside (it was drawn over them) */
+.is-mobile .game:has(.ops-panel:not([hidden])) .touch,
+.is-mobile .game:has(.talk:not([hidden])) .touch { display: none; }
+.is-mobile .ops-panel {
+  left: calc(10px + env(safe-area-inset-left)); right: calc(10px + env(safe-area-inset-right)); width: auto;
+  top: calc(54px + env(safe-area-inset-top)); bottom: calc(10px + env(safe-area-inset-bottom)); max-height: none; z-index: 9;
+}
+.is-mobile .overlay--app { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+.is-mobile .cab, .is-mobile .mon, .is-mobile .hd, .is-mobile .nl { height: 100%; }
+
+/* Monitor: logo and × on the first line, the three tabs across the second */
+.is-mobile .mon__bar { flex-wrap: wrap; row-gap: 6px; padding: 8px 10px; }
+.is-mobile .mon__logo { order: 0; }
+.is-mobile #monClose { order: 1; margin-left: auto; }
+.is-mobile .mon__tabs { order: 2; flex: 1 0 100%; margin: 0; }
+.is-mobile .mon__tabs button { flex: 1; height: 40px; font-size: 14px; }
+.is-mobile .mon__range { display: none; }
+.is-mobile .mon__body { padding: 10px; }
+/* the hosts and problems tables become one card per line */
+.is-mobile .mon .ztable, .is-mobile .mon .ztable tbody { display: block; }
+.is-mobile .mon .ztable thead { display: none; }
+.is-mobile .mon .ztable tr {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px;
+  padding: 12px; border-bottom: 1px solid rgba(204, 204, 220, 0.1);
+}
+.is-mobile .mon .ztable td { display: block; padding: 0; border: 0; font-size: 14px; }
+.is-mobile .mon .ztable .zst { max-width: none; white-space: normal; }
+.is-mobile .mon .ztable td:last-child { margin-left: auto; }
+.is-mobile .mon .ztable td:last-child .btn, .is-mobile .mon .ztable td:last-child .linkbtn { min-height: 36px; }
+.is-mobile .mon .ztable__empty { flex: 1; }
+/* hosts: name · IP, then the type, then the numbers with their names */
+.is-mobile .mon .ztable tr[data-host] td:nth-child(1) b { font-size: 16px; }
+.is-mobile .mon .ztable tr[data-host] td:nth-child(3) { flex-basis: 100%; color: #8e8e8e; font-size: 13px; }
+.is-mobile .mon .ztable tr[data-host] td:nth-child(5)::before { content: 'CPU '; color: #8e8e8e; }
+.is-mobile .mon .ztable tr[data-host] td:nth-child(6)::before { content: 'RAM '; color: #8e8e8e; }
+.is-mobile .mon .ztable tr[data-host] td:nth-child(7)::before { content: 'Disco '; color: #8e8e8e; }
+.is-mobile .mon .ztable tr[data-host] td:nth-child(8)::before { content: 'Temp. '; color: #8e8e8e; }
+/* problems: time · severity · status, then what happened across, then how long and Investigar */
+.is-mobile .mon .ztable tr:not([data-host]) td:nth-child(4) { font-weight: 400; color: #fff; }
+.is-mobile .mon .ztable tr:not([data-host]) td:nth-child(5) { flex-basis: 100%; line-height: 1.35; }
+.is-mobile .mon .ztable tr:not([data-host]) td:nth-child(6)::before { content: 'há '; color: #8e8e8e; }
+.is-mobile .mon__hosthead { gap: 8px; }
+.is-mobile .mon__acts { width: 100%; margin-left: 0; }
+.is-mobile .mon__acts .btn { flex: 1; height: 38px; }
+
+/* Central de Atendimento: one column that never gets wider than the screen */
+.is-mobile .hd__bar { gap: 8px 12px; padding: 10px 12px; }
+.is-mobile .hd__stats { flex-basis: 100%; order: 3; gap: 8px 12px; }
+.is-mobile .hd__main { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(120px, 30%) minmax(0, 1fr); }
+.is-mobile .hd__side, .is-mobile .hd__conv { min-width: 0; }
+.is-mobile .hd__tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.is-mobile .hd__tabs button { flex: none; height: 32px; }
+.is-mobile .hd__msgs { padding: 12px; }
+.is-mobile .hd__chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.is-mobile .hd__chips > * { flex: none; }
+.is-mobile .hd__composer { padding: 10px 12px; }
+
+/* Passe: the title gets the room; the days left go under it */
+.is-mobile .bp-bar { flex-wrap: wrap; gap: 8px 12px; }
+.is-mobile .bp-logo { width: 48px; height: 48px; }
+.is-mobile .bp-title b { font-size: 12px; line-height: 1.3; }
+.is-mobile .bp-title span { font-size: 10px; }
+.is-mobile .bp-days { order: 5; flex-basis: 100%; justify-content: center; }
+
+/* Configurações: the keyboard list means nothing on a phone */
+.is-mobile #help .settings__sub, .is-mobile #help .controls { display: none; }
+.is-mobile #help .card__title { font-size: 26px; line-height: 30px; }
+.is-mobile #help .card__actions .btn { flex: 1; justify-content: center; min-height: 46px; }
+.is-mobile .setting__ctl input[type="range"] { flex: 1; min-width: 0; }
+.is-mobile .setting__ctl { width: 100%; }
+.is-mobile .bp-cta { height: auto; min-height: 52px; padding: 12px 14px; line-height: 1.5; white-space: normal; }
