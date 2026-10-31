@@ -233,16 +233,21 @@
       return { left: l, top: t, right: rr, bottom: bb, width: Math.max(0, rr - l), height: Math.max(0, bb - t) };
     }
 
+    let lastSpot = null;
     function drawSpot() {
       let node = U.on && !U.done && U.guide && U.guide.isConnected ? U.guide : null;
       // a top bar button inside a closed group: point at the group's button until it opens
       const group = node && node.closest('.hud-group:not(.is-open)');
       if (group) node = group.querySelector('.hud-group__btn');
       const r = node && visibleRect(node);
-      if (!r || !shown(r)) { spot.classList.remove('is-on'); ring.classList.remove('is-on'); return; }
+      if (!r || !shown(r)) { if (lastSpot) { lastSpot = ''; spot.classList.remove('is-on'); ring.classList.remove('is-on'); } return; }
       let d = 'M0 0H' + innerWidth + 'V' + innerHeight + 'H0Z' + hole(r, 6, 8);
       const c = el.card.hidden ? null : el.card.getBoundingClientRect();
       if (c && shown(c)) d += hole(c, 0, 4);
+      // runs every frame: touch the DOM only when the spot moved (each write repaints the full-screen mask)
+      const k = d + '|' + r.left + ',' + r.top + ',' + r.width + ',' + r.height;
+      if (k === lastSpot) return;
+      lastSpot = k;
       spot.style.clipPath = "path(evenodd, '" + d + "')";
       ring.style.transform = 'translate(' + (r.left - 6) + 'px,' + (r.top - 6) + 'px)';
       ring.style.width = r.width + 12 + 'px';
