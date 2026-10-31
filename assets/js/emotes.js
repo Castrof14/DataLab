@@ -116,6 +116,8 @@
     }
     g.globalAlpha = 1;
   }
+  // the download page (baixar.js) plays the emotes outside the game and draws the same smoke
+  DL.emoteSmoke = smoke;
 
   // game: the game API (toast, sfx); player: the player's Actor; opts.can() says if an emote may start
   DL.createEmotes = function (game, player, opts) {

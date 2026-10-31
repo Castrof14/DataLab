@@ -93,6 +93,8 @@
 .m-menu-btn, .m-scrim, .m-sheet__head { display: none; }
 .is-mobile body.demo { touch-action: manipulation; }
 .is-mobile #world { touch-action: none; }
+/* the desktop installers are no use on a phone */
+.is-mobile #dlBtn { display: none; }
 .is-mobile .game { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 
 .is-mobile .hud-top {

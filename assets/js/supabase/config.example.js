@@ -17,6 +17,13 @@ window.DATALAB_CONFIG = {
   ytmDesktopEnabled: true,
   // ytmDesktopHost: '127.0.0.1',
   // ytmDesktopPort: 9863,   // a different port must also go into connect-src in jogo.html's CSP
+  // Desktop app (baixar.html, opened from Jogo → Baixar para PC): PUBLIC https links to the installers.
+  // Empty = the page shows "Em breve". version is only displayed (e.g. '0.9.0').
+  desktopDownloads: {
+    version: '',
+    windows: '',   // e.g. 'https://github.com/<you>/<repo>/releases/download/v0.9.0/DataLab-Setup.exe'
+    mac: '',       // e.g. 'https://github.com/<you>/<repo>/releases/download/v0.9.0/DataLab.dmg'
+  },
   // AI for the crew (agents/ folder): the Agent Gateway's PUBLIC address. Not a secret — the gateway checks the
   // player's Supabase session itself and keeps every provider key. Empty = no "IA" button (on localhost the game
   // tries http://127.0.0.1:8787). A production address must also go into connect-src in jogo.html's CSP.
