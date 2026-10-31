@@ -71,7 +71,8 @@
         : '<p class="spot-bubble__note">' + LOGO + 'Spotify desconectado</p><button class="btn btn--sm spot__connect" type="button" data-sp="connect">Conectar</button>';
     }
     const t = V.track;
-    if (t === undefined) return '<p class="spot-bubble__note">' + LOGO + 'Carregando…</p>';
+    // first poll failed (account not allowed, network…): say why instead of "Carregando" forever
+    if (t === undefined) return '<p class="spot-bubble__note' + (V.msg ? ' is-msg' : '') + '">' + LOGO + esc(V.msg || 'Carregando…') + '</p>';
     if (!t || t.idle) return '<p class="spot-bubble__note">' + LOGO + (t && t.why === 'private' ? 'Sessão privada ligada' : t && t.why === 'ad' ? 'Tocando um anúncio' : 'Nada tocando agora') + '</p>';
     const img = safeUrl(t.image, /(^|\.)(scdn\.co|spotifycdn\.com)$/);
     return '<span class="spot__art">' + (img ? '<img src="' + esc(img) + '" alt="" referrerpolicy="no-referrer">' : '') + '</span>' +

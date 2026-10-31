@@ -138,14 +138,16 @@
     try { data = text ? JSON.parse(text) : null; } catch (e) { /* control endpoints may answer with an empty or plain body */ }
     if (res.ok) return { ok: true, status: res.status, data };
     const reason = data && data.error && data.error.reason;
-    const msg = String((data && data.error && data.error.message) || '');
+    // Development Mode answers some 403s in plain text ("User not registered in the Developer Dashboard")
+    const msg = String((data && data.error && data.error.message) || (data ? '' : text) || '');
     if (res.status === 429) return { ok: false, code: 'limit', retryAfter: Number(res.headers.get('Retry-After')) || 30 };
     if (res.status === 401) { forget(); emit('change', { connected: false, reason: 'expired' }); return { ok: false, code: 'expired' }; }
     if (reason === 'PREMIUM_REQUIRED') return { ok: false, code: 'premium' };
     if (reason === 'NO_ACTIVE_DEVICE' || res.status === 404) return { ok: false, code: 'device' };
     // app in Development Mode and this account isn't in its User Management list
     if (res.status === 403 && /user.*(not|isn).*registered|developer\.spotify\.com/i.test(msg)) return { ok: false, code: 'user' };
-    if (res.status === 403) return { ok: false, code: 'premium' };
+    // reading the playback state works on any account: a 403 there is the allowlist, never Premium
+    if (res.status === 403) return { ok: false, code: method === 'GET' ? 'user' : 'premium' };
     return { ok: false, code: 'network', detail: msg };
   }
 
