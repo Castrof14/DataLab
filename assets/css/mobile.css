@@ -223,3 +223,71 @@
 @media (prefers-reduced-motion: reduce) {
   .is-mobile .hud-actions, .is-m-sheet .hud-actions, .is-mobile .m-scrim { transition: none; }
 }
+
+/* =====================================================================
+   Main menu on a phone: one column — the logo, a slim player bar, and the
+   buttons down where the thumb reaches. Same pixel windows as on the PC.
+   ===================================================================== */
+.is-mobile .title .mm {
+  display: flex; flex-direction: column; gap: 18px;
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+  padding: calc(16px + env(safe-area-inset-top)) calc(22px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(22px + env(safe-area-inset-left));
+}
+.is-mobile .title.has-sub .mm { overflow: hidden; }
+.is-mobile .title .mm__logo, .is-mobile .title .mm__player, .is-mobile .title .mm__menu, .is-mobile .title .mm-weekly {
+  position: relative; inset: auto; width: auto; max-width: none; flex: none;
+}
+.is-mobile .title .dl-logo--sm { width: 216px; height: 37px; }
+
+/* player: one row — face, name, coins, a short "Sair" */
+.is-mobile .title .mm__player { flex-wrap: nowrap; gap: 12px; padding: 8px 10px; }
+.is-mobile .title .mm__me { flex: 1; min-width: 0; gap: 8px; }
+.is-mobile .title .mm__me canvas { width: 32px; height: 32px; flex: none; }
+.is-mobile .title .mm__me > span { min-width: 0; }
+.is-mobile .title .mm__me b { font-size: 20px; }
+.is-mobile .title .mm__me .eyebrow-sm { overflow: hidden; font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }
+.is-mobile .title .mm__bal { flex: none; gap: 10px; }
+.is-mobile .title .mm-bal { gap: 4px; font-size: 20px; }
+.is-mobile .title .mm-bal .eyebrow-sm { display: none; }
+.is-mobile .title .mm__logout { flex: none; padding: 6px 8px 4px; font-size: 0; }
+.is-mobile .title .mm__logout::after { content: 'Sair'; font-size: 12px; }
+
+/* buttons: Novo jogo, Carregar and On-line across; Conta and Ideias side by side; no subtitles */
+.is-mobile .title .mm__menu { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: auto; padding: 0 4px; }
+.is-mobile .title .mm-btn { min-width: 0; min-height: 48px; padding: 8px 14px; gap: 12px; }
+.is-mobile .title .mm-btn__text b { font-size: 11px; }
+.is-mobile .title .mm-btn__text small { display: none; }
+.is-mobile .title .mm-btn[data-go="new"], .is-mobile .title .mm-btn[data-go="load"], .is-mobile .title .mm-btn[data-go="online"] { grid-column: 1 / -1; }
+.is-mobile .title .mm-btn[data-go="online"] { order: 1; }
+.is-mobile .title .mm-btn[data-go="account"] { order: 2; }
+.is-mobile .title .mm-btn[data-go="feedback"] { order: 3; }
+.is-mobile .title .mm-btn[data-go="new"] { --edge: #3dffa2; min-height: 58px; }
+.is-mobile .title .mm-btn[data-go="new"] .mm-btn__text b { font-size: 13px; color: #3dffa2; text-shadow: 0 2px #0f4a33; }
+.is-mobile .title .mm-btn[data-go="account"], .is-mobile .title .mm-btn[data-go="feedback"] { justify-content: center; padding: 8px 6px; }
+.is-mobile .title .mm-btn[data-go="account"] .mm-btn__icon, .is-mobile .title .mm-btn[data-go="feedback"] .mm-btn__icon { display: none; }
+.is-mobile .title .mm-btn[data-go="account"] .mm-btn__text, .is-mobile .title .mm-btn[data-go="feedback"] .mm-btn__text { flex: none; text-align: center; }
+
+/* Sala da semana: one slim strip at the bottom; the whole strip opens it */
+.is-mobile .title .mm-weekly { display: flex; align-items: center; margin: 4px 4px 0; }
+.is-mobile .title .mm-weekly__head { flex: none; padding: 12px; background: none; box-shadow: none; }
+.is-mobile .title .mm-weekly__title { font-size: 9px; line-height: 1.4; }
+.is-mobile .title .mm-weekly__body { flex: 1; min-width: 0; flex-direction: row; align-items: center; gap: 10px; padding: 8px 12px 8px 0; }
+.is-mobile .title .mm-weekly__thumb, .is-mobile .title .mm-weekly .mm-btn--small { display: none; }
+.is-mobile .title .mm-weekly__info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.is-mobile .title .mm-weekly__name { overflow: hidden; font-size: 19px; white-space: nowrap; text-overflow: ellipsis; }
+.is-mobile .title .mm-weekly__time { font-size: 16px; }
+.is-mobile .title .mm-weekly__body::after { content: '>'; margin-left: auto; font: 400 12px/1 'Press Start 2P', monospace; color: #3dffa2; }
+
+/* landscape: logo, player and the weekly strip on the left, the buttons on the right */
+@media (orientation: landscape) {
+  .is-mobile .title .mm {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-rows: auto auto 1fr;
+    column-gap: 32px; row-gap: 18px; align-content: stretch;
+  }
+  .is-mobile .title .mm__logo { grid-column: 1; grid-row: 1; }
+  .is-mobile .title .mm__player { grid-column: 1; grid-row: 2; }
+  .is-mobile .title .mm-weekly { grid-column: 1; grid-row: 3; align-self: end; }
+  .is-mobile .title .mm__menu { grid-column: 2; grid-row: 1 / 4; align-self: center; margin: 0; gap: 14px; }
+  .is-mobile .title .mm-btn { min-height: 44px; }
+  .is-mobile .title .mm-btn[data-go="new"] { min-height: 52px; }
+}
