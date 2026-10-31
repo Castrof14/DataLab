@@ -237,8 +237,10 @@
     function drawSpot() {
       let node = U.on && !U.done && U.guide && U.guide.isConnected ? U.guide : null;
       // a top bar button inside a closed group: point at the group's button until it opens
-      const group = node && node.closest('.hud-group:not(.is-open)');
+      // (on a phone the groups live in the Menu drawer: mobile.js points at the Menu button while it is closed)
+      const group = node && !DL.mobileGuide && node.closest('.hud-group:not(.is-open)');
       if (group) node = group.querySelector('.hud-group__btn');
+      if (node && DL.mobileGuide) node = DL.mobileGuide(node);
       const r = node && visibleRect(node);
       if (!r || !shown(r)) { if (lastSpot) { lastSpot = ''; spot.classList.remove('is-on'); ring.classList.remove('is-on'); } return; }
       let d = 'M0 0H' + innerWidth + 'V' + innerHeight + 'H0Z' + hole(r, 6, 8);

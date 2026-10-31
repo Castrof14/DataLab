@@ -912,6 +912,43 @@
     stick.addEventListener('pointerup', end);
     stick.addEventListener('pointercancel', end);
     $('touchAction').addEventListener('click', interact);
+
+    // two fingers on the map: pinch to zoom (one finger keeps doing what it did). Capture listeners run
+    // before the ones above, so the second finger never reaches the builder or the crew.
+    const fingers = new Map();
+    let pinch = null;
+    const spread = () => { const [a, b] = Array.from(fingers.values()); return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)); };
+    canvas.addEventListener('pointerdown', (ev) => {
+      if (ev.pointerType !== 'touch') return;
+      fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (fingers.size === 2 && !pinch) {
+        // drop what the first finger started (a wall, a drag) without applying it
+        S.drag = null;
+        S.ptrDown = false;
+        if (S.mode === 'build') builder.pointerAbort();
+        else crew.pointerUp();
+        pinch = { d: spread(), s: scene.autoS + wheelZ.target };
+      }
+      if (pinch) ev.stopImmediatePropagation();
+    }, true);
+    canvas.addEventListener('pointermove', (ev) => {
+      const f = fingers.get(ev.pointerId);
+      if (!f) return;
+      f.x = ev.clientX;
+      f.y = ev.clientY;
+      if (!pinch) return;
+      ev.stopImmediatePropagation();
+      if (fingers.size < 2) return;
+      const [lo, hi] = zoomRange();
+      wheelZ.target = Math.max(lo, Math.min(hi, pinch.s * (spread() / pinch.d) - scene.autoS));
+    }, true);
+    const lift = (ev) => {
+      if (!fingers.delete(ev.pointerId) || !pinch) return;
+      ev.stopImmediatePropagation();
+      if (!fingers.size) pinch = null;
+    };
+    canvas.addEventListener('pointerup', lift, true);
+    canvas.addEventListener('pointercancel', lift, true);
   }
 
   /* ---------------- player / camera ---------------- */

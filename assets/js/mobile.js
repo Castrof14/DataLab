@@ -1,0 +1,288 @@
+/* DataLab — phones and tablets (PWA). Runs only on touch screens (hover: none + pointer: coarse): on a PC
+   nothing here happens, and mobile.css is linked with the same media query.
+   1. marks <html> with is-mobile (+ is-standalone inside the installed app), links the manifest and
+      registers the service worker (sw.js)
+   2. in the browser (not installed yet): the "Instale o DataLab" screen, the game's own character doing
+      its emotes next to the step by step for iPhone (Safari) and Android (Chrome)
+   3. in the game (jogo.html): a slim top bar (me · modes · Menu) and every other option in a drawer that
+      slides up from the bottom; emotes in a round button over the action button; the team chat on demand
+   Loaded with defer, so the page (and sprites.js / demo.js) has already run. */
+(function () {
+  'use strict';
+  if (!matchMedia('(hover: none) and (pointer: coarse)').matches) return;
+  // the landing's iframe (jogo.html?hero) is a silent showcase: no install screen, no drawer
+  if (new URLSearchParams(location.search).has('hero') || window.top !== window.self) return;
+  const DL = (window.DL = window.DL || {});
+  const root = document.documentElement;
+  const $ = (id) => document.getElementById(id);
+  const standalone = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
+  DL.MOBILE = true;
+  root.classList.add('is-mobile');
+  if (standalone) root.classList.add('is-standalone');
+
+  const manifest = document.createElement('link');
+  manifest.rel = 'manifest';
+  manifest.href = 'manifest.webmanifest';
+  document.head.appendChild(manifest);
+  if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  // the page itself never zooms (double tap, pinch): in the game two fingers zoom the map (demo.js)
+  const vp = document.querySelector('meta[name="viewport"]');
+  if (vp && $('game')) vp.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover';
+
+  /* ---------------- install screen ---------------- */
+  const SKIP_KEY = 'datalab.pwa.skip';
+  const ua = navigator.userAgent;
+  const isIOS = /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  const iosOther = isIOS && /CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+  let deferred = null; // Chrome's install prompt, kept for the "Instalar agora" button
+  let screenEl = null, stopHero = null;
+
+  const ICON = {
+    share: '<svg class="pwa-ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v8.5M5 4.5l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5.5 7H3.5v7.5h9V7h-2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+    add: '<svg class="pwa-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 5v6M5 8h6" stroke="currentColor" stroke-width="1.5"/></svg>',
+    dots: '<svg class="pwa-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="7" y="2" width="2" height="2" fill="currentColor"/><rect x="7" y="7" width="2" height="2" fill="currentColor"/><rect x="7" y="12" width="2" height="2" fill="currentColor"/></svg>',
+    more: '<svg class="pwa-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="7" width="2" height="2" fill="currentColor"/><rect x="7" y="7" width="2" height="2" fill="currentColor"/><rect x="12" y="7" width="2" height="2" fill="currentColor"/></svg>',
+    install: '<svg class="pwa-ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="1.5" width="9" height="13" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5v6M5.5 8l2.5 2.5L10.5 8" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+  };
+  const STEPS = {
+    ios: [
+      (iosOther ? 'Abra esta página no <b>Safari</b> (no Chrome do iPhone também dá: o botão Compartilhar fica na barra do endereço).' : 'Esta página precisa estar aberta no <b>Safari</b>.'),
+      'Toque em <b>Compartilhar</b> ' + ICON.share + ' na barra do Safari. <small>No iOS 26: toque em ' + ICON.more + ' e depois em Compartilhar.</small>',
+      'Role a lista e toque em <b>Adicionar à Tela de Início</b> ' + ICON.add,
+      'Deixe <b>Abrir como App</b> ligado e toque em <b>Adicionar</b>. Pronto: abra o DataLab pelo ícone novo.',
+    ],
+    android: [
+      'Esta página precisa estar aberta no <b>Chrome</b>.',
+      'Toque no menu ' + ICON.dots + ' no canto de cima, à direita.',
+      'Toque em <b>Instalar app</b> ' + ICON.install + ' (ou <b>Adicionar à tela inicial</b>).',
+      'Confirme em <b>Instalar</b>. Pronto: abra o DataLab pelo ícone novo. <small>Samsung Internet: menu ☰ → Adicionar página a → Tela inicial.</small>',
+    ],
+  };
+
+  function buildScreen() {
+    const os = isIOS ? 'ios' : 'android';
+    const steps = (k) => '<ol class="pwa__steps" data-os="' + k + '"' + (k === os ? '' : ' hidden') + '>' + STEPS[k].map((s) => '<li><span>' + s + '</span></li>').join('') + '</ol>';
+    const el = document.createElement('section');
+    el.className = 'pwa';
+    el.setAttribute('role', 'dialog');
+    el.setAttribute('aria-modal', 'true');
+    el.setAttribute('aria-labelledby', 'pwaTitle');
+    el.innerHTML =
+      '<div class="pwa__grid" aria-hidden="true"></div>' +
+      '<div class="pwa__card">' +
+        '<p class="pwa__brand"><span class="pwa__mark" aria-hidden="true"><i></i><i></i><i></i></span>DATALAB</p>' +
+        '<div class="pwa__body">' +
+          '<div class="pwa__hero" aria-hidden="true">' +
+            '<span class="pwa__bubble" id="pwaBubble">👋</span>' +
+            '<canvas class="pwa__char" id="pwaChar"></canvas>' +
+            '<span class="pwa__floor"></span>' +
+          '</div>' +
+          '<div class="pwa__guide">' +
+            '<h2 class="pwa__title" id="pwaTitle">Instale o DataLab</h2>' +
+            '<p class="pwa__text">Jogue em tela cheia, direto do ícone na tela inicial, como um app.</p>' +
+            '<div class="pwa__tabs" role="tablist" aria-label="Seu celular">' +
+              '<button type="button" role="tab" data-os="ios" aria-selected="' + (os === 'ios') + '">iPhone</button>' +
+              '<button type="button" role="tab" data-os="android" aria-selected="' + (os === 'android') + '">Android</button>' +
+            '</div>' +
+            steps('ios') + steps('android') +
+            '<button type="button" class="pwa__install" id="pwaInstall" hidden>' + ICON.install + 'Instalar agora</button>' +
+          '</div>' +
+        '</div>' +
+        '<button type="button" class="pwa__skip" id="pwaSkip">Continuar no navegador</button>' +
+      '</div>';
+    el.addEventListener('click', (ev) => {
+      const tab = ev.target.closest('[data-os][role="tab"]');
+      if (tab) {
+        el.querySelectorAll('[role="tab"]').forEach((b) => b.setAttribute('aria-selected', String(b === tab)));
+        el.querySelectorAll('.pwa__steps').forEach((ol) => { ol.hidden = ol.dataset.os !== tab.dataset.os; });
+        syncInstallBtn();
+      }
+    });
+    el.querySelector('#pwaSkip').addEventListener('click', () => {
+      try { sessionStorage.setItem(SKIP_KEY, '1'); } catch (e) { /* private mode */ }
+      closeScreen();
+    });
+    el.querySelector('#pwaInstall').addEventListener('click', async () => {
+      if (!deferred) return;
+      const ev = deferred;
+      deferred = null;
+      syncInstallBtn();
+      ev.prompt();
+      try { if ((await ev.userChoice).outcome === 'accepted') closeScreen(); } catch (e) { /* dismissed */ }
+    });
+    return el;
+  }
+
+  function syncInstallBtn() {
+    if (!screenEl) return;
+    const tab = screenEl.querySelector('[role="tab"][aria-selected="true"]');
+    screenEl.querySelector('#pwaInstall').hidden = !deferred || !tab || tab.dataset.os !== 'android';
+  }
+
+  // the game's own character (sprites.js), facing the camera: waves, then dances, over and over
+  const LOOK = { body: 'm', skin: '#e0ac7e', hair: '#2a1c16', hairStyle: 'short', outfit: 'hoodie', shirt: '#1f6f5c', pants: '#1b1f27', shoes: '#16181d', headset: true, role: 'tecnico', roleColor: '#3dffa2', badge: '#3dffa2', lanyard: '#3dffa2', capColor: '#3dffa2' };
+  const SEQ = [{ id: 'wave', dur: 2.4, emoji: '👋' }, { id: 'dance', dur: 3.2, emoji: '🕺' }, { id: 'wave', dur: 1.6, emoji: '📲' }, { id: 'dance', dur: 2.6, emoji: '🎉' }];
+  function startHero(canvas, bubble) {
+    if (!DL.makeEmoteSheet || !DL.CHAR) { canvas.hidden = true; bubble.hidden = true; return null; }
+    const { FW, FH, AX, AY } = DL.CHAR;
+    const sheet = DL.makeEmoteSheet(LOOK), g = canvas.getContext('2d');
+    canvas.width = FW;
+    canvas.height = FH;
+    const paint = (frame) => {
+      g.clearRect(0, 0, FW, FH);
+      g.fillStyle = 'rgba(0, 0, 0, .32)'; // the same shadow as DL.drawActor
+      g.fillRect(AX - 4, AY - 2, 8, 1);
+      g.fillRect(AX - 5, AY - 1, 10, 1);
+      g.fillRect(AX - 4, AY, 8, 1);
+      g.drawImage(frame, 0, 0);
+    };
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { paint(sheet.waveA); return null; }
+    let i = 0, t = 0;
+    bubble.textContent = SEQ[0].emoji;
+    const timer = setInterval(() => {
+      t += 1 / 12;
+      if (t >= SEQ[i].dur) {
+        t = 0;
+        i = (i + 1) % SEQ.length;
+        bubble.textContent = SEQ[i].emoji;
+        bubble.classList.remove('is-pop');
+        void bubble.offsetWidth;
+        bubble.classList.add('is-pop');
+      }
+      const e = SEQ[i].id;
+      paint(e === 'dance' ? (Math.floor(t / 0.25) % 2 ? sheet.danceB : sheet.danceA) : Math.floor(t / 0.18) % 2 ? sheet.waveB : sheet.waveA);
+    }, 1000 / 12);
+    return () => clearInterval(timer);
+  }
+
+  function openScreen() {
+    if (screenEl || standalone) return;
+    screenEl = buildScreen();
+    document.body.appendChild(screenEl);
+    root.classList.add('is-pwa-screen');
+    stopHero = startHero(screenEl.querySelector('#pwaChar'), screenEl.querySelector('#pwaBubble'));
+    syncInstallBtn();
+    screenEl.querySelector('#pwaSkip').focus({ preventScroll: true });
+  }
+  function closeScreen() {
+    if (!screenEl) return;
+    if (stopHero) stopHero();
+    screenEl.remove();
+    screenEl = null;
+    root.classList.remove('is-pwa-screen');
+  }
+
+  addEventListener('beforeinstallprompt', (ev) => { ev.preventDefault(); deferred = ev; syncInstallBtn(); });
+  addEventListener('appinstalled', closeScreen);
+  // the auth gate and the game take keys while the screen is up: keep them inside it
+  addEventListener('keydown', (ev) => { if (screenEl && !screenEl.contains(ev.target)) ev.stopImmediatePropagation(); }, true);
+
+  /* ---------------- the game's HUD on a phone ---------------- */
+  function gameUi() {
+    const game = $('game'), actions = $('hudActions'), top = document.querySelector('.hud-top');
+    if (!game || !actions || !top) return;
+    const ops = $('hudOps'), store = $('hudStore');
+
+    // the season pass and the crew AI join the drawer; the team chat opens from it too
+    if ($('passBtn') && store) store.appendChild($('passBtn'));
+    if ($('aiBtn') && ops) ops.appendChild($('aiBtn'));
+    const chatBtn = document.createElement('button');
+    chatBtn.type = 'button';
+    chatBtn.className = 'btn btn--sm ops-btn';
+    chatBtn.id = 'mChatBtn';
+    chatBtn.setAttribute('aria-controls', 'teamChat');
+    chatBtn.innerHTML = 'Chat da equipe<span class="ops-badge" id="mChatBadge" hidden>0</span>';
+    if (ops) ops.appendChild(chatBtn);
+
+    const menuBtn = document.createElement('button');
+    menuBtn.type = 'button';
+    menuBtn.className = 'btn btn--sm ops-btn m-menu-btn';
+    menuBtn.id = 'mMenuBtn';
+    menuBtn.setAttribute('aria-controls', 'hudActions');
+    menuBtn.setAttribute('aria-expanded', 'false');
+    menuBtn.innerHTML = '<span class="m-burger" aria-hidden="true"><i></i><i></i><i></i></span><span class="m-menu-btn__lbl">Menu</span><span class="ops-badge" id="mMenuBadge" hidden>0</span>';
+    top.appendChild(menuBtn);
+
+    const head = document.createElement('div');
+    head.className = 'm-sheet__head';
+    head.innerHTML = '<span class="m-sheet__grab" aria-hidden="true"></span><b>Menu</b><button class="cc__x" type="button" data-m-close aria-label="Fechar menu">×</button>';
+    actions.prepend(head);
+    actions.setAttribute('role', 'dialog');
+    actions.setAttribute('aria-label', 'Menu do jogo');
+    const scrim = document.createElement('div');
+    scrim.className = 'm-scrim';
+    top.insertBefore(scrim, actions); // same stacking as the drawer: both rise over the game with the bar
+
+    const isOpen = () => root.classList.contains('is-m-sheet');
+    const sheet = (on) => {
+      root.classList.toggle('is-m-sheet', on);
+      menuBtn.setAttribute('aria-expanded', String(on));
+      if (on) actions.scrollTop = 0;
+    };
+    menuBtn.addEventListener('click', () => { menuBtn.blur(); sheet(!isOpen()); });
+    scrim.addEventListener('click', () => sheet(false));
+    head.querySelector('[data-m-close]').addEventListener('click', () => sheet(false));
+    // an option opens its window and the drawer gets out of the way (Salvar stays, to show it saved)
+    actions.addEventListener('click', (ev) => {
+      const b = ev.target.closest('.hud-group__menu > .btn');
+      if (b && b.id !== 'saveBtn') sheet(false);
+    });
+    // swipe the drawer down to close it
+    let swipe = null;
+    head.addEventListener('pointerdown', (ev) => { swipe = { y: ev.clientY, id: ev.pointerId }; });
+    head.addEventListener('pointerup', (ev) => { if (swipe && ev.pointerId === swipe.id && ev.clientY - swipe.y > 40) sheet(false); swipe = null; });
+    addEventListener('keydown', (ev) => { if (ev.code === 'Escape' && isOpen()) { sheet(false); ev.stopImmediatePropagation(); } }, true);
+
+    // team chat: hidden until asked for, so it never covers the joystick
+    const chatBadge = $('chatBadge'), mChatBadge = $('mChatBadge'), menuBadge = $('mMenuBadge');
+    chatBtn.addEventListener('click', () => {
+      const on = !root.classList.contains('is-m-chat');
+      root.classList.toggle('is-m-chat', on);
+      chatBtn.classList.toggle('is-on', on);
+      const h = $('chatHead');
+      if (on && h && h.getAttribute('aria-expanded') === 'false') h.click();
+    });
+
+    // the Menu button sums every badge in the drawer (Tarefas, Atendimento, Monitor, chat)
+    // (writes only on a change: the drawer's own observers in demo.js would otherwise bounce off this one forever)
+    const put = (el, hidden, text) => {
+      if (el.hidden !== hidden) el.hidden = hidden;
+      if (el.textContent !== text) el.textContent = text;
+    };
+    const sync = () => {
+      if (chatBadge && mChatBadge) put(mChatBadge, chatBadge.hidden, chatBadge.textContent);
+      let n = 0;
+      actions.querySelectorAll('.hud-group__menu .ops-badge').forEach((b) => { if (!b.hidden) n += parseInt(b.textContent, 10) || 0; });
+      put(menuBadge, n <= 0, n > 99 ? '99+' : String(n));
+      menuBtn.classList.toggle('is-alert', !!actions.querySelector('.hud-group__btn.is-alert'));
+    };
+    const watch = { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['class', 'hidden'] };
+    new MutationObserver(sync).observe(actions, watch);
+    if (chatBadge) new MutationObserver(sync).observe(chatBadge, watch);
+    sync();
+
+    // emotes: a round button over the action button; the menu opens upwards from it
+    const emo = document.querySelector('.hud-top .emo'), touch = $('touch'), emoteBtn = $('emoteBtn'), wheel = $('emoteWheel');
+    if (emo && touch && emoteBtn && wheel) {
+      touch.appendChild(emo);
+      emoteBtn.addEventListener('click', () => {
+        if (wheel.hidden) return;
+        const r = emoteBtn.getBoundingClientRect();
+        wheel.style.top = Math.max(8, r.top - wheel.offsetHeight - 8) + 'px';
+        wheel.style.left = Math.max(8, Math.min(r.right - wheel.offsetWidth, innerWidth - wheel.offsetWidth - 8)) + 'px';
+      });
+    }
+
+    // the tutorial points at a button in the closed drawer: light the Menu button instead (tutorial.js)
+    DL.mobileGuide = (node) => (actions.contains(node) && !isOpen() ? menuBtn : node);
+  }
+
+  const start = () => {
+    gameUi();
+    let skipped = false;
+    try { skipped = sessionStorage.getItem(SKIP_KEY) === '1'; } catch (e) { /* private mode */ }
+    if (!standalone && !skipped) openScreen();
+  };
+  if (document.readyState === 'loading') addEventListener('DOMContentLoaded', start);
+  else start();
+})();

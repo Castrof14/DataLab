@@ -35,6 +35,14 @@
   <link rel="stylesheet" href="assets/css/feedback.css">
   <link rel="stylesheet" href="assets/css/agents.css">
   <link rel="stylesheet" href="assets/css/motion.css">
+  <!-- phones (PWA): mobile.css + mobile.js only act on touch screens, the PC layout is untouched -->
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DataLab">
+  <link rel="stylesheet" href="assets/css/mobile.css" media="(hover: none) and (pointer: coarse)">
+  <script src="assets/js/mobile.js" defer></script>
   <!-- The CSP <meta> above turns off Chrome's preload scanner, so the scripts at the end of <body> would
        download one after another (~45 round trips). Listing them here fetches them all at once; they
        still run in the same order. Keep this list in step with the <script> tags below. -->
