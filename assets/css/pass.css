@@ -161,7 +161,8 @@
   font-size: 15px; line-height: 17px; color: var(--bp-text); text-align: left;
   opacity: 0; visibility: hidden; transition: opacity 0.12s;
 }
-.bp-cloud:hover::after, .bp-cloud:focus-visible::after { opacity: 1; visibility: visible; }
+/* (:focus too: a tap shows it on a phone) */
+.bp-cloud:hover::after, .bp-cloud:focus::after { opacity: 1; visibility: visible; }
 .bp-cloud:focus-visible { outline: 2px solid var(--bp-turq); outline-offset: 2px; }
 /* the tabs under the header: RECOMPENSAS / MISSÕES */
 .bp-tabs { display: flex; gap: 8px; padding: 14px 24px 0; border-bottom: 2px solid var(--bp-line); }
@@ -245,7 +246,8 @@
   filter: drop-shadow(2px 2px 0 var(--bp-goldDD)) drop-shadow(0 0 10px rgba(255, 230, 128, 0.6));
 }
 .bp-xp { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.bp-xp__top { display: flex; align-items: center; gap: 12px; font-size: 20px; line-height: 1; }
+.bp-xp__top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; font-size: 20px; line-height: 1; }
+.bp-xp__top > * { white-space: nowrap; }
 .bp-xp__top b { font-weight: 400; color: var(--bp-goldL); }
 .bp-xp__top span { margin-left: auto; color: var(--bp-gold); }
 /* the bar: golden blocks; the one in progress fills partly; a light sweeps across */
@@ -571,6 +573,7 @@
   .bp-lvl { height: 72px; }
   .bp-lvl b { font-size: 22px; }
   .bp-body { padding: 16px; gap: 18px; }
+  .bp-xp__top { font-size: 17px; }
   .bp-tabs { padding: 10px 16px 0; }
   .bp-missions { grid-template-columns: 1fr; }
   .bp-title b { font-size: 11px; }
