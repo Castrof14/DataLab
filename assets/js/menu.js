@@ -1,7 +1,8 @@
 /* DataLab — game entry: title screen (DATALAB + INICIAR) and the main menu (Novo Jogo, Carregar,
    Online, Loja, Marketplace, Tabela Global, Amigos, Salas da Semana). Sits on top of the demo that
    demo.js already built: the live scene runs behind it as the backdrop, and "Novo Jogo" hands over
-   to the existing start card (#intro → preset → tutorial). Online features use local mocks only. */
+   to the existing start card (#intro → preset → tutorial). Jogar On-Line is lobby.js (rooms on the local
+   network); the other online features (ranking, friends, marketplace) still use local mocks. */
 (function () {
   'use strict';
   const DL = window.DL, D = window.DataLabDemo;
@@ -171,6 +172,8 @@
       return head('Seus datacenters · salvos na sua conta', 'Carregar jogo') + '<div data-cloud-saves><p class="mv-note">Carregando seus saves…</p></div>';
     },
     online() {
+      // lobby.js: rooms on the local network (create / join)
+      if (DL.Lobby) return DL.Lobby.html(head);
       return head('Multijogador', 'Jogar online') +
         '<div class="mv-online"><div class="mv-online__orb" aria-hidden="true"><i></i><i></i><i></i><span></span></div>' +
         '<p class="eyebrow-sm"><span class="dot dot--warn dot--live"></span>&nbsp; Em breve — estamos desenvolvendo</p>' +
@@ -178,6 +181,12 @@
         '<p class="mv-online__text">Datacenters compartilhados, plantões em equipe e incidentes resolvidos juntos em tempo real. Enquanto isso, monte o seu e treine a equipe no modo solo.</p>' +
         '<ul class="mv-online__list"><li><b>Co-op</b>Opere o mesmo datacenter com amigos</li><li><b>Visitas</b>Entre nos datacenters da comunidade</li><li><b>Desafios</b>Incidentes semanais com ranking</li></ul>' +
         '<div class="mv-empty__actions"><button class="btn btn--primary" type="button" data-act="new">Jogar solo <span class="arrow">→</span></button><button class="btn" type="button" data-go="menu">Voltar</button></div></div>';
+    },
+
+    // community ideas (likes) and bug reports (feedback.js); it mounts itself and talks to the server
+    feedback() {
+      if (DL.Feedback) return DL.Feedback.html(head);
+      return head('Comunidade', 'Ideias e bugs') + '<div class="mv-empty"><p>Indisponível nesta página.</p></div>';
     },
 
     // the game's real shop and inventory (inventory.js), mounted here; purchases persist
@@ -467,9 +476,10 @@
       if (id === 'menu') return closeSub();
       if (id === 'new') return newGame('zero');
       if (id === 'account') return DL.AccountUI && DL.AccountUI.open();
-      if (id === 'online') return; // disabled
+      if (id === 'online' && !DL.Lobby) return; // no multiplayer on this page
       return openSub(id);
     }
+    if (DL.Lobby && DL.Lobby.click(ev)) return;
     const tab = ev.target.closest('[data-rank]');
     if (tab) {
       tab.parentElement.querySelectorAll('.mv-tab').forEach((t) => t.classList.toggle('is-on', t === tab));
@@ -496,6 +506,7 @@
   D.game.on('wallet', () => { if (!root.hidden) $('mmBal').innerHTML = balanceHtml(); });
   root.addEventListener('submit', (ev) => {
     ev.preventDefault();
+    if (DL.Lobby && DL.Lobby.submit(ev)) return;
     const inp = ev.target.querySelector('input');
     const v = inp && inp.value.trim();
     flash(v ? 'Convite para ' + v + ' guardado — será enviado quando o modo online chegar.' : 'Digite um código (DL-XXXX-XXXX) ou @nome.', v ? 'ok' : 'warn');
@@ -510,6 +521,7 @@
   // Keys: the menu owns the keyboard while it is up (runs before demo.js' own handler).
   addEventListener('keydown', (ev) => {
     if (root.hidden) return;
+    if (DL.Welcome && DL.Welcome.isOpen) { DL.Welcome.key(ev); return; }
     if (DL.AccountUI && DL.AccountUI.isOpen) { if (ev.code === 'Escape') { DL.AccountUI.close(); ev.preventDefault(); } ev.stopImmediatePropagation(); return; }
     ev.stopImmediatePropagation();
     const typing = document.activeElement && document.activeElement.tagName === 'INPUT';

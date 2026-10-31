@@ -75,7 +75,7 @@ export const obj = (v: unknown, name: string): Record<string, unknown> => {
 // Map database errors raised by private.fail (SQLSTATE P0001, message = code, hint = text) to HTTP.
 const STATUS: Record<string, number> = {
   forbidden: 403, rate_limited: 429, duplicate_request: 409, not_owned: 404, item_not_found: 404, user_not_found: 404,
-  save_not_found: 404, pack_not_found: 404, order_not_found: 404, already_owned: 409, already_claimed: 409, insufficient_gold: 402, insufficient_credits: 402, insufficient_cash: 402,
+  save_not_found: 404, pack_not_found: 404, idea_not_found: 404, bug_not_found: 404, idea_limit: 429, bug_limit: 429, idea_duplicate: 409, idea_closed: 409, too_large: 413, order_not_found: 404, already_owned: 409, already_claimed: 409, insufficient_gold: 402, insufficient_credits: 402, insufficient_cash: 402,
 };
 export function toResponse(req: Request, e: unknown): Response {
   if (e instanceof HttpError) return json(req, e.status, { error: e.code, message: e.userMessage });

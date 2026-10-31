@@ -89,6 +89,7 @@
     uncover();
     const p = await DL.Auth.profile();
     if (p && D.menu.setAccount) D.menu.setAccount(p);
+    if (DL.Welcome) DL.Welcome.maybe(); // the account's first time here: welcome + beta notice (welcome.js)
   }
   function waitFor(test) {
     return new Promise((resolve) => { const tick = () => { if (test()) resolve(window.DataLabDemo); else setTimeout(tick, 50); }; tick(); });

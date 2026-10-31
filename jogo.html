@@ -9,8 +9,9 @@
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect x=%221%22 y=%221%22 width=%2214%22 height=%2214%22 rx=%223%22 fill=%22%230a0a0a%22 stroke=%22%23fff%22/%3E%3Crect x=%224%22 y=%227%22 width=%228%22 height=%222%22 fill=%22%23ff7a17%22/%3E%3C/svg%3E">
   <meta name="theme-color" content="#0a0a0a">
   <!-- Scripts only from this site + the pinned Supabase SDK (with SRI); network only to Supabase.
-       A custom Supabase domain must be added to connect-src. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321; object-src 'none'; base-uri 'self'; form-action 'self'">
+       A custom Supabase domain must be added to connect-src, and so must the Agent Gateway's address
+       (agentGatewayUrl in config.js; localhost:8787 is already there for development). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321 http://127.0.0.1:8787 http://localhost:8787; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,6 +29,11 @@
   <link rel="stylesheet" href="assets/css/account.css">
   <link rel="stylesheet" href="assets/css/auth.css">
   <link rel="stylesheet" href="assets/css/spotify.css">
+  <link rel="stylesheet" href="assets/css/multiplayer.css">
+  <link rel="stylesheet" href="assets/css/welcome.css">
+  <link rel="stylesheet" href="assets/css/feedback.css">
+  <link rel="stylesheet" href="assets/css/agents.css">
+  <link rel="stylesheet" href="assets/css/motion.css">
   <!-- The CSP <meta> above turns off Chrome's preload scanner, so the scripts at the end of <body> would
        download one after another (~45 round trips). Listing them here fetches them all at once; they
        still run in the same order. Keep this list in step with the <script> tags below. -->
@@ -71,6 +77,7 @@
   <link rel="preload" href="assets/js/infra.js" as="script">
   <link rel="preload" href="assets/js/inventory.js" as="script">
   <link rel="preload" href="assets/js/audio.js" as="script">
+  <link rel="preload" href="assets/js/agents.js" as="script">
   <link rel="preload" href="assets/js/supabase/config.js" as="script">
   <link rel="preload" href="assets/js/services/cloud.js" as="script">
   <link rel="preload" href="assets/js/services/auth-service.js" as="script">
@@ -81,12 +88,19 @@
   <link rel="preload" href="assets/js/services/payment-service.js" as="script">
   <link rel="preload" href="assets/js/services/admin-service.js" as="script">
   <link rel="preload" href="assets/js/services/spotify-service.js" as="script">
+  <link rel="preload" href="assets/js/services/feedback-service.js" as="script">
+  <link rel="preload" href="assets/js/services/agent-service.js" as="script">
   <link rel="preload" href="assets/js/auth-gate.js" as="script">
   <link rel="preload" href="assets/js/demo.js" as="script">
   <link rel="preload" href="assets/js/menu.js" as="script">
   <link rel="preload" href="assets/js/cloud-sync.js" as="script">
   <link rel="preload" href="assets/js/account.js" as="script">
+  <link rel="preload" href="assets/js/feedback.js" as="script">
   <link rel="preload" href="assets/js/spotify-player.js" as="script">
+  <link rel="preload" href="assets/js/services/net-service.js" as="script">
+  <link rel="preload" href="assets/js/multiplayer.js" as="script">
+  <link rel="preload" href="assets/js/lobby.js" as="script">
+  <link rel="preload" href="assets/js/welcome.js" as="script">
   <style>
     /* loading cover: the landing's last frame (index.html: CARREGANDO + a full bar) stays on screen until
        auth-gate.js shows the login or the menu; it hides itself after 15 s in case something failed */
@@ -152,6 +166,7 @@
       <div class="crew-card" id="crewCard" role="dialog" aria-label="Pessoa da equipe"></div>
       <div class="ghost-tip" id="ghostTip" role="status"></div>
       <div class="loss-tags" id="lossTags" aria-hidden="true"></div>
+      <div class="mp-tags" id="mpTags" aria-hidden="true"></div>
     </div>
 
     <header class="hud-top">
@@ -173,6 +188,7 @@
         <button class="btn btn--sm ops-btn ops-btn--emo" id="emoteBtn" type="button" title="Emotes: dança (1), acenar (2), raiva (3)" aria-haspopup="menu" aria-expanded="false" aria-controls="emoteWheel"><span aria-hidden="true">🙂</span><span class="hud-lbl">Emotes</span></button>
         <span class="emo__wheel" id="emoteWheel" role="menu" aria-label="Emotes" hidden></span>
       </span>
+      <button class="btn btn--sm ops-btn ops-btn--ai" id="aiBtn" type="button" hidden title="IA da equipe: funcionários executam tarefas reais com o OpenCode"><span aria-hidden="true">🤖</span><span class="hud-lbl">IA da equipe</span><span class="ai-dot" id="aiDot" hidden></span></button>
       <div class="hud-meta eyebrow-sm">
         <span id="hudMeta">Meu datacenter</span>
         <span class="hud-meta__clock"><span class="dot dot--live"></span><span id="clock">08:00</span></span>
@@ -201,6 +217,8 @@
             <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
             <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
             <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
+            <button class="btn btn--sm" id="fbBtn" type="button" title="Relatar um bug (com print da tela) ou mandar uma ideia para o jogo">Relatar bug</button>
+            <button class="btn btn--sm" id="mpOpenBtn" type="button" title="Transformar este datacenter numa sala: quem tiver o código entra e joga junto" hidden>Abrir sala</button>
             <button class="btn btn--sm" id="saveBtn" type="button" title="Salvar o jogo na sua conta (Ctrl+S)" data-keep>Salvar</button>
             <button class="btn btn--sm" id="menuBtn" type="button" title="Salvar e voltar ao Menu Principal" data-keep>Menu</button>
           </div>
@@ -274,6 +292,7 @@
         <div class="crew-panel__btns">
           <button class="btn btn--sm" id="rolesBtn" type="button" title="Criar e editar cargos">Cargos</button>
           <button class="btn btn--sm" id="shiftsBtn" type="button" title="Turnos, horários e plantonistas">Escalas</button>
+          <button class="btn btn--sm ops-btn--ai" id="aiTeamBtn" type="button" hidden title="Tarefas reais com IA (OpenCode)">🤖 IA</button>
           <button class="btn btn--sm btn--primary" id="hireBtn" type="button">Contratar <kbd>N</kbd></button>
         </div>
       </div>
@@ -314,6 +333,9 @@
       <span><kbd>T</kbd> tarefas</span>
       <span><kbd>M</kbd> monitor</span>
     </div>
+
+    <!-- multiplayer room (lobby.js): the room code, who is connected, save / leave -->
+    <aside class="mp-hud" id="mpHud" hidden aria-label="Sala multijogador"></aside>
 
     <div class="toasts" id="toasts" aria-live="assertive"></div>
     <div class="talk-pings" id="talkPings" aria-live="polite"></div>
@@ -372,6 +394,10 @@
           <label class="setting" for="ambVol">
             <span class="setting__txt"><b>Som ambiente</b><small>Ventoinhas dos servidores · mais alto perto dos racks</small></span>
             <span class="setting__ctl"><small>Mudo</small><input type="range" id="ambVol" min="0" max="10" step="1" value="3"><small>Alto</small><b id="ambVolVal">3</b></span>
+          </label>
+          <label class="setting" for="motionLvl">
+            <span class="setting__txt"><b>Animações</b><small>Molas da interface: janelas, menus, avisos e botões · 0 desliga</small></span>
+            <span class="setting__ctl"><small>Firme</small><input type="range" id="motionLvl" min="0" max="10" step="1" value="6"><small>Elástico</small><b id="motionLvlVal">6</b></span>
           </label>
         </div>
         <p class="eyebrow-sm settings__sub">Controles</p>
@@ -464,6 +490,10 @@
       <div class="card card--modal card--roles"><div class="roles-body" id="rolesBody"></div></div>
     </div>
 
+    <div class="overlay" id="agentsOv" role="dialog" aria-modal="true" aria-labelledby="agentsTitle">
+      <div class="card card--modal card--agents"><div class="agents-body" id="agentsBody"></div></div>
+    </div>
+
     <div class="overlay" id="shifts" role="dialog" aria-modal="true" aria-labelledby="shiftsTitle">
       <div class="card card--modal card--shifts"><div class="shifts-body" id="shiftsBody"></div></div>
     </div>
@@ -534,6 +564,14 @@
       </div>
     </div>
 
+    <div class="overlay overlay--welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" aria-hidden="true" hidden>
+      <div class="welcome"></div>
+    </div>
+
+    <div class="overlay" id="mpDialog" role="dialog" aria-modal="true" aria-label="Sala multijogador">
+      <div class="card card--modal card--narrow" id="mpDialogBody"></div>
+    </div>
+
     <div class="overlay overlay--app" id="monitor" role="dialog" aria-modal="true" aria-label="Monitoramento">
       <div class="mon">
         <header class="app__bar mon__bar">
@@ -547,6 +585,16 @@
           <button class="cc__x" id="monClose" type="button" aria-label="Fechar monitoramento">×</button>
         </header>
         <div class="mon__body" id="monBody"></div>
+      </div>
+    </div>
+    <!-- Ideias e bugs in game (feedback.js): opens on the bug form with a print of the scene attached -->
+    <div class="overlay overlay--fb" id="feedback" role="dialog" aria-modal="true" aria-labelledby="fbTitle">
+      <div class="card card--modal fb-card">
+        <header class="fb-card__head">
+          <div><p class="eyebrow-sm">Comunidade · sua voz no jogo</p><h2 class="card__title" id="fbTitle">Ideias e bugs</h2></div>
+          <button class="cc__x" id="fbClose" type="button" aria-label="Fechar">×</button>
+        </header>
+        <div class="fb" id="fbBody"></div>
       </div>
     </div>
     <section class="title" id="title" hidden data-screen="title" aria-label="DataLab — menu principal">
@@ -610,10 +658,13 @@
             <span class="mm-btn__icon mm-btn__icon--user" aria-hidden="true"></span>
             <span class="mm-btn__text"><b>Conta</b></span>
           </button>
-          <button class="mm-btn mm-btn--disabled" type="button" data-go="online" style="--i:3" disabled aria-disabled="true">
+          <button class="mm-btn" type="button" data-go="online" style="--i:3">
             <span class="mm-btn__icon mm-btn__icon--globe" aria-hidden="true"></span>
-            <span class="mm-btn__text"><b>Jogar On-Line</b></span>
-            <span class="mm-btn__pill">EM BREVE</span>
+            <span class="mm-btn__text"><b>Jogar On-Line</b><small>Crie uma sala ou entre com um código</small></span>
+          </button>
+          <button class="mm-btn" type="button" data-go="feedback" style="--i:4">
+            <span class="mm-btn__icon mm-btn__icon--idea" aria-hidden="true"></span>
+            <span class="mm-btn__text"><b>Ideias e Bugs</b><small>Vote no que entra na próxima atualização</small></span>
           </button>
         </nav>
 
@@ -653,6 +704,7 @@
   </main>
 
   <script src="assets/js/hero.js"></script>
+  <script src="assets/js/motion.js"></script>
   <script src="assets/js/sprites.js"></script>
   <script src="assets/js/difficulty.js"></script>
   <script src="assets/js/world.js"></script>
@@ -694,6 +746,7 @@
   <script src="assets/js/infra.js"></script>
   <script src="assets/js/inventory.js"></script>
   <script src="assets/js/audio.js"></script>
+  <script src="assets/js/agents.js"></script>
   <!-- Supabase: public config (publishable key only) + one service per concern -->
   <script src="assets/js/supabase/config.js"></script>
   <script src="assets/js/services/cloud.js"></script>
@@ -705,11 +758,19 @@
   <script src="assets/js/services/payment-service.js"></script>
   <script src="assets/js/services/admin-service.js"></script>
   <script src="assets/js/services/spotify-service.js"></script>
+  <script src="assets/js/services/feedback-service.js"></script>
+  <script src="assets/js/services/agent-service.js"></script>
   <script src="assets/js/auth-gate.js"></script>
   <script src="assets/js/demo.js"></script>
   <script src="assets/js/menu.js"></script>
   <script src="assets/js/cloud-sync.js"></script>
   <script src="assets/js/account.js"></script>
+  <script src="assets/js/feedback.js"></script>
   <script src="assets/js/spotify-player.js"></script>
+  <!-- multiplayer: the host's browser is the room (WebRTC, handshake over Supabase Realtime); nothing to install -->
+  <script src="assets/js/services/net-service.js"></script>
+  <script src="assets/js/multiplayer.js"></script>
+  <script src="assets/js/lobby.js"></script>
+  <script src="assets/js/welcome.js"></script>
 </body>
 </html>

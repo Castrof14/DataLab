@@ -53,6 +53,8 @@
         stats: { done: c.stats.done || 0, found: c.stats.found || 0, fixed: c.stats.fixed || 0 },
         pay: c.pay, profile: p, shift: Object.assign({}, c.shift), oncall: (c.oncall || []).slice(0, 3), attend: c.attend, zone: c.zone || null,
         legend: c.legendBot || null, legendItem: c.legend || null,
+        // AI agent of this employee (agents.js): id of their workspace on the Agent Gateway, agent, model
+        ai: DL.sanitizeAi ? DL.sanitizeAi(c.ai) : null,
       };
     });
     const devices = ops.devices().map((d) => {
@@ -161,15 +163,19 @@
       if (c.shift) a.crew.shift = Object.assign({}, c.shift);
       a.crew.oncall = c.oncall || [];
       if (c.attend) a.crew.attend = c.attend;
+      if (c.ai && DL.sanitizeAi) a.crew.ai = DL.sanitizeAi(c.ai);
       if (c.zone && W.rooms.some((r) => r.id === c.zone)) { a.crew.zone = c.zone; a.crew.placeAuto = false; }
     }
-    D.economy.restore(data.econ);
+    // (multiplayer.js applies the world's shape alone: without these parts the running ones stay)
+    if ('econ' in data) D.economy.restore(data.econ);
     if (opts.company) D.economy.applyServer(opts.company);
-    if (D.career) D.career.restore(data.career);
-    if (D.problems) D.problems.restore(data.problems);
-    const pl = D.player;
-    pl.x = W.spawn.x; pl.y = W.spawn.y; pl.vx = pl.vy = 0;
-    scene.cam.x = pl.x; scene.cam.y = pl.y;
+    if (D.career && 'career' in data) D.career.restore(data.career);
+    if (D.problems && 'problems' in data) D.problems.restore(data.problems);
+    if (!opts.keepPlayer) {
+      const pl = D.player;
+      pl.x = W.spawn.x; pl.y = W.spawn.y; pl.vx = pl.vy = 0;
+      scene.cam.x = pl.x; scene.cam.y = pl.y;
+    }
     if (refused.length) console.warn('save: itens não restaurados', refused);
     return refused;
   }
@@ -216,7 +222,7 @@
         if (opts.name) S.name = opts.name;
         const data = serialize(D, S.name);
         const claim = D.economy.takeClaim();
-        const r = await DL.Cloud.call('game', { action: 'save', slot: S.slot, data, claim, request_id: DL.Cloud.requestId() });
+        const r = await DL.Cloud.call('game', { action: 'save', slot: S.slot, data, claim, request_id: DL.Cloud.requestId() }, { keepalive: true });
         if (r.ok) {
           D.economy.resetClaim();
           D.economy.applyServer(r.data);
@@ -250,10 +256,19 @@
       return { ok: true, data: r.data, refused };
     },
     remove: (slot) => DL.Cloud.call('game', { action: 'delete', slot }),
-    // autosave while a cloud game is running
+    // autosave while a cloud game is running: on a timer (the game pauses in a hidden tab, so the timer
+    // skips it) and whenever the player leaves — switching tabs, minimizing, closing or reloading.
+    // Saves are sent with keepalive, so the one fired on exit still reaches the server.
     startAutosave(seconds) {
       clearInterval(S.timer);
-      S.timer = setInterval(() => { if (S.slot && DL.Cloud.signedIn && !document.hidden) this.save({}); }, Math.max(20, seconds || 60) * 1000);
+      S.timer = setInterval(() => { if (S.slot && DL.Cloud.signedIn && !document.hidden) this.save({}); }, Math.max(20, seconds || 30) * 1000);
+      if (!S.exitHooked) {
+        S.exitHooked = true;
+        // leaving right after a save adds nothing: a few seconds apart keeps quick tab switches from flooding the server
+        const onExit = () => { if (S.timer && S.slot && DL.Cloud.signedIn && Date.now() - S.last > 5000) this.save({}); };
+        document.addEventListener('visibilitychange', () => { if (document.hidden) onExit(); });
+        addEventListener('pagehide', onExit);
+      }
     },
     stopAutosave() { clearInterval(S.timer); S.timer = 0; },
   };

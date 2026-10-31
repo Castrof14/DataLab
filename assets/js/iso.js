@@ -95,7 +95,17 @@
   /* Scratch canvas: each object's pixel art is painted here, then mapped */
   /* ------------------------------------------------------------------ */
   const SW = 224, SH = 224, OX = 88, OY = 144;
-  const SC = DL.mk(SW, SH), sg = SC.getContext('2d');
+  // Each object of a frame paints into its own scratch: repainting one shared canvas while the copy
+  // just blitted from it is still pending makes the browser duplicate (or flush) it every time.
+  const POOL = [];
+  let SC = null, next = 0;
+  function scratch() {
+    if (next >= POOL.length) { const c = DL.mk(SW, SH); POOL.push({ c, g: c.getContext('2d') }); }
+    const s = POOL[next];
+    next = (next + 1) % 256;
+    SC = s.c;
+    return s.g;
+  }
   const PR = DL.mk(SW, SH), pg = PR.getContext('2d', { willReadFrequently: true });
   let warned = false;
   function paint(ctx, c, t) {
@@ -225,7 +235,7 @@
     const f = frameOf(e), tw = f.Wf / T, th = f.Df / T;
     const c = clone(e, f.art, tw, th);
     const L = look(keyOf(e, f.art, tw, th), c);
-    paint(sg, c, t);
+    paint(scratch(), c, t);
     const u0 = clamp(Math.floor(L.x0), 0, f.Wf - 2), u1 = clamp(Math.ceil(L.x1), u0 + 2, f.Wf);
     const m = Math.min(u0, f.Wf - u1, 4), v0 = Math.max(0, m - 1), v1 = f.Df - m;
     const sp = SPLIT[e.kind], split = sp != null && sp > L.y0 && sp < L.y1 - 2 ? sp : null;
@@ -302,7 +312,7 @@
     const f = frameOf(e), tw = f.Wf / T, th = f.Df / T;
     const c = clone(e, f.art, tw, th);
     const L = look(keyOf(e, f.art, tw, th), c);
-    paint(sg, c, t);
+    paint(scratch(), c, t);
     const desk = e.kind === 'desk', v = desk ? '' : e.variant || '';
     const Z = surfTop(e);
     const tl = desk ? ['#2a2e36', '#15181d'] : TABLE[v] || TABLE[''];
@@ -400,7 +410,7 @@
     const f = frameOf(e), tw = f.Wf / T, th = f.Df / T;
     const c = clone(e, f.art, tw, th);
     const L = look(keyOf(e, f.art, tw, th), c);
-    paint(sg, c, t);
+    paint(scratch(), c, t);
     const z0 = e.host ? surfTop(e.host) : 0, vc = f.Df / 2;
     const M = cardMap(sc, f, vc, z0, L.y1);
     setMap(g, sc, M[0], M[1], M[2]);
@@ -432,7 +442,7 @@
   function drawBill(g, sc, e, t) {
     const c = clone(e);
     const L = look(keyOf(e, e.rot | 0, e.tw, e.th, 'b:'), c);
-    paint(sg, c, t);
+    paint(scratch(), c, t);
     const A = anchorOf(e), S = sc.S;
     const tx = Math.round((IX(A.wx, A.wy) - (A.sx - e.px)) * S) / S, ty = Math.round((IY(A.wx, A.wy, A.z) - (A.sy - e.py)) * S) / S;
     const m = [S, 0, 0, S, S * tx - sc.ox, S * ty - sc.oy];
@@ -449,7 +459,7 @@
   function drawWallItem(g, sc, e, t) {
     const c = clone(e);
     const L = look(keyOf(e, e.rot | 0, e.tw, e.th, 'w:'), c);
-    paint(sg, c, t);
+    paint(scratch(), c, t);
     const M = [[e.px, e.py, LIFT], [1, 0, 0], [0, 0, -1]];
     setMap(g, sc, M[0], M[1], M[2]);
     blit(g, -6, -80, e.tw * T + 12, 80 + LIFT);
@@ -460,7 +470,7 @@
     return { rect: [bb[0] - 1, bb[1] - 1, bb[2] + 1, bb[3] + 1] };
   }
   function drawFlat(g, sc, e, t) {
-    paint(sg, clone(e), t);
+    paint(scratch(), clone(e), t);
     const M = [[e.px, e.py, 0], [1, 0, 0], [0, 1, 0]];
     setMap(g, sc, M[0], M[1], M[2]);
     blit(g, 0, 0, e.tw * T, e.th * T);
@@ -1003,6 +1013,7 @@
     const st = statics(sc);
     camera(sc, st);
     const frame = (sc._isoFrame = (sc._isoFrame || 0) + 1);
+    next = 0;
     g.setTransform(1, 0, 0, 1, 0, 0);
     g.globalAlpha = 1;
     g.globalCompositeOperation = 'source-over';

@@ -4,10 +4,16 @@
 window.DATALAB_CONFIG = {
   supabaseUrl: 'https://YOUR-PROJECT-REF.supabase.co',
   supabasePublishableKey: 'sb_publishable_YOUR_PUBLISHABLE_KEY',
-  autosaveSeconds: 60,
+  autosaveSeconds: 30,
   // Spotify (compact in-game player): the app's PUBLIC Client ID from developer.spotify.com/dashboard.
   // OAuth with PKCE: there is NO client secret in this project; never paste one here. Empty = no player.
   spotifyClientId: 'YOUR_SPOTIFY_CLIENT_ID',
   // optional: only if the Redirect URI registered on Spotify differs from <this site>/spotify-callback.html
   // spotifyRedirectUri: 'https://datalab-six.vercel.app/spotify-callback.html',
+  // AI for the crew (agents/ folder): the Agent Gateway's PUBLIC address. Not a secret — the gateway checks the
+  // player's Supabase session itself and keeps every provider key. Empty = no "IA" button (on localhost the game
+  // tries http://127.0.0.1:8787). A production address must also go into connect-src in jogo.html's CSP.
+  // agentGatewayUrl: 'https://agents.seu-dominio.com',
+  // crewAI: true liga a IA da equipe no jogo (desligada por padrão: sem botões, nada roda).
+  // crewAI: false,
 };
