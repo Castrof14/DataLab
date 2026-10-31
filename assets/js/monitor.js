@@ -1,7 +1,8 @@
 /* DataLab — monitoring, inspired by Zabbix (hosts, triggers, problems) and Grafana (dashboards).
    Metrics are simulated from the real device state every second of game time: a host that drops off the
-   network stops reporting, so its graphs break; triggers open problems, the crew announces them, and they
-   turn RESOLVED by themselves once the cause is fixed. */
+   network stops reporting, so its graphs break; triggers open problems, the crew announces them, each one
+   becomes a work order for the team (staff.js: PROBLEMA → EM ATENDIMENTO → RESOLVIDO), and they turn
+   RESOLVED once the cause is fixed — by the team or by the player. */
 (function () {
   'use strict';
   const DL = window.DL;
@@ -10,6 +11,7 @@
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
   const N = 120; // two minutes of one-second samples
+  const STUCK = 0.1; // share of CPU spikes that are a stuck process (stay until the team restarts the service)
   const SEV = {
     info: { label: 'Informação', color: '#7499ff', rank: 0 },
     warning: { label: 'Atenção', color: '#ffc859', rank: 1 },
@@ -50,11 +52,22 @@
     }
     const push = (arr, v) => { arr.push(v); if (arr.length > N) arr.shift(); };
 
-    function rackTemp(r) {
+    // Where the rack's temperature is heading: units heat it up; no precision AC in the room and messy cables
+    // (blocked airflow) make it worse; a serviced AC (e.tuned) and blanking panels (r.blank) help — those two
+    // come from the team's maintenance (staff.js).
+    function rackTarget(r) {
       const O = ops(), room = O.roomOf(r);
       const n = r.units ? r.units.filter(Boolean).length : 0;
-      const crac = game.scene.world.items.some((e) => e.kind === 'crac' && O.roomOf(e) === room);
-      return 23.5 + n * 0.75 + (crac ? 0 : 4.2) + (r.tidy === false && r.cableLook ? 1.8 : 0);
+      const cracs = room ? game.scene.world.items.filter((e) => e.kind === 'crac' && O.roomOf(e) === room) : [];
+      return 23.5 + n * 0.75 + (cracs.length ? 0 : 4.2) + (r.tidy === false && r.cableLook ? 1.8 : 0) -
+        (cracs.some((e) => e.tuned) ? 1.5 : 0) - (r.blank ? 1 : 0);
+    }
+    // what the sensor reads: it follows the target, quickly when heating, slowly (about a minute) when cooling
+    const rackTemp = (r) => (r.tmon != null ? r.tmon : rackTarget(r));
+    DL.rackTempOf = rackTemp; // (terminal.js: sensors shows the air coming into the server)
+    function warm(r) {
+      const to = rackTarget(r);
+      r.tmon = r.tmon == null ? to : r.tmon + (to - r.tmon) * (to > r.tmon ? 0.25 : 0.017);
     }
 
     function sample() {
@@ -62,6 +75,7 @@
       const devs = monitored();
       const keep = new Set(devs.map((d) => d.key));
       for (const k of Array.from(M.series.keys())) if (!keep.has(k)) M.series.delete(k);
+      for (const r of game.scene.world.items) if (r.kind === 'rack' && r.units) warm(r);
       let swTraffic = new Map();
       for (const d of devs) {
         const s = seriesOf(d.key);
@@ -72,7 +86,8 @@
         }
         const b = d.mb, h = O.health(d), j = () => (rand() - 0.5);
         if (d.kind === 'server' && !b.spike && rand() < 0.0012) b.spike = t + 8 + rand() * 6;
-        if (b.spike && t > b.spike) b.spike = 0;
+        // a stuck process (see evaluate) keeps the CPU up until someone restarts the service
+        if (b.spike && t > b.spike && !b.stuck) b.spike = 0;
         if (!h.up) {
           for (const k of ['cpu', 'ram', 'disk', 'netIn', 'netOut', 'temp']) push(s[k], null);
           push(s.up, 0);
@@ -115,44 +130,70 @@
     /* ------------------------------------------------------------------ */
     function evaluate() {
       const O = ops(), t = now(), active = new Map();
-      const open = (key, d, sev, text, rack) => active.set(key, { key, d, sev, text, rack });
+      // kind: what the team does about it (staff.js) — ping · http · disk · cpu · win:<service|lockout> · hw · port · temp · cables
+      const open = (key, d, sev, text, rack, kind) => active.set(key, { key, d, sev, text, rack, kind });
       for (const d of monitored()) {
         const h = O.health(d), s = seriesOf(d.key);
         if (d.kind === 'server') {
-          if (!h.up) open(d.key + ':ping', d, 'high', d.name + ': host indisponível (ping sem resposta)');
-          else if (!h.http) open(d.key + ':http', d, 'high', d.name + ': serviço HTTP (nginx) fora do ar');
-          if (h.up && d.os.disk >= 90) open(d.key + ':disk', d, 'average', d.name + ': pouco espaço em disco (/ acima de 90%)');
-          if (s && s.cpu.slice(-4).every((v) => v != null && v > 88)) open(d.key + ':cpu', d, 'warning', d.name + ': CPU acima de 88% por mais de 4 s');
+          if (!h.up) open(d.key + ':ping', d, 'high', d.name + ': host indisponível (ping sem resposta)', null, 'ping');
+          else if (!h.http) open(d.key + ':http', d, 'high', d.name + ': serviço HTTP (nginx) fora do ar', null, 'http');
+          if (h.up && d.os.disk >= 90) open(d.key + ':disk', d, 'average', d.name + ': pouco espaço em disco (/ acima de 90%)', null, 'disk');
+          if (s && s.cpu.slice(-4).every((v) => v != null && v > 88)) open(d.key + ':cpu', d, 'warning', d.name + ': CPU acima de 88% por mais de 4 s', null, 'cpu');
           // Windows Server roles (winserver.js): DNS / DHCP / AD services and locked-out accounts
-          if (h.up && DL.winTriggers) for (const [k, sev, text] of DL.winTriggers(d)) open(d.key + ':' + k, d, sev, text);
+          if (h.up && DL.winTriggers) for (const [k, sev, text] of DL.winTriggers(d)) open(d.key + ':' + k, d, sev, text, null, k);
         } else if (d.kind === 'switch' && !h.up) {
-          open(d.key + ':hw', d, 'high', d.name + ': switch fora do ar (defeito de hardware)');
+          open(d.key + ':hw', d, 'high', d.name + ': switch fora do ar (defeito de hardware)', null, 'hw');
         } else if (d.kind === 'switch' && h.errPorts) {
           const p = Object.keys(d.sw.ports).find((k) => d.sw.ports[k] === 'err-disabled');
-          open(d.key + ':port', d, 'average', d.name + ': porta ' + p.replace('gi', 'Gi') + ' em err-disabled');
+          open(d.key + ':port', d, 'average', d.name + ': porta ' + p.replace('gi', 'Gi') + ' em err-disabled', null, 'port');
         }
       }
       for (const r of game.scene.world.items) {
         if (r.kind !== 'rack' || !r.units || !r.units.some(Boolean)) continue;
-        const d = O.devices().find((x) => x.rack === r && x.kind !== 'patch' && x.state === 'online');
+        // (a server of the rack when there is one: Investigar opens it, and its terminal has sensors)
+        const on = O.devices().filter((x) => x.rack === r && x.kind !== 'patch' && x.state === 'online');
+        const d = on.find((x) => x.kind === 'server') || on[0];
         if (!d) continue;
         const tp = rackTemp(r);
-        if (tp > 31) open(r.id + ':temp', d, 'warning', r.id + ': temperatura alta (' + tp.toFixed(1) + ' °C) · falta refrigeração?', r);
-        if (r.tidy === false && r.cableLook) open(r.id + ':cables', d, 'info', r.id + ': cabeamento desorganizado (fluxo de ar e manutenção)', r);
+        if (tp > 31) open(r.id + ':temp', d, 'warning', r.id + ': temperatura alta (' + tp.toFixed(1) + ' °C) · falta refrigeração?', r, 'temp');
+        if (r.tidy === false && r.cableLook) open(r.id + ':cables', d, 'info', r.id + ': cabeamento desorganizado (fluxo de ar e manutenção)', r, 'cables');
       }
       // open new problems, resolve the ones whose trigger went back to OK
       for (const [key, a] of active) {
         if (M.problems.some((p) => p.key === key && !p.end)) continue;
-        const p = { id: ++M.seq, key, dev: a.d, rack: a.rack, sev: a.sev, text: a.text, start: t, startClock: game.clock(), end: 0 };
+        const p = { id: ++M.seq, key, kind: a.kind, dev: a.d, rack: a.rack, sev: a.sev, text: a.text, start: t, startClock: game.clock(), end: 0, order: null };
         M.problems.unshift(p);
+        // most CPU spikes are a load peak that passes by itself; about one in ten is a stuck process
+        if (a.kind === 'cpu' && a.d.mb) a.d.mb.stuck = a.d.mb.stuck || rand() < STUCK;
         // hosts that fell because their switch broke are covered by the switch's own alert
         const viaSwitch = a.d.kind === 'server' && O.health(a.d).why === 'switch';
         if ((SEV[a.sev].rank >= 2 || key.endsWith(':port')) && !viaSwitch) O.announce(a.d, a.text);
       }
-      for (const p of M.problems) if (!p.end && !active.has(p.key)) { p.end = t; p.endClock = game.clock(); }
-      M.problems = M.problems.filter((p) => !p.end || t - p.end < 90).slice(0, 60);
+      for (const p of M.problems) {
+        if (p.end || active.has(p.key)) continue;
+        p.end = t;
+        p.endClock = game.clock();
+        // fixed by the work order's technician (not when someone else got there first)
+        const o = p.order;
+        p.by = o && o.assignee && (o.status === 'done' || o.result === 'ok') ? o.assignee.crew.name : null;
+        p.how = p.kind === 'cpu' && !o ? 'o pico passou sozinho' : '';
+      }
+      // resolved ones stay a minute and a half; open ones are never dropped
+      M.problems = M.problems.filter((p) => !p.end || t - p.end < 90);
+      if (M.problems.length > 60) M.problems = M.problems.filter((p, i) => !p.end || i < 60);
+      // every open problem has a work order for the team (staff.js)
+      if (game.staff && game.staff.incidents) game.staff.incidents(M.problems);
       renderBadge();
     }
+
+    // the team's hands on what the Monitor watches (staff.js): the stuck process restarted · a rack cooling down
+    function relieve(d) {
+      if (!d.mb || !d.mb.spike) return false;
+      d.mb.spike = 0;
+      d.mb.stuck = false;
+      return true;
+    }
+    const cooling = (p) => !!p.rack && rackTarget(p.rack) <= 31 && rackTemp(p.rack) > 31;
 
     const activeProblems = () => M.problems.filter((p) => !p.end);
     function renderBadge() {
@@ -276,7 +317,7 @@
 
     function tips() {
       if (M.tipsOff) return '';
-      return '<div class="mon__tip"><b>Como ler o monitoramento.</b> Cada gráfico mostra os últimos 2 minutos. Uma linha que <em>quebra</em> significa que o host parou de responder. Problemas aparecem em <b>Problemas</b> e somem sozinhos quando a causa é resolvida. Passe o mouse no <i class="gp__i">i</i> de cada painel. <button type="button" class="linkbtn" data-mon="tipsoff">Entendi</button></div>';
+      return '<div class="mon__tip"><b>Como ler o monitoramento.</b> Cada gráfico mostra os últimos 2 minutos. Uma linha que <em>quebra</em> significa que o host parou de responder. Problemas aparecem em <b>Problemas</b>, viram ordens de serviço para a equipe e ficam resolvidos quando a correção termina. Passe o mouse no <i class="gp__i">i</i> de cada painel. <button type="button" class="linkbtn" data-mon="tipsoff">Entendi</button></div>';
     }
 
     function dashHtml() {
@@ -294,7 +335,7 @@
         '<div class="gstats">' +
         stat('Hosts respondendo', up + ' / ' + devs.length, up === devs.length ? '#73bf69' : '#f2495c') +
         stat('Disponibilidade', av == null ? '—' : av.toFixed(av > 99.9 ? 0 : 1) + '%', color(100 - (av || 100), 0.5, 5), 'últimos 2 min') +
-        stat('Problemas ativos', act.length, act.length ? SEV[worst].color : '#73bf69', act.length ? SEV[worst].label : 'tudo ok') +
+        stat('Problemas ativos', act.length, act.length ? SEV[worst].color : '#73bf69', act.length ? SEV[worst].label + ' · ' + act.filter((p) => (careOf(p) || {}).on).length + ' em atendimento' : 'tudo ok') +
         stat('Temperatura média', tAvg == null ? '—' : tAvg.toFixed(1) + ' °C', color(tAvg, 29, 31)) +
         stat('Tráfego total', Math.round(traffic) + ' Mbps', '#5794f2') +
         '</div>', 'gp--wide') + '</div>';
@@ -336,14 +377,32 @@
     }
 
     const dur = (s) => { s = Math.max(0, Math.round(s)); return s < 60 ? s + 's' : Math.floor(s / 60) + 'm ' + (s % 60) + 's'; };
+    // PROBLEMA → EM ATENDIMENTO (who) → RESOLVIDO, from the problem's work order (staff.js) or, for a career
+    // problem, from the person the player assigned it to (problems.js)
+    function careOf(p) {
+      const o = p.order;
+      if (o && o.status === 'run' && o.assignee) return { on: true, line: o.assignee.crew.name + ' · ' + (o.progress > 0 ? Math.round(o.progress * 100) + '%' : 'a caminho') };
+      if (o && o.status === 'done' && o.result === 'ok') return { on: true, line: (o.assignee ? o.assignee.crew.name + ' · ' : '') + (p.kind === 'temp' ? 'esfriando aos poucos' : 'conferindo') };
+      const cp = game.problems && game.problems.list().find((x) => x.assignee && game.problems.devicesOf(x).some((d) => d === p.dev || d === p.rack));
+      if (cp) return { on: true, line: cp.assignee.crew.name + ' · problema de carreira' };
+      if (o && o.status === 'open') return { on: false, line: 'ordem #' + o.id + ' · ' + (o.note || 'na fila') };
+      if (p.wait) return { on: false, line: p.wait };
+      return null;
+    }
+    function statusHtml(p) {
+      if (p.end) return '<td class="ok">RESOLVIDO' + (p.by || p.how ? '<small class="zst">' + esc(p.by ? 'por ' + p.by : p.how) + '</small>' : '') + '</td>';
+      const c = careOf(p);
+      if (c && c.on) return '<td class="att">EM ATENDIMENTO<small class="zst">' + esc(c.line) + '</small></td>';
+      return '<td class="w">PROBLEMA' + (c ? '<small class="zst">' + esc(c.line) + '</small>' : '') + '</td>';
+    }
     function problemsHtml() {
       const t = now();
-      let h = '<p class="mon__lead">Cada linha nasce de um <b>gatilho</b> (trigger): uma regra sobre as métricas, como “sem resposta ao ping” ou “disco acima de 90%”. Quando a regra volta ao normal, o problema vira <b class="ok">RESOLVIDO</b>.</p>';
+      let h = '<p class="mon__lead">Cada linha nasce de um <b>gatilho</b> (trigger): uma regra sobre as métricas, como “sem resposta ao ping” ou “disco acima de 90%”. Cada problema vira uma <b>ordem de serviço</b> (Tarefas → Ordens): alguém da equipe vai até o local, corrige e ele vira <b class="ok">RESOLVIDO</b>. Você também pode resolver antes, pelo terminal.</p>';
       h += '<table class="ztable"><thead><tr><th>Hora</th><th>Severidade</th><th>Status</th><th>Host</th><th>Problema</th><th>Duração</th><th></th></tr></thead><tbody>';
       if (!M.problems.length) h += '<tr><td colspan="7" class="ztable__empty">Nenhum problema. Tudo verde.</td></tr>';
       for (const p of M.problems) {
         h += '<tr class="' + (p.end ? 'is-res' : '') + '"><td class="mono">' + p.startClock + '</td><td><span class="zsev zsev--fill" style="--c:' + SEV[p.sev].color + '">' + SEV[p.sev].label + '</span></td>' +
-          '<td class="' + (p.end ? 'ok' : 'w') + '">' + (p.end ? 'RESOLVIDO' : 'PROBLEMA') + '</td><td>' + esc(p.dev.name) + '</td><td>' + esc(p.text) + '</td><td class="mono">' + dur((p.end || t) - p.start) + '</td>' +
+          statusHtml(p) + '<td>' + esc(p.rack ? p.rack.id : p.dev.name) + '</td><td>' + esc(p.text) + '</td><td class="mono">' + dur((p.end || t) - p.start) + '</td>' +
           '<td>' + (p.end ? '' : '<button type="button" class="btn btn--sm" data-host="' + p.dev.key + '">Investigar</button>') + '</td></tr>';
       }
       return h + '</tbody></table>';
@@ -355,7 +414,7 @@
       if (d.kind === 'switch') {
         if (h.broken) return ['O switch inteiro parou de responder: todos os hosts ligados nele caíram juntos. Isso é hardware, não configuração.', 'Defeito físico no ' + d.name + ' (fonte/placa). Quem resolve é o técnico de TI: ele retira o switch, conserta na bancada e reinstala. Veja as ordens de serviço em Tarefas (T).'];
         const p = Object.keys(d.sw.ports).find((k) => d.sw.ports[k] === 'err-disabled');
-        if (!p) return null;
+        if (!p) return rackDiagnose(d.rack);
         return ['Um switch com porta em erro derruba o host ligado nela. Veja quais hosts ficaram vermelhos na disponibilidade.', 'A porta ' + p + ' está err-disabled. No terminal do switch: enable → conf t → interface ' + p + ' → shutdown / no shutdown.'];
       }
       const wd = DL.winDiagnose ? DL.winDiagnose(d, h) : null;
@@ -371,15 +430,38 @@
       }
       if (!h.http) return ['O ping responde, mas o site não. O problema é de serviço, não de rede.', 'O nginx parou. No terminal: systemctl status nginx.'];
       if (d.os.disk >= 90) return ['O gráfico de disco subiu até perto de 100%. Descubra o que está ocupando espaço.', 'Os logs em /var/log cresceram demais. No terminal: df -h e du -sh /var/log.'];
+      return rackDiagnose(d.rack);
+    }
+    // the rack itself: too hot (no AC, an AC without service, airflow blocked) or messy cabling
+    function rackDiagnose(r) {
+      if (!r) return null;
+      const O = ops(), room = O.roomOf(r), tp = rackTemp(r);
+      const cracs = room ? game.scene.world.items.filter((e) => e.kind === 'crac' && O.roomOf(e) === room) : [];
+      const messy = r.tidy === false && r.cableLook;
+      if (tp > 31) {
+        const first = 'A frente do ' + r.id + ' está a ' + tp.toFixed(1) + ' °C (o limite é 31 °C). O calor vem da falta de ar de precisão na sala, de um ar sem manutenção ou de cabos bloqueando o fluxo de ar. No terminal do servidor: sensors.';
+        if (rackTarget(r) <= 31) return [first, 'A causa já foi resolvida: o rack está esfriando aos poucos.'];
+        if (!room) return [first, 'O ' + r.id + ' está fora de uma sala: crie a sala (B → Salas) para poder refrigerar.'];
+        if (!cracs.length) return [first, 'Não há ar de precisão em ' + room.name + '. Construa um (botão Construir ar de precisão) ou deixe a equipe instalar pela ordem de serviço.'];
+        if (messy) return [first, 'Os cabos do ' + r.id + ' estão bloqueando a saída do ar quente. Abra o Cabeamento e use Organizar cabos.'];
+        if (!cracs.some((e) => e.tuned)) return [first, 'O ' + (cracs[0].id || 'ar de precisão') + ' está sem manutenção (filtros sujos, setpoint alto). A equipe faz a manutenção pela ordem de serviço.'];
+        return [first, 'O ' + r.id + ' está no limite para esta sala: leve um servidor para outro rack.'];
+      }
+      if (messy) return ['Cabos soltos pela frente do rack atrapalham o fluxo de ar e a manutenção.', 'Abra o Cabeamento do ' + r.id + ' e use Organizar cabos (ou deixe a equipe pela ordem de serviço).'];
       return null;
     }
 
     function hostHtml(d) {
       const O = ops(), h = O.health(d);
-      const pr = activeProblems().filter((p) => p.dev === d);
+      // (its own problems first, then the ones of its rack: temperature, cabling)
+      const pr = activeProblems().filter((p) => p.dev === d).concat(activeProblems().filter((p) => p.rack && p.rack === d.rack && p.dev !== d));
+      // a hot rack in a room without precision AC: the player can build one right away
+      const room = d.rack && O.roomOf(d.rack);
+      const noAc = pr.some((p) => p.kind === 'temp') && room && !game.scene.world.items.some((e) => e.kind === 'crac' && O.roomOf(e) === room);
       let s = '<div class="mon__crumb"><button type="button" class="linkbtn" data-mon="hosts">Hosts</button> / <b>' + esc(d.name) + '</b></div>';
       s += '<div class="mon__hosthead"><span class="zbx ' + (h.up ? 'is-up' : 'is-down') + '">' + (h.up ? 'DISPONÍVEL' : 'INDISPONÍVEL') + '</span><span class="mono">' + esc(d.ip) + ' · ' + esc(d.where) + '</span>' +
-        '<span class="mon__acts"><button type="button" class="btn btn--sm btn--primary" data-act="term">Abrir terminal</button><button type="button" class="btn btn--sm" data-act="cable">Cabeamento</button><button type="button" class="btn btn--sm" data-act="map">Ver no mapa</button></span></div>';
+        '<span class="mon__acts"><button type="button" class="btn btn--sm btn--primary" data-act="term">Abrir terminal</button><button type="button" class="btn btn--sm" data-act="cable">Cabeamento</button>' +
+        (noAc ? '<button type="button" class="btn btn--sm" data-act="crac">Construir ar de precisão</button>' : '') + '<button type="button" class="btn btn--sm" data-act="map">Ver no mapa</button></span></div>';
       const dg = diagnose(d);
       if (dg) {
         const lvl = M.hint[d.key] || 0;
@@ -475,6 +557,7 @@
       if (b.dataset.act === 'term') { close(); ops().openTerminal(d); }
       else if (b.dataset.act === 'cable') { close(); sys.cabling.open(d.rack, d); }
       else if (b.dataset.act === 'map') { close(); game.focus(d.rack.px + 8, d.rack.py); game.flash(d.rack); }
+      else if (b.dataset.act === 'crac') { close(); game.focus(d.rack.px + 8, d.rack.py); if (game.setMode) game.setMode('build'); if (game.builder && game.builder.choose) game.builder.choose('crac'); }
     });
     addEventListener('resize', () => render(true));
 
@@ -496,7 +579,7 @@
       return true;
     }
 
-    return {
+    const api = {
       open, close, update, key,
       get isOpen() { return M.open; },
       get opened() { return M.opened; },
@@ -504,6 +587,9 @@
       series: (d) => M.series.get(d.key),
       activeProblems,
       evaluate, sample,
+      relieve, cooling, rackTemp, rackTarget,
     };
+    game.monitor = api;
+    return api;
   };
 })();

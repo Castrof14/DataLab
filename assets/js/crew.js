@@ -889,7 +889,8 @@
       const speed = XP.speedOf(c.stats, def.skill);
       // the workplace matters: without the structure the role needs, work drags (workplace.js)
       const slow = !def.social && c.missing && c.missing.length ? 1.5 : 1;
-      const dur = between(def.dur[0], def.dur[1]) * (def.kind === 'client' ? 1 : speed * slow);
+      // (an incident order sets its own span of game minutes, skill already counted: staff.js)
+      const dur = def.durFor ? def.durFor(a, target) : between(def.dur[0], def.dur[1]) * (def.kind === 'client' ? 1 : speed * slow);
       let route = null, station = null, place = null, restS = null, stand = null;
       if (def.kind === 'pc') {
         if (opts.station) {
@@ -1070,6 +1071,8 @@
         for (const d of game.ops.devices()) {
           const f = d.fault;
           if (!f || !f.found || busyWith(d) || (f.botTried && scene.t - f.botTried < 90)) continue;
+          // the Monitor already turned it into a work order: the manager hands that out (staff.js)
+          if (game.staff && game.staff.incidentOn(d)) continue;
           const fd = fixDefFor(a, d);
           if (!fd || !botCan(fd)) continue;
           // the player gets time to fix it first (more in Experiente, less in Iniciante — difficulty.js)
@@ -1195,7 +1198,7 @@
       const c = a.crew, t = scene.t, grace = DL.learn ? DL.learn().crewGrace : FIX_GRACE;
       if (game.ops) for (const d of game.ops.devices()) {
         const f = d.fault;
-        if (f && f.found && !d.hold && !busyWith(d) && fixDefFor(a, d) && botCan(fixDefFor(a, d)) && (f.help || t - (f.foundAt || t) >= grace)) return true;
+        if (f && f.found && !d.hold && !busyWith(d) && !(game.staff && game.staff.incidentOn(d)) && fixDefFor(a, d) && botCan(fixDefFor(a, d)) && (f.help || t - (f.foundAt || t) >= grace)) return true;
       }
       if (game.staff && tasksOf(a).some((x) => x.kind === 'repair' && botCan(x)) && game.staff.broken().some((b) => !b.taken && !game.staff.claimed(b))) return true;
       if (game.staff && game.staff.clientWaitingFor && game.staff.clientWaitingFor(a)) return true;
@@ -1775,6 +1778,8 @@
       renderList();
     }
 
+    // what is left of a work order, in game minutes ("2 min 10 s")
+    const timeLeft = (j) => { const s = Math.ceil(Math.max(0, j.left)); return (s >= 60 ? Math.floor(s / 60) + ' min ' : '') + (s % 60) + ' s'; };
     const CUP_NAME = { coffee: 'o café', water: 'a água', tea: 'o chá', soda: 'o refrigerante', snack: 'o lanche', food: 'a marmita' };
     const CUP_DOING = { coffee: 'Tomando café', water: 'Bebendo água', tea: 'Tomando chá', soda: 'Tomando refrigerante', snack: 'Comendo um lanche', food: 'Almoçando' };
     function statusOf(a) {
@@ -1792,9 +1797,9 @@
         // AI tasks (agents.js) report the agent's live progress instead of a countdown
         case 'working': return j ? (j.def.statusText ? j.def.statusText() : j.def.verb + (j.auto ? ' · rotina' : ' · ' + Math.ceil(Math.max(0, j.left)) + ' s')) : 'No computador';
         case 'toEquip': return 'Indo até ' + j.label + ' · ' + j.name;
-        case 'inspecting': return j.def.verb + ' · ' + j.label;
+        case 'inspecting': return j.def.verb + ' · ' + j.label + (j.order ? ' · ' + timeLeft(j) : '');
         case 'toSpot': return 'Indo até ' + (j.label || 'lá') + ' · ' + j.name;
-        case 'atSpot': return j.def.verb;
+        case 'atSpot': return j.def.verb + (j.order ? ' · ' + timeLeft(j) : '');
         case 'patrol': return j.def.verb;
         case 'toVisit': return 'Indo falar com ' + j.label;
         case 'talking': return j.def.verb + ' com ' + j.label;
@@ -2499,6 +2504,18 @@
       }
     }
 
+    // a work order being worked on (not walked to): a small bar over the head fills up as the job advances
+    const WORKING = { inspecting: 1, atSpot: 1, pickup: 1, repairing: 1, installing: 1 };
+    function workBar(g, a, t) {
+      const c = a.crew, x = Math.round(a.x) - 8, y = Math.round(a.y) - 32;
+      const w = Math.round(16 * Math.max(0, Math.min(1, progressOf(a))));
+      g.fillStyle = '#07080a'; g.fillRect(x - 1, y - 1, 18, 4);
+      g.fillStyle = '#2a313b'; g.fillRect(x, y, 16, 2);
+      g.fillStyle = '#5eead4'; if (w) g.fillRect(x, y, w, 2);
+      // on a bare spot of floor (installing an AC) there is no scanner sweep: a tool blinking in the hands
+      if (c.state === 'atSpot' && Math.sin(t * 9) > 0) { g.fillStyle = roleOf(a).color; g.fillRect(Math.round(a.x) + 4, Math.round(a.y) - 12, 2, 2); }
+    }
+
     // a cup in the hand; at the mouth while sipping (coffee steams, water is clear blue)
     function drawCup(g, a, t) {
       const c = a.crew;
@@ -2534,6 +2551,7 @@
         });
       }
       for (const a of C.members) around(g, a, () => maintenanceFx(g, a, sc.t));
+      for (const a of C.members) if (a.crew.job && a.crew.job.order && WORKING[a.crew.state] && !a.hidden && C.mode !== 'build') around(g, a, () => workBar(g, a, sc.t));
       for (const a of C.members) if (a.crew.cup && !a.hidden) around(g, a, () => drawCup(g, a, sc.t));
       for (const a of C.leaving) around(g, a, () => tears(g, a, sc.t));
       if (C.mode !== 'crew') return;

@@ -146,7 +146,8 @@
       {
         id: 'cables', name: 'Organizar cabos', verb: 'Organizando cabos', kind: 'equip', skill: 'redes', xp: 16, dur: [10, 16], auto: 2,
         desc: 'Passa os cabos pelos organizadores e bandejas.', none: 'Nenhum rack com cabos',
-        targets: (ctx) => racks(ctx, (e) => !!e.cableLook && !e.hold),
+        // (a rack with a Monitor order about its cabling or airflow is left to that order: staff.js)
+        targets: (ctx) => racks(ctx, (e) => !!e.cableLook && !e.hold && !(ctx.staff && ctx.staff.incidentAt && ctx.staff.incidentAt(e))),
         weight: (e) => (e.cableLook === 'messy' ? 10 : 1),
         finish(ctx, rack) {
           if (rack.cableLook === 'messy') {

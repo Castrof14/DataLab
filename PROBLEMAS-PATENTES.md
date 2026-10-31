@@ -51,7 +51,7 @@ Um problema só é sorteado quando o jogador tem o equipamento que ele exige, a 
 ---
 
 ## 2 · Júnior I — mais servidores na mesma sala
-Missão: *instalar mais 2 servidores numa sala com switch* · Libera: estações de atendimento e escritório, switch 16p, notebook, estação técnica, mesa com 3 monitores, NAS 2 baias.
+Missão: *instalar mais 2 servidores numa sala com switch* · Libera: estações de atendimento e escritório, switch 16p, notebook, estação técnica, mesa com 3 monitores, NAS 2 baias, ar de precisão.
 Tema: sair de 1 servidor para vários. Comparar, documentar e consertar configuração errada.
 
 | # | Problema | Dif | XP | Onde | O que o jogador faz |
@@ -132,7 +132,7 @@ Tema: configurar do zero sem comando pronto. O Windows Server entra aqui, só in
 | 20 | Documente o servidor | 3 | 100 | 2 consoles | Três respostas: o IP, a porta no switch e os núcleos. |
 
 ## 5 · Pleno I — diagnóstico (a causa fica escondida)
-Missão: *resolver você mesmo 3 problemas* · Libera: servidor avançado, ar de precisão, estação de NOC, workstation, elevador de servidor.
+Missão: *resolver você mesmo 3 problemas* · Libera: servidor avançado, estação de NOC, workstation, elevador de servidor.
 Tema: o passo diz só o sintoma. Começa o Active Directory e entram as dependências entre serviços.
 
 | # | Problema | Dif | XP | Onde | O que o jogador faz |

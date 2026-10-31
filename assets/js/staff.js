@@ -4,6 +4,8 @@
    - Work orders: the manager (or the player) opens orders — repair, fix a fault, cable a server, install
      a server / rack / precision AC, expand a room — and they are dispatched to whoever can do them.
      Each order is followed until done (or it fails and is retried).
+   - Incidents: every problem the Monitor raises becomes an order too (the manager on duty hands it out):
+     the right person walks there and works on it for a few game minutes, one incident at a time.
    - Clients: visitors come in through the reception, wait there and leave; they never leave that room.
    - Team chat: the player can talk to the crew; whoever is addressed (or knows the subject) answers. */
 (function () {
@@ -27,6 +29,7 @@
     'install-rack': { label: 'Instalar rack', icon: '🗄️', cost: 1800, cat: 'rack' },
     'install-crac': { label: 'Instalar ar de precisão', icon: '❄️', cost: 9000, cat: 'crac' },
     'expand-room': { label: 'Ampliar sala', icon: '📐', cost: 4000 },
+    incident: { label: 'Incidente', icon: '🚨' },
   };
   const priceOf = (id) => { const c = (DL.CATALOG || []).find((x) => x.id === id); return c ? c.price : 0; };
 
@@ -181,7 +184,7 @@
     /* ================================================================== */
     /* Work orders                                                         */
     /* ================================================================== */
-    const O = { list: [], seq: 0, acc: 0, key: '', lastServer: -999 };
+    const O = { list: [], seq: 0, acc: 0, key: '', lastServer: -999, problems: [] };
     const active = (o) => o.status === 'open' || o.status === 'run';
     const manager = () => crew.members.find((m) => m.crew.profile.role === 'gerente' && !m.crew.leaving && !m.crew.off) || null;
     const orderOf = (m) => (m.crew.job && m.crew.job.order) || null;
@@ -213,12 +216,14 @@
         case 'fix': return api().fixDefFor(m, o.target) || null;
         case 'cable': return ts.some((t) => t.kind === 'fix' && t.types.indexOf('cable') >= 0) ? CABLE_DEF : null;
         case 'install-server': return ts.find((t) => t.id === 'install') || null;
+        case 'incident': return incidentDef(o, m);
         default: return ts.some((t) => t.id === 'install' || t.kind === 'repair') ? BUILD_DEF : null;
       }
     }
 
     function valid(o) {
       switch (o.type) {
+        case 'incident': return !o.target.end;
         case 'repair': return M.broken.indexOf(o.target) >= 0;
         case 'fix': return !!o.target.fault && ops.devices().indexOf(o.target) >= 0;
         case 'cable': return ops.devices().indexOf(o.target) >= 0 && o.target.state === 'new';
@@ -227,8 +232,9 @@
       }
     }
 
-    function titleOf(type, target) {
+    function titleOf(type, target, plan) {
       const L = ORDER[type].label;
+      if (type === 'incident') return (target.rack ? target.rack.id : target.dev.name) + ' (' + symptomOf(target) + '): ' + ACTS[plan.act].label;
       if (type === 'repair') return L + ' ' + (target.kind === 'switch' ? 'switch ' : 'PC ') + target.label;
       if (type === 'fix') return L + ' no ' + target.name + ' (' + (DL.JOBS.FIX_NAME[target.fault.type] || target.fault.type) + ')';
       if (type === 'cable') return L + ' do ' + target.name;
@@ -243,8 +249,8 @@
       const by = opts.by || null;
       const o = {
         id: ++O.seq, type, target, status: 'open', assignee: null, by, byName: by ? by.crew.name : opts.byName || playerName(),
-        title: titleOf(type, target), created: game.clock(), createdT: scene.t, tries: 0, note: '', prefer: opts.prefer || null,
-        cost: ORDER[type].cost || 0,
+        title: titleOf(type, target, opts.plan), created: game.clock(), createdT: scene.t, tries: 0, note: '', queue: '', prefer: opts.prefer || null,
+        cost: opts.cost != null ? opts.cost : ORDER[type].cost || 0, plan: opts.plan || null,
       };
       O.list.unshift(o);
       if (O.list.length > 30) O.list = O.list.filter((x, i) => i < 30 || active(x));
@@ -259,6 +265,7 @@
     function dispatch(o) {
       if (o.status !== 'open' || game.paused()) return false;
       if (!valid(o)) { close(o, 'cancel', 'Não é mais necessária'); return false; }
+      if (o.type === 'incident' && !incidentReady(o)) return false;
       // someone already took it on their own: the order follows that person
       const taker = o.type === 'repair' ? o.target.taken : o.type === 'fix' ? crew.members.find((m) => m.crew.job && m.crew.job.target === o.target) : null;
       if (taker && alive(taker) && taker.crew.job && taker.crew.job.target === o.target && !orderOf(taker)) {
@@ -272,7 +279,7 @@
         return true;
       }
       const cands = crew.members.filter((m) => !m.crew.hold && !m.crew.off && !orderOf(m) && eligible(o, m));
-      if (!cands.length) return false;
+      if (!cands.length) { o.queue = waitNote(o); return false; }
       const score = (m) => {
         const j = m.crew.job;
         let s = 0;
@@ -280,7 +287,9 @@
         if (m.crew.profile.role === 'tecnico' && o.type !== 'fix') s -= 20;
         if (j && !j.auto) s += 40;                       // ordered by someone: don't pull them away
         if (j && (j.def.kind === 'fix' || j.def.kind === 'repair')) s += 60;
-        const p = o.target && (o.target.rack || o.target.place || o.target);
+        // an incident: whoever knows it best (the skill of the task that does it), then whoever is closest
+        if (o.type === 'incident') s -= (m.crew.stats.skills[eligible(o, m).skill] || 0) / 5;
+        const p = o.type === 'incident' ? o.plan.place || o.plan.rack : o.target && (o.target.rack || o.target.place || o.target);
         if (p && p.px != null) s += Math.hypot(p.px - m.x, p.py - m.y) / 40;
         return s;
       };
@@ -300,7 +309,7 @@
           },
         });
         let target = o.target;
-        if (o.type === 'install-rack' || o.type === 'install-crac' || o.type === 'expand-room') {
+        if (o.type === 'install-rack' || o.type === 'install-crac' || o.type === 'expand-room' || (o.type === 'incident' && o.plan.act === 'cracnew')) {
           const sp = workSpot(o);
           if (!sp) { o.note = 'Sem lugar para trabalhar'; continue; }
           target = Object.assign(sp, { order: o });
@@ -313,6 +322,7 @@
         o.assignee = m;
         o.started = scene.t;
         o.note = '';
+        o.queue = '';
         const boss = o.by && alive(o.by) ? o.by : null;
         if (boss && boss !== m) chat().later(between(0.8, 1.4), () => { if (alive(boss)) chat().post(boss, pick([m.crew.name + ', ', 'Passando a ordem #' + o.id + ' para ' + m.crew.name + ': ']) + o.title.toLowerCase() + '.'); });
         chat().later(between(2, 3), () => { if (alive(m) && orderOf(m) === o) chat().post(m, pick(['Deixa comigo! Ordem #' + o.id + ' em andamento.', 'Indo agora: ' + o.title.toLowerCase() + '.', 'Peguei a ordem #' + o.id + '.'])); });
@@ -320,12 +330,27 @@
         render(true);
         return true;
       }
+      o.queue = waitNote(o);
       return false;
+    }
+
+    // why an open order is still waiting: nobody on the team does it (and who to hire), nobody on shift, or
+    // everyone who can is busy (one order per person)
+    const rolesFor = (ok) => Object.keys(DL.JOBS.BY_ROLE).filter((r) => DL.ROLES[r] && !DL.ROLES[r].custom && ok(DL.JOBS.BY_ROLE[r])).map((r) => DL.ROLES[r].name);
+    function waitNote(o) {
+      const able = crew.members.filter((m) => !m.crew.leaving && eligible(o, m));
+      if (!able.length) {
+        const who = o.type === 'incident' ? rolesFor((ts) => taskFor(ts, ACTS[o.plan.act])) : o.type === 'repair' ? rolesFor((ts) => ts.some((t) => t.kind === 'repair')) : [];
+        return 'Ninguém da equipe faz isso' + (who.length ? ' · contrate: ' + who.join(' ou ') : '');
+      }
+      if (able.every((m) => m.crew.off)) return 'Aguardando alguém do turno';
+      return 'Na fila · quem faz isso está ocupado';
     }
 
     function close(o, status, note) {
       o.status = status;
       o.done = game.clock();
+      o.doneT = scene.t;
       if (note) o.note = note;
       o.assignee && alive(o.assignee) && o.assignee.crew.job && o.assignee.crew.job.order === o && (o.assignee.crew.job.order = null);
       if (status === 'done') {
@@ -337,24 +362,39 @@
       render(true);
     }
 
+    // most urgent first: the Monitor's severity for incidents, a broken switch or a fault next to them
+    const rankOf = (o) => (o.type === 'incident' ? SEV_RANK[o.target.sev] || 0 : o.type === 'fix' || (o.type === 'repair' && o.target.kind === 'switch') ? 3 : 1);
     function followOrders() {
       for (const o of O.list) {
-        if (o.status === 'open') {
-          if (!valid(o)) close(o, 'cancel', o.type === 'repair' || o.type === 'fix' ? 'Resolvido antes' : 'Não é mais necessária');
-          else dispatch(o);
-          continue;
-        }
         if (o.status !== 'run') continue;
         const m = o.assignee;
-        if (m && alive(m) && m.crew.job && m.crew.job.order === o) { o.progress = api().progressOf(m); continue; }
+        if (m && alive(m) && m.crew.job && m.crew.job.order === o) {
+          // the incident got fixed some other way (the player, a cable put back) while they were on it — a hot
+          // rack too, once its cause is gone (it only needs time to cool down)
+          if (o.type === 'incident' && (!valid(o) || (o.target.kind === 'temp' && game.monitor && game.monitor.cooling(o.target)))) {
+            api().cancelJob(m, true);
+            close(o, 'cancel', 'Resolvido antes');
+            if (rand() < 0.5) chat().post(m, pick(['Já resolveram o ' + where(o) + '. Voltando ao que eu fazia.', 'O ' + where(o) + ' voltou antes de eu terminar. Melhor assim!']));
+            continue;
+          }
+          o.progress = api().progressOf(m);
+          continue;
+        }
         // the job ended (finished, cancelled or the person left)
         if (o.result === 'ok') { close(o, 'done'); continue; }
         if ((o.type === 'repair' || o.type === 'fix') && !valid(o)) { close(o, 'done', 'Resolvido'); continue; }
+        if (o.type === 'incident' && !valid(o)) { close(o, 'cancel', 'Resolvido antes'); continue; }
         o.tries++;
         o.assignee = null;
         o.progress = 0;
         if (o.tries >= 3) close(o, 'fail', o.note || 'Não deu certo depois de 3 tentativas');
         else { o.status = 'open'; o.note = o.note || 'Interrompida · será reatribuída'; }
+      }
+      // then the queue: one order per free person, the most urgent and the oldest first
+      const queue = O.list.filter((o) => o.status === 'open').sort((a, b) => rankOf(b) - rankOf(a) || a.createdT - b.createdT);
+      for (const o of queue) {
+        if (!valid(o)) close(o, 'cancel', o.type === 'repair' || o.type === 'fix' || o.type === 'incident' ? 'Resolvido antes' : 'Não é mais necessária');
+        else dispatch(o);
       }
     }
 
@@ -373,10 +413,11 @@
       return !W.items.some((e) => !e.host && !e.wall && !e.rug && e.kind !== 'rug' && tx >= e.tx && tx < e.tx + (e.tw || 1) && ty >= e.ty && ty < e.ty + (e.th || 1));
     };
     const inRoom = (r, tx, ty) => { const W = world(); const i = W.roomAt ? W.roomAt[ty * W.W + tx] : -1; return i >= 0 && W.rooms[i] === r; };
-    // candidate tiles for a new rack / AC: next to the existing racks first, then along the walls
-    function spotsFor(kind) {
+    // candidate tiles for a new rack / AC: next to the existing racks first, then along the walls (an AC: the
+    // right wall, then the left one). room: only in that room (the one a hot rack is in)
+    function spotsFor(kind, room) {
       const out = [];
-      for (const r of serverRooms()) {
+      for (const r of room ? [room] : serverRooms()) {
         const free = (tx, ty) => inRoom(r, tx, ty) && tileFree(tx, ty) && tileFree(tx, ty + 1) && inRoom(r, tx, ty + 1);
         if (kind === 'rack') {
           for (const e of world().items) {
@@ -384,8 +425,8 @@
             for (const dx of [1, -1]) if (free(e.tx + dx, e.ty)) out.push({ r, tx: e.tx + dx, ty: e.ty });
           }
         }
-        const x0 = kind === 'crac' ? r.x + r.w - 1 : r.x + 1, x1 = kind === 'crac' ? r.x + r.w - 1 : r.x + r.w - 2;
-        for (let ty = r.y + 1; ty < r.y + r.h - 1; ty++) for (let tx = x0; tx <= x1; tx++) if (free(tx, ty)) out.push({ r, tx, ty });
+        if (kind === 'crac') for (const tx of [r.x + r.w - 1, r.x]) for (let ty = r.y + 1; ty < r.y + r.h - 1; ty++) { if (free(tx, ty)) out.push({ r, tx, ty }); }
+        else for (let ty = r.y + 1; ty < r.y + r.h - 1; ty++) for (let tx = r.x + 1; tx <= r.x + r.w - 2; tx++) if (free(tx, ty)) out.push({ r, tx, ty });
       }
       return out;
     }
@@ -397,7 +438,8 @@
         const r = o.target;
         tx = r.x + Math.floor(r.w / 2); ty = r.y + r.h - 1; label = r.name;
       } else {
-        const sp = o.spot || spotsFor(o.type === 'install-crac' ? 'crac' : 'rack')[0];
+        const ac = o.type === 'install-crac' || (o.type === 'incident' && o.plan.act === 'cracnew');
+        const sp = o.spot || spotsFor(ac ? 'crac' : 'rack', o.type === 'incident' ? o.plan.room : null)[0];
         if (!sp) return null;
         o.spot = sp;
         tx = sp.tx; ty = sp.ty + 1; label = sp.r.name;
@@ -442,6 +484,207 @@
       return { say: 'Não achei lugar livre para o ' + (kind === 'crac' ? 'ar de precisão' : 'rack') + '.', tone: 'warn', error: 'Sem lugar livre na sala' };
     }
 
+    /* ================================================================== */
+    /* Incidents: every problem on the Monitor becomes a work order         */
+    /* ================================================================== */
+    // What the team does about each kind of problem (monitor.js p.kind): the label in the orders, how long it
+    // takes (game minutes = real seconds; the more skilled, the nearer the short end), who can do it — a fix task
+    // for these fault types (jobs.js), or one of these tasks / task kinds — and what the job is called.
+    const ACTS = {
+      replug: { label: 'conferir cabo e energia', verb: 'Conferindo cabo e energia', span: [60, 120], types: ['cable'] },
+      reboot: { label: 'religar e reiniciar o servidor', verb: 'Reiniciando o servidor', span: [60, 180], types: ['link'] },
+      swport: { label: 'reativar a porta do switch', verb: 'Reativando a porta do switch', span: [60, 120], types: ['port'] },
+      web: { label: 'reiniciar o serviço web', verb: 'Reiniciando o nginx', span: [60, 180], types: ['service'], tasks: ['svc'] },
+      disk: { label: 'limpar o disco', verb: 'Limpando o disco', span: [120, 240], types: ['disk'] },
+      cpu: { label: 'reiniciar o serviço travado', verb: 'Reiniciando o serviço travado', span: [120, 240], types: ['service', 'disk'], tasks: ['svc'] },
+      winsvc: { label: 'reiniciar o serviço do Windows', verb: 'Reiniciando o serviço do Windows', span: [60, 180], types: ['winsvc'] },
+      unlock: { label: 'desbloquear a conta no AD', verb: 'Desbloqueando a conta no AD', span: [60, 120], types: ['lockout'] },
+      cracfix: { label: 'manutenção do ar de precisão', verb: 'Fazendo manutenção no ar de precisão', span: [180, 360], tasks: ['cool'], kinds: ['repair'] },
+      cracnew: { label: 'instalar ar de precisão', verb: 'Instalando o ar de precisão', span: [300, 480], tasks: ['install'], kinds: ['repair'] },
+      airflow: { label: 'manutenção do rack (fluxo de ar)', verb: 'Arrumando o fluxo de ar do rack', span: [180, 360], tasks: ['cool', 'cables'], kinds: ['repair'] },
+      tidy: { label: 'organizar os cabos', verb: 'Organizando os cabos', span: [120, 240], tasks: ['cables'], types: ['cable'] },
+    };
+    const SYMPTOM = { ping: 'sem ping', http: 'site fora do ar', disk: 'disco cheio', cpu: 'CPU alta', temp: 'temperatura alta', cables: 'cabos desorganizados', port: 'porta em erro', 'win:lockout': 'conta bloqueada' };
+    const symptomOf = (p) => SYMPTOM[p.kind] || (/^win:/.test(p.kind || '') ? 'serviço parado' : 'problema');
+    const SEV_RANK = { info: 0, warning: 1, average: 2, high: 3 };
+    // the task of this list that does it (its skill is the one that counts), or null
+    const taskFor = (ts, A) => ts.find((t) => (A.types && t.kind === 'fix' && t.types.some((x) => A.types.indexOf(x) >= 0)) || (A.tasks && A.tasks.indexOf(t.id) >= 0) || (A.kinds && A.kinds.indexOf(t.kind) >= 0)) || null;
+    const where = (o) => (o.target.rack ? o.target.rack.id : o.target.dev.name);
+    const cracPrice = () => priceOf('crac') || ORDER['install-crac'].cost;
+
+    // What to do about it right now: { act, place, dev } — place: where the person works (a rack, an AC), dev: the
+    // device the repair touches · { repair: switch } when the host hangs on a broken switch (the switch's repair
+    // order covers it) · { wait: why } when the team can't take it (a career problem left to the player…).
+    function planFor(p) {
+      const d = p.dev, r = p.rack;
+      if (p.kind === 'temp') {
+        const room = ops.roomOf(r);
+        if (room) {
+          const cracs = world().items.filter((e) => e.kind === 'crac' && ops.roomOf(e) === room);
+          if (!cracs.length) return { act: 'cracnew', room, rack: r };
+          const c = cracs.find((e) => !e.tuned);
+          if (c) return { act: 'cracfix', place: c, crac: c, room, rack: r };
+        }
+        if (r.hold) return { wait: 'problema de carreira no ' + r.id + ' · Tarefas' };
+        if (!r.blank || r.cableLook === 'messy') return { act: 'airflow', place: r, rack: r };
+        return { wait: room ? 'rack no limite de refrigeração: tire um servidor dele' : 'rack fora de uma sala: crie a sala para ter refrigeração' };
+      }
+      if (p.kind === 'cables') return r.hold ? { wait: 'problema de carreira no ' + r.id + ' · Tarefas' } : { act: 'tidy', place: r, rack: r };
+      // (a stuck process is never part of a career problem: only the symptoms one can set up wait for the player)
+      if (d.hold && p.kind !== 'cpu') return { wait: 'problema de carreira · Tarefas → Atribuir a…' };
+      if (p.kind === 'hw') return { repair: d };
+      if (p.kind === 'port') return { act: 'swport', place: d.rack, dev: d, sw: d };
+      if (p.kind === 'ping') {
+        const h = ops.health(d);
+        if (h.why === 'switch') return { repair: d.path.sw };
+        if (h.why === 'port') {
+          const t = d.path || ops.trace(d);
+          return t.sw.hold ? { wait: 'problema de carreira no ' + t.sw.name + ' · Tarefas' } : { act: 'swport', place: t.sw.rack, dev: d, sw: t.sw };
+        }
+        return { act: h.why === 'cable' ? 'replug' : 'reboot', place: d.rack, dev: d };
+      }
+      // (a load peak passes by itself: only a stuck process needs someone — monitor.js decides which it is)
+      if (p.kind === 'cpu' && !(d.mb && d.mb.stuck)) return { wait: 'pico de carga: deve passar sozinho' };
+      const act = { http: 'web', disk: 'disk', cpu: 'cpu', 'win:lockout': 'unlock' }[p.kind] || (/^win:/.test(p.kind || '') ? 'winsvc' : null);
+      return act ? { act, place: d.rack, dev: d } : null;
+    }
+
+    // monitor.js calls this after every check (every 2 s) with its problem list: each open problem gets an order
+    function incidents(list) {
+      O.problems = list;
+      if (game.guest) return;
+      const t = scene.t;
+      // (a new order goes out right away: the most severe and the oldest get the free people first)
+      for (const p of list.slice().sort((a, b) => (SEV_RANK[b.sev] || 0) - (SEV_RANK[a.sev] || 0) || a.start - b.start)) {
+        if (p.end || (p.dismissed && p.dismissed > t)) continue;
+        const o = p.order;
+        if (o && active(o)) continue;
+        // a correction that just ended: the Monitor sees it on its next check (a rack takes a while to cool down)
+        if (o && o.status === 'done' && o.result === 'ok' && (t - o.doneT < 8 || (p.kind === 'temp' && game.monitor && game.monitor.cooling(p)))) continue;
+        // three tries that didn't work: again in a minute
+        if (o && o.status === 'fail' && t - o.doneT < 60) continue;
+        // the cause is gone (the player built the AC, tidied the cables): the rack is cooling down by itself
+        if (p.kind === 'temp' && game.monitor && game.monitor.cooling(p)) { p.wait = 'esfriando aos poucos'; p.order = null; continue; }
+        const plan = planFor(p);
+        p.wait = plan && plan.wait ? plan.wait : '';
+        if (!plan || plan.wait) { p.order = null; continue; }
+        p.order = plan.repair ? repairOrder(plan.repair) : sameJob(plan) || createOrder('incident', p, { by: manager(), byName: 'Monitor', silent: true, plan, cost: plan.act === 'cracnew' ? cracPrice() : 0 });
+      }
+    }
+    // a switch that broke: its repair order (the manager's, or a new one) covers it and every host behind it
+    function repairOrder(sw) {
+      const rec = M.broken.find((r) => r.dev === sw);
+      if (!rec) return null;
+      return O.list.find((o) => active(o) && o.type === 'repair' && o.target === rec) || createOrder('repair', rec, { by: manager(), byName: 'Monitor', silent: true });
+    }
+    // one cause, one order: two hot racks in a room without AC need one AC (one service of the same AC), and a
+    // switch port in error is one trip to the switch for the switch's alert and the host that fell with it
+    function sameJob(plan) {
+      const same = plan.act === 'cracnew' || plan.act === 'cracfix' ? (x) => x.room === plan.room && x.crac === plan.crac : plan.act === 'swport' ? (x) => x.sw === plan.sw : null;
+      return same ? O.list.find((o) => active(o) && o.type === 'incident' && o.plan.act === plan.act && same(o.plan)) || null : null;
+    }
+
+    // Before handing it out: the cause may have changed (a cable put back, but the interface still down) and
+    // some jobs need things first (cash for the AC, a free spot, the build mode closed). false: it waits.
+    function incidentReady(o) {
+      if (o.target.kind === 'temp' && game.monitor && game.monitor.cooling(o.target)) { close(o, 'cancel', 'Resolvido antes: esfriando aos poucos'); return false; }
+      const plan = planFor(o.target);
+      if (!plan || plan.wait || plan.repair) { close(o, 'cancel', plan && plan.wait ? plan.wait : 'Coberta pelo conserto do switch'); return false; }
+      if (plan.act !== o.plan.act || plan.place !== o.plan.place) { o.plan = plan; o.spot = null; o.title = titleOf('incident', o.target, plan); o.cost = plan.act === 'cracnew' ? cracPrice() : 0; }
+      if (plan.act !== 'cracnew') return true;
+      if (game.builder && game.builder.active) { o.queue = 'Aguardando você sair do modo construção'; return false; }
+      if (cash() < o.cost) { o.queue = 'Aguardando caixa: o ar de precisão custa ' + DL.money(o.cost); return false; }
+      // (looking for a free spot is not cheap: every few seconds)
+      if (!o.spot && scene.t - (o.spotT || -9) > 3) { o.spotT = scene.t; o.spot = spotsFor('crac', plan.room)[0] || null; }
+      if (!o.spot) { o.queue = 'Sem lugar livre em ' + plan.room.name + ' para o ar de precisão: libere um canto junto à parede'; return false; }
+      return true;
+    }
+
+    // the job of an incident for this person (null: not something they do)
+    function incidentDef(o, m) {
+      const plan = o.plan, A = plan && ACTS[plan.act], task = A && taskFor(tasksOf(m), A);
+      if (!task) return null;
+      const skill = task.skill;
+      return {
+        id: 'incident', name: A.label.charAt(0).toUpperCase() + A.label.slice(1), verb: A.verb, kind: plan.act === 'cracnew' ? 'spot' : 'equip',
+        skill, xp: 20 + Math.round(A.span[1] / 30), dur: A.span, auto: 0, desc: o.title,
+        durFor: (a) => A.span[0] + (A.span[1] - A.span[0]) * Math.min(1, rand() * 0.7 + (1 - (a.crew.stats.skills[skill] || 0) / 99) * 0.3),
+        place: (x) => plan.place || x,
+        finish: (ctx) => fixIncident(o, ctx.a, skill),
+      };
+    }
+
+    // The work is done: change what the Monitor watches (the same end state as the player's fix) and say so.
+    function fixIncident(o, a, skill) {
+      const p = o.target, plan = o.plan, d = p.dev, name = a.crew.name, at = where(o);
+      if (p.end) return { say: 'Cheguei no ' + at + ' e já estava resolvido. Melhor assim!' };
+      // beginners sometimes don't make it (the odds of any fix, jobs.js): the order goes out again
+      if (rand() < Math.max(0, (42 - (a.crew.stats.skills[skill] || 0)) / 70)) {
+        return { say: 'Tentei ' + ACTS[plan.act].label + ' no ' + at + ', mas não consegui ainda. Vou tentar de novo.', tone: 'help', error: name + ' não conseguiu de primeira' };
+      }
+      const ok = (say) => ({ say, tone: 'ok', fixed: true });
+      const restore = (x) => ops.restore(x, x.kind === 'switch' ? 'port' : 'ping', a);
+      const r = plan.act === 'replug' || plan.act === 'reboot' || plan.act === 'swport' ? restore(d)
+        : plan.act === 'web' ? ops.restore(d, 'http', a) : plan.act === 'disk' ? ops.restore(d, 'disk', a) : null;
+      // one trip to the switch: the ports of every host that shares the order come back too
+      if (plan.act === 'swport' && r && r.did) for (const x of O.problems) if (x.order === o && x !== p && !x.end) r.did = r.did.concat(restore(x.dev).did || []);
+      if (r && r.wait) return { say: 'O ' + d.name + ' depende do ' + r.wait.name + ', que está com defeito de hardware. Quando o conserto terminar ele volta.', tone: 'warn', error: 'Depende do conserto do ' + r.wait.name };
+      if (r && r.error) return { say: r.error + '. ' + playerName() + ', dá uma olhada no cabeamento comigo?', tone: 'warn', error: r.error };
+      const did = r ? r.did : [];
+      switch (plan.act) {
+        case 'replug': return ok('Conferi cabo e energia do ' + d.name + (did.length ? ': ' + did.join(', ') + ' de volta' : '') + '. Ping respondendo ✅');
+        case 'reboot': return ok('Reiniciei o ' + d.name + (did.indexOf('IP') >= 0 ? ' e reconfigurei o IP ' + d.ip : '') + '. Já responde ao ping ✅');
+        case 'swport': return ok('Reativei ' + (did.length ? did.join(', ') : 'a porta') + ' com shutdown / no shutdown. Link de volta ✅');
+        case 'web': return ok('Reiniciei o nginx do ' + d.name + (did.indexOf('firewall') >= 0 ? ' e liberei a porta 80 no firewall' : '') + '. Site respondendo 200 ✅');
+        case 'disk': return ok('Limpei logs antigos do ' + d.name + '. Disco caiu para ' + d.os.disk + '% ✅');
+        case 'cpu':
+          if (game.monitor) game.monitor.relieve(d);
+          return ok('Achei o processo travado no ' + d.name + ' e reiniciei o serviço. CPU voltando ao normal ✅');
+        case 'winsvc': case 'unlock':
+          if (!DL.winRepair || !DL.winRepair(d, p.kind)) return { say: 'Não consegui mexer no ' + d.name + ' agora.', tone: 'warn', error: 'Windows indisponível' };
+          if (d.fault) d.fault.fixedBy = name;
+          return ok(plan.act === 'unlock' ? 'Desbloqueei a conta no AD do ' + d.name + ' (Unlock-ADAccount) e avisei o usuário ✅' : 'Subi o serviço parado do ' + d.name + ' (Start-Service). Função de volta ✅');
+        case 'cracfix':
+          plan.crac.tuned = true;
+          return ok('Limpei os filtros e ajustei o setpoint do ' + (plan.crac.id || 'ar de precisão') + '. O ' + plan.rack.id + ' vai esfriar aos poucos.');
+        case 'cracnew': return installCrac(o, plan.room);
+        case 'airflow':
+          if (!plan.rack.hold && plan.rack.cableLook === 'messy') ops.tidy([plan.rack], name);
+          plan.rack.blank = true;
+          return ok('Coloquei placas cegas e organizei os cabos do ' + plan.rack.id + ': o ar quente não volta mais para a frente. Vai esfriar aos poucos.');
+        case 'tidy':
+          ops.tidy([plan.rack], name);
+          return ok('Organizei os cabos do ' + plan.rack.id + '. Bem melhor para o fluxo de ar ✅');
+      }
+      return null;
+    }
+
+    function installCrac(o, room) {
+      const B = game.builder, price = o.cost || cracPrice();
+      if (!B || B.active) return { say: 'Espero você sair do modo construção para instalar o ar de precisão.', error: 'Modo construção aberto' };
+      if (cash() < price) return { say: 'Faltou caixa para o ar de precisão (' + DL.money(price) + ').', tone: 'warn', error: 'Caixa insuficiente' };
+      for (const sp of (o.spot ? [o.spot] : []).concat(spotsFor('crac', room)).slice(0, 12)) {
+        if (B.api.place('crac', sp.tx, sp.ty, 0)) continue;
+        charge(price, 'Ar de precisão');
+        const e = world().items.filter((x) => x.kind === 'crac').slice(-1)[0];
+        return { say: 'Instalei o ' + (e && e.id ? e.id : 'ar de precisão') + ' em ' + room.name + '. A sala vai esfriar aos poucos.', tone: 'ok', fixed: true };
+      }
+      return { say: 'Não achei lugar livre para o ar de precisão em ' + room.name + '.', tone: 'warn', error: 'Sem lugar livre em ' + room.name };
+    }
+
+    // incident orders about a device: running right now (ops.js / director.js don't hold the next incident back
+    // for it) · open or running (crew.js: nobody starts the same repair on their own)
+    const aboutDev = (o, d) => o.type === 'incident' && (o.plan.dev === d || o.plan.sw === d);
+    const handling = (d) => O.list.some((o) => o.status === 'run' && (aboutDev(o, d) || (o.type === 'fix' && o.target === d)));
+    const incidentOn = (d) => O.list.some((o) => active(o) && aboutDev(o, d));
+    // a rack whose cabling / airflow has an order (jobs.js: the routine tidy-up leaves it to that order)
+    const incidentAt = (rack) => O.list.some((o) => active(o) && o.type === 'incident' && o.plan.place === rack && (o.plan.act === 'tidy' || o.plan.act === 'airflow'));
+    // "ordem #12 · com Ana" for the Tarefas panel (ops.js)
+    function orderOn(d) {
+      const o = O.list.find((x) => active(x) && aboutDev(x, d));
+      return o ? 'ordem #' + o.id + (o.status === 'run' && o.assignee ? ' · com ' + o.assignee.crew.name : ' · na fila') : '';
+    }
+
     /* ---------- what the manager looks at ---------- */
     function assess(a, opts) {
       opts = opts || {};
@@ -450,9 +693,9 @@
       const add = (type, target) => { const o = createOrder(type, target, { by: a, silent: true }); if (o) made.push(o); return o; };
       // 1. broken hardware
       for (const rec of M.broken) if (!rec.taken && !hasOrder('repair', rec)) add('repair', rec);
-      // 2. faults found a while ago that nobody is handling
+      // 2. faults found a while ago that nobody is handling (the ones the Monitor sees have their incident order)
       for (const d of ops.devices()) {
-        if (!d.fault || !d.fault.found || d.hold || t - (d.fault.foundAt || t) < 15 || api().busyWith(d) || hasOrder('fix', d)) continue;
+        if (!d.fault || !d.fault.found || d.hold || t - (d.fault.foundAt || t) < 15 || api().busyWith(d) || hasOrder('fix', d) || incidentOn(d)) continue;
         if (crew.members.some((m) => api().fixDefFor(m, d))) add('fix', d);
       }
       // 3. servers waiting for a cable for over a minute
@@ -480,7 +723,8 @@
         for (const r of serverRooms()) {
           const inR = racks.filter((e) => ops.roomOf(e) === r).length;
           const cool = world().items.some((e) => e.kind === 'crac' && ops.roomOf(e) === r);
-          if (inR >= 2 && !cool && !hasOrder('install-crac') && cash() - priceOf('crac') >= RESERVE && spotsFor('crac').length) { add('install-crac', null); break; }
+          const acOrdered = hasOrder('install-crac') || O.list.some((o) => active(o) && o.type === 'incident' && o.plan.act === 'cracnew');
+          if (inR >= 2 && !cool && !acOrdered && cash() - priceOf('crac') >= RESERVE && spotsFor('crac').length) { add('install-crac', null); break; }
         }
         const rackFree = racks.find((e) => e.units.indexOf(null) >= 0);
         // never buy another server while bought ones still wait for cable / configuration
@@ -512,7 +756,7 @@
     function render(force) {
       if (!el.list) return;
       const list = O.list.slice(0, 12);
-      const key = list.map((o) => o.id + o.status + (o.assignee ? o.assignee.crew.id : '') + Math.round((o.progress || 0) * 20) + o.note).join('|');
+      const key = list.map((o) => o.id + o.status + (o.assignee ? o.assignee.crew.id : '') + Math.round((o.progress || 0) * 20) + o.note + o.queue + o.title).join('|');
       if (!force && key === O.key) return;
       O.key = key;
       const nAct = O.list.filter(active).length;
@@ -522,7 +766,7 @@
         const who = o.assignee ? o.assignee.crew.name : '—';
         const pct = o.status === 'done' ? 100 : Math.round((o.progress || 0) * 100);
         return '<li class="ord is-' + o.status + '"><div class="ord__head"><span class="ord__id">#' + o.id + '</span><b>' + esc(ORDER[o.type].icon + ' ' + o.title) + '</b><span class="ord__st">' + STATUS[o.status] + '</span></div>' +
-          '<p class="ord__meta">Por ' + esc(o.byName) + ' · ' + o.created + ' · Técnico: ' + esc(who) + (o.cost ? ' · ' + DL.money(o.cost) : '') + (o.note && o.status !== 'done' ? ' · ' + esc(o.note) : '') + '</p>' +
+          '<p class="ord__meta">Por ' + esc(o.byName) + ' · ' + o.created + ' · Técnico: ' + esc(who) + (o.cost ? ' · ' + DL.money(o.cost) : '') + (o.note && o.status !== 'done' ? ' · ' + esc(o.note) : '') + (o.queue && o.status === 'open' ? ' · ' + esc(o.queue) : '') + '</p>' +
           (active(o) ? '<div class="ord__foot"><div class="ord__bar"><i style="transform:scaleX(' + (pct / 100).toFixed(2) + ')"></i></div><button type="button" class="linkbtn ord__x" data-ord-cancel="' + o.id + '">Cancelar</button></div>' : '') + '</li>';
       }).join('');
     }
@@ -534,6 +778,8 @@
         if (!o || !active(o)) return;
         if (o.assignee && alive(o.assignee) && orderOf(o.assignee) === o) api().cancelJob(o.assignee, true);
         close(o, 'cancel', 'Cancelada por ' + playerName());
+        // an incident the player called off: no new order for it for five minutes
+        if (o.type === 'incident') for (const p of O.problems) if (p.order === o) { p.dismissed = scene.t + 300; p.wait = 'ordem cancelada por você'; }
       });
     }
 
@@ -1134,6 +1380,8 @@
     return {
       update, overlay, broken, breakItem, takeOut, putBack, repaired, prevent, benchFor, claimed,
       createOrder, assess, busyMembers, followUp, ordersSummary, spotsFor,
+      // Monitor problems → work orders
+      incidents, handling, incidentOn, incidentAt, orderOn, planFor, ACTS,
       get orders() { return O.list; },
       get clients() { return CL.list; },
       spawnClient, receptionRoom,

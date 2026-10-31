@@ -675,8 +675,14 @@
         return true;
       }
       case 'sensors': {
-        const t = os.cpuTemp || 48;
+        // the air coming in at the front of the rack (monitor.js) heats the CPU with it
+        const inlet = DL.rackTempOf && d.rack ? DL.rackTempOf(d.rack) : null;
+        const t = os.cpuTemp || (inlet != null ? Math.round(inlet + 24) : 48);
         out.push('coretemp-isa-0000', 'Adapter: ISA adapter', 'Package id 0:  <span class="' + (t >= 85 ? 'w' : 'ok') + '">+' + t + '.0°C</span>  (high = +84.0°C, crit = +100.0°C)', 'Core 0:        +' + (t - 2) + '.0°C', 'Core 1:        +' + (t - 1) + '.0°C');
+        if (inlet != null) {
+          out.push('', 'acpitz-acpi-0', 'Adapter: ACPI interface', 'Inlet (ar de entrada):  <span class="' + (inlet > 31 ? 'w' : 'ok') + '">+' + inlet.toFixed(1) + '°C</span>  (high = +31.0°C)');
+          if (inlet > 31) out.push('<span class="m">dica: o ar que entra pela frente do ' + esc(d.rack.id) + ' está quente demais. Não se resolve no terminal: falta ar de precisão na sala, o ar está sem manutenção ou os cabos bloqueiam o fluxo. Veja Monitor → Investigar.</span>');
+        }
         ran.push('sensors');
         return true;
       }

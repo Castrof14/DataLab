@@ -601,3 +601,39 @@ ETAPA 6 (mesma sessão) — DOIS CONSOLES (problema 20) · OS 20 PROBLEMAS JOGÁ
   botão, correção, volta, +80, console do passo atual, atribuição, switch ocupado, save, dev-autoplay nos dois
   consoles) + db 18/18, scenario 7/7, problems 38/38, assign 13/13, commands 14/14, pace sem erros.
 - Deploy pendente (feito pelo usuário): migrations 0600 + 0700 + seed_scenarios.sql, depois deploy da função game.
+-------------------------------------------------------
+STATUS (31/10/2026, 21ª sessão) — INCIDENTES DO MONITOR VIRAM ORDENS DE SERVIÇO
+-------------------------------------------------------
+- Antes: temperatura alta nunca era resolvida pela equipe (só o gerente comprava ar, em "Identificar necessidades",
+  com 2+ racks na sala e caixa ≥ 49 mil); host sem ping / site fora / porta parada sem objeto de falha (o jogador
+  tirou o IP, desligou a porta…) ou com falhas que nenhum cargo cobre (cablewrong, flap, wrongip, noip3…)
+  ficavam abertos para sempre; CPU só passava sozinha.
+- monitor.js: cada problema tem p.kind (ping · http · disk · cpu · win:* · hw · port · temp · cables) e
+  p.order; chama staff.incidents(problemas) a cada checagem. Status: PROBLEMA (ordem #n · motivo da fila) →
+  EM ATENDIMENTO (nome · %) → RESOLVIDO (por nome / o pico passou sozinho). Temperatura: alvo (rackTarget, com
+  -1,5 °C de ar revisado e.tuned e -1 °C de placas cegas r.blank) e leitura r.tmon que sobe rápido e esfria em
+  ~1 min. CPU: 1 em 10 picos (STUCK, decisão do usuário) é processo travado que só para com relieve(); os
+  outros passam sozinhos e não abrem ordem. Problemas abertos nunca são descartados da lista.
+- staff.js: ordem tipo 'incident' (ACTS: ação, verbo, tempo em min de jogo, quem faz). planFor decide a ação
+  na hora (sem ping: cabo → conferir cabo e energia 1–2 min; interface/IP → reiniciar 1–3 min; porta →
+  reativar porta 1–2 min; switch quebrado → segue a ordem de conserto; nginx/firewall 1–3; disco 2–4; CPU 2–4;
+  serviço/conta do Windows; temperatura: sem ar → instalar ar 5–8 (custo do catálogo, espera caixa/lugar),
+  com ar → manutenção do ar 3–6, depois manutenção do rack 3–6; cabos 2–4). Uma causa = uma ordem (2 racks
+  quentes na mesma sala, porta do switch + host). Gerente do turno atribui; sem gerente, "Monitor". Fila por
+  gravidade e antiguidade, uma ordem por pessoa, nota "Na fila" / "Aguardando alguém do turno" / "contrate:
+  …". Jogador resolve antes → técnico para e a ordem fecha. Cancelar ordem de incidente = 5 min sem reabrir.
+  Problema de carreira (d.hold) continua do jogador, exceto CPU.
+- ops.js: restore(d, 'ping'|'http'|'disk'|'port', quem) — o mesmo estado final do terminal/cabeamento;
+  falha em atendimento não segura a próxima (tick e director.js), para o ritmo de incidentes não cair.
+- crew.js: def.durFor (duração própria), barra de progresso sobre a cabeça em ordens, status com tempo
+  restante; bots não pegam sozinhos falhas que já têm ordem. jobs.js: rotina de cabos deixa o rack da ordem.
+- winserver.js: DL.winRepair. save-service.js: salva tuned (ar) e blank (rack).
+- Testes: tests/sim-incidents.js (todos os tipos de ponta a ponta, tempos, fila, "contrate", jogador antes,
+  ritmo, 1 hora de jogo) + sim-problems.js 200/200. Navegador (jogo.html?hero, CDP): barra sobre a cabeça,
+  Monitor EM ATENDIMENTO → RESOLVIDO, ar instalado pela equipe; fila de CPU estável no datacenter médio.
+- Ar de precisão: libera no nível 2 (Júnior I, antes 5) — build.js UNLOCK. O preço (9000) fica para o
+  Abner mudar; se mudar, atualizar também public.equipment_prices (o save cobra por essa tabela).
+- Save: ao carregar, a eth0 e o hostname recebem o IP/nome salvos (antes, servidores renumerados voltavam
+  com o IP da numeração nova e sem ping — a origem dos "host indisponível" eternos).
+- Temperatura: Investigar abre um servidor do rack com dicas da causa e o botão "Construir ar de precisão";
+  sensors mostra o ar de entrada (Inlet); jogador resolve antes → o técnico para e não compra outro ar.

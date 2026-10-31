@@ -1834,6 +1834,22 @@
     if (lk.length) out.push(['win:lockout', 'average',d.name + ': conta ' + lk[0].sam + ' bloqueada (evento 4740)']);
     return out;
   };
+  // a crew member answers one of those triggers (staff.js incident orders): the same end state as Start-Service
+  // / Unlock-ADAccount. key: 'win:DNS' · 'win:DHCPServer' · 'win:NTDS' · 'win:lockout'
+  DL.winRepair = function (d, key) {
+    if (!ready(d)) return false;
+    const w = W(d);
+    if (key === 'win:lockout') {
+      for (const u of Object.values(w.users)) if (u.locked) { u.locked = false; event(w, 'Security', 4767, 'Information', 'Uma conta de usuário foi desbloqueada: ' + u.sam + '.'); }
+      return true;
+    }
+    const s = key.slice(4);
+    if (!w.svc[s]) return false;
+    w.svc[s] = 'Running';
+    if (w.faultSvc === s) w.faultSvc = null;
+    event(w, 'System', 7036, 'Information', 'O serviço ' + SERVICES[s] + ' entrou no estado em execução.');
+    return true;
+  };
   DL.winDiagnose = function (d, h) {
     if (!isWin(d)) return null;
     const w = W(d);

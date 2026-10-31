@@ -1360,6 +1360,8 @@ code { font: 400 12px/1 var(--font-mono); color: var(--sunset-soft); }
 .ztable tr.is-res { opacity: 0.6; }
 .ztable .ok { color: #73bf69; }
 .ztable .w { color: #f2495c; }
+.ztable .att { color: #5eead4; }
+.ztable .zst { display: block; margin-top: 1px; font-size: 10px; line-height: 13px; color: #8e8e8e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 190px; }
 .ztable .mono { font: 400 12px var(--font-mono); }
 .ztable__empty { padding: 28px 10px !important; text-align: center; color: #8e8e8e; }
 .zbx { display: inline-block; padding: 2px 5px; border-radius: 2px; font: 400 10px/1 var(--font-mono); letter-spacing: 0.5px; color: #0a0a0a; background: #5a5f68; }

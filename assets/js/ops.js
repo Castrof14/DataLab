@@ -553,6 +553,77 @@
       return !d.fault;
     }
 
+    /* ------------------------------------------------------------------ */
+    /* Hands-on repairs for what the Monitor sees (staff.js incident orders) */
+    /* ------------------------------------------------------------------ */
+    // The cable of a server's eth0 back on a working path: loose plugs back in, the uplink port swapped for an
+    // access port, anything else (another server, an incomplete patch panel path) replaced by a cable straight
+    // to a switch. Returns null when it worked, or why not.
+    function replug(d) {
+      let t = trace(d);
+      if (t.ok) return null;
+      if (t.loose) { for (const l of t.links) l.loose = null; recompute(); t = trace(d); if (t.ok) return null; }
+      const last = t.links[t.links.length - 1], end = last && (get(last.a.dev) && get(last.a.dev).kind === 'switch' && last.a.port === 'te1' ? 'a' : get(last.b.dev) && get(last.b.dev).kind === 'switch' && last.b.port === 'te1' ? 'b' : null);
+      if (end) {
+        const sw = get(last[end].dev), port = portsOf(sw).find((p) => p !== 'te1' && !linkAt(sw.key, p));
+        if (port) { last[end] = { dev: sw.key, port }; recompute(); if (trace(d).ok) return null; }
+      }
+      const near = api.switchesNear(d).concat(devices().filter((s) => s.kind === 'switch'));
+      const sw = near.find((s) => !s.broken && !s.out && portsOf(s).some((p) => p !== 'te1' && !linkAt(s.key, p)));
+      if (!sw) return 'Nenhum switch com porta livre para ligar o ' + d.name;
+      const first = linkNear(d.key, 'eth0');
+      if (first) O.links = O.links.filter((l) => l !== first);
+      addLink({ dev: d.key, port: 'eth0' }, { dev: sw.key, port: portsOf(sw).find((p) => p !== 'te1' && !linkAt(sw.key, p)) }, { quiet: true });
+      recompute();
+      return trace(d).ok ? null : t.reason;
+    }
+    // A switch port back to a working access port in the datacenter's VLAN: err-disabled cleared, shut down
+    // ports up again, quarantine VLAN / trunk mode undone.
+    function reopenPort(sw, p) {
+      const s = sw.sw;
+      if (s.bad === p) s.fixed = true;
+      if (s.shut === p) s.shut = null;
+      if (s.ports[p] === 'disabled' || s.ports[p] === 'err-disabled') s.ports[p] = s.linked && s.linked.has(p) ? 'connected' : 'notconnect';
+      if (s.pvlan && s.pvlan[p] && s.pvlan[p] !== 10) delete s.pvlan[p];
+      if (s.pmode && s.pmode[p] === 'trunk') { s.pmode[p] = 'access'; if (s.trunk) delete s.trunk[p]; }
+    }
+    // The same end state the player reaches through the terminal or the cabling view. what: 'ping' (cable,
+    // interface, IP and the switch port, in that order) · 'http' (nginx and the firewall) · 'disk' · 'port'
+    // (every port of a switch in error). Returns { say } with what was done, { wait: switch } when the host hangs
+    // on a broken switch (the technician's repair brings it back), or { error }.
+    function restore(d, what, who) {
+      const did = [];
+      const lx = linux(d) && d.os;
+      if (what === 'ping' && d.kind === 'server') {
+        const h0 = health(d);
+        if (h0.why === 'switch') return { wait: d.path.sw };
+        if (h0.why === 'cable') { const why = replug(d); if (why) return { error: why }; did.push('cabo'); }
+        const e = e0(d);
+        if (!e.up) { e.up = true; did.push('interface'); }
+        if (!hasIp(d, d.ip)) { e.ips = [d.ip + '/24']; did.push('IP'); }
+        if (!d.os.route) d.os.route = GW;
+        if (lx && d.os.hostname === 'localhost') d.os.hostname = d.name.toLowerCase();
+        recompute();
+        const t = d.path || trace(d);
+        if (t.ok && portDown(t)) { reopenPort(t.sw, t.port); if (t.sw.fault) t.sw.fault.fixedBy = who && who.crew ? who.crew.name : null; did.push('porta ' + t.port + ' do ' + t.sw.name); }
+      } else if (what === 'http' && d.os) {
+        if (d.os.services.nginx !== 'active') { d.os.services.nginx = 'active'; did.push('nginx'); }
+        if (DL.fwAllows && !DL.fwAllows(d.os, 80) && DL.linuxSys) { DL.linuxSys(d).fw.rules.push({ act: 'allow', port: '80' }); did.push('firewall'); }
+      } else if (what === 'disk' && d.os) {
+        if (d.os.disk >= 80) { d.os.disk = 61; did.push('disco'); }
+      } else if (what === 'port' && d.kind === 'switch') {
+        for (const p of Object.keys(d.sw.ports)) if (d.sw.ports[p] === 'err-disabled' || (d.sw.bad === p && !d.sw.fixed)) { reopenPort(d, p); did.push(p); }
+      }
+      if (d.fault) d.fault.fixedBy = who && who.crew ? who.crew.name : null;
+      recompute();
+      resolveFixed();
+      if (d.fault) d.fault.fixedBy = null;
+      if (what === 'ping' && d.kind === 'server' && !health(d).up) return { error: 'O ' + d.name + ' ainda não responde ao ping' };
+      return { did };
+    }
+    // the team is on this device's problem (staff.js): it doesn't hold the next incident back (see tick)
+    const handled = (d) => !!(game.staff && game.staff.handling && game.staff.handling(d));
+
     function tick(dt) {
       O.next -= dt;
       if (O.faultCd > 0) O.faultCd -= dt;
@@ -560,7 +631,8 @@
       // the incident director (director.js) decides when the next problem may start: one at a time
       const dir = game.director;
       O.next = dir ? 20 + rand() * 25 : 80 + rand() * 60;
-      const open = devices().filter((d) => d.fault).length;
+      // (a fault someone is already repairing doesn't count: repairs take minutes, the pace of new ones stays)
+      const open = devices().filter((d) => d.fault && !handled(d)).length;
       const ok = devices().filter((d) => d.state === 'online' && !d.fault && !d.broken && d.kind !== 'patch' && health(d).up);
       if (open >= 2 || O.faultCd > 0 || !ok.length || game.paused()) return;
       if (dir && !dir.canStart('fault')) return;
@@ -672,7 +744,9 @@
       el.badge.textContent = n;
       el.badge.hidden = !n;
       el.btn.classList.toggle('is-alert', faults > 0);
-      const key = list.filter((x) => x.kind !== 'problem').map((x) => x.d.key + x.kind + x.d.state + (x.d.path && x.d.path.reason)).join('|') +
+      // (the work order the Monitor opened for it, and who is on it: staff.js)
+      const care = (d) => (game.staff && game.staff.orderOn ? game.staff.orderOn(d) : '');
+      const key = list.filter((x) => x.kind !== 'problem').map((x) => x.d.key + x.kind + x.d.state + (x.d.path && x.d.path.reason) + care(x.d)).join('|') +
         (game.problems ? '#' + game.problems.key() : '') + O.log.length + (O.log[0] ? O.log[0].text : '');
       if (!force && key === O.key) return;
       O.key = key;
@@ -682,7 +756,7 @@
         if (x.kind === 'problem') { h += game.problems.itemHtml(x.p); continue; }
         const d = x.d;
         h += '<li class="ops-item' + (x.kind === 'fault' ? ' is-fault' : '') + '"><div class="ops-item__head"><span class="dot' + (x.kind === 'fault' ? ' dot--warn dot--live' : ' dot--info') + '"></span><b>' + esc(x.title) + '</b></div>' +
-          '<p class="ops-item__where">' + esc(d.where) + (x.by ? ' · avisado por ' + esc(x.by) : '') + '</p>';
+          '<p class="ops-item__where">' + esc(d.where) + (x.by ? ' · avisado por ' + esc(x.by) : '') + (care(d) ? ' · 📋 ' + esc(care(d)) : '') + '</p>';
         if (x.kind === 'setup') {
           h += stepper(d);
           if (d.state === 'new') h += '<p class="ops-item__why">' + esc(d.path && d.path.links.length ? d.path.reason : 'Todo servidor precisa de um cabo da eth0 até uma porta de switch (direto ou pelo patch panel).') + '</p>';
@@ -764,7 +838,7 @@
 
     const api = {
       netOf, poeStatus, portsOf,
-      reset, sync, update, devices, get, reach, health, trace, classify, openTerminal, inspect, monitor, report, announce, injectFault, toggle, tasks, fix, configure, render,
+      reset, sync, update, devices, get, reach, health, trace, classify, openTerminal, inspect, monitor, report, announce, injectFault, toggle, tasks, fix, restore, configure, render,
       addLink, removeLink, moveEnd, linkAt, linkNear, tidy, prewire, roomOf, logEvent, recompute,
       // an address in 10.0.1.0/24 that no device uses (wrong / extra IPs that problems set up)
       freeIp() {

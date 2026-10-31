@@ -32,6 +32,9 @@
       if (e.skin) it.skin = e.skin;
       if (e.kind === 'door') { it.len = e.len || 1; if (e.hold) it.hold = true; if (e.auto) it.auto = true; }
       if (e.tidy === false) it.tidy = false;
+      // the team's cooling maintenance (staff.js): a serviced precision AC, blanking panels in a rack
+      if (e.tuned) it.tuned = true;
+      if (e.blank) it.blank = true;
       if (e.cost) it.cost = e.cost;
       const st = {};
       for (const o of (DL.ITEM_STYLES && DL.ITEM_STYLES[e.kind]) || []) {
@@ -123,6 +126,8 @@
       if (it.units && e.units) A.restoreUnits(e, it.units, it.unitCost);
       if (it.skin) e.skin = it.skin;
       if (it.tidy === false) e.tidy = false;
+      if (it.tuned === true) e.tuned = true;
+      if (it.blank === true) e.blank = true;
       e.cost = it.cost || 0;
       if (it.style) for (const k of Object.keys(it.style)) DL.itemStyleSet(e, k, it.style[k]);
     }
@@ -138,6 +143,10 @@
     for (const d of ops.devices()) {
       const s = devs.get(d.key);
       if (!s) continue;
+      // the units are numbered again on load (SRV-01, 02… in rack order), so a configured one gets the IP and
+      // hostname of that new number: give its OS the saved ones too, or it comes back without ping
+      if (d.os && d.os.ifaces && s.ip != null && s.ip !== d.ip) { const e = d.os.ifaces.eth0; e.ips = e.ips.map((x) => (x === d.ip + '/24' ? s.ip + '/24' : x)); }
+      if (d.os && s.name && d.os.hostname === d.name.toLowerCase()) d.os.hostname = s.name.toLowerCase();
       if (s.name) d.name = s.name;
       if (s.ip != null) d.ip = s.ip;
       if (s.svc) d.svc = s.svc;

@@ -21,11 +21,12 @@
     const D = { t: 0, lastStart: -1e9, lastResolved: -1e9, open: 0, log: [] };
     const k = () => (DL.learn ? DL.learn().incidentGap : 1);
 
-    // everything that counts as "a problem in progress"
+    // everything that counts as "a problem in progress" — a fault someone on the team is already repairing
+    // doesn't (staff.js incident orders take minutes; the pace of new incidents stays the same)
     function openNow() {
       const ops = sys.ops, staff = game.staff;
       let n = 0, critical = 0;
-      if (ops) for (const d of ops.devices()) if (d.fault) n++;
+      if (ops) for (const d of ops.devices()) if (d.fault && !(staff && staff.handling && staff.handling(d))) n++;
       if (staff) for (const r of staff.broken()) { n++; if (r.kind === 'switch') critical++; }
       return { n, critical };
     }

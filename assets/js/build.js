@@ -690,11 +690,11 @@
     rack: 1, desk1: 1, desk: 1, srv_basic: 1, server: 1, sw_8: 1, switch: 1, patch: 1, monitor: 1,
     table: 1, chair: 1, plant: 1, bin: 1,
     // 2: servidores com switch (Júnior I) · 3: cabos · 4: terminal · 5: problemas
-    desksupport: 2, deskoffice: 2, sw_16: 2, laptop: 2,
+    desksupport: 2, deskoffice: 2, sw_16: 2, laptop: 2, crac: 2,
     desktech: 2, desk3: 2, nas_2: 2,
     sw_24poe: 3, ap: 3, camera: 3, netcab: 3, kvm: 3, ventile: 3,
     desk4: 4, deskadmin: 4, sw_48: 4, nas_4: 4, pdu: 4,
-    srv_adv: 5, crac: 5, desknoc: 5, deskwork: 5, serverlift: 5,
+    srv_adv: 5, desknoc: 5, deskwork: 5, serverlift: 5,
     // 6: 8 servidores · 7: ordens · 8: sênior · 9: especialista · 10: tech lead
     sw_10g: 6, nas_8: 6, ups: 6, sw_48poe: 6,
     srv_hi: 7, storage: 7, fm200: 7, tapelib: 8,
