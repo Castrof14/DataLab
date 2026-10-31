@@ -1,7 +1,7 @@
 /* DataLab — service worker of the installed app (PWA on phones; mobile.js registers it, the PC never does).
    Network first for this site's own files, so a new deploy shows up at once; the last copy of each file
-   stays in the cache and opens the game when the connection drops. Supabase, Spotify and fonts go
-   straight to the network, untouched. */
+   stays in the cache and opens the game when the connection drops. Supabase, Spotify, YTMDesktop (127.0.0.1)
+   and fonts go straight to the network, untouched. */
 const CACHE = 'datalab-v1';
 const SHELL = ['jogo.html', 'manifest.webmanifest', 'assets/img/icon-192.png', 'assets/img/icon-512.png'];
 

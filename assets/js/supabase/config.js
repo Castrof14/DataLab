@@ -13,4 +13,11 @@ window.DATALAB_CONFIG = {
   spotifyClientId: '886bbf5787614301b2efd5d0b5edb384',
   // optional: only if the Redirect URI registered on Spotify differs from <this site>/spotify-callback.html
   // spotifyRedirectUri: 'https://datalab-six.vercel.app/spotify-callback.html',
+  // YouTube Music (compact in-game player): talks to the YTMDesktop v2 app on EACH player's own computer.
+  // Nothing secret here: the token is created by YTMDesktop when the player approves the code in the app,
+  // and it stays in that player's browser (localStorage). NEVER put a YTMDesktop token in this file.
+  // false / missing = no "YouTube Music" button. Host: only 127.0.0.1 or localhost (CSP in jogo.html).
+  ytmDesktopEnabled: true,
+  // ytmDesktopHost: '127.0.0.1',
+  // ytmDesktopPort: 9863,   // a different port must also go into connect-src in jogo.html's CSP
 };

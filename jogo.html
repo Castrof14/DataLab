@@ -10,8 +10,9 @@
   <meta name="theme-color" content="#0a0a0a">
   <!-- Scripts only from this site + the pinned Supabase SDK (with SRI); network only to Supabase.
        A custom Supabase domain must be added to connect-src, and so must the Agent Gateway's address
-       (agentGatewayUrl in config.js; localhost:8787 is already there for development). -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321 http://127.0.0.1:8787 http://localhost:8787; object-src 'none'; base-uri 'self'; form-action 'self'">
+       (agentGatewayUrl in config.js; localhost:8787 is already there for development).
+       127.0.0.1/localhost:9863 (http + ws) = YTMDesktop on the player's own computer (ytmusic-service.js). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://*.googleusercontent.com https://*.ytimg.com https://*.ggpht.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321 http://127.0.0.1:8787 http://localhost:8787 http://127.0.0.1:9863 http://localhost:9863 ws://127.0.0.1:9863 ws://localhost:9863; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,6 +31,7 @@
   <link rel="stylesheet" href="assets/css/account.css">
   <link rel="stylesheet" href="assets/css/auth.css">
   <link rel="stylesheet" href="assets/css/spotify.css">
+  <link rel="stylesheet" href="assets/css/ytmusic.css">
   <link rel="stylesheet" href="assets/css/multiplayer.css">
   <link rel="stylesheet" href="assets/css/welcome.css">
   <link rel="stylesheet" href="assets/css/feedback.css">
@@ -97,6 +99,7 @@
   <link rel="preload" href="assets/js/services/payment-service.js" as="script">
   <link rel="preload" href="assets/js/services/admin-service.js" as="script">
   <link rel="preload" href="assets/js/services/spotify-service.js" as="script">
+  <link rel="preload" href="assets/js/services/ytmusic-service.js" as="script">
   <link rel="preload" href="assets/js/services/feedback-service.js" as="script">
   <link rel="preload" href="assets/js/services/agent-service.js" as="script">
   <link rel="preload" href="assets/js/auth-gate.js" as="script">
@@ -106,6 +109,7 @@
   <link rel="preload" href="assets/js/account.js" as="script">
   <link rel="preload" href="assets/js/feedback.js" as="script">
   <link rel="preload" href="assets/js/spotify-player.js" as="script">
+  <link rel="preload" href="assets/js/ytmusic-player.js" as="script">
   <link rel="preload" href="assets/js/services/net-service.js" as="script">
   <link rel="preload" href="assets/js/multiplayer.js" as="script">
   <link rel="preload" href="assets/js/lobby.js" as="script">
@@ -226,6 +230,7 @@
           <div class="hud-group__menu" id="hudGame" role="menu" aria-label="Jogo">
             <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
             <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
+            <button class="btn btn--sm ops-btn ops-btn--ytm" id="ytmBtn" type="button" title="YouTube Music (YTMDesktop): conectar e controlar a sua música" aria-controls="ytm" aria-expanded="false" hidden><span class="ytm-ico" aria-hidden="true"></span>YouTube Music</button>
             <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
             <button class="btn btn--sm" id="fbBtn" type="button" title="Relatar um bug (com print da tela) ou mandar uma ideia para o jogo">Relatar bug</button>
             <button class="btn btn--sm" id="mpOpenBtn" type="button" title="Transformar este datacenter numa sala: quem tiver o código entra e joga junto" hidden>Abrir sala</button>
@@ -266,6 +271,8 @@
 
     <!-- compact Spotify player (spotify-player.js); stays hidden without spotifyClientId in config.js -->
     <section class="spot" id="spot" hidden aria-label="Spotify"></section>
+    <!-- compact YouTube Music player (ytmusic-player.js, YTMDesktop v2 on this computer); hidden unless ytmDesktopEnabled in config.js -->
+    <section class="ytm" id="ytm" hidden aria-label="YouTube Music"></section>
 
     <div class="minimap" aria-hidden="true">
       <canvas id="minimap"></canvas>
@@ -779,6 +786,7 @@
   <script src="assets/js/services/payment-service.js"></script>
   <script src="assets/js/services/admin-service.js"></script>
   <script src="assets/js/services/spotify-service.js"></script>
+  <script src="assets/js/services/ytmusic-service.js"></script>
   <script src="assets/js/services/feedback-service.js"></script>
   <script src="assets/js/services/agent-service.js"></script>
   <script src="assets/js/auth-gate.js"></script>
@@ -788,6 +796,7 @@
   <script src="assets/js/account.js"></script>
   <script src="assets/js/feedback.js"></script>
   <script src="assets/js/spotify-player.js"></script>
+  <script src="assets/js/ytmusic-player.js"></script>
   <!-- multiplayer: the host's browser is the room (WebRTC, handshake over Supabase Realtime); nothing to install -->
   <script src="assets/js/services/net-service.js"></script>
   <script src="assets/js/multiplayer.js"></script>
