@@ -33,7 +33,8 @@
   const playing = () => D.state.phase === 'play';
   const myProfile = () => D.crew.playerProfile || {};
   const myName = () => myProfile().name || 'Jogador';
-  function myLook() { const p = myProfile(), o = {}; for (const k of LOOK_KEYS) if (p[k] !== undefined) o[k] = p[k]; return o; }
+  // + the trail, profile frame and title equipped in the inventory (trails.js / battlepass.js)
+  function myLook() { const p = myProfile(), o = {}; for (const k of LOOK_KEYS) if (p[k] !== undefined) o[k] = p[k]; return DL.lookExtras ? Object.assign(o, DL.lookExtras()) : o; }
 
   /* ------------------------------------------------------------------ */
   /* the world's shape: the save snapshot minus what changes every tick   */
@@ -672,6 +673,7 @@
   // the build tools tell the guest's edits apart (world events while the host's world is applied are not edits)
   G.on('world', () => { if (MP.role === 'host') MP.dirty = true; });
   G.on('player-look', () => { if (MP.role && MP.conn) MP.conn.send({ t: 'look', look: myLook() }); });
+  G.on('look-extras', () => { if (MP.role && MP.conn) MP.conn.send({ t: 'look', look: myLook() }); });
 
   // runs inside the game loop (demo.js step)
   G.on('step', tick);

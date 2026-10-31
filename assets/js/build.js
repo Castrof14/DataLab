@@ -1779,10 +1779,10 @@
           // bought in the shop (Gold) → placed here for free, one of each
           const st = cosmState(def), p = document.createElement('em');
           p.className = 'cat-item__price' + (st === 'free' ? ' is-free' : st === 'locked' ? ' is-lock' : '');
-          p.textContent = st === 'free' ? 'No inventário' : st === 'placed' ? 'No mapa' : '🔒 Loja';
+          p.textContent = st === 'free' ? 'No inventário' : st === 'placed' ? 'No mapa' : def.pass ? '🔒 Passe' : '🔒 Loja';
           b.appendChild(p);
           if (st === 'locked') b.classList.add('is-locked');
-          b.title = def.desc + (st === 'locked' ? ' · compre na Loja (O), aba Cosméticos' : st === 'placed' ? ' · já está no mapa: selecione para mover, girar ou guardar' : ' · clique e depois clique no chão');
+          b.title = def.desc + (st === 'locked' ? (def.pass ? ' · recompensa do Passe Boot Inicial, nível ' + def.pass : ' · compre na Loja (O), aba Cosméticos') : st === 'placed' ? ' · já está no mapa: selecione para mover, girar ou guardar' : ' · clique e depois clique no chão');
         } else if (lock) {
           const p = document.createElement('em');
           p.className = 'cat-item__price is-lock';
@@ -1986,7 +1986,7 @@
       if (lock) { nope(def.name + ' libera no nível ' + lock + ' da carreira'); return; }
       if (def.cosm && B.def !== def) {
         const st = cosmState(def);
-        if (st === 'locked') { nope(def.name + ': compre na Loja (O), aba Cosméticos'); return; }
+        if (st === 'locked') { nope(def.name + (def.pass ? ': recompensa do Passe Boot Inicial (nível ' + def.pass + ')' : ': compre na Loja (O), aba Cosméticos')); return; }
         if (st === 'placed') {
           // already on the map: select it, so it can be moved, turned or put away
           const e = world.items.find((x) => x.defId === def.id);

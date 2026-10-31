@@ -152,7 +152,8 @@
           '<span class="mp-hud__copy"><button class="btn btn--sm" type="button" data-mp-act="copy-code">Copiar código</button><button class="btn btn--sm" type="button" data-mp-act="copy-link">Copiar convite</button></span></div>';
       }
       h += '<ul class="mp-hud__list">' + list.map((p) =>
-        '<li><canvas data-mp-face="' + esc(p.id) + '" aria-hidden="true"></canvas><span class="mp-hud__who"><b>' + esc(p.name) + '</b><small>' + (p.role === 'host' ? 'Anfitrião' : 'Convidado') + (p.me ? ' · você' + (role === 'guest' && MP.rtt ? ' · ' + MP.rtt + ' ms' : '') : '') + '</small></span>' +
+        '<li><span class="mp-hud__face' + (p.look && DL.passFrameClass ? DL.passFrameClass(p.look.frame) : '') + '"><canvas data-mp-face="' + esc(p.id) + '" aria-hidden="true"></canvas></span><span class="mp-hud__who"><b>' + esc(p.name) + '</b>' +
+        (p.look && p.look.title && DL.passTitleHtml ? DL.passTitleHtml(p.look.title) : '') + '<small>' + (p.role === 'host' ? 'Anfitrião' : 'Convidado') + (p.me ? ' · você' + (role === 'guest' && MP.rtt ? ' · ' + MP.rtt + ' ms' : '') : '') + '</small></span>' +
         (host && !p.me ? '<button class="cc__x" type="button" data-mp-act="kick" data-id="' + esc(p.id) + '" title="Remover da sala" aria-label="Remover ' + esc(p.name) + ' da sala">×</button>' : '') + '</li>').join('') + '</ul>';
       h += '<div class="mp-hud__acts">' + (host ? '<button class="btn btn--sm" type="button" data-mp-act="save">Salvar mundo</button><button class="btn btn--sm" type="button" data-mp-act="leave">Fechar sala</button>'
         : '<button class="btn btn--sm" type="button" data-mp-act="leave">Sair da sala</button>') + '</div>';
@@ -301,8 +302,15 @@
         let el = tagEls.get(p.id);
         if (!el) { el = document.createElement('span'); el.className = 'mp-tag'; tags.appendChild(el); tagEls.set(p.id, el); }
         const b = a.bubble && a.bubble.left > 0 ? a.bubble.text : '';
-        const text = b || p.name;
-        if (el.dataset.text !== text) { el.dataset.text = text; el.textContent = text; el.classList.toggle('mp-tag--say', !!b); }
+        // the season pass' title (Pioneiro) goes under the name (battlepass.js)
+        const title = !b && p.look && p.look.title && DL.passTitleHtml ? DL.passTitleHtml(p.look.title) : '';
+        const text = (b || p.name) + '|' + title;
+        if (el.dataset.text !== text) {
+          el.dataset.text = text;
+          if (title) el.innerHTML = '<span class="mp-tag__name">' + esc(p.name) + '</span>' + title; else el.textContent = b || p.name;
+          el.classList.toggle('mp-tag--say', !!b);
+          el.classList.toggle('has-ptitle', !!title);
+        }
         const s = D.scene.worldToScreen(a.x, a.y, a.seated ? 27 : 33);
         el.style.transform = 'translate(' + Math.round(s.x) + 'px,' + Math.round(s.y) + 'px) translate(-50%, -100%)';
       }

@@ -589,6 +589,8 @@
       danceA: build('danceA', -1), danceB: build('danceB', 1),
       waveA: build('wave'), waveB: build('waveB'),
       angry1: build('idle', 0, 0.22), angry2: build('idle', 0, 0.45),
+      // Invasão (season pass): hands on an invisible keyboard, typing fast
+      hackA: build('reach'), hackB: build('idle'),
     };
   };
 

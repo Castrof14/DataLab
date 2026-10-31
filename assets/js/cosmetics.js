@@ -23,8 +23,10 @@
     rare: { name: 'Raro', color: '#6aa7e8', rank: 2 },
     epic: { name: 'Épico', color: '#c084fc', rank: 3 },
     legendary: { name: 'Lendário', color: '#f2c14e', rank: 4 },
+    // only in the season pass (battlepass.js): never sold, gone when the season ends, kept forever
+    exclusive_t1: { name: 'Exclusivo T1', color: '#b8f3ff', rank: 5 },
   };
-  DL.RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+  DL.RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'exclusive_t1'];
 
   /* ------------------------------------------------------------------ */
   /* Events: shop items are on sale only inside the window; once owned    */
@@ -132,6 +134,51 @@
   FURN('cz_rug', 'Tapete Pixel', 'common', 40, 'Tapete 2 × 2 com borda quadriculada e o prompt >_ no meio.');
   FURN('cz_plant', 'Planta em Vaso', 'common', 25, 'Folhas em tons de turquesa num vaso azul-marinho que balançam de leve.');
 
+  // --- Rastros: an effect left on the floor while the character walks (slot 'trail', one equipped;
+  // trails.js draws them, other players see them online). The shop ones are the simple effects.
+  const TRAIL = (id, value, name, rarity, price, desc) => add({ id, cat: 'trail', slot: 'trail', value, name, rarity, price, desc });
+  TRAIL('tr_lights', 'lights', 'Pontinhos de Luz', 'epic', 120, 'Pontos azuis que ficam no ar por onde você passa e somem devagar.');
+  TRAIL('tr_smoke', 'smoke', 'Fumacinha', 'epic', 100, 'Uma nuvem leve de fumaça cinza-azulada atrás do personagem.');
+  TRAIL('tr_bubbles', 'bubbles', 'Bolhas', 'rare', 70, 'Bolhinhas que sobem do chão e estouram em pixels.');
+  TRAIL('tr_stars', 'stars', 'Estrelinhas', 'rare', 60, 'Pequenas estrelas que piscam no chão por onde você anda.');
+  TRAIL('tr_dust', 'dust', 'Poeira Pixel', 'common', 35, 'Um pozinho cinza que sobe dos sapatos a cada passo.');
+  TRAIL('tr_steps', 'steps', 'Pegadas Turquesa', 'common', 30, 'Pegadas turquesa simples que marcam o caminho.');
+
+  // --- Passe Boot Inicial · Temporada 1 (battlepass.js): rewards only, never sold, rarity EXCLUSIVO T1.
+  // When the season ends nobody can earn them any more; whoever has one keeps it forever.
+  const PASS = (o) => add(Object.assign({ price: 0, sell: false, grantOnly: true, pass: 's1', rarity: 'exclusive_t1', theme: 'Passe T1' }, o));
+  PASS({ id: 'bp_frame_t1', cat: 'pass', slot: 'frame', value: 't1', name: 'Moldura T1', desc: 'Moldura de perfil turquesa com cantos em pixel e o selo T1. Aparece na Conta e na sala online.' });
+  PASS({ id: 'bp_title_pioneer', cat: 'pass', slot: 'title', value: 'pioneer', name: 'Título Pioneiro', desc: 'O único título do Passe Boot. Aparece embaixo do seu nome no jogo e na sala online.' });
+  PASS({ id: 'bp_emote_hack', cat: 'emote', slot: 'emote', value: 'hack', name: 'Invasão ⌨️', desc: 'Digita rapidíssimo num teclado holográfico e aparece "ACESSO LIBERADO" em cima do personagem. Tecla 4.' });
+  PASS({ id: 'bp_pet_bitzero', cat: 'char', slot: 'pet', value: 'bitzero', name: 'BIT ZERO', desc: 'Robozinho de tela quadrada que pisca 0 e 1 em binário e segue você pelo datacenter.' });
+  PASS({ id: 'bp_glasses001', cat: 'char', slot: 'face', value: 'g001', name: 'Óculos 001', desc: 'Óculos escuros com "001" aceso em turquesa nas lentes.' });
+  PASS({ id: 'bp_skin_founder', cat: 'char', slot: 'shirt', value: 'bp_founder', name: 'Skin Fundador', desc: 'Hacker de sobretudo preto com bordas turquesa e "001" brilhando nas costas.' });
+  PASS({ id: 'bp_term_boot', cat: 'equip', slot: 'terminal', value: 'boot', name: 'Terminal Boot', desc: 'Tela verde de quem liga a máquina pela primeira vez: "iniciando sistema…" com a barra de carga.' });
+  PASS({ id: 'bp_relic', cat: 'equip', slot: 'rack', value: 'm_relic', name: 'Servidor Relíquia', desc: 'Gabinete antigo, bege-acinzentado e rachado, com um LED âmbar teimoso: o primeiro servidor do mundo.' });
+  PASS({ id: 'bp_xp2', cat: 'special', slot: 'use', value: 'bpxp', stack: true, name: 'Bônus de XP do Passe', desc: 'Consumível: o XP do passe vale em dobro por 1 hora jogando.' });
+  for (const [id, name, desc] of [
+    ['bp_trail_binary', 'Rastro Binário', 'Zeros e uns turquesa caem do ar e brilham onde o personagem pisa.'],
+    ['bp_trail_sparks', 'Rastro de Faíscas', 'Faíscas elétricas pequenas estalam e pulam a cada passo.'],
+    ['bp_trail_cables', 'Rastro de Cabos', 'Fios coloridos que serpenteiam pelo chão, aparecem e somem.'],
+    ['bp_trail_ghost', 'Rastro Fantasma', 'Pegadas azuis meio transparentes, com um vapor de luz subindo delas.'],
+    ['bp_trail_code', 'Rastro de Código', 'Letrinhas turquesa sobem do chão como código rolando.'],
+    ['bp_trail_glitch', 'Rastro Glitch', 'O chão "falha" e treme em faixas de cor onde o personagem pisa.'],
+    ['bp_trail_rainbow', 'Rastro Arco-íris Pixel', 'Uma faixa de arco-íris em pixel com brilhos, o prêmio final do passe.'],
+  ]) PASS({ id, cat: 'trail', slot: 'trail', value: id.slice(9), name, desc });
+  for (const [id, name, desc] of [
+    ['bp_hello', 'Quadro "Hello World"', 'Na parede: o primeiro programa de todo mundo, com o cursor piscando. 2 tiles.'],
+    ['bp_rug_mobo', 'Tapete Placa-Mãe', 'Tapete 2 × 2 com o desenho de uma placa-mãe: trilhas turquesa, chips e slots.'],
+    ['bp_led_lamp', 'Luminária de LED Piscando', 'Uma coluna de LEDs que acende devagar, como um servidor ligando.'],
+    ['bp_coffee8', 'Máquina de Café 8-bit', 'Máquina de café quadradona que solta fumacinha em pixel.'],
+    ['bp_floppy_shelf', 'Estante de Disquetes', 'Prateleira cheia de disquetes coloridos de 3½".'],
+    ['bp_founder_chair', 'Cadeira do Fundador', 'Cadeira gamer preta com detalhes turquesa e o selo 001 no encosto.'],
+    ['bp_data_vault', 'Cofre de Dados', 'Cofre de aço com um cadeado digital piscando no painel.'],
+    ['bp_hacker_desk', 'Mesa Hacker', 'Mesa com 3 monitores mostrando código, teclado aceso e café. 2 tiles.'],
+    ['bp_crt_terminal', 'Terminal de Tubo', 'Computador antigo de tela verde, com o prompt piscando.'],
+    ['bp_arcade_boot', 'Fliperama Boot', 'Fliperama com o logo do DataLab no letreiro e um jogo de boot na tela.'],
+    ['bp_neon_boot', 'Placa Neon "BOOT 001"', 'Letreiro neon para pendurar na parede. 2 tiles.'],
+  ]) PASS({ id, cat: 'decor', slot: 'furniture', value: id, name, desc });
+
   // --- Retired items (no longer sold or kept): their price is given back once, in Gold, to whoever had
   // them (inventory.js; the server does the same for accounts). Gifts were free: nothing to give back.
   DL.RETIRED_COSMETICS = {
@@ -194,6 +241,8 @@
     { id: 'hack', name: 'Skins de hacks', test: (it) => it.slot === 'terminal' },
     { id: 'rack', name: 'Skins de PCs e servidores', test: (it) => it.slot === 'rack' },
     { id: 'decor', name: 'Cosméticos', test: (it) => it.slot === 'furniture' },
+    { id: 'trail', name: 'Rastros', test: (it) => it.slot === 'trail' },
+    { id: 'profile', name: 'Moldura e título', test: (it) => it.slot === 'frame' || it.slot === 'title' },
     { id: 'special', name: 'Itens especiais', test: (it) => it.cat === 'special' },
     { id: 'legend', name: 'Bots lendários', test: (it) => it.cat === 'legend' },
   ];
@@ -224,6 +273,8 @@
     m_glass: { cap: '#0d1626', capHi: '#26344d', frame: '#111b2d', hi: '#26344d', dk: '#05080f', side: 'rgba(127,178,240,0.22)', vent: '#0b1220', accent: '#2de2c8', accent2: '#3d7bd9', pattern: 'glass' },
     m_cyber: { cap: '#060d1c', capHi: '#1a2b4d', frame: '#0b1730', hi: '#21477f', dk: '#05080f', side: '#0b1428', vent: '#05080f', accent: '#2de2c8', accent2: '#3d7bd9', pattern: 'cables' },
     m_crystal: { cap: 'rgba(127,178,240,0.55)', capHi: 'rgba(165,247,234,0.9)', frame: 'rgba(127,178,240,0.45)', hi: 'rgba(165,247,234,0.85)', dk: 'rgba(33,71,127,0.7)', side: 'rgba(127,178,240,0.25)', vent: 'rgba(165,247,234,0.35)', accent: '#2de2c8', accent2: '#7fb2f0', pattern: 'crystal' },
+    // Passe T1 · the very first server: old grey-beige metal, cracked, one stubborn amber LED
+    m_relic: { cap: '#8f8c80', capHi: '#b4b0a2', frame: '#9a968a', hi: '#bdb8a9', dk: '#4f4c44', side: '#8d897d', vent: '#5f5c53', accent: '#2a2722', accent2: '#ffb347', pattern: 'relic' },
   };
   // palette colours the glass PC's coolers cycle through
   const COOLERS = ['#2de2c8', '#3d7bd9', '#8797b0', '#7fb2f0'];
@@ -240,6 +291,7 @@
     m_glass: { hi: '#26344d', body: '#0d1626', mark: '#2de2c8', cycle: true },
     m_cyber: { hi: '#3d7bd9', body: '#060d1c', mark: '#2de2c8' },
     m_crystal: { hi: 'rgba(165,247,234,0.8)', body: 'rgba(127,178,240,0.3)', mark: '#2de2c8' },
+    m_relic: { hi: '#b4b0a2', body: '#8f8c80', mark: '#3a3731', slot: true },
   };
   const SWITCH = {
     clean: { hi: '#f4f6f8', body: '#cfd4db' },
@@ -296,6 +348,9 @@
     }
     if (P.pattern === 'cables') { R(g, px + 1, py - 19, 14, 1, P.accent2); R(g, px + 1 + Math.floor((t * 10) % 14), py - 19, 2, 1, P.accent); }
     if (P.pattern === 'crystal') R(g, px + 3, py - 22, 10, 3, 'rgba(45,226,200,0.35)');
+    // the relic's lid: a crack across it and the amber power LED that blinks now and then
+    const relicLed = Math.sin(t * 1.7 + (e.seed || 0)) > -0.2 || Math.sin(t * 11) > 0.6 ? P.accent2 : '#6b4a1e';
+    if (P.pattern === 'relic') { R(g, px + 4, py - 23, 2, 1, P.accent); R(g, px + 6, py - 22, 1, 1, P.accent); R(g, px + 7, py - 21, 3, 1, P.accent); R(g, px + 12, py - 22, 2, 1, relicLed); }
     if (e.tag) R(g, rot === 2 ? px + 12 : rot === 3 ? px + 1 : px + 12, py - 23, 3, 2, e.tag);
     if (rot === 1) return; // the rear door keeps its mesh; the cap already says which skin it is
     if (rot === 2 || rot === 3) {
@@ -320,6 +375,11 @@
         // the boards and LEDs inside, through the glass
         R(g, px + 4, py - 12, 7, 3, 'rgba(45,226,200,0.45)'); R(g, px + 5, py - 5, 6, 2, 'rgba(61,123,217,0.6)'); R(g, px + 4, py + 2, 8, 3, 'rgba(45,226,200,0.3)');
         for (let i = 0; i < 3; i++) R(g, px + 5 + i * 2, py + 7, 1, 1, Math.sin(t * 5 + i) > 0 ? '#a5f7ea' : '#14897a');
+      }
+      if (P.pattern === 'relic') {
+        // a long crack down the side panel and a dent with rust at the bottom
+        for (const [x, y, w] of [[9, -15, 1], [8, -13, 2], [7, -10, 1], [8, -8, 1], [6, -6, 2], [5, -3, 1], [6, -1, 1]]) R(g, px + x, py + y, w, 2, P.accent);
+        R(g, px + 3, py + 7, 4, 3, P.dk); R(g, px + 4, py + 8, 2, 1, '#7a5a35');
       }
       return;
     }
@@ -370,6 +430,12 @@
       }
     }
     if (P.pattern === 'crystal') { const y = Math.floor((t * 18) % 30); R(g, px + 1, py - 17 + y, 1, 2, 'rgba(255,255,255,0.75)'); R(g, px + 14, py + 12 - y, 1, 2, 'rgba(255,255,255,0.6)'); }
+    if (P.pattern === 'relic') {
+      // cracks running down both rails, a chipped corner and the amber LED on the bottom bar
+      for (const [x, y] of [[1, -16], [1, -15], [0, -13], [1, -12], [1, -9], [0, -8], [14, -2], [15, 0], [14, 1], [14, 4], [15, 6]]) R(g, px + x, py + y, 1, 1, P.accent);
+      R(g, px + 14, py - 18, 2, 2, P.dk); R(g, px + 15, py - 18, 1, 1, '#2a2722');
+      R(g, px + 2, py + 12, 2, 1, relicLed);
+    }
     if (P.pattern === 'shine') {
       // a glint that runs around the gold frame
       const n = 92, k = Math.floor((t * 22) % n);
@@ -542,6 +608,7 @@
       case 'hx_bot': return Object.assign({}, BARE, SUIT, { shirt: HX.metal, pants: HX.slateD, shoes: '#1c2433', skin: '#7d93b5' });
       case 'hx_ghost': return Object.assign({}, BARE, SUIT, { shirt: '#4f8fe0', pants: HX.blueD, shoes: HX.blueD, skin: HX.blueL, hair: '#5a9ae6' });
       case 'hx_master': return Object.assign({}, BARE, SUIT, { shirt: HX.navyD, pants: HX.navyD, shoes: HX.ink });
+      case 'bp_founder': return Object.assign({}, OPEN, SUIT, { shirt: '#11141b', pants: HX.navyD, shoes: HX.ink });
       case 'astronaut': return Object.assign({}, BARE, SUIT, { shirt: ASTRO.suit, pants: ASTRO.suit, shoes: ASTRO.suitD, skin: ASTRO.suitD });
       case 'ninja': return Object.assign({}, BARE, SUIT, { shirt: NINJA.cloth, pants: NINJA.clothD, shoes: NINJA.clothD });
       case 'robot': return Object.assign({}, BARE, SUIT, { shirt: ROBOT.metal, pants: ROBOT.metalD, shoes: ROBOT.joint, skin: ROBOT.metal });
@@ -556,6 +623,12 @@
     }
     return null;
   };
+
+  // "001" in 3-pixel-tall digits, centred on the back of the Founder skin (x = the body's axis)
+  function founderDigits(g, ax, y, c) {
+    for (const x0 of [ax - 4, ax]) { R(g, x0, y, 3, 1, c); R(g, x0, y + 1, 1, 1, c); R(g, x0 + 2, y + 1, 1, 1, c); R(g, x0, y + 2, 3, 1, c); }
+    R(g, ax + 4, y, 1, 3, c);
+  }
 
   // new shirt models; returns true when it handled the outfit
   DL.charOutfit = function (g, dir, ty, L, shirt, shirtD, shirtL) {
@@ -610,6 +683,21 @@
         } else {
           R(g, ax - 3, ty + 8, 5, 4, shirt); R(g, ax + 2, ty, 1, 12, HX.turq);
           R(g, ax - 3, ty + 8, 1, 4, HX.turqD); R(g, ax - 3, ty + 11, 5, 1, HX.turq);
+        }
+        return true;
+      case 'bp_founder':
+        // Passe T1: black open coat with turquoise edges, the tails over the legs and "001" lit on the back
+        if (dir === 'down') {
+          R(g, ax - 1, ty, 2, 8, '#1d2433'); R(g, ax, ty + 1, 1, 1, HX.turqL); R(g, ax - 4, ty, 2, 2, '#232a38'); R(g, ax + 2, ty, 2, 2, '#232a38');
+          R(g, ax - 4, ty + 8, 3, 4, shirt); R(g, ax + 1, ty + 8, 3, 4, shirt);
+          R(g, ax - 2, ty, 1, 12, HX.turq); R(g, ax + 1, ty, 1, 12, HX.turq);
+          R(g, ax - 4, ty + 11, 3, 1, HX.turqD); R(g, ax + 1, ty + 11, 3, 1, HX.turqD);
+        } else if (dir === 'up') {
+          R(g, ax - 4, ty + 8, 8, 4, shirt); R(g, ax - 4, ty, 1, 12, HX.turqD); R(g, ax + 3, ty, 1, 12, HX.turqD); R(g, ax - 4, ty + 11, 8, 1, HX.turq);
+          founderDigits(g, ax, ty + 3, HX.turqL);
+        } else {
+          R(g, ax - 3, ty + 8, 5, 4, shirt); R(g, ax + 2, ty, 1, 12, HX.turq);
+          R(g, ax - 3, ty + 11, 5, 1, HX.turqD); R(g, ax - 3, ty + 4, 1, 1, HX.turqL);
         }
         return true;
       case 'hx_bot':
@@ -1043,6 +1131,15 @@
       } else { R(g, ax + 1, ty, 1, 3, HX.slateL); R(g, ax + 1, ty + 3, 1, 3, HX.blue); R(g, ax + 1, ty + 5, 1, 1, HX.turq); }
     }
     switch (G.face) {
+      case 'g001':
+        // Passe T1: black shades, a turquoise "0 0" lit in the lenses and the "1" on the bridge
+        if (dir === 'down') {
+          R(g, hx - 5, hy + 4, 10, 1, HX.ink); R(g, hx - 4, hy + 5, 3, 2, HX.ink); R(g, hx + 1, hy + 5, 3, 2, HX.ink);
+          R(g, hx - 3, hy + 5, 1, 2, HX.turq); R(g, hx + 2, hy + 5, 1, 2, HX.turq); R(g, hx - 1, hy + 4, 2, 1, HX.turqL);
+          R(g, hx - 4, hy + 4, 1, 1, HX.slateD); R(g, hx + 3, hy + 4, 1, 1, HX.slateD);
+        } else if (side) { R(g, hx - 5, hy + 4, 8, 1, HX.ink); R(g, hx + 2, hy + 5, 4, 2, HX.ink); R(g, hx + 4, hy + 5, 1, 2, HX.turq); }
+        else R(g, hx - 5, hy + 4, 10, 1, HX.ink);
+        break;
       case 'nvg':
         if (dir === 'down') {
           R(g, hx - 5, hy + 3, 10, 1, HX.slateD); R(g, hx - 4, hy + 4, 3, 3, HX.slateD); R(g, hx + 1, hy + 4, 3, 3, HX.slateD);
@@ -1350,6 +1447,15 @@
   // runs down the hoodie's face, the ghost's glitches, the robot's blinking cursor
   DL.charFx = function (g, a, X, Y, t) {
     const L = a.look;
+    if (L && L.outfit === 'bp_founder' && a.dir === 'up' && !a.seated && !a.moving) {
+      // the "001" on the Founder's back breathes: a soft halo, then the digits at full light
+      const k = 0.5 + 0.5 * Math.sin(t * 2.6);
+      g.globalAlpha *= 0.25 + 0.35 * k;
+      R(g, X - 5, Y - 11, 11, 5, HX.turq);
+      g.globalAlpha /= 0.25 + 0.35 * k;
+      founderDigits(g, X, Y - 10, k > 0.5 ? '#ffffff' : HX.turqL);
+      return;
+    }
     if (!L || !L.outfit || L.outfit.indexOf('hx_') !== 0 || a.seated) return;
     const top = Y - AY + 6; // the head's first row (hy) when standing still
     if (L.outfit === 'hx_hoodie' && a.dir !== 'up') {
@@ -1382,6 +1488,28 @@
     skull: { bg: '#060a14', bar: '#0b1730', text: '#7fb2f0', dim: '#3d7bd9' },
     glitch: { bg: '#070b16', bar: '#1a2b4d', text: '#2de2c8', dim: '#3d7bd9' },
     holo: { bg: '#0a1c36', bar: '#21477f', text: '#a5f7ea', dim: '#7fb2f0' },
+    boot: { bg: '#020c06', bar: '#062614', text: '#6dff8f', dim: '#2f9e55' },
+  };
+  // 3×5 pixel letters (the boot screen's text; also used by trails.js and the pass furniture)
+  DL.PIX_FONT = {
+    A: '010101111101101', B: '110101110101110', C: '011100100100011', D: '110101101101110', E: '111100110100111', G: '011100101101011',
+    I: '111010010010111', L: '100100100100111', M: '101111111101101', N: '110101101101101', O: '010101101101010', P: '110101110100100',
+    R: '110101110101101', S: '011100010001110', T: '111010010010010', U: '101101101101111', V: '101101101101010', W: '101101111111101',
+    F: '111100110100100', H: '101101111101101', J: '001001001101010', K: '101101110101101', Q: '010101101110011', X: '101101010101101',
+    Y: '101101010010010', Z: '111001010100111',
+    0: '111101101101111', 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001', 5: '111100111001111',
+    6: '111100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001111',
+    '>': '100010001010100', '<': '001010100010001', '/': '001001010100100', '!': '010010010000010', '-': '000000111000000',
+    '_': '000000000000111', '.': '000000000000010', ' ': '000000000000000',
+  };
+  DL.pixText = function (g, text, x, y, c, k) {
+    k = k || 1;
+    g.fillStyle = c;
+    for (const ch of String(text).toUpperCase()) {
+      const f = DL.PIX_FONT[ch];
+      if (f) for (let i = 0; i < 15; i++) if (f[i] === '1') g.fillRect(x + (i % 3) * k, y + Math.floor(i / 3) * k, k, k);
+      x += 4 * k;
+    }
   };
   // 3×3 glyphs for the falling code
   const GLYPHS = ['111101111', '010111010', '110011110', '101010101', '111010010', '011110011'];
@@ -1447,6 +1575,20 @@
         });
         return;
       }
+      case 'boot': {
+        // Passe T1: a machine booting for the first time — green scan lines, "INICIANDO SISTEMA" and a
+        // loading bar that fills, holds at 100% and starts over
+        g.fillStyle = 'rgba(0,0,0,0.3)';
+        for (let y = 0; y < h; y += 2) g.fillRect(0, y, w, 1);
+        const cyc = (t % 9) / 9, pct = Math.min(1, cyc / 0.8), bw = Math.max(10, Math.min(w - 8, 60)), bx = w - bw - 4, by = h - 7;
+        g.fillStyle = 'rgba(109,255,143,0.16)';
+        g.fillRect(bx, by, bw, 3);
+        g.fillStyle = 'rgba(109,255,143,0.5)';
+        g.fillRect(bx, by, Math.round(bw * pct), 3);
+        if (w > 80) DL.pixText(g, pct < 1 ? 'INICIANDO SISTEMA' : 'SISTEMA PRONTO', bx, by - 7, 'rgba(109,255,143,0.32)');
+        DL.pixText(g, 'BOOT 001', w - 36, 3, 'rgba(109,255,143,' + (Math.sin(t * 3) > 0 ? 0.3 : 0.16) + ')');
+        return;
+      }
       case 'neon': {
         const a = 0.35 + 0.25 * Math.sin(t * 2.4);
         g.fillStyle = 'rgba(45,226,200,' + a.toFixed(3) + ')';
@@ -1498,6 +1640,20 @@
         for (const y of [20, 22, 24]) R(g, 8, y, 5, 1, HX.navyD);
         R(g, 12, 19, 1, 1, odd ? HX.turq : HX.turqD); R(g, 12, 21, 1, 1, odd ? HX.blue : HX.blueL); R(g, 12, 23, 1, 1, f % 3 ? HX.turq : HX.turqD);
         R(g, 8 + (step ? 1 : 0), 27, 1, 2, HX.slateD); R(g, 13 - (step ? 1 : 0), 27, 1, 2, HX.slateD);
+        return;
+      }
+      case 'bitzero': {
+        // Passe T1: a little robot whose square screen face blinks 0 and 1, antenna and two small feet
+        const bit = f % 2 ? '1' : '0';
+        R(g, 7, 12, 9, 8, HX.slateD); R(g, 7, 12, 9, 1, HX.slateL); R(g, 15, 13, 1, 7, HX.ink);
+        R(g, 8, 13, 7, 6, HX.screen); R(g, 8, 13, 7, 1, 'rgba(45,226,200,0.25)');
+        const D = { 0: ['111', '101', '101', '101', '111'], 1: ['010', '110', '010', '010', '111'] }[bit];
+        D.forEach((row, r) => { for (let c = 0; c < 3; c++) if (row[c] === '1') R(g, 10 + c, 13 + r, 1, 1, HX.turqL); });
+        R(g, 11, 9, 1, 3, HX.slateL); R(g, 10, 8, 3, 1, odd ? HX.turq : HX.blueL);
+        R(g, 8, 20, 7, 5, HX.navy); R(g, 8, 20, 7, 1, HX.navyL); R(g, 10, 22, 3, 1, HX.turqD); R(g, 11, 22, 1, 1, odd ? HX.turqL : HX.turq);
+        R(g, 6, 21, 2, 1, HX.slate); R(g, 15, 21, 2, 1, HX.slate);
+        R(g, 8 + (step ? 1 : 0), 25, 2, 3, HX.slateD); R(g, 12 - (step ? 1 : 0), 25, 2, 3, HX.slateD);
+        R(g, 7 + (step ? 1 : 0), 27, 3, 1, HX.ink); R(g, 12 - (step ? 1 : 0), 27, 3, 1, HX.ink);
         return;
       }
       case 'holodog': {

@@ -38,7 +38,7 @@
     return String(Math.floor(m / 60) % 24).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
   };
   const fmtPower = (e) => (e.tel.unit === 'W' ? Math.round(e.power) : e.power.toFixed(e.power < 10 ? 2 : 1)) + '<small>' + e.tel.unit + '</small>';
-  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account', 'mpDialog', 'welcome', 'feedback', 'agentsOv'].some((id) => $(id) && $(id).classList.contains('is-open'));
+  const isOverlayOpen = () => ['intro', 'help', 'creator', 'terminal', 'cabling', 'monitor', 'wallet', 'reward', 'roles', 'helpdesk', 'netlab', 'infra', 'shifts', 'store', 'inventory', 'account', 'mpDialog', 'welcome', 'feedback', 'agentsOv', 'passOv'].some((id) => $(id) && $(id).classList.contains('is-open'));
   const canMove = () => S.phase !== 'intro' && !isOverlayOpen() && S.mode === 'explore';
 
   /* ---------------- toasts ---------------- */
@@ -165,8 +165,14 @@
     can: () => (S.phase === 'intro' ? 'Comece um jogo para usar os emotes'
       : P.seat || P.rest || P.glide ? 'Levante-se (F) para usar os emotes' : !canMove() ? 'Saia do modo construção / equipe para usar os emotes' : null),
   });
+  // the walking trail (Rastros, trails.js) and the season pass (battlepass.js)
+  const trails = DL.createTrails ? DL.createTrails(G) : null;
+  const pass = DL.createPass ? DL.createPass(G, { inventory, economy, crew, playing: () => S.phase === 'play' }) : null;
   const emoteWheel = $('emoteWheel');
-  emoteWheel.innerHTML = DL.EMOTES.map((e) => '<button type="button" class="emo__opt" role="menuitem" data-emote="' + e.id + '"><span class="emo__ico" aria-hidden="true">' + e.emoji + '</span>' + e.name + ' <kbd>' + e.key + '</kbd></button>').join('');
+  // the free emotes + the ones the player owns (Invasão, from the season pass)
+  const fillWheel = () => { emoteWheel.innerHTML = DL.EMOTES.filter((e) => !DL.emoteOwned || DL.emoteOwned(e)).map((e) => '<button type="button" class="emo__opt" role="menuitem" data-emote="' + e.id + '"><span class="emo__ico" aria-hidden="true">' + e.emoji + '</span>' + e.name + ' <kbd>' + e.key + '</kbd></button>').join(''); };
+  fillWheel();
+  G.on('inventory', fillWheel);
   const wheel = (open) => {
     if (open) { const r = $('emoteBtn').getBoundingClientRect(); emoteWheel.style.left = Math.max(8, Math.min(r.left, innerWidth - 184)) + 'px'; emoteWheel.style.top = r.bottom + 6 + 'px'; }
     emoteWheel.hidden = !open;
@@ -647,6 +653,7 @@
     if (agents && agents.isOpen) { if (ev.code === 'Escape') { agents.close(); ev.preventDefault(); } return; }
     if (infra.isOpen) { if (infra.key(ev)) ev.preventDefault(); return; }
     if (inventory.isOpen) { if (inventory.key(ev)) ev.preventDefault(); return; }
+    if (pass && pass.isOpen) { if (pass.key(ev)) ev.preventDefault(); return; }
     const tag = document.activeElement && document.activeElement.tagName;
     if (tag === 'INPUT' || tag === 'TEXTAREA') return;
     if (S.phase === 'intro') {
@@ -662,6 +669,8 @@
     }
     if (free && ev.code === 'KeyT' && !ev.repeat) { ops.toggle(); ev.preventDefault(); return; }
     if (free && (ev.code === 'KeyO' || ev.code === 'KeyU') && !ev.repeat) { if (ev.code === 'KeyO') inventory.openShop(); else inventory.openInventory(); ev.preventDefault(); return; }
+    // J: the season pass
+    if (free && pass && ev.code === 'KeyJ' && !ev.repeat) { pass.open(); ev.preventDefault(); return; }
     if (free && ev.code === 'KeyM' && S.mode !== 'build' && !ev.repeat) { monitor.open(); ev.preventDefault(); return; }
     if (free && S.mode !== 'build' && infra.key(ev)) { ev.preventDefault(); return; }
     // F: sit at the closest free workstation / stand up
@@ -1098,6 +1107,8 @@
   scene.underlay = (g, sc) => {
     builder.underlay(g, sc);
     crew.underlay(g, sc);
+    // walking trails: on the floor, under people and furniture
+    if (trails) trails.draw(g, sc);
   };
   // warm light under floor lamps, cool spill from busy screens
   scene.lights = (g) => {
@@ -1242,6 +1253,8 @@
     if (S.phase !== 'intro') S.time += dt;
     updatePlayer(dt);
     pet.update(dt);
+    if (trails) trails.update(dt);
+    if (pass) pass.update(dt);
     camGlide(dt);
     zoomStep(dt);
     S.target = canMove() ? findTarget() : null;
@@ -1344,7 +1357,7 @@
   $('tutStart').focus({ preventScroll: true });
 
   // exposed for debugging / automated checks
-  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, problems, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, pet, emotes, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
+  window.DataLabDemo = { scene, state: S, player, builder, decor, economy, career, problems, talk, crew, roles, helpdesk, netlab, tutorial, ops, terminal, cabling, monitor, staff, infra, director, shifts, inventory, pet, emotes, trails, pass, seat: { down: seatDown, stand: seatStand, nearest: nearestSeat, get state() { return P; } }, setMode, begin, game: G, openPanel, choosePreset,
     // fast-forward the simulation (game minutes) without drawing — for automated checks
     step,
     advance(sec, dt) { dt = dt || 0.1; for (let t = 0; t < sec; t += dt) { step(dt); scene.update(dt); } },

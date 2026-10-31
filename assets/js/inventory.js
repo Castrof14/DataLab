@@ -15,16 +15,19 @@
   const KEY = 'datalab.inventory.v1';
   const OLD_SHOP = 'datalab.shop.v1';
   const SLOTS_INFRA = ['rack', 'server', 'switch', 'storage', 'rackacc', 'led'];
-  // slots kept in the inventory's equip map (one item each): infrastructure, accessories, the pet and the
-  // terminal skin
-  const SLOTS_MAP = SLOTS_INFRA.concat(DL.GEAR_SLOTS, 'terminal');
+  // slots kept in the inventory's equip map (one item each): infrastructure, accessories, the pet, the
+  // terminal skin, the trail (trails.js) and the profile frame / title (season pass, battlepass.js)
+  const SLOTS_MAP = SLOTS_INFRA.concat(DL.GEAR_SLOTS, 'terminal', 'trail', 'frame', 'title');
   const isMapSlot = (slot) => SLOTS_MAP.indexOf(slot) >= 0;
-  const SRC = { loja: 'Loja', evento: 'Evento', presente: 'Presente', recompensa: 'Recompensa', migrado: 'Loja (versão anterior)' };
+  const SRC = { loja: 'Loja', evento: 'Evento', presente: 'Presente', recompensa: 'Recompensa', reward: 'Recompensa', passe: 'Passe Boot Inicial · T1', migrado: 'Loja (versão anterior)' };
+  // where an equipped item shows (the toast after equipping)
+  const WHERE = { trail: 'atrás de você quando anda · visível na sala online', frame: 'no seu perfil (Conta e sala online)', title: 'embaixo do seu nome no jogo e na sala online' };
   const esc = (s) => String(s).replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
   // the emotes as shop / inventory entries (free, always equipped, never stored)
+  // (an emote with its own item, like the season pass' Invasão, is a catalog item instead)
   const EMO = {};
-  for (const e of DL.EMOTES || []) EMO['emote_' + e.id] = { id: 'emote_' + e.id, cat: 'emote', slot: 'emote', value: e.id, name: e.name + ' ' + e.emoji, rarity: 'common', price: 0, free: true, sell: false, desc: e.desc + ' Atalho no jogo: tecla ' + e.key + ' ou o botão Emotes.' };
+  for (const e of DL.EMOTES || []) if (!e.item) EMO['emote_' + e.id] = { id: 'emote_' + e.id, cat: 'emote', slot: 'emote', value: e.id, name: e.name + ' ' + e.emoji, rarity: 'common', price: 0, free: true, sell: false, desc: e.desc + ' Atalho no jogo: tecla ' + e.key + ' ou o botão Emotes.' };
   const EMOTE_LIST = Object.values(EMO);
   const item = (id) => DL.cosmetic(id) || EMO[id] || null;
   const RAR = (it) => DL.RARITY[it.rarity] || DL.RARITY.common;
@@ -175,6 +178,8 @@
         if (Object.keys(patch).length) crew.updatePlayer(patch);
       }
       if (st.effect === 'xp' && inPlay()) S.boostUntil = Math.max(game.time(), S.boostUntil) + 120;
+      // the season pass' XP bonus (battlepass.js counts the hour of play)
+      if (st.effect === 'bpxp') game.emit('pass-boost', {});
       fixLook();
       changed();
     }
@@ -204,7 +209,7 @@
       if (isMapSlot(it.slot)) {
         D.equip[it.slot] = id;
         changed();
-        const where = it.slot === 'pet' ? 'agora te segue pelo datacenter' : DL.GEAR_POS[it.slot] ? 'no seu personagem (' + DL.GEAR_POS[it.slot].toLowerCase() + ')'
+        const where = it.slot === 'pet' ? 'agora te segue pelo datacenter' : WHERE[it.slot] ? WHERE[it.slot] : DL.GEAR_POS[it.slot] ? 'no seu personagem (' + DL.GEAR_POS[it.slot].toLowerCase() + ')'
           : it.slot === 'terminal' ? 'no console do jogo (abra um terminal para ver)'
           : 'em todos os ' + ({ rack: 'racks, servidores e storages', server: 'servidores', switch: 'switches', storage: 'storages', rackacc: 'racks', led: 'racks' })[it.slot] + ' do datacenter';
         game.toast('ok', 'Equipado', it.name + ' · ' + where);
@@ -259,7 +264,7 @@
     /* ------------------------------------------------------------------ */
     const inPlay = () => !!(sys.playing && sys.playing());
     const wallet = () => economy.wallet;
-    const forSale = (it) => !it.gift && it.price > 0 && (!it.event || DL.eventActive(it.event));
+    const forSale = (it) => !it.gift && !it.pass && it.price > 0 && (!it.event || DL.eventActive(it.event));
     const sellValue = (it) => (it.sell === false || it.gift || !it.price ? 0 : Math.floor(it.price / 2));
     const activeBots = (id) => (crew ? crew.members.filter((a) => a.crew.legend === id).length : 0);
     // cosmetic furniture (Cosméticos, slot 'furniture'): either in the map or kept in the inventory;
@@ -323,6 +328,16 @@
       if (!it || !owns(id)) return 'Você não tem este item';
       if (it.slot !== 'use') return 'Este item não é consumível';
       if (!inPlay()) return 'Comece um jogo para usar';
+      if (it.value === 'bpxp') {
+        // the pass' XP bonus: the season must still be on (battlepass.js)
+        const why = DL.Pass ? DL.Pass.canBoost() : 'Passe indisponível';
+        if (why) return why;
+        if (S.remote) return remoteDo(S.remote.consume(id), ['Bônus de XP do Passe', 'O XP do passe vale em dobro pela próxima 1 hora jogando']);
+        remove(id, 1);
+        game.emit('pass-boost', {});
+        game.toast('ok', 'Bônus de XP do Passe', 'O XP do passe vale em dobro pela próxima 1 hora jogando');
+        return null;
+      }
       if (S.remote) return remoteDo(S.remote.consume(id), ['Treinamento Intensivo', 'A equipe ganha XP em dobro pelas próximas 2 h de jogo']);
       if (it.value === 'xp') {
         S.boostUntil = Math.max(game.time(), S.boostUntil) + 120;
@@ -433,6 +448,20 @@
         return;
       }
       const C = DL.CHAR;
+      // trails (trails.js) loop a short walk across the card; the frame shows around the player's face
+      if (it.slot === 'trail') { if (DL.drawTrailPreview) DL.drawTrailPreview(g, it.value, t, sheetFor(profile())); return; }
+      if (it.slot === 'frame') {
+        if (DL.drawPassFrame) DL.drawPassFrame(g, 6, 6, 36, 36, t);
+        g.drawImage(sheetFor(profile()).down.idle, 3, 1, 16, 16, 12, 11, 24, 24);
+        return;
+      }
+      if (it.slot === 'title') {
+        const R = DL.R;
+        R(g, 3, 17, 42, 14, '#060d1c'); R(g, 3, 17, 42, 1, '#2de2c8'); R(g, 3, 30, 42, 1, '#14897a'); R(g, 3, 17, 1, 14, '#2de2c8'); R(g, 44, 17, 1, 14, '#14897a');
+        DL.pixText(g, 'PIONEIRO', 8, 22, Math.floor(t * 2) % 2 ? '#b8f3ff' : '#a5f7ea');
+        R(g, 22, 12, 4, 4, '#2de2c8'); R(g, 23, 13, 2, 2, '#b8f3ff');
+        return;
+      }
       if (it.slot === 'pet') {
         // twice the size: a pet is small next to a person; walking in the big preview, idle on the card
         const s = DL.petSheet(it.value).right;
@@ -469,6 +498,11 @@
       if (it.id === 'xp_boost') {
         R(g, 14, 12, 20, 26, '#2a2f38'); R(g, 14, 12, 20, 2, '#c4b5fd'); R(g, 17, 18, 14, 2, '#7ee0a1'); R(g, 17, 23, 10, 2, '#7ee0a1'); R(g, 17, 28, 12, 2, '#7ee0a1');
         R(g, 30, 30, 8, 8, '#c4b5fd'); R(g, 33, 31, 2, 6, '#0a0a0a'); R(g, 31, 33, 6, 2, '#0a0a0a');
+      } else if (it.id === 'bp_xp2') {
+        // the pass' XP bonus: a cartridge marked 2×
+        R(g, 13, 10, 22, 28, '#0b1730'); R(g, 13, 10, 22, 2, '#2de2c8'); R(g, 16, 15, 16, 12, '#06121a');
+        DL.pixText(g, '2', 19, 18, '#b8f3ff'); R(g, 24, 21, 1, 1, '#a5f7ea'); R(g, 26, 20, 1, 1, '#a5f7ea'); R(g, 25, 21, 1, 1, '#a5f7ea'); R(g, 26, 22, 1, 1, '#a5f7ea'); R(g, 24, 22, 1, 1, '#a5f7ea');
+        for (let i = 0; i < 4; i++) R(g, 16 + i * 4, 31, 2, 5, '#f2c14e');
       } else if (it.id === 'badge_beta') {
         R(g, 23, 4, 2, 12, '#a0c3ec'); R(g, 14, 16, 20, 26, '#f1f1ee'); R(g, 14, 16, 20, 5, '#a0c3ec'); R(g, 19, 25, 10, 9, '#2a2f38'); R(g, 21, 27, 6, 5, '#f2c8a0'); R(g, 16, 37, 16, 2, '#7d8187');
       } else { R(g, 16, 16, 16, 16, RAR(it).color); }
@@ -507,7 +541,7 @@
     function card(it, mode, sel) {
       const n = qty(it.id), st = mode === 'inv' ? statusOf(it) : shopState(it);
       return '<button type="button" class="st-card rar-' + it.rarity + (sel ? ' is-sel' : '') + (st === 'Equipado' || st === 'No mapa' || /trabalhando|Ativa/.test(st) ? ' is-eq' : '') + (mode === 'shop' && broke(it) ? ' is-broke' : '') + '" data-pick="' + it.id + '">' +
-        '<span class="st-card__art"><canvas data-art="' + it.id + '" aria-hidden="true"></canvas>' + (mode === 'inv' && n > 1 ? '<span class="st-qty">×' + n + '</span>' : '') + (it.event ? '<span class="st-ev">EVENTO</span>' : '') + '</span>' +
+        '<span class="st-card__art"><canvas data-art="' + it.id + '" aria-hidden="true"></canvas>' + (mode === 'inv' && n > 1 ? '<span class="st-qty">×' + n + '</span>' : '') + (it.event ? '<span class="st-ev">EVENTO</span>' : '') + (it.pass ? '<span class="st-ev st-ev--t1">PASSE T1</span>' : '') + '</span>' +
         '<span class="st-card__body"><b>' + esc(it.name) + '</b>' + rarTag(it) + '</span>' +
         '<span class="st-card__foot">' + (mode === 'shop' ? priceHtml(it) : '<span class="eyebrow-sm">' + esc(groupName(DL.groupOf(it))) + '</span>') + (st ? '<span class="st-state">' + esc(st) + '</span>' : '') + '</span></button>';
     }
@@ -516,7 +550,7 @@
       const b = (act, label, primary, dis, title, cls) => '<button type="button" class="btn btn--sm' + (primary ? ' btn--primary' : '') + (cls ? ' ' + cls : '') + '" data-do="' + act + '" data-id="' + it.id + '"' + (dis ? ' disabled' : '') + (title ? ' title="' + esc(title) + '"' : '') + '>' + label + '</button>';
       const emoteKey = () => { const e = DL.emote(it.value); return '<p class="st-why">Use no jogo: tecla <kbd>' + e.key + '</kbd> ou o botão <b>Emotes</b>.</p>'; };
       let h = '';
-      if (it.cat === 'emote') return b('noop', 'Grátis – Equipado', true, true, '', 'btn--done') + emoteKey();
+      if (it.cat === 'emote') return b('noop', it.pass ? 'Equipado' : 'Grátis – Equipado', true, true, '', 'btn--done') + emoteKey();
       if (mode === 'shop') {
         const why = canBuy(it);
         // Comprar → Equipar → Equipado (stackable items keep buying more)
@@ -542,7 +576,7 @@
       const v = sellValue(it);
       if (ask === 'sell:' + it.id) h += b('sell', 'Confirmar venda · +' + fmt(v) + ' Gold', true) + b('cancel', 'Cancelar');
       else if (v) h += b('asksell', 'Vender · +' + fmt(v) + ' Gold');
-      else h += '<span class="st-why">' + (it.event ? 'Item de evento: fica guardado para sempre' : 'Não pode ser vendido') + '</span>';
+      else h += '<span class="st-why">' + (it.pass ? 'Exclusivo do Passe T1: fica com você para sempre' : it.event ? 'Item de evento: fica guardado para sempre' : 'Não pode ser vendido') + '</span>';
       return h;
     }
 
@@ -558,6 +592,9 @@
       if (it.slot === 'terminal') h += '<dt>Onde</dt><dd>No console de todos os servidores e switches · uma por vez</dd>';
       if (it.slot === 'rack' && it.cat === 'equip') h += '<dt>Onde</dt><dd>Todos os racks, servidores e storages do datacenter</dd>';
       if (isFurn(it)) h += '<dt>Onde</dt><dd>Modo construção (B) → Cosméticos · um de cada no mapa</dd>' + (owns(it.id) ? '<dt>Agora</dt><dd>' + (placed(it.id) ? 'No mapa' : 'Guardado no inventário') + '</dd>' : '');
+      if (it.slot === 'trail') h += '<dt>Onde</dt><dd>Atrás de você enquanto anda · um por vez · os outros jogadores veem na sala online</dd>';
+      if (it.slot === 'frame' || it.slot === 'title') h += '<dt>Onde</dt><dd>' + WHERE[it.slot].replace(/^./, (c) => c.toUpperCase()) + '</dd>';
+      if (it.pass) h += '<dt>Passe</dt><dd>Passe Boot Inicial · Temporada 1' + (DL.Pass && DL.Pass.levelOf(it.id) ? ' · nível ' + DL.Pass.levelOf(it.id) : '') + ' · nunca vendido na loja</dd>';
       if (it.cat !== 'legend' && it.slot !== 'use' && it.slot) h += '<dt>Efeito</dt><dd>Só aparência — não muda desempenho</dd>';
       if (it.cat === 'legend') h += '<dt>Função</dt><dd>' + esc((DL.ROLES[it.bot.role] || {}).title || '') + ' + quase todas as outras · aprende em dobro · salário normal do cargo</dd>';
       if (ev) h += '<dt>Evento</dt><dd>' + esc(ev.name) + (DL.eventActive(it.event) ? ' · até ' + DL.eventEnds(it.event) : ' · encerrado em ' + DL.eventEnds(it.event)) + '</dd>';
@@ -595,10 +632,11 @@
     }
 
     /* ---------- the shop ---------- */
-    // Skins | Acessórios | Pets | Emotes | Equipamentos | Cosméticos, then the bots, the special items, an
-    // event (only while it has items on sale) and the Gold tab
+    // Skins | Acessórios | Pets | Emotes | Equipamentos | Cosméticos | Rastros, then the bots, the special
+    // items, an event (only while it has items on sale) and the Gold tab. The season pass' items are never
+    // here (price 0: forSale leaves them out).
     const SHOP_TABS = [
-      ['skins', 'Skins'], ['acc', 'Acessórios'], ['pets', 'Pets'], ['emotes', 'Emotes'], ['equip', 'Equipamentos'], ['decor', 'Cosméticos'],
+      ['skins', 'Skins'], ['acc', 'Acessórios'], ['pets', 'Pets'], ['emotes', 'Emotes'], ['equip', 'Equipamentos'], ['decor', 'Cosméticos'], ['trails', 'Rastros'],
       ['legend', 'Bots lendários'], ['special', 'Especiais'], ['event', 'Evento'], ['gold', 'Gold'],
     ];
     // Equipamentos has two sections, each sorted on its own
@@ -615,6 +653,7 @@
       else if (tab === 'emotes') return EMOTE_LIST.slice();
       else if (tab === 'equip') return [].concat(...EQUIP_SECTIONS.map(([, slot]) => all.filter((it) => it.cat === 'equip' && !it.event && it.slot === slot).sort(shopOrder)));
       else if (tab === 'decor') list = all.filter((it) => !it.event && it.slot === 'furniture');
+      else if (tab === 'trails') list = all.filter((it) => !it.event && it.slot === 'trail');
       else if (tab === 'legend') list = all.filter((it) => it.cat === 'legend' && !it.event);
       else if (tab === 'special') list = all.filter((it) => it.cat === 'special' && !it.event);
       else list = [];
