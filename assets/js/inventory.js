@@ -31,6 +31,9 @@
   for (const e of DL.EMOTES || []) if (!e.item) EMO['emote_' + e.id] = { id: 'emote_' + e.id, cat: 'emote', slot: 'emote', value: e.id, name: e.name + ' ' + e.emoji, rarity: 'common', price: 0, free: true, sell: false, desc: e.desc + ' Atalho no jogo: tecla ' + e.key + ' ou o botão Emotes.' };
   const EMOTE_LIST = Object.values(EMO);
   const item = (id) => DL.cosmetic(id) || EMO[id] || null;
+  const RENAMED = DL.RENAMED_COSMETICS || {};
+  // (a server that hasn't run the migration yet still answers with the old id)
+  const current = (id) => (RENAMED[id] && item(RENAMED[id]) ? RENAMED[id] : id);
   const RAR = (it) => DL.RARITY[it.rarity] || DL.RARITY.common;
 
   DL.createInventory = function (game, sys) {
@@ -54,6 +57,12 @@
       if (PAID[D.items[id].src]) refund += RETIRED[id] * Math.max(0, D.items[id].n | 0);
       delete D.items[id];
     }
+    // replaced items (cosmetics.js): the new one takes the old one's place, equipped too
+    let renamed = false;
+    for (const [old, now] of Object.entries(RENAMED)) {
+      if (D.items[old] && item(now)) { if (!D.items[now]) D.items[now] = D.items[old]; delete D.items[old]; renamed = true; }
+      for (const s of Object.keys(D.equip)) if (D.equip[s] === old) { D.equip[s] = now; renamed = true; }
+    }
     // drop what the catalog no longer knows
     for (const id of Object.keys(D.items)) if (!item(id) || !(D.items[id].n > 0)) delete D.items[id];
     for (const s of Object.keys(D.equip)) if (!item(D.equip[s]) || !D.items[D.equip[s]]) delete D.equip[s];
@@ -61,6 +70,7 @@
     // browser's storage and every action is decided by the server
     const S = { version: 1, boostUntil: -1, remote: null, legendary: [], pending: false };
     const save = () => { if (S.remote) return; try { localStorage.setItem(KEY, JSON.stringify({ v: 1, items: D.items, equip: D.equip, claimed: D.claimed })); } catch (e) { /* private mode */ } };
+    if (renamed && !refund) save();
     if (refund > 0) {
       save();
       economy.earn('gold', refund, 'Devolução: itens retirados da loja', { quiet: true });
@@ -168,9 +178,9 @@
     function applyRemote(st) {
       if (!st || !Array.isArray(st.items)) return;
       D.items = {};
-      for (const r of st.items) if (item(r.item_id)) D.items[r.item_id] = { n: r.quantity, at: Date.parse(r.first_acquired_at) || Date.now(), last: Date.parse(r.updated_at) || Date.now(), src: r.source === 'shop' ? 'loja' : r.source === 'event' ? 'evento' : r.source, ev: r.event_id || undefined };
+      for (const r of st.items) if (item(current(r.item_id)) && !D.items[current(r.item_id)]) D.items[current(r.item_id)] = { n: r.quantity, at: Date.parse(r.first_acquired_at) || Date.now(), last: Date.parse(r.updated_at) || Date.now(), src: r.source === 'shop' ? 'loja' : r.source === 'event' ? 'evento' : r.source, ev: r.event_id || undefined };
       D.equip = {};
-      for (const [slot, id] of Object.entries(st.equipped || {})) if (isMapSlot(slot) && D.items[id]) D.equip[slot] = id;
+      for (const [slot, id] of Object.entries(st.equipped || {})) if (isMapSlot(slot) && D.items[current(id)]) D.equip[slot] = current(id);
       S.legendary = st.legendary || [];
       if (st.wallet && economy.applyServer) economy.applyServer({ wallet: st.wallet });
       if (st.avatar && crew) {

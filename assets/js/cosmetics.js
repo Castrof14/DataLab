@@ -169,7 +169,7 @@
   for (const [id, name, desc] of [
     ['bp_trail_binary', 'Rastro Binário', 'Zeros e uns dourados e turquesa caem do ar, pousam onde você pisou e brilham.'],
     ['bp_trail_sparks', 'Rastro de Faíscas', 'Faíscas elétricas douradas pulam a cada passo, com um raio estalando no chão.'],
-    ['bp_trail_cables', 'Rastro de Cabos', 'Fios coloridos que serpenteiam pelo chão atrás de você, aparecem e somem.'],
+    ['bp_trail_bolt', 'Rastro Relâmpago', 'Raios dourados em zigue-zague saltam dos seus pés, piscam e somem num instante, com uma faísca turquesa de vez em quando.'],
     ['bp_trail_ghost', 'Rastro Fantasma', 'Pegadas azuis meio transparentes, com fantasminhas de luz subindo delas.'],
     ['bp_trail_code', 'Rastro de Código', 'Letras de código turquesa e douradas sobem do chão como uma tela rolando.'],
     ['bp_trail_glitch', 'Rastro Glitch', 'O chão "falha" e treme em faixas de cor onde o personagem pisa.'],
@@ -193,6 +193,10 @@
     ['bp_floppy_shelf', 'Estante de Disquetes', 'Prateleira cheia de disquetes coloridos de 3½".'],
     ['bp_data_vault', 'Cofre de Dados', 'Cofre de aço com um cadeado digital piscando no painel.'],
   ]) PASS({ id, cat: 'decor', slot: 'furniture', value: id, name, desc, oldPass: true });
+
+  // --- Replaced items: whoever had the old one has the new one instead (inventory.js, in this browser's
+  // save and in the account's inventory; the server's migration 021 does the same in the database)
+  DL.RENAMED_COSMETICS = { bp_trail_cables: 'bp_trail_bolt' };
 
   // --- Retired items (no longer sold or kept): their price is given back once, in Gold, to whoever had
   // them (inventory.js; the server does the same for accounts). Gifts were free: nothing to give back.

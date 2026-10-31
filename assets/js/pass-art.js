@@ -327,16 +327,41 @@
     }
     R(g, 10, 40, 28, 1, P.gold[1]); R(g, 14, 41, 20, 1, P.gold[0]);
   };
-  ART.bp_trail_cables = (g, f) => {
-    const cols = [P.gold, P.turq, P.blue, P.red];
-    cols.forEach((c, i) => {
-      for (let x = 2; x < 46; x++) {
-        const y = Math.round(16 + i * 6 + Math.sin(x * 0.28 + f * 0.8 + i * 1.3) * 3);
-        R(g, x, y, 1, 2, c[1]); R(g, x, y, 1, 1, c[2]);
+  // Rastro Relâmpago: small golden zigzag bolts leaping out of the boots (frames: they grow, crack bright,
+  // jump to another shape, die out), a turquoise spark now and then
+  // tone: 2 white-hot, 1 lit, 0 dying
+  function bolt(g, x, y, steps, n, tone) {
+    let px = x, py = y;
+    const core = [P.gold[2], P.gold[3], P.goldW][tone], lit = [P.gold[1], P.gold[2], P.gold[3]][tone];
+    for (let s = 0; s < Math.min(n, steps.length); s++) {
+      const [dx, dy] = steps[s], m = Math.max(Math.abs(dx), Math.abs(dy));
+      for (let i = 1; i <= m; i++) {
+        const qx = px + Math.round((dx * i) / m), qy = py + Math.round((dy * i) / m);
+        R(g, qx + 1, qy, 1, 1, P.gold[0]); R(g, qx, qy, 1, 1, core); R(g, qx - 1, qy, 1, 1, lit);
       }
+      px += dx; py += dy;
+    }
+    return [px, py];
+  }
+  ART.bp_trail_bolt = (g, f) => {
+    foot(g, 13, 30); foot(g, 29, 30);
+    // the floor crackles under the boots
+    R(g, 8, 43, 32, 1, P.gold[1]); R(g, 12, 44, 24, 1, P.gold[0]);
+    if (f === 1) { R(g, 10, 42, 6, 1, P.goldW); R(g, 30, 42, 8, 1, P.goldW); }
+    const SHAPES = [
+      [[[-4, -5], [3, -3], [-5, -5], [3, -3], [-3, -4]], [[1, -6], [-3, -3], [3, -5], [-2, -3], [2, -4]], [[4, -5], [-3, -3], [5, -5], [-3, -3], [3, -4]]],
+      [[[-3, -4], [4, -4], [-5, -4], [2, -4], [-4, -3]], [[-2, -5], [3, -4], [-3, -5], [3, -3], [-1, -4]], [[3, -4], [-4, -4], [5, -4], [-2, -4], [4, -3]]],
+    ];
+    // how far each bolt reaches in this frame (0: born, 1: full and white-hot, 2: another shape, 3: dying)
+    const reach = [[3, 4, 2], [5, 5, 5], [4, 5, 4], [2, 3, 3]][f], sh = SHAPES[f >= 2 ? 1 : 0];
+    const roots = [[15, 29], [24, 27], [33, 29]];
+    roots.forEach(([x, y], i) => {
+      const [tx, ty] = bolt(g, x, y, sh[i], reach[i], f === 1 ? 2 : f === 3 ? 0 : 1);
+      if (reach[i] >= 5) spark(g, tx, ty - 1, f === 1 ? '#ffffff' : P.goldW, f === 1 && i === 1);
     });
-    box(g, 38, 12, 8, 6, P.steel); R(g, 46, 13, 1, 4, P.gold[2]); R(g, 40, 14, 4, 2, P.gold[1]);
-    box(g, 2, 34, 8, 6, P.steel); R(g, 4, 36, 4, 2, P.turq[2]);
+    // the turquoise spark
+    if (f === 2) { spark(g, 41, 18, P.turq[3], true); R(g, 39, 22, 1, 1, P.turq[2]); }
+    if (f === 3) { spark(g, 43, 12, P.turq[2], false); R(g, 6, 20, 1, 1, P.turq[3]); }
   };
   ART.bp_trail_ghost = (g, f) => {
     const a = [0.55, 0.75, 0.9, 0.7][f];

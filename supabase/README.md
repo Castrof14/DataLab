@@ -48,6 +48,7 @@ services/admin-service ┘                       ▼
 | `migrations/20261031000100_equipment_cosmetics.sql` | abas Equipamentos (skins de hacks e de PCs/servidores) e Cosméticos (móveis no catálogo do save, só enquanto o jogador tem o item) |
 | `migrations/20261101000100_battle_pass.sql` | Rastros (6 na loja) + **Passe Boot Inicial – Temporada 1**: raridade `exclusive_t1`, os 27 itens do passe (nunca à venda), `pass_seasons`, `pass_rewards` (50 níveis), `battle_passes` (XP, nível e missões de cada jogador), `private.pass_state` / `private.pass_sync` (XP limitado pelo tempo, cada missão conta uma vez, recompensas no inventário) |
 | `migrations/20261101000200_pass_rewards_v2.sql` | Passe Boot: nova lista de 50 recompensas (ícone de perfil, emote Reboot, Gato Glitch, acessórios, Aura Boot, Grafite e Trono), 50 Gold nos níveis sem item, slots `icon` e `aura`, raridade T1 dourada |
+| `migrations/20261101000300_trail_bolt.sql` | Passe Boot: **Rastro Relâmpago** (`bp_trail_bolt`) no nível 23 no lugar do Rastro de Cabos; quem tinha o Rastro de Cabos recebe o Relâmpago (equipado, se estava) e o item antigo sai do catálogo |
 | `seed_scenarios.sql` | lições do terminal, problemas, passos, ajudas e patentes (gerado de `assets/js/problems-data.js` + `terminal.js`) |
 | `functions/{shop,inventory,economy,game,admin,payments,payments-webhook,feedback,pass}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |

@@ -40,7 +40,7 @@
   const REWARD = {
     1: ['bp_frame_t1'], 3: ['bp_hello'], 4: ['bp_icon_chip'], 5: ['bp_trail_binary'], 7: ['bp_graffiti'], 9: ['bp_glasses001'], 10: ['bp_pet_bitzero'],
     12: ['bp_gloves_t1'], 13: ['bp_xp2'], 14: ['bp_trail_sparks'], 15: ['bp_emote_reboot'], 17: ['bp_cooler'], 18: ['bp_term_boot'], 20: ['bp_emote_hack'],
-    22: ['bp_hacker_desk'], 23: ['bp_trail_cables'], 25: ['bp_xp2'], 26: ['bp_pet_glitchcat'], 27: ['bp_founder_chair'], 29: ['bp_cable_cape'], 30: ['bp_relic'],
+    22: ['bp_hacker_desk'], 23: ['bp_trail_bolt'], 25: ['bp_xp2'], 26: ['bp_pet_glitchcat'], 27: ['bp_founder_chair'], 29: ['bp_cable_cape'], 30: ['bp_relic'],
     32: ['bp_trail_ghost'], 33: ['bp_crt_terminal'], 35: ['bp_xp2'], 36: ['bp_arcade_boot'], 37: ['bp_led_crown'], 39: ['bp_data_wings'], 40: ['bp_trail_code'],
     42: ['bp_server_throne'], 43: ['bp_trail_glitch'], 45: ['bp_neon_boot'], 46: ['bp_aura_boot'], 48: ['bp_skin_founder'], 49: ['bp_trail_rainbow'], 50: ['bp_title_pioneer'],
   };

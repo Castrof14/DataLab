@@ -26,6 +26,14 @@
   const glyph = (g, ch, x, y, c) => { if (DL.pixText) DL.pixText(g, ch, x, y, c); };
   // a soft square of light around a point (cheap: two rects)
   const halo = (g, X, Y, r, hex, a) => { R(g, X - r, Y - r + 1, r * 2 + 1, r * 2 - 1, rgba(hex, a * 0.5)); R(g, X - r + 1, Y - r, r * 2 - 1, r * 2 + 1, rgba(hex, a * 0.5)); };
+  // the Rastro Relâmpago's zigzags, one per frame: each step goes 1 px up and 1 px out (+1), back (-1) or
+  // straight (0), so the bolt is clean pixel diagonals
+  const BOLT = [
+    [0, 1, 1, 0, -1, -1, -1, 0, 1, 1, 1],
+    [1, 1, 0, -1, -1, 0, 1, 1, 1, 0, -1],
+    [0, -1, 0, 1, 1, 1, 0, -1, -1, 0, 1],
+    [1, 0, -1, -1, 0, 1, 1, 0, -1, -1, 0],
+  ];
   // a 4-point sparkle
   const star = (g, X, Y, hex, a, big) => { R(g, X - 1, Y, 3, 1, rgba(hex, a)); R(g, X, Y - 1, 1, 3, rgba(hex, a)); if (big) { R(g, X - 2, Y, 5, 1, rgba(hex, a * 0.55)); R(g, X, Y - 2, 1, 5, rgba(hex, a * 0.55)); R(g, X, Y, 1, 1, rgba(PAL.white, a)); } };
 
@@ -111,16 +119,29 @@
         R(g, X - 3, Y, 7, 1, rgba(PAL.goldL, 0.7));
       } });
     } },
-    cables: { every: 8, spawn(add, x, y, dx, dy, i, r) {
-      // a coloured wire (2 px) snakes along the floor behind the feet with a golden plug, then pulls back
-      const cols = [PAL.turq, PAL.gold, PAL.blueL, PAL.red, '#4dff88'];
-      add({ x, y, life: 1.9, flat: true, s: r(0), dx, dy, c: cols[Math.floor(r(1) * cols.length)], f(g, X, Y, h, k, p) {
-        const grow = Math.min(1, k * 5), shrink = k > 0.7 ? (1 - k) / 0.3 : 1, len = Math.round(12 * grow * shrink);
-        for (let s = 0; s < len; s++) {
-          const w = Math.round(Math.sin(s * 0.8 + p.s * 6) * 2);
-          R(g, Math.round(X - p.dx * s - p.dy * w), Math.round(Y - p.dy * s + p.dx * w), 2, 2, p.c);
+    bolt: { every: 7, spawn(add, x, y, dx, dy, i, r) {
+      // little golden lightning bolts leap out of the feet in a zigzag, flicker fast and are gone in a
+      // second; the zigzag jumps between 4 shapes (the frames) while it lives
+      for (let j = 0; j < 2; j++) add({ x: x + (j ? 2 : -2), y, life: 1, s: r(j + 2), side: j ? 1 : -1, len: 8 + Math.round(r(j + 6) * 3), f(g, X, Y, h, k, p, t) {
+        const fr = Math.floor(t * 18 + p.s * 4) % 4;
+        if (k > 0.25 && fr === 3) return; // the flicker
+        // the shape of this frame, mirrored to its side of the foot, drawn pixel by pixel from the foot up
+        const path = BOLT[(fr + Math.floor(p.s * 4)) % 4], n = Math.min(path.length, p.len);
+        const grow = Math.min(n, Math.ceil(k * 10 * n)), from = k > 0.6 ? Math.floor(((k - 0.6) / 0.4) * n) : 0;
+        const core = k < 0.18 ? PAL.white : k < 0.5 ? PAL.goldW : PAL.goldL, edge = k < 0.5 ? PAL.gold : PAL.goldD;
+        let px = X, py = Y - 1;
+        for (let s = 0; s < grow; s++) {
+          px += path[s] * p.side; py -= 1;
+          if (s >= from) { R(g, px + p.side, py, 1, 1, edge); R(g, px, py, 1, 1, core); }
         }
-        if (len > 2) { R(g, Math.round(X - 1), Math.round(Y - 1), 3, 3, PAL.goldD); R(g, Math.round(X - 1), Math.round(Y - 1), 2, 1, PAL.goldL); }
+        if (k < 0.4 && grow >= n) star(g, px, py - 1, PAL.goldW, 1 - k * 2, fr === 0);
+      } });
+      // the flash on the floor where the foot was
+      add({ x, y, life: 0.22, flat: true, f(g, X, Y, h, k) { const a = 1 - k; R(g, X - 3, Y, 7, 1, rgba(PAL.goldL, 0.8 * a)); R(g, X - 1, Y - 1, 3, 3, rgba(PAL.goldW, 0.6 * a)); } });
+      // and now and then a turquoise spark jumps off
+      if (i % 4 === 1) add({ x, y, h: 3, vx: (r(8) - 0.5) * 40, vh: 30 + r(9) * 16, gh: -120, life: 0.7, s: r(10), f(g, X, Y, h, k, p, t) {
+        star(g, X, Y - h, k < 0.3 ? PAL.white : PAL.turq, 1 - k, Math.sin(t * 30 + p.s * 9) > 0);
+        R(g, X, Y - h + 2, 1, 1, rgba(PAL.turqL, 0.6 * (1 - k)));
       } });
     } },
     ghost: { every: 8, spawn(add, x, y, dx, dy, i, r) {
@@ -169,6 +190,8 @@
       } });
     } },
   };
+  // (the Rastro de Cabos became the Rastro Relâmpago: a player on an older version still sends 'cables')
+  FX.cables = FX.bolt;
   DL.TRAIL_FX = FX;
 
   // draws one particle: flat ones in the floor's space (base), the others standing up at their spot
