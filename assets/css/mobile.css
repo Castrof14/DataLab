@@ -173,8 +173,6 @@
 .is-mobile .econ__row--cash b { font-size: 13px; }
 .is-mobile .econ .eyebrow-sm, .is-mobile .econ__flow, .is-mobile .econ__pay { display: none; }
 .is-mobile .game:has(.tutorial:not([hidden])) .econ { display: none; }
-.is-mobile .tutorial { left: calc(10px + env(safe-area-inset-left)); right: calc(10px + env(safe-area-inset-right)); width: auto; top: calc(56px + env(safe-area-inset-top)); padding: 10px 12px; }
-.is-mobile .tutorial__text { display: none; }
 .is-mobile .toasts { top: calc(98px + env(safe-area-inset-top)); width: calc(100% - 32px); }
 .is-mobile .hint, .is-mobile .minimap { display: none; }
 
@@ -362,3 +360,50 @@
 .is-mobile .title .mv-rooms .mv-room__body { min-width: 0; padding: 10px 12px 4px; }
 .is-mobile .title .mv-rooms .mv-room__body > b { overflow: hidden; font-size: 22px; white-space: nowrap; text-overflow: ellipsis; }
 .is-mobile .title .mv-rooms .mv-room__acts { grid-column: 1 / -1; }
+
+/* =====================================================================
+   Tutorial on a phone: a small card under the top bar with just what to
+   do now; the welcome card readable, with big buttons
+   ===================================================================== */
+.is-mobile .tutorial {
+  left: calc(10px + env(safe-area-inset-left)); right: calc(10px + env(safe-area-inset-right)); width: auto;
+  top: calc(54px + env(safe-area-inset-top)); padding: 8px 10px 6px;
+}
+.is-mobile .tutorial__head .eyebrow-sm { font-size: 9px; }
+.is-mobile .tutorial__title { margin-top: 4px; font-size: 15px; line-height: 20px; }
+.is-mobile .tutorial__text { display: none; }
+.is-mobile .tutorial__do { margin-top: 6px; padding: 7px 10px; font-size: 14px; line-height: 19px; }
+.is-mobile .tutorial__do b { color: #3dffa2; }
+.is-mobile .tutorial__progress { margin-top: 8px; }
+.is-mobile .tutorial__actions { margin-top: 2px; }
+.is-mobile .tutorial__actions .linkbtn, .is-mobile .tutorial__actions .btn { min-height: 32px; padding: 0 4px; font-size: 12px; }
+.is-mobile .game.is-crew .tutorial { display: block; }
+.is-mobile .game.is-crew .tutorial[hidden] { display: none; }
+@media (orientation: landscape) {
+  .is-mobile .tutorial { right: auto; width: min(360px, 46vw); }
+}
+
+.is-mobile .card--intro { padding: 22px 18px; }
+.is-mobile .card--intro .card__title { font-size: 28px; line-height: 32px; letter-spacing: -0.5px; }
+.is-mobile .card--intro .card__text { margin-top: 10px; font-size: 15px; line-height: 21px; }
+.is-mobile .card--intro .intro-steps { grid-template-columns: 1fr; margin-top: 16px; }
+.is-mobile .card--intro .intro-steps li { flex-direction: row; align-items: baseline; gap: 10px; padding: 8px 12px; font-size: 13px; }
+.is-mobile .card--intro .card__actions { flex-direction: column; align-items: stretch; gap: 10px; margin-top: 20px; text-align: center; }
+.is-mobile .card--intro .card__actions .btn { justify-content: center; min-height: 50px; font-size: 15px; }
+.is-mobile .card--intro .intro-menu { align-self: center; font-size: 15px; }
+
+/* terminal: the suggested command is a big button; "Enviar" next to the prompt; while typing, the
+   side panel shows only the current step so the keyboard leaves room for the output */
+.term__send { display: none; }
+.is-mobile .term__line { gap: 8px; }
+.is-mobile .term__send { display: inline-flex; flex: none; min-height: 36px; }
+.is-mobile .term__try {
+  display: inline-block; margin-top: 6px; padding: 8px 12px; cursor: pointer;
+  font-size: 14px; line-height: 18px; color: #05070d; background: #3dffa2; box-shadow: 0 3px #0f4a33;
+}
+.is-mobile .term__try::after { content: '  ↵ tocar para usar'; font-size: 11px; opacity: 0.7; }
+.is-mobile .term__try:active { transform: translateY(2px); box-shadow: 0 1px #0f4a33; }
+.is-mobile .term:has(#termIn:focus) .term__goal,
+.is-mobile .term:has(#termIn:focus) .term__steps li:not(.is-current),
+.is-mobile .term:has(#termIn:focus) .term__note { display: none; }
+.is-mobile .term__note { display: none; }

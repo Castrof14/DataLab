@@ -177,6 +177,60 @@
   // the auth gate and the game take keys while the screen is up: keep them inside it
   addEventListener('keydown', (ev) => { if (screenEl && !screenEl.contains(ev.target)) ev.stopImmediatePropagation(); }, true);
 
+  /* ---------------- tutorial and terminal, made for fingers ---------------- */
+  // the tutorial's instructions talk about keys and the mouse: say it with taps (tutorial.js)
+  const TOUCH_WORDS = [
+    [/Aperte <kbd>\w<\/kbd> ou abra <b>Operações → (\w+)<\/b> no topo/g, 'Toque em <b>Menu</b> → <b>$1</b>'],
+    [/Abra <b>Operações → (\w+)<\/b> no topo da tela/g, 'Toque em <b>Menu</b> → <b>$1</b>'],
+    [/Aperte <kbd>\w<\/kbd> ou clique em/g, 'Toque em'],
+    [/ \(<kbd>Esc<\/kbd>\)/g, ' (botão <b>×</b>)'],
+    [/ · <kbd>R<\/kbd> gira/g, ''],
+    [/à direita do terminal/g, 'embaixo do terminal'],
+    [/Arraste no terreno/g, 'Arraste o dedo no terreno'],
+    [/Clique/g, 'Toque'],
+    [/clique/g, 'toque'],
+  ];
+  DL.mobileText = (html) => TOUCH_WORDS.reduce((s, [re, to]) => s.replace(re, to), String(html || ''));
+  // scroll the panels that hold a control (build dock, drawer, windows) until it shows; never the page
+  DL.mobileReveal = (node) => {
+    for (let p = node.parentElement; p && p !== document.body; p = p.parentElement) {
+      const cs = getComputedStyle(p), r = node.getBoundingClientRect(), c = p.getBoundingClientRect();
+      if (p.scrollHeight > p.clientHeight + 1 && /(auto|scroll)/.test(cs.overflowY)) {
+        if (r.top < c.top + 8) p.scrollTop -= c.top + 8 - r.top;
+        else if (r.bottom > c.bottom - 8) p.scrollTop += r.bottom - c.bottom + 8;
+      }
+      if (p.scrollWidth > p.clientWidth + 1 && /(auto|scroll)/.test(cs.overflowX)) {
+        if (r.left < c.left + 8) p.scrollLeft -= c.left + 8 - r.left;
+        else if (r.right > c.right - 8) p.scrollLeft += r.right - c.right + 8;
+      }
+    }
+  };
+  // terminal (beginner mode): the suggested command is a button; a tap types it, Enter sends it
+  document.addEventListener('click', (ev) => {
+    const tip = ev.target.closest('.term__try');
+    const input = tip && $('termIn');
+    if (!input) return;
+    input.value = tip.textContent;
+    input.focus({ preventScroll: true });
+    input.setSelectionRange(input.value.length, input.value.length);
+  });
+  // and a visible "Enviar" next to the prompt, for who doesn't look for the keyboard's Enter
+  const termLine = document.querySelector('.term__line'), termIn = $('termIn');
+  if (termLine && termIn) {
+    const send = document.createElement('button');
+    send.type = 'button';
+    send.className = 'btn btn--sm term__send';
+    send.textContent = 'Enviar';
+    // pointerdown keeps the keyboard up (the field doesn't lose focus)
+    send.addEventListener('pointerdown', (ev) => ev.preventDefault());
+    send.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      termIn.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true, cancelable: true }));
+      termIn.focus({ preventScroll: true });
+    });
+    termLine.appendChild(send);
+  }
+
   /* ---------------- the game's HUD on a phone ---------------- */
   function gameUi() {
     const game = $('game'), actions = $('hudActions'), top = document.querySelector('.hud-top');
