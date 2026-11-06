@@ -46,7 +46,7 @@
   }
   async function change(body) {
     const r = await DL.Cloud.call('friends', body);
-    if (r.ok) apply(r.data.lists);
+    if (r.ok) { failed = false; apply(r.data.lists); }
     return r;
   }
 

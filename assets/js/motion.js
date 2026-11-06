@@ -212,7 +212,8 @@
   function windowIn(card) {
     const w = card.offsetWidth, h = card.offsetHeight;
     if (!w || !h) return;
-    animate(card, { spring: 'island', pad: 24, restart: true, from: Object.assign({ y: 14 }, pill(w, h, 180, 40, w / 2, h / 2)), to: { y: 0 } });
+    // every target is set: reopened while still closing, the spring would otherwise keep heading for the pill and stay there
+    animate(card, { spring: 'island', pad: 24, restart: true, from: Object.assign({ y: 14 }, pill(w, h, 180, 40, w / 2, h / 2)), to: { y: 0, it: -24, ir: -24, ib: -24, il: -24, rad: 0 } });
     if (card.classList.contains('card--modal')) stagger(card.children, { spring: 'smooth', delay: 70, from: { y: 10, o: 0 } }, 30);
   }
   function windowOut(card) {
@@ -224,7 +225,7 @@
   function dropIn(menu, ax) {
     const w = menu.offsetWidth, h = menu.offsetHeight;
     if (!w) return;
-    animate(menu, { spring: 'island', pad: 48, restart: true, from: Object.assign({ y: -6 }, pill(w, h, 96, 32, ax, 16)), to: { y: 0 } });
+    animate(menu, { spring: 'island', pad: 48, restart: true, from: Object.assign({ y: -6 }, pill(w, h, 96, 32, ax, 16)), to: { y: 0, o: 1, it: -48, ir: -48, ib: -48, il: -48, rad: 0 } });
     stagger(menu.children, { spring: 'bouncy', delay: 40, from: { x: 10, o: 0 } }, 26);
   }
   function dropOut(menu, ax, done) {

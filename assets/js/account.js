@@ -96,18 +96,19 @@
     return h + '</ul>' + (DL.SaveService.lastSaved ? '<p class="acc-small">Último salvamento: ' + when(DL.SaveService.lastSaved) + '</p>' : '');
   }
   function viewFriends() {
-    const F = DL.Friends;
-    if (!F || !F.ready) return '<p class="acc-small acc-pad">A lista de amigos não está disponível agora. Confira a conexão e abra esta aba de novo.</p>';
+    const F = DL.Friends, ready = F.ready;
     const person = (x, note, acts) => '<li class="acc-slot acc-slot--friend"><div><b>' + esc(x.display_name || x.username) + '</b><span class="acc-small">@' + esc(x.username) + (note ? ' · ' + note : '') + '</span></div><div class="acc-acts">' + acts + '</div></li>';
     const section = (title, rows) => (rows.length ? '<span class="eyebrow-sm">' + title + '</span><ul class="acc-slots">' + rows.join('') + '</ul>' : '');
     const { friends, incoming, outgoing } = F.lists;
+    // the field is always here: without the list (no connection, server down) a request still can be tried, and says why it failed
     return '<div class="acc-friends"><form class="acc-form" data-form="friend" autocomplete="off">' +
-      field('Adicionar amigo pelo nome de usuário', input('username', 'text', 'ex.: ana_dc', V.friendDraft, 'required maxlength="21" spellcheck="false" autocapitalize="none"')) +
-      '<div class="acc-acts">' + btn('friend-add', 'Enviar pedido', true) + (V.profile && V.profile.username ? '<span class="acc-small">O seu é <b>@' + esc(V.profile.username) + '</b></span>' : '') + '</div></form>' +
+      field('Nick do amigo (nome de usuário)', input('username', 'text', 'ex.: ana_dc', V.friendDraft, 'required maxlength="21" spellcheck="false" autocapitalize="none"')) +
+      '<div class="acc-acts">' + btn('friend-add', 'Adicionar amigo', true) + (V.profile && V.profile.username ? '<span class="acc-small">O seu é <b>@' + esc(V.profile.username) + '</b></span>' : '') + '</div></form>' +
       section('Pedidos recebidos', incoming.map((x) => person(x, '', btn('friend-yes:' + x.id, 'Aceitar') + btn('friend-no:' + x.id, 'Recusar')))) +
       section('Amigos (' + friends.length + ')', friends.map((x) => person(x, 'desde ' + when(x.at), btn('friend-del:' + x.id, 'Remover')))) +
       section('Pedidos enviados', outgoing.map((x) => person(x, 'aguardando resposta', btn('friend-del:' + x.id, 'Cancelar')))) +
-      (friends.length || incoming.length || outgoing.length ? '' : '<p class="acc-small">Você ainda não adicionou ninguém. Peça o nome de usuário de um amigo, ou clique no personagem dele numa sala online.</p>') + '</div>';
+      (!ready ? '<p class="acc-small">Não foi possível carregar sua lista de amigos agora.</p>'
+        : friends.length || incoming.length || outgoing.length ? '' : '<p class="acc-small">Você ainda não adicionou ninguém. Digite o nick de um amigo acima, ou clique no personagem dele numa sala online.</p>') + '</div>';
   }
   function viewAdmin() {
     const isAdmin = V.roles.indexOf('admin') >= 0, canGrant = isAdmin || V.roles.indexOf('developer') >= 0;
@@ -167,7 +168,8 @@
         V.friendDraft = data.username;
         if (!/^[a-z0-9_]{3,20}$/.test(name)) return say('warn', 'Nome de usuário: 3 a 20 caracteres, letras, números ou _.');
         const r = await DL.Friends.request(name);
-        if (!r.ok) return say('warn', r.message);
+        // no answer at all (function not published, no connection): the generic message would blame the site's address
+        if (!r.ok) return say('warn', r.code === 'network' || r.code === 'http_404' ? 'O servidor de amigos não respondeu. Tente de novo em instantes.' : r.message);
         V.friendDraft = '';
         say('ok', r.data.status === 'accepted' ? 'Você e @' + r.data.username + ' agora são amigos.' : 'Pedido enviado para @' + r.data.username + '.');
       } else if (kind === 'find') {
