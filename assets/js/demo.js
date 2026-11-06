@@ -216,9 +216,6 @@
     sync();
   });
   document.addEventListener('pointerdown', (ev) => { if (!ev.target.closest('.hud-group')) closeGroups(); }, true);
-  // Jogo → Baixar para PC: the download page (baixar.html) in a new tab, the game keeps running here
-  // (also the green "Baixar" button in the top bar and "Baixar para PC" in the Main Menu, menu.js)
-  ['dlBtn', 'dlTopBtn'].forEach((id) => { if ($(id)) $(id).addEventListener('click', (ev) => { ev.currentTarget.blur(); window.open('baixar.html', '_blank', 'noopener'); }); });
   addEventListener('keydown', (ev) => {
     if (ev.code !== 'Escape' || !groups.some((g) => g.classList.contains('is-open'))) return;
     closeGroups();

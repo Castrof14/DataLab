@@ -94,7 +94,7 @@
 .is-mobile body.demo { touch-action: manipulation; }
 .is-mobile #world { touch-action: none; }
 /* the desktop installers are no use on a phone */
-.is-mobile #dlBtn, .is-mobile #dlTopBtn, .is-mobile .mm-btn--dl { display: none; }
+.is-mobile .mm-btn--dl { display: none; }
 .is-mobile .game { -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 
 .is-mobile .hud-top {

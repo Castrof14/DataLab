@@ -20,7 +20,7 @@ window.DATALAB_CONFIG = {
   ytmDesktopEnabled: true,
   // ytmDesktopHost: '127.0.0.1',
   // ytmDesktopPort: 9863,   // a different port must also go into connect-src in jogo.html's CSP
-  // Desktop app (baixar.html, opened from Jogo → Baixar para PC): PUBLIC https links to the installers.
+  // Desktop app (baixar.html, opened from Main Menu → Baixar para PC): PUBLIC https links to the installers.
   // Empty = the page shows "Em breve". version is only displayed (e.g. '0.9.0').
   desktopDownloads: {
     version: '',

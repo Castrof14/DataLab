@@ -1,7 +1,7 @@
 /* DataLab — only inside the desktop app (desktop.js adds html.is-desktop). */
 
 /* the app is the desktop version already: no "download for PC" */
-.is-desktop #dlBtn, .is-desktop #dlTopBtn, .is-desktop .mm-btn--dl { display: none; }
+.is-desktop .mm-btn--dl { display: none; }
 
 /* closing the window: background / save and quit / cancel */
 .dsk-ask {

@@ -4,7 +4,7 @@
      (emotes.js: frames + effects); a click / tap or the keys 1–5 jump to the next one.
    - The installers come from config.js → desktopDownloads { version, windows, mac } (https links only).
      Empty = "Em breve". The visitor's system gets the "Seu sistema" mark.
-   - Opened from inside the game (Jogo → Baixar para PC): without a game session in this browser the
+   - Opened from the game's Main Menu (Baixar para PC): without a game session in this browser the
      links stay hidden and the page sends the visitor into the game first. This is a convenience, not a
      lock: the installers are public files once they exist. */
 (function () {

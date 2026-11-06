@@ -2051,15 +2051,3 @@ b.is-loss { color: var(--sunset); }
   .hud-top .hud-group__btn { gap: 4px; padding: 0 6px; letter-spacing: 0.4px; }
 }
 @media (max-width: 400px) { .hud-group__caret { display: none; } }
-
-/* top bar → Baixar (baixar.html): the desktop download, always in sight */
-.ops-btn--dl { gap: 6px; border-color: #3dffa2; color: #b9ffe0; background: rgba(61, 255, 162, 0.1); }
-.ops-btn--dl:hover:not([disabled]) { background: rgba(61, 255, 162, 0.22); border-color: #8cffc8; }
-.dl-ico {
-  width: 12px; height: 12px; flex: none; image-rendering: pixelated;
-  background:
-    linear-gradient(#3dffa2 0 0) 5px 0/2px 6px, linear-gradient(#3dffa2 0 0) 2px 4px/8px 2px,
-    linear-gradient(#3dffa2 0 0) 4px 6px/4px 2px, linear-gradient(#3dffa2 0 0) 0 10px/12px 2px;
-  background-repeat: no-repeat;
-}
-@media (max-width: 1300px) { .ops-btn--dl .hud-lbl { display: none; } }
