@@ -100,6 +100,9 @@
   add({ id: 'pet_catbot', cat: 'char', slot: 'pet', value: 'catbot', name: 'Gato Robô', rarity: 'epic', price: 140, desc: 'Gato de metal azulado com olhos de LED e uma antena no lugar do rabo.' });
   add({ id: 'pet_server', cat: 'char', slot: 'pet', value: 'server', name: 'Mini Servidor', rarity: 'epic', price: 160, desc: 'Um servidorzinho com perninhas e LEDs piscando. Corre atrás de você fazendo uptime.' });
   add({ id: 'pet_holodog', cat: 'char', slot: 'pet', value: 'holodog', name: 'Cachorro Holográfico', rarity: 'legendary', price: 260, desc: 'Cachorro feito de luz azul, com linhas de varredura e rabo que não para.' });
+  add({ id: 'pet_dracache', cat: 'char', slot: 'pet', value: 'dracache', name: 'Drácache', rarity: 'epic', price: 150, desc: 'Morcego roxo de olhos de LED que cochila de cabeça para baixo nos racks.' });
+  add({ id: 'pet_guaca', cat: 'char', slot: 'pet', value: 'guaca', name: 'Guaca.exe', rarity: 'common', price: 50, desc: 'Abacate de bracinhos curtos que anda como quem acabou de aprender.' });
+  add({ id: 'pet_sudo', cat: 'char', slot: 'pet', value: 'sudo', name: 'Sudo', rarity: 'rare', price: 85, desc: 'Gato preto de fone LED que só obedece quando você pede com sudo.' });
 
   // --- Equipamentos · skins of the hacking tools: the look of the in-game terminal (slot 'terminal',
   // terminal.js + DL.termFx below). Only the appearance: commands work the same.
@@ -1760,8 +1763,82 @@
   /* Pets: small companions in profile (facing right; left is mirrored), */
   /* on the same 22×31 frame as a character so drawActor can place them  */
   /* ------------------------------------------------------------------ */
+  // Pixel-grid pets: each frame stamps parts at [x, y]; 'm' mirrors the part.
+  const BAT_UP = [['wUp', 3, 12], ['wUp', 15, 12, 'm'], ['fbody', 8, 14]];
+  const BAT_MID = [['wMid', 3, 16], ['wMid', 15, 16, 'm'], ['fbody', 8, 14]];
+  const BAT_DOWN = [['wDown', 3, 15], ['wDown', 15, 15, 'm'], ['fbody', 8, 13]];
+  const GRID_PETS = {
+    dracache: {
+      pal: { P: '#4b2a78', p: '#2e1850', Q: '#8a62c8', W: '#3a1f62', w: '#28134a', E: '#a5f7ea', F: '#f1f1ee', k: '#1a0d2e' },
+      parts: {
+        fbody: ['Q.....Q', 'PQ...QP', 'PPPPPPP', 'PEPPPEP', 'PPFPFPP', '.PPPPP.', '.pPPPp.', '..ppp..', '..k.k..'],
+        wUp: ['Q....', 'WQ...', 'WWQ..', 'WWWQQ', 'w.wWW'],
+        wMid: ['QQQQQ', 'WWWWW', 'wWwWW', 'w.w.W'],
+        wDown: ['....Q', '...QW', '..QWW', '.QWWw', 'Qw.w.'],
+      },
+      idle: [BAT_UP, BAT_DOWN],
+      walk: [BAT_UP, BAT_MID, BAT_DOWN, BAT_MID],
+    },
+    guaca: {
+      pal: { K: '#3d5e22', k: '#24391a', G: '#a6d655', g: '#7fb23e', Y: '#e6f2a2', H: '#9fb860', h: '#cfe08a', B: '#8a5530', b: '#c08050', n: '#5a3318', E: '#0b0d12', w: '#ffffff', M: '#4a1612', T: '#ff7f9e', l: '#7fae42', f: '#4b7028' },
+      parts: {
+        body: ['.....KK.....', '....KGGK....', '...KGGGGK...', '..KGGGGGGK..', '.KGGGGEwGGK.', '.KGGEGEEGgK.', 'KGGGGMMGGGgK', 'KGGGGGTGGGgK', 'KGGGYYYYGGgK', 'KGGYHHHHYGgK', 'KGGYhhhhYGgK', 'KGGYhhhhYGgK', 'KgGGYhhYGGgK', '.KgGGYYGGgK.', '..KkggggkK..', '...kkkkkk...'],
+        pit: ['bbBB', 'bBBB', 'BBBn', '.Bn.'],
+        armUp: ['l..', '.l.', '..l'],
+        armDown: ['..l', '.l.', 'l..'],
+        legsI: ['....l..l....', '....l..l....', '....ff.ff...'],
+        legsA: ['....l...l...', '...l.....l..', '..ff.....ff.'],
+        legsB: ['.....ll.....', '....l..l....', '....ff.ff...'],
+      },
+      idle: [
+        [['legsI', 5, 26], ['body', 5, 10], ['pit', 9, 19], ['armDown', 2, 19], ['armDown', 17, 19, 'm']],
+        [['legsI', 5, 26], ['body', 5, 11], ['pit', 9, 20], ['armDown', 2, 20], ['armDown', 17, 20, 'm']],
+      ],
+      walk: [
+        [['legsA', 5, 26], ['body', 4, 10], ['pit', 8, 19], ['armUp', 1, 17], ['armDown', 16, 19, 'm']],
+        [['legsB', 5, 26], ['body', 5, 11], ['pit', 9, 20], ['armDown', 2, 20], ['armDown', 17, 20, 'm']],
+        [['legsA', 5, 26, 'm'], ['body', 6, 10], ['pit', 10, 19], ['armDown', 3, 19], ['armUp', 18, 17, 'm']],
+        [['legsB', 5, 26], ['body', 5, 11], ['pit', 9, 20], ['armDown', 2, 20], ['armDown', 17, 20, 'm']],
+      ],
+    },
+    sudo: {
+      pal: { F: '#2b2f42', D: '#171a24', f: '#5a6380', E: '#7ee0a1', n: '#e07a96', w: '#e8e8ee', H: '#7b8aa6', h: '#2de2c8', c: '#14897a' },
+      parts: {
+        head: ['.f....f.', 'HFHHHHFH', 'hFFFFFFh', 'hFEFFEFh', 'cFFFnFFc', '.FFFwFF.', '..FFFF..'],
+        body: ['.ffffffffff.', 'FFFFFFFFFFFF', 'FFFFFFFFFwFF', '.DDFFFFFFFD.'],
+        tailA: ['ww..', 'f...', 'F...', '.f..', '.F..', '..FF'],
+        tailB: ['.ww.', '.f..', 'f...', 'F...', '.F..', '..FF'],
+        legsI: ['.DF.....DF..', '.DF.....DF..', '.DF.....DF..'],
+        legsA: ['.DF.....DF..', 'D..F...D..F.', 'D..F...D..F.'],
+        legsB: ['.FD.....FD..', 'F..D...F..D.', 'F..D...F..D.'],
+      },
+      idle: [
+        [['legsI', 3, 26], ['body', 3, 22], ['tailA', 0, 17], ['head', 10, 16]],
+        [['legsI', 3, 26], ['body', 3, 22], ['tailB', 0, 17], ['head', 10, 16]],
+      ],
+      walk: [
+        [['legsA', 3, 26], ['body', 3, 22], ['tailA', 0, 17], ['head', 10, 16]],
+        [['legsI', 3, 26], ['body', 3, 22], ['tailA', 0, 17], ['head', 10, 17]],
+        [['legsB', 3, 26], ['body', 3, 22], ['tailB', 0, 17], ['head', 10, 16]],
+        [['legsI', 3, 26], ['body', 3, 22], ['tailB', 0, 17], ['head', 10, 17]],
+      ],
+    },
+  };
+  function drawGridPet(g, P, f, walk) {
+    const frames = walk ? P.walk : P.idle;
+    for (const [name, x, y, m] of frames[f % frames.length]) {
+      P.parts[name].forEach((row, ry) => {
+        for (let rx = 0; rx < row.length; rx++) {
+          const ch = m === 'm' ? row[row.length - 1 - rx] : row[rx];
+          if (ch !== '.') R(g, x + rx, y + ry, 1, 1, P.pal[ch]);
+        }
+      });
+    }
+  }
+
   // f: animation frame (0–3), walk: legs moving. Ground row = 28 (where a character's shoes end).
   function drawPet(g, kind, f, walk, alt) {
+    if (GRID_PETS[kind]) return drawGridPet(g, GRID_PETS[kind], f, walk);
     const odd = f % 2 === 1, step = walk ? f % 2 : 0;
     switch (kind) {
       case 'bug': {
