@@ -4759,3 +4759,16 @@ end') returning id) insert into public.scenario_step_help (step_id, help_key, so
 with s as (insert into public.scenario_steps (lesson_id, problem_id, ord, step_type, text, expected_cmd, action, check_rule, answer, device_role, auto_cmd) values (null, 'lead_crise', 3, 'command', 'O {{dev.name}} está na rede.', null, null, '{"ran":"ping-ok:{{gw}}"}'::jsonb, null, null, 'ping -c 3 {{gw}}') returning id) insert into public.scenario_step_help (step_id, help_key, sort) select s.id, h.key, h.n - 1 from s, unnest(array['ping']::text[]) with ordinality as h(key, n);
 
 commit;
+
+-- ===================================================================
+-- 20261106000200_pets_dracache_guaca_sudo.sql
+-- ===================================================================
+-- Pets novos da loja: Drácache, Guaca.exe e Sudo (cosmetics.js)
+insert into public.items (id, category_id, slot, value, name, description, rarity_id, currency_id, price, stackable, max_quantity, sellable, purchasable, gift, grant_type, event_id, color) values
+  ('pet_dracache', 'char', 'pet', '"dracache"'::jsonb, 'Drácache', 'Morcego roxo de olhos de LED que cochila de cabeça para baixo nos racks.', 'epic', 'gold', 150, false, null, true, true, false, 'shop', null, null),
+  ('pet_guaca', 'char', 'pet', '"guaca"'::jsonb, 'Guaca.exe', 'Abacate de bracinhos curtos que anda como quem acabou de aprender.', 'common', 'gold', 50, false, null, true, true, false, 'shop', null, null),
+  ('pet_sudo', 'char', 'pet', '"sudo"'::jsonb, 'Sudo', 'Gato preto de fone LED que só obedece quando você pede com sudo.', 'rare', 'gold', 85, false, null, true, true, false, 'shop', null, null)
+on conflict (id) do update set category_id = excluded.category_id, slot = excluded.slot, value = excluded.value, name = excluded.name, description = excluded.description, rarity_id = excluded.rarity_id, price = excluded.price, stackable = excluded.stackable, max_quantity = excluded.max_quantity, sellable = excluded.sellable, purchasable = excluded.purchasable, gift = excluded.gift, grant_type = excluded.grant_type, event_id = excluded.event_id, color = excluded.color, active = true;
+insert into public.skins (item_id, target, theme) values
+  ('pet_dracache', 'character', null), ('pet_guaca', 'character', null), ('pet_sudo', 'character', null)
+on conflict (item_id) do update set target = excluded.target, theme = excluded.theme;
