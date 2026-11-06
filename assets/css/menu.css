@@ -1127,3 +1127,22 @@
   .visit-chat { left: 16px; right: 16px; bottom: 16px; width: auto; }
   .visit-chat__log { height: 96px; }
 }
+
+/* Main Menu → Baixar para PC (baixar.html): green so it stands out among the menu items */
+.mm-btn--dl, .title .mm-btn--dl { --edge: #3dffa2; border-color: #3dffa2; }
+.mm-btn--dl:hover:not(:disabled), .title .mm-btn--dl:hover:not(:disabled) { background: #3dffa2; }
+.mm-btn__icon--dl {
+  background:
+    linear-gradient(#3dffa2 0 0) 7px 1px/2px 8px, linear-gradient(#3dffa2 0 0) 3px 6px/10px 2px,
+    linear-gradient(#3dffa2 0 0) 5px 8px/6px 2px, linear-gradient(#3dffa2 0 0) 7px 10px/2px 1px,
+    linear-gradient(#3dffa2 0 0) 1px 13px/14px 2px;
+  background-repeat: no-repeat;
+}
+.mm-btn:hover:not(:disabled) .mm-btn__icon--dl {
+  background-image:
+    linear-gradient(var(--bg) 0 0), linear-gradient(var(--bg) 0 0),
+    linear-gradient(var(--bg) 0 0), linear-gradient(var(--bg) 0 0),
+    linear-gradient(var(--bg) 0 0);
+}
+.mm-btn__pill--new, .title .mm-btn__pill--new { border-color: #3dffa2; color: #3dffa2; background: #0f4a33; }
+.mm-btn--dl:hover .mm-btn__pill--new, .title .mm-btn--dl:hover .mm-btn__pill--new { color: #3dffa2; background: #05070d; }

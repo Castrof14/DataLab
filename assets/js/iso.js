@@ -687,8 +687,12 @@
     // legendary bots: golden aura behind and sparkles in front (cosmetics.js)
     const aura = !ghost && a.legend && DL.drawAura;
     if (aura) DL.drawAura(g, X, Y, sc.t || 0, 'back');
+    // the season pass' Aura Boot (trails.js), on me and on other players who wear it
+    const boot = !ghost && !a.hidden && DL.actorAura && DL.actorAura(a) === 'boot';
+    if (boot) DL.drawAuraBoot(g, X, Y, sc.t || 0, 'back');
     g.drawImage(a.frame(), X - C.AX, Y - C.AY);
     if (aura) DL.drawAura(g, X, Y, sc.t || 0, 'front');
+    if (boot) DL.drawAuraBoot(g, X, Y, sc.t || 0, 'front');
     // live effects: animated skins (cosmetics.js) and the actor's own (emotes)
     if (!ghost && DL.charFx) DL.charFx(g, a, X, Y, sc.t || 0);
     if (!ghost && a.fx) a.fx(g, X, Y, sc.t || 0);

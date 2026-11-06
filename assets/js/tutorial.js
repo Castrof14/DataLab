@@ -198,6 +198,8 @@
       if (U.guide) U.guide.classList.remove('is-guide');
       U.guide = node;
       if (node) node.classList.add('is-guide');
+      // on a phone the control may sit further down a scrolling panel: bring it into view (mobile.js)
+      if (node && DL.mobileReveal) DL.mobileReveal(node);
     }
 
     // Spotlight: the screen goes green and translucent (the game still shows through) with a hole over the
@@ -237,8 +239,10 @@
     function drawSpot() {
       let node = U.on && !U.done && U.guide && U.guide.isConnected ? U.guide : null;
       // a top bar button inside a closed group: point at the group's button until it opens
-      const group = node && node.closest('.hud-group:not(.is-open)');
+      // (on a phone the groups live in the Menu drawer: mobile.js points at the Menu button while it is closed)
+      const group = node && !DL.mobileGuide && node.closest('.hud-group:not(.is-open)');
       if (group) node = group.querySelector('.hud-group__btn');
+      if (node && DL.mobileGuide) node = DL.mobileGuide(node);
       const r = node && visibleRect(node);
       if (!r || !shown(r)) { if (lastSpot) { lastSpot = ''; spot.classList.remove('is-on'); ring.classList.remove('is-on'); } return; }
       let d = 'M0 0H' + innerWidth + 'V' + innerHeight + 'H0Z' + hole(r, 6, 8);
@@ -267,7 +271,7 @@
         el.step.textContent = U.i + 1 + ' / ' + STEPS.length;
         el.title.textContent = s.title;
         el.text.textContent = s.text;
-        el.act.innerHTML = h.act;
+        el.act.innerHTML = DL.mobileText ? DL.mobileText(h.act) : h.act; // touch words on a phone (mobile.js)
         if (force) {
           for (const n of [el.title, el.text]) { n.classList.remove('swap'); void n.offsetWidth; n.classList.add('swap'); }
         }
@@ -303,7 +307,8 @@
       el.step.textContent = 'Concluído';
       el.title.textContent = 'Esse é o seu datacenter.';
       el.text.textContent = 'Agora a empresa está operando: servidores no ar geram receita, e o caixa só diminui quando você compra algo ou contrata. Acompanhe o card de finanças e resolva os problemas rápido — equipamento com problema não gera receita.';
-      el.act.innerHTML = '<kbd>B</kbd> construir · <kbd>C</kbd> equipe · <kbd>M</kbd> monitor · <kbd>T</kbd> tarefas · <kbd>I</kbd> infra';
+      el.act.innerHTML = DL.MOBILE ? 'Toque em <b>Construir</b> e <b>Equipe</b> no topo · Tarefas, Monitor e Infra ficam no <b>Menu</b>'
+        : '<kbd>B</kbd> construir · <kbd>C</kbd> equipe · <kbd>M</kbd> monitor · <kbd>T</kbd> tarefas · <kbd>I</kbd> infra';
       bars.forEach((b) => { b.classList.add('is-done'); b.classList.remove('is-current'); });
       el.skip.hidden = true;
       el.close.hidden = false;

@@ -3300,6 +3300,262 @@ end $$;
 commit;
 
 -- ===================================================================
+-- 20261101000200_pass_rewards_v2.sql
+-- ===================================================================
+-- DataLab · 020 · Passe Boot Inicial – Temporada 1: a nova lista de recompensas
+-- The pass gets its own golden look and a new reward table (assets/js/battlepass.js REWARD, the same here):
+--   · new rewards: profile icon "Chip Boot" (slot 'icon'), emote Reboot, pet Gato Glitch, golden circuit
+--     gloves, Mochila Cooler, Capa de Cabos, Coroa de LED, Asas de Dados, Aura Boot (slot 'aura'), the
+--     Grafite "BOOT" and the Trono do Servidor (furniture);
+--   · out of the pass: Tapete Placa-Mãe, Luminária de LED, Máquina de Café 8-bit, Estante de Disquetes and
+--     Cofre de Dados — whoever already earned one keeps it (the items stay in the catalog, never for sale);
+--   · fewer Gold levels, 50 Gold each; the Rastro Arco-íris (49) and the Título Pioneiro (50) are separate.
+-- Every reward stays EXCLUSIVO T1: never sold (purchasable false, price 0, sellable false), kept forever.
+-- The pass is free for everyone (the activation is the game's); the XP rules (private.pass_sync) don't change.
+-- New equip slots 'icon' and 'aura' (the Edge Function "inventory" accepts them for unequip).
+begin;
+
+-- 1) the rarity takes the pass' gold
+update public.rarities set color = '#ffcf3f' where id = 'exclusive_t1';
+
+-- 2) the rewards (new ones, and the new names / descriptions of the ones that stay)
+with n (id, category_id, slot, value, name, description, stackable) as (values
+  ('bp_frame_t1', 'pass', 'frame', 't1', 'Moldura Dourada T1', 'Moldura de perfil dourada, com cantos em pixel, pedras turquesa e um brilho que gira em volta. Aparece na Conta e na sala online.', false),
+  ('bp_icon_chip', 'pass', 'icon', 'chip', 'Ícone de Perfil "Chip Boot"', 'O chip dourado do passe, com o símbolo de ligar no meio. Aparece ao lado do seu nome no jogo e na sala online.', false),
+  ('bp_title_pioneer', 'pass', 'title', 'pioneer', 'Título "Pioneiro"', 'Texto dourado com um brilho passando, embaixo do seu nome no jogo e na sala online. O prêmio final do passe.', false),
+  ('bp_emote_reboot', 'pass', 'emote', 'reboot', 'Reboot', 'O personagem "desliga", fica com a tela azul no rosto e "liga" de novo, com barra de carregamento. Tecla 5.', false),
+  ('bp_pet_bitzero', 'char', 'pet', 'bitzero', 'BIT ZERO', 'Robozinho de tela quadrada que pisca 0 e 1 no rosto e flutua atrás de você com um jato de luz.', false),
+  ('bp_pet_glitchcat', 'char', 'pet', 'glitchcat', 'Gato Glitch', 'Gatinho em pixel que de vez em quando "falha": treme e muda de cor.', false),
+  ('bp_glasses001', 'char', 'face', 'g001', 'Óculos 001', 'Óculos escuros com "001" dourado passando nas lentes.', false),
+  ('bp_gloves_t1', 'char', 'hands', 'gloves_t1', 'Luvas de Circuito Douradas', 'Luvas pretas com linhas de circuito douradas que acendem uma depois da outra.', false),
+  ('bp_cooler', 'char', 'back', 'cooler', 'Mochila Cooler', 'Mochila preta com uma ventoinha girando nas costas e um LED piscando.', false),
+  ('bp_cable_cape', 'char', 'back', 'cablecape', 'Capa de Cabos', 'Uma capa feita de fios coloridos que balançam quando você anda.', false),
+  ('bp_led_crown', 'char', 'head', 'ledcrown', 'Coroa de LED', 'Coroa dourada com LEDs coloridos que acendem em sequência.', false),
+  ('bp_data_wings', 'char', 'back', 'datawings', 'Asas de Dados', 'Asas feitas de pixels de código turquesa e dourado, que batem devagar.', false),
+  ('bp_aura_boot', 'pass', 'aura', 'boot', 'Aura Boot', 'Partículas douradas sobem em volta do personagem, com um anel de luz nos pés. Os outros jogadores veem na sala online.', false),
+  ('bp_skin_founder', 'char', 'shirt', 'bp_founder', 'Skin Fundador', 'Sobretudo longo preto com forro dourado e gola alta, "001" pulsando nas costas, olhos turquesa, luvas e botas douradas. A barra balança quando você anda.', false),
+  ('bp_relic', 'equip', 'rack', 'm_relic', 'Servidor Relíquia', 'Gabinete antigo, bege e rachado, com luz dourada saindo pelas rachaduras: o primeiro servidor do mundo.', false),
+  ('bp_trail_binary', 'trail', 'trail', 'binary', 'Rastro Binário', 'Zeros e uns dourados e turquesa caem do ar, pousam onde você pisou e brilham.', false),
+  ('bp_trail_sparks', 'trail', 'trail', 'sparks', 'Rastro de Faíscas', 'Faíscas elétricas douradas pulam a cada passo, com um raio estalando no chão.', false),
+  ('bp_trail_cables', 'trail', 'trail', 'cables', 'Rastro de Cabos', 'Fios coloridos que serpenteiam pelo chão atrás de você, aparecem e somem.', false),
+  ('bp_trail_ghost', 'trail', 'trail', 'ghost', 'Rastro Fantasma', 'Pegadas azuis meio transparentes, com fantasminhas de luz subindo delas.', false),
+  ('bp_trail_code', 'trail', 'trail', 'code', 'Rastro de Código', 'Letras de código turquesa e douradas sobem do chão como uma tela rolando.', false),
+  ('bp_trail_glitch', 'trail', 'trail', 'glitch', 'Rastro Glitch', 'O chão "falha" e treme em faixas de cor onde o personagem pisa.', false),
+  ('bp_trail_rainbow', 'trail', 'trail', 'rainbow', 'Rastro Arco-íris Pixel', 'Uma faixa de arco-íris em pixel que ondula atrás de você, cheia de brilhos.', false),
+  ('bp_hello', 'decor', 'furniture', 'bp_hello', 'Quadro "Hello World"', 'Na parede: o primeiro programa de todo mundo, numa moldura dourada, com o cursor piscando. 2 tiles.', false),
+  ('bp_graffiti', 'decor', 'furniture', 'bp_graffiti', 'Grafite "BOOT"', 'Na parede: "BOOT" pichado em neon dourado, com a tinta escorrendo. 2 tiles.', false),
+  ('bp_founder_chair', 'decor', 'furniture', 'bp_founder_chair', 'Cadeira do Fundador', 'Cadeira gamer preta com detalhes dourados e o selo 001 no encosto.', false),
+  ('bp_hacker_desk', 'decor', 'furniture', 'bp_hacker_desk', 'Mesa Hacker', 'Mesa com 3 monitores com código rolando e teclado aceso. 2 tiles.', false),
+  ('bp_crt_terminal', 'decor', 'furniture', 'bp_crt_terminal', 'Terminal de Tubo', 'Computador antigo de tela verde, com chiado na tela e o prompt piscando.', false),
+  ('bp_arcade_boot', 'decor', 'furniture', 'bp_arcade_boot', 'Fliperama Boot', 'Fliperama com o logo do DataLab no letreiro e um joguinho animado na tela.', false),
+  ('bp_server_throne', 'decor', 'furniture', 'bp_server_throne', 'Trono do Servidor', 'Um trono feito de racks, com luzes piscando nos braços e no encosto.', false),
+  ('bp_neon_boot', 'decor', 'furniture', 'bp_neon_boot', 'Placa Neon "BOOT 001"', 'Letreiro neon dourado e turquesa para pendurar na parede. 2 tiles.', false)
+)
+insert into public.items (id, category_id, slot, value, name, description, rarity_id, currency_id, price, stackable, max_quantity, sellable, purchasable, gift, grant_type, event_id, color)
+select id, category_id, slot, to_jsonb(value), name, description, 'exclusive_t1', 'gold', 0, stackable, null, false, false, false, 'reward', null, null from n
+on conflict (id) do update set category_id = excluded.category_id, slot = excluded.slot, value = excluded.value, name = excluded.name, description = excluded.description,
+  rarity_id = excluded.rarity_id, price = excluded.price, stackable = excluded.stackable, max_quantity = excluded.max_quantity, sellable = excluded.sellable,
+  purchasable = excluded.purchasable, gift = excluded.gift, grant_type = excluded.grant_type, event_id = excluded.event_id, color = excluded.color, active = true;
+
+-- the new furniture as save catalog entries (build mode → Cosméticos), free to place for whoever owns it
+insert into public.equipment_prices (id, kind, unit_kind, category, name, price) values
+  ('bp_graffiti', 'bp_graffiti', null, 'cosm', 'Grafite BOOT', 0),
+  ('bp_server_throne', 'bp_server_throne', null, 'cosm', 'Trono do Servidor', 0)
+on conflict (id) do update set kind = excluded.kind, unit_kind = excluded.unit_kind, category = excluded.category, name = excluded.name, price = excluded.price;
+
+-- 3) the new reward table: one reward per level, 50 Gold on the 15 levels without an item
+delete from public.pass_rewards where season_id = 's1';
+insert into public.pass_rewards (season_id, level, items, gold)
+select 's1', l, coalesce(r.items, '{}'), case when r.items is not null then 0 else 50 end
+from generate_series(1, 50) l
+left join (values
+  (1, array['bp_frame_t1']), (3, array['bp_hello']), (4, array['bp_icon_chip']), (5, array['bp_trail_binary']), (7, array['bp_graffiti']),
+  (9, array['bp_glasses001']), (10, array['bp_pet_bitzero']), (12, array['bp_gloves_t1']), (13, array['bp_xp2']), (14, array['bp_trail_sparks']),
+  (15, array['bp_emote_reboot']), (17, array['bp_cooler']), (18, array['bp_term_boot']), (20, array['bp_emote_hack']), (22, array['bp_hacker_desk']),
+  (23, array['bp_trail_cables']), (25, array['bp_xp2']), (26, array['bp_pet_glitchcat']), (27, array['bp_founder_chair']), (29, array['bp_cable_cape']),
+  (30, array['bp_relic']), (32, array['bp_trail_ghost']), (33, array['bp_crt_terminal']), (35, array['bp_xp2']), (36, array['bp_arcade_boot']),
+  (37, array['bp_led_crown']), (39, array['bp_data_wings']), (40, array['bp_trail_code']), (42, array['bp_server_throne']), (43, array['bp_trail_glitch']),
+  (45, array['bp_neon_boot']), (46, array['bp_aura_boot']), (48, array['bp_skin_founder']), (49, array['bp_trail_rainbow']), (50, array['bp_title_pioneer'])
+) as r (lv, items) on r.lv = l;
+
+commit;
+
+-- ===================================================================
+-- 20261101000300_trail_bolt.sql
+-- ===================================================================
+-- DataLab · 021 · Passe Boot Inicial – Temporada 1: o Rastro Relâmpago no lugar do Rastro de Cabos
+-- Level 23 of the pass now gives the Rastro Relâmpago (bp_trail_bolt, value 'bolt', assets/js/trails.js):
+-- little golden zigzag bolts leaping out of the feet, gone in a second, a turquoise spark now and then.
+-- Whoever already had the Rastro de Cabos gets the Rastro Relâmpago in its place, equipped if it was
+-- (the game does the same in a browser's own save: cosmetics.js DL.RENAMED_COSMETICS, inventory.js).
+-- The old item leaves every inventory and the catalog (kept inactive: old transactions point to it).
+begin;
+
+-- 1) the new reward (EXCLUSIVO T1: never sold, kept forever)
+insert into public.items (id, category_id, slot, value, name, description, rarity_id, currency_id, price, stackable, max_quantity, sellable, purchasable, gift, grant_type, event_id, color)
+values ('bp_trail_bolt', 'trail', 'trail', to_jsonb('bolt'::text), 'Rastro Relâmpago', 'Raios dourados em zigue-zague saltam dos seus pés, piscam e somem num instante, com uma faísca turquesa de vez em quando.',
+  'exclusive_t1', 'gold', 0, false, null, false, false, false, 'reward', null, null)
+on conflict (id) do update set category_id = excluded.category_id, slot = excluded.slot, value = excluded.value, name = excluded.name, description = excluded.description,
+  rarity_id = excluded.rarity_id, price = excluded.price, stackable = excluded.stackable, max_quantity = excluded.max_quantity, sellable = excluded.sellable,
+  purchasable = excluded.purchasable, gift = excluded.gift, grant_type = excluded.grant_type, event_id = excluded.event_id, color = excluded.color, active = true;
+
+-- 2) the pass' level 23
+update public.pass_rewards set items = array_replace(items, 'bp_trail_cables', 'bp_trail_bolt') where season_id = 's1' and 'bp_trail_cables' = any (items);
+
+-- 3) whoever had the Rastro de Cabos: the Rastro Relâmpago, from the same source and date
+insert into public.inventory_items (user_id, item_id, quantity, source, event_id, first_acquired_at)
+  select v.user_id, 'bp_trail_bolt', 1, v.source, v.event_id, v.first_acquired_at from public.inventory_items v where v.item_id = 'bp_trail_cables'
+  on conflict (user_id, item_id) do nothing;
+insert into public.transactions (user_id, item_id, amount, kind, description, ref)
+  select v.user_id, 'bp_trail_bolt', 1, 'grant', 'Rastro Relâmpago no lugar do Rastro de Cabos', jsonb_build_object('migration', 'trail_bolt')
+  from public.inventory_items v where v.item_id = 'bp_trail_cables';
+
+-- 4) equipped: the new one stays on
+update public.equipped_items e set item_id = 'bp_trail_bolt', inventory_item_id = v.id, equipped_at = now()
+  from public.inventory_items v
+  where e.item_id = 'bp_trail_cables' and v.user_id = e.user_id and v.item_id = 'bp_trail_bolt';
+
+-- 5) the old one leaves every inventory (any equip left goes with it: FK on delete cascade) and the catalog
+delete from public.inventory_items where item_id = 'bp_trail_cables';
+update public.items set active = false, purchasable = false where id = 'bp_trail_cables';
+
+commit;
+
+-- ===================================================================
+-- 20261106000100_friends.sql
+-- ===================================================================
+-- DataLab · friends: a player asks another by username, the other accepts or declines.
+-- One row per pair of players, whoever asked (user_a < user_b, so A→B and B→A can't both exist). A pending row
+-- becomes 'accepted'; declining, cancelling and removing a friend delete it, and the two can start over.
+-- Each player sees only their own requests and friends, and of the others only username and display name.
+-- Nothing here is readable or writable from the browser: everything goes through the "friends" Edge
+-- Function, which calls the private.* functions below with the user id taken from the JWT.
+
+create table if not exists public.friendships (
+  user_a uuid not null references public.profiles (id) on delete cascade,
+  user_b uuid not null references public.profiles (id) on delete cascade,
+  requested_by uuid not null references public.profiles (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted')),
+  created_at timestamptz not null default now(),
+  accepted_at timestamptz,
+  primary key (user_a, user_b),
+  constraint friendships_order check (user_a < user_b),
+  constraint friendships_requester check (requested_by in (user_a, user_b))
+);
+create index if not exists friendships_user_b on public.friendships (user_b);
+
+-- RLS on, no grants: the browser never touches this table directly
+alter table public.friendships enable row level security;
+do $$ begin
+  if exists (select 1 from pg_roles where rolname = 'authenticated') and exists (select 1 from pg_roles where rolname = 'anon') then
+    revoke all on public.friendships from anon, authenticated;
+  end if;
+end $$;
+
+-- everything the player's Amigos tab shows: every change answers with this, so the screen is always current
+create or replace function private.friends_list(p_uid uuid) returns jsonb
+language sql stable as $$
+  with mine as (
+    select case when f.user_a = p_uid then f.user_b else f.user_a end as other, f.status, f.requested_by, f.created_at, f.accepted_at
+    from public.friendships f
+    where f.user_a = p_uid or f.user_b = p_uid
+  ), rows as (
+    select m.*, jsonb_build_object('id', p.id, 'username', p.username, 'display_name', p.display_name, 'at', coalesce(m.accepted_at, m.created_at)) as j, lower(p.username) as sort_name
+    from mine m join public.profiles p on p.id = m.other
+  )
+  select jsonb_build_object(
+    'friends', coalesce((select jsonb_agg(j order by sort_name) from rows where status = 'accepted'), '[]'::jsonb),
+    'incoming', coalesce((select jsonb_agg(j order by created_at desc) from rows where status = 'pending' and requested_by <> p_uid), '[]'::jsonb),
+    'outgoing', coalesce((select jsonb_agg(j order by created_at desc) from rows where status = 'pending' and requested_by = p_uid), '[]'::jsonb));
+$$;
+
+-- the limits: friends on the list, requests waiting for an answer (asked, and received: nobody can flood someone)
+create or replace function private.friend_count(p_uid uuid, p_status text, p_asked boolean default null) returns integer
+language sql stable as $$
+  select count(*)::integer from public.friendships f
+  where (f.user_a = p_uid or f.user_b = p_uid) and f.status = p_status
+    and (p_asked is null or (f.requested_by = p_uid) = p_asked);
+$$;
+
+-- makes a pending row a friendship (both lists must have room)
+create or replace function private.friend_accept_row(p_uid uuid, p_other uuid) returns void
+language plpgsql as $$
+begin
+  if private.friend_count(p_uid, 'accepted') >= 200 then perform private.fail('friend_limit', 'Sua lista de amigos está cheia (200).'); end if;
+  if private.friend_count(p_other, 'accepted') >= 200 then perform private.fail('friend_limit', 'A lista de amigos dessa pessoa está cheia.'); end if;
+  update public.friendships set status = 'accepted', accepted_at = now()
+  where user_a = least(p_uid, p_other) and user_b = greatest(p_uid, p_other);
+end $$;
+
+-- a request by username. If the other player had already asked me, that's a yes: we are friends right away.
+create or replace function private.friend_request(p_uid uuid, p_username text) returns jsonb
+language plpgsql as $$
+declare
+  v_other public.profiles;
+  v_row public.friendships;
+begin
+  select * into v_other from public.profiles where lower(username) = lower(trim(p_username));
+  if not found then perform private.fail('user_not_found', 'Não encontramos ninguém com esse nome de usuário.'); end if;
+  if v_other.id = p_uid then perform private.fail('friend_self', 'Esse é o seu próprio usuário.'); end if;
+
+  -- a new row, unless the pair already has one (the unique key also settles two requests at the same moment)
+  if private.friend_count(p_uid, 'pending', true) >= 50 then
+    if not exists (select 1 from public.friendships where user_a = least(p_uid, v_other.id) and user_b = greatest(p_uid, v_other.id)) then
+      perform private.fail('friend_limit', 'Você tem muitos pedidos sem resposta: cancele alguns antes.');
+    end if;
+  end if;
+  if private.friend_count(v_other.id, 'pending', false) < 100 then
+    insert into public.friendships (user_a, user_b, requested_by)
+    values (least(p_uid, v_other.id), greatest(p_uid, v_other.id), p_uid)
+    on conflict (user_a, user_b) do nothing;
+    if found then return jsonb_build_object('status', 'pending', 'username', v_other.username, 'lists', private.friends_list(p_uid)); end if;
+  end if;
+
+  select * into v_row from public.friendships
+  where user_a = least(p_uid, v_other.id) and user_b = greatest(p_uid, v_other.id) for update;
+  if not found then perform private.fail('friend_limit', 'Essa pessoa tem muitos pedidos sem resposta. Tente mais tarde.'); end if;
+  if v_row.status = 'accepted' then perform private.fail('friend_exists', 'Vocês já são amigos.'); end if;
+  if v_row.requested_by = p_uid then perform private.fail('friend_pending', 'Você já enviou um pedido para essa pessoa.'); end if;
+  perform private.friend_accept_row(p_uid, v_other.id);
+  return jsonb_build_object('status', 'accepted', 'username', v_other.username, 'lists', private.friends_list(p_uid));
+end $$;
+
+-- the answer to a request received: only the one who was asked can answer
+create or replace function private.friend_respond(p_uid uuid, p_other uuid, p_accept boolean) returns jsonb
+language plpgsql as $$
+declare v_row public.friendships;
+begin
+  select * into v_row from public.friendships
+  where user_a = least(p_uid, p_other) and user_b = greatest(p_uid, p_other) and status = 'pending' and requested_by = p_other for update;
+  if not found then perform private.fail('friend_not_found', 'Esse pedido não existe mais.'); end if;
+  if p_accept then perform private.friend_accept_row(p_uid, p_other);
+  else delete from public.friendships where user_a = v_row.user_a and user_b = v_row.user_b; end if;
+  return jsonb_build_object('lists', private.friends_list(p_uid));
+end $$;
+
+-- leaves a friendship, or cancels a request I sent (a request I received is answered with friend_respond)
+create or replace function private.friend_remove(p_uid uuid, p_other uuid) returns jsonb
+language plpgsql as $$
+begin
+  delete from public.friendships
+  where user_a = least(p_uid, p_other) and user_b = greatest(p_uid, p_other)
+    and (status = 'accepted' or requested_by = p_uid);
+  if not found then perform private.fail('friend_not_found', 'Essa pessoa não está mais na sua lista.'); end if;
+  return jsonb_build_object('lists', private.friends_list(p_uid));
+end $$;
+
+do $$
+declare f text;
+begin
+  foreach f in array array[
+    'private.friends_list(uuid)', 'private.friend_count(uuid, text, boolean)', 'private.friend_accept_row(uuid, uuid)',
+    'private.friend_request(uuid, text)', 'private.friend_respond(uuid, uuid, boolean)', 'private.friend_remove(uuid, uuid)'] loop
+    execute 'revoke all on function ' || f || ' from public';
+    if exists (select 1 from pg_roles where rolname = 'anon') then execute 'revoke all on function ' || f || ' from anon, authenticated'; end if;
+  end loop;
+end $$;
+
+-- ===================================================================
 -- seed_scenarios.sql
 -- ===================================================================
 -- DataLab · seed dos cenários (gerado por supabase/scripts/build-scenarios.mjs a partir de assets/js/problems-data.js e

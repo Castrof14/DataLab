@@ -474,6 +474,7 @@
         if (id === 'online') { ev.preventDefault(); return; }
       }
       if (id === 'menu') return closeSub();
+      if (id === 'download') { window.open('baixar.html', '_blank', 'noopener'); return; }   // baixar.html: desktop installers
       if (id === 'new') return newGame('zero');
       if (id === 'account') return DL.AccountUI && DL.AccountUI.open();
       if (id === 'online' && !DL.Lobby) return; // no multiplayer on this page

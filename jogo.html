@@ -10,8 +10,10 @@
   <meta name="theme-color" content="#0a0a0a">
   <!-- Scripts only from this site + the pinned Supabase SDK (with SRI); network only to Supabase.
        A custom Supabase domain must be added to connect-src, and so must the Agent Gateway's address
-       (agentGatewayUrl in config.js; localhost:8787 is already there for development). -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321 http://127.0.0.1:8787 http://localhost:8787; object-src 'none'; base-uri 'self'; form-action 'self'">
+       (agentGatewayUrl in config.js; localhost:8787 is already there for development).
+       127.0.0.1/localhost:9863 (http + ws) = YTMDesktop on the player's own computer (ytmusic-service.js).
+       ipc: / ipc.localhost = the desktop app's bridge (desktop.js), unreachable from a browser. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://*.scdn.co https://*.spotifycdn.com https://*.googleusercontent.com https://*.ytimg.com https://*.ggpht.com; connect-src 'self' https://accounts.spotify.com https://api.spotify.com https://*.supabase.co wss://*.supabase.co http://127.0.0.1:54321 http://localhost:54321 http://127.0.0.1:8787 http://localhost:8787 http://127.0.0.1:9863 http://localhost:9863 ws://127.0.0.1:9863 ws://localhost:9863 ipc: http://ipc.localhost; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="strict-origin-when-cross-origin">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,11 +32,21 @@
   <link rel="stylesheet" href="assets/css/account.css">
   <link rel="stylesheet" href="assets/css/auth.css">
   <link rel="stylesheet" href="assets/css/spotify.css">
+  <link rel="stylesheet" href="assets/css/ytmusic.css">
+  <link rel="stylesheet" href="assets/css/desktop.css">
   <link rel="stylesheet" href="assets/css/multiplayer.css">
   <link rel="stylesheet" href="assets/css/welcome.css">
   <link rel="stylesheet" href="assets/css/feedback.css">
   <link rel="stylesheet" href="assets/css/agents.css">
   <link rel="stylesheet" href="assets/css/motion.css">
+  <!-- phones (PWA): mobile.css + mobile.js only act on touch screens, the PC layout is untouched -->
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="DataLab">
+  <link rel="stylesheet" href="assets/css/mobile.css" media="(hover: none) and (pointer: coarse)">
+  <script src="assets/js/mobile.js" defer></script>
   <!-- The CSP <meta> above turns off Chrome's preload scanner, so the scripts at the end of <body> would
        download one after another (~45 round trips). Listing them here fetches them all at once; they
        still run in the same order. Keep this list in step with the <script> tags below. -->
@@ -89,7 +101,9 @@
   <link rel="preload" href="assets/js/services/payment-service.js" as="script">
   <link rel="preload" href="assets/js/services/admin-service.js" as="script">
   <link rel="preload" href="assets/js/services/spotify-service.js" as="script">
+  <link rel="preload" href="assets/js/services/ytmusic-service.js" as="script">
   <link rel="preload" href="assets/js/services/feedback-service.js" as="script">
+  <link rel="preload" href="assets/js/services/friends-service.js" as="script">
   <link rel="preload" href="assets/js/services/agent-service.js" as="script">
   <link rel="preload" href="assets/js/auth-gate.js" as="script">
   <link rel="preload" href="assets/js/demo.js" as="script">
@@ -98,6 +112,7 @@
   <link rel="preload" href="assets/js/account.js" as="script">
   <link rel="preload" href="assets/js/feedback.js" as="script">
   <link rel="preload" href="assets/js/spotify-player.js" as="script">
+  <link rel="preload" href="assets/js/ytmusic-player.js" as="script">
   <link rel="preload" href="assets/js/services/net-service.js" as="script">
   <link rel="preload" href="assets/js/multiplayer.js" as="script">
   <link rel="preload" href="assets/js/lobby.js" as="script">
@@ -186,10 +201,10 @@
         <button class="mode" type="button" data-mode="crew" aria-pressed="false">Equipe <kbd>C</kbd></button>
       </nav>
       <span class="emo">
-        <button class="btn btn--sm ops-btn ops-btn--emo" id="emoteBtn" type="button" title="Emotes: dança (1), acenar (2), raiva (3), invasão (4, do Passe)" aria-haspopup="menu" aria-expanded="false" aria-controls="emoteWheel"><span aria-hidden="true">🙂</span><span class="hud-lbl">Emotes</span></button>
+        <button class="btn btn--sm ops-btn ops-btn--emo" id="emoteBtn" type="button" title="Emotes: dança (1), acenar (2), raiva (3), invasão (4) e reboot (5), do Passe" aria-haspopup="menu" aria-expanded="false" aria-controls="emoteWheel"><span aria-hidden="true">🙂</span><span class="hud-lbl">Emotes</span></button>
         <span class="emo__wheel" id="emoteWheel" role="menu" aria-label="Emotes" hidden></span>
       </span>
-      <button class="btn btn--sm ops-btn ops-btn--pass" id="passBtn" type="button" title="Passe Boot Inicial · Temporada 1 (J)"><span class="bp-ico" aria-hidden="true"></span><span class="hud-lbl">Passe</span><span class="bp-btn__lvl" id="passBtnLvl">0</span></button>
+      <button class="btn btn--sm ops-btn ops-btn--pass" id="passBtn" type="button" title="Passe Boot Inicial · Temporada 1 (J)"><canvas class="bp-chip" id="passChip" width="40" height="40" aria-hidden="true"></canvas><span class="hud-lbl">Passe</span><span class="bp-btn__lvl" id="passBtnLvl">0</span></button>
       <button class="btn btn--sm ops-btn ops-btn--ai" id="aiBtn" type="button" hidden title="IA da equipe: funcionários executam tarefas reais com o OpenCode"><span aria-hidden="true">🤖</span><span class="hud-lbl">IA da equipe</span><span class="ai-dot" id="aiDot" hidden></span></button>
       <div class="hud-meta eyebrow-sm">
         <span id="hudMeta">Meu datacenter</span>
@@ -214,10 +229,14 @@
           </div>
         </div>
         <div class="hud-group" data-group="game">
-          <button class="btn btn--sm ops-btn hud-group__btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="hudGame">Jogo<span class="hud-group__caret" aria-hidden="true"></span></button>
+          <button class="btn btn--sm ops-btn hud-group__btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="hudGame">Jogo<span class="ops-badge hud-group__badge" hidden>0</span><span class="hud-group__caret" aria-hidden="true"></span></button>
           <div class="hud-group__menu" id="hudGame" role="menu" aria-label="Jogo">
+            <button class="btn btn--sm ops-btn" id="friendsBtn" type="button" title="Adicionar amigos e responder pedidos de amizade">Amigos<span class="ops-badge" id="friendsBadge" hidden>0</span></button>
             <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
             <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
+            <button class="btn btn--sm ops-btn ops-btn--ytm" id="ytmBtn" type="button" title="YouTube Music (YTMDesktop): conectar e controlar a sua música" aria-controls="ytm" aria-expanded="false" hidden><span class="ytm-ico" aria-hidden="true"></span>YouTube Music</button>
+            <!-- only in the desktop app (desktop.js): the game keeps running, the character stays in a corner of the screen -->
+            <button class="btn btn--sm" id="bgBtn" type="button" title="O jogo continua rodando e o seu personagem fica no canto da tela" hidden>Segundo plano</button>
             <button class="btn btn--sm" id="helpBtn" type="button" title="Configurações e controles">Configurações</button>
             <button class="btn btn--sm" id="fbBtn" type="button" title="Relatar um bug (com print da tela) ou mandar uma ideia para o jogo">Relatar bug</button>
             <button class="btn btn--sm" id="mpOpenBtn" type="button" title="Transformar este datacenter numa sala: quem tiver o código entra e joga junto" hidden>Abrir sala</button>
@@ -258,6 +277,8 @@
 
     <!-- compact Spotify player (spotify-player.js); stays hidden without spotifyClientId in config.js -->
     <section class="spot" id="spot" hidden aria-label="Spotify"></section>
+    <!-- compact YouTube Music player (ytmusic-player.js, YTMDesktop v2 on this computer); hidden unless ytmDesktopEnabled in config.js -->
+    <section class="ytm" id="ytm" hidden aria-label="YouTube Music"></section>
 
     <div class="minimap" aria-hidden="true">
       <canvas id="minimap"></canvas>
@@ -340,7 +361,6 @@
     <aside class="mp-hud" id="mpHud" hidden aria-label="Sala multijogador"></aside>
 
     <div class="toasts" id="toasts" aria-live="assertive"></div>
-    <div class="bp-ups" id="passUp" hidden aria-live="polite"></div>
     <div class="talk-pings" id="talkPings" aria-live="polite"></div>
 
     <aside class="talk" id="talk" hidden aria-label="Conversa com a equipe">
@@ -420,7 +440,7 @@
           <li><span class="keys"><kbd>$</kbd></span><span>card no canto: saldo da empresa (compras, terreno, contratações) e, separados, créditos e Gold (moeda dourada) · câmbio de créditos em Gold</span></li>
           <li><span class="keys"><kbd>O</kbd></span><span>Loja: skins de racks, servidores, switches e storage, LEDs, roupas, cabelos, acessórios, itens especiais, itens de evento e bots lendários — tudo em Gold</span></li>
           <li><span class="keys"><kbd>U</kbd></span><span>Inventário: filtros por categoria e raridade, equipar / desequipar, usar, vender, ativar bots lendários · itens de evento ficam guardados</span></li>
-          <li><span class="keys"><kbd>J</kbd></span><span>Passe Boot Inicial · Temporada 1: nível, XP, missões diárias e semanais e as 50 recompensas exclusivas</span></li>
+          <li><span class="keys"><kbd>J</kbd></span><span>Passe Boot Inicial · Temporada 1 (grátis): nível, XP, missões diárias e semanais e as 50 recompensas exclusivas</span></li>
           <li><span class="keys"><kbd>B</kbd></span><span>Espaços → <b>Terreno</b>: cada expansão mostra o preço antes de confirmar e fica mais cara conforme o terreno e a área construída crescem</span></li>
           <li><span class="keys"><kbd>H</kbd></span><span>Central de Atendimento: clientes, conversas ao vivo, assumir, responder e transferir</span></li>
           <li><span class="keys"><kbd>L</kbd></span><span>Laboratório de Redes: monte, configure e teste redes (ping, ipconfig, tracert) · 5 desafios</span></li>
@@ -675,6 +695,11 @@
             <span class="mm-btn__icon mm-btn__icon--idea" aria-hidden="true"></span>
             <span class="mm-btn__text"><b>Ideias e Bugs</b><small>Vote no que entra na próxima atualização</small></span>
           </button>
+          <button class="mm-btn mm-btn--dl" type="button" data-go="download" style="--i:5" title="Abre a página de download numa nova aba">
+            <span class="mm-btn__icon mm-btn__icon--dl" aria-hidden="true"></span>
+            <span class="mm-btn__text"><b>Baixar para PC</b><small>Versão desktop para Windows e macOS</small></span>
+            <span class="mm-btn__pill mm-btn__pill--new">Novo</span>
+          </button>
         </nav>
 
         <section class="mm-weekly" aria-label="Sala da Semana" tabindex="0" role="button" data-go="weekly">
@@ -726,6 +751,7 @@
   <script src="assets/js/furniture.js"></script>
   <script src="assets/js/build.js"></script>
   <script src="assets/js/cosmetics.js"></script>
+  <script src="assets/js/pass-art.js"></script>
   <script src="assets/js/trails.js"></script>
   <script src="assets/js/emotes.js"></script>
   <script src="assets/js/pets.js"></script>
@@ -771,7 +797,9 @@
   <script src="assets/js/services/payment-service.js"></script>
   <script src="assets/js/services/admin-service.js"></script>
   <script src="assets/js/services/spotify-service.js"></script>
+  <script src="assets/js/services/ytmusic-service.js"></script>
   <script src="assets/js/services/feedback-service.js"></script>
+  <script src="assets/js/services/friends-service.js"></script>
   <script src="assets/js/services/agent-service.js"></script>
   <script src="assets/js/auth-gate.js"></script>
   <script src="assets/js/demo.js"></script>
@@ -780,10 +808,13 @@
   <script src="assets/js/account.js"></script>
   <script src="assets/js/feedback.js"></script>
   <script src="assets/js/spotify-player.js"></script>
+  <script src="assets/js/ytmusic-player.js"></script>
   <!-- multiplayer: the host's browser is the room (WebRTC, handshake over Supabase Realtime); nothing to install -->
   <script src="assets/js/services/net-service.js"></script>
   <script src="assets/js/multiplayer.js"></script>
   <script src="assets/js/lobby.js"></script>
   <script src="assets/js/welcome.js"></script>
+  <!-- desktop app (desktop/, Tauri) only: does nothing in a browser -->
+  <script src="assets/js/desktop.js"></script>
 </body>
 </html>

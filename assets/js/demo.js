@@ -164,6 +164,7 @@
   const emotes = DL.createEmotes(G, player, {
     can: () => (S.phase === 'intro' ? 'Comece um jogo para usar os emotes'
       : P.seat || P.rest || P.glide ? 'Levante-se (F) para usar os emotes' : !canMove() ? 'Saia do modo construção / equipe para usar os emotes' : null),
+    onChange: (em) => G.emit('player-emote', em ? em.id : null), // the other players see it too (multiplayer.js)
   });
   // the walking trail (Rastros, trails.js) and the season pass (battlepass.js)
   const trails = DL.createTrails ? DL.createTrails(G) : null;
@@ -793,17 +794,29 @@
   // Camera drag: build and crew modes pan when the press lands on empty floor (builder.js / crew.js);
   // exploring, a drag on empty space looks around freely until the player walks again. Letting go
   // keeps a little momentum (step → camGlide).
-  // my own character: a click shows / hides what's playing on Spotify over my head (spotify-player.js)
+  // my own character: a click shows / hides what's playing on Spotify / YouTube Music over my head
+  // (spotify-player.js, ytmusic-player.js)
   const onMe = (x, y) => {
-    if (!DL.SpotifyBubble || S.mode !== 'explore' || player.hidden) return false;
+    if (!(DL.SpotifyBubble || DL.YTMusicBubble) || S.mode !== 'explore' || player.hidden) return false;
     if (scene.iso) return !!scene.pickAt(x, y, (o) => o === player);
     const w = scene.screenToWorld(x, y);
     return !!crew.pickActor(w.x, w.y, [player]);
   };
+  // another player's character in an online room: a click opens their card (lobby.js)
+  const friendAt = (x, y) => {
+    if (!DL.Lobby || S.mode === 'build') return null;
+    const others = scene.actors.filter((a) => a.remotePlayer && !a.hidden);
+    if (!others.length) return null;
+    if (scene.iso) return scene.pickAt(x, y, (o) => others.indexOf(o) >= 0);
+    const w = scene.screenToWorld(x, y);
+    return crew.pickActor(w.x, w.y, others);
+  };
   canvas.addEventListener('pointerdown', (ev) => {
     if (S.phase === 'intro' || isOverlayOpen()) return;
     const [x, y] = local(ev);
-    if (ev.button === 0 && onMe(x, y)) { DL.SpotifyBubble.toggle(); return; }
+    const friend = ev.button === 0 ? friendAt(x, y) : null;
+    if (friend) { DL.Lobby.showPlayer(friend.remotePlayer.id); return; }
+    if (ev.button === 0 && onMe(x, y)) { if (DL.SpotifyBubble) DL.SpotifyBubble.toggle(); if (DL.YTMusicBubble) DL.YTMusicBubble.toggle(); return; }
     if (ev.pointerType === 'touch' && S.mode === 'explore') return;
     if (ev.button === 0) canvas.setPointerCapture(ev.pointerId);
     S.ptrDown = ev.button === 0;
@@ -827,7 +840,7 @@
     }
     if (S.mode === 'build') builder.pointerMove(x, y);
     else crew.pointerMove(x, y);
-    if (onMe(x, y)) setCursor('pointer');
+    if (onMe(x, y) || friendAt(x, y)) setCursor('pointer');
   });
   const up = () => {
     if (S.drag && S.drag.on) setCursor('');
@@ -912,6 +925,43 @@
     stick.addEventListener('pointerup', end);
     stick.addEventListener('pointercancel', end);
     $('touchAction').addEventListener('click', interact);
+
+    // two fingers on the map: pinch to zoom (one finger keeps doing what it did). Capture listeners run
+    // before the ones above, so the second finger never reaches the builder or the crew.
+    const fingers = new Map();
+    let pinch = null;
+    const spread = () => { const [a, b] = Array.from(fingers.values()); return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)); };
+    canvas.addEventListener('pointerdown', (ev) => {
+      if (ev.pointerType !== 'touch') return;
+      fingers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+      if (fingers.size === 2 && !pinch) {
+        // drop what the first finger started (a wall, a drag) without applying it
+        S.drag = null;
+        S.ptrDown = false;
+        if (S.mode === 'build') builder.pointerAbort();
+        else crew.pointerUp();
+        pinch = { d: spread(), s: scene.autoS + wheelZ.target };
+      }
+      if (pinch) ev.stopImmediatePropagation();
+    }, true);
+    canvas.addEventListener('pointermove', (ev) => {
+      const f = fingers.get(ev.pointerId);
+      if (!f) return;
+      f.x = ev.clientX;
+      f.y = ev.clientY;
+      if (!pinch) return;
+      ev.stopImmediatePropagation();
+      if (fingers.size < 2) return;
+      const [lo, hi] = zoomRange();
+      wheelZ.target = Math.max(lo, Math.min(hi, pinch.s * (spread() / pinch.d) - scene.autoS));
+    }, true);
+    const lift = (ev) => {
+      if (!fingers.delete(ev.pointerId) || !pinch) return;
+      ev.stopImmediatePropagation();
+      if (!fingers.size) pinch = null;
+    };
+    canvas.addEventListener('pointerup', lift, true);
+    canvas.addEventListener('pointercancel', lift, true);
   }
 
   /* ---------------- player / camera ---------------- */
@@ -1092,7 +1142,11 @@
       }
     }
     prompt.classList.toggle('is-on', !!show && !(P.use && P.use.e === t));
-    if (DL.SpotifyBubble) DL.SpotifyBubble.place(S.mode === 'explore' && !player.hidden && !isOverlayOpen() ? scene.worldToScreen(player.x, player.y, player.seated ? 25 : 31) : null);
+    if (DL.SpotifyBubble || DL.YTMusicBubble) {
+      const overHead = S.mode === 'explore' && !player.hidden && !isOverlayOpen() ? scene.worldToScreen(player.x, player.y, player.seated ? 25 : 31) : null;
+      if (DL.SpotifyBubble) DL.SpotifyBubble.place(overHead);
+      if (DL.YTMusicBubble) DL.YTMusicBubble.place(overHead);
+    }
   }
 
   /* ---------------- in-world overlay ---------------- */

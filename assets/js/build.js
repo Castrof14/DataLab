@@ -1748,7 +1748,8 @@
     });
     const thumbs = new Map();
     function renderCatalog() {
-      const defs = CATALOG.filter((d) => d.cat === B.tab);
+      // (pieces that left the season pass only show for whoever owns one)
+      const defs = CATALOG.filter((d) => d.cat === B.tab && !(d.oldPass && cosmState(d) === 'locked'));
       const groups = [];
       for (const d of defs) if (d.group && groups.indexOf(d.group) < 0) groups.push(d.group);
       if (B.group && groups.indexOf(B.group) < 0) B.group = null;
@@ -2199,6 +2200,15 @@
       B.pan = null;
     }
 
+    // a second finger landed (pinch to zoom, demo.js): forget the half-made drag without applying it
+    function pointerAbort() {
+      B.draw = B.resize = B.wd = null;
+      B.roomReason = null;
+      if (B.move && B.move.drag) cancelMove();
+      B.down = null;
+      B.pan = null;
+    }
+
     function rightClick() {
       if (B.draw || B.resize || B.wd) { B.draw = null; B.resize = null; B.wd = null; B.roomReason = null; return; }
       if (B.tab === 'room' && B.roomTool !== 'select') { setRoomTool('select'); return; }
@@ -2489,7 +2499,7 @@
     return {
       get active() { return B.active; },
       get state() { return B; },
-      enter, exit, pointerMove, pointerDown, pointerUp, key, underlay, overlay, updateUi,
+      enter, exit, pointerMove, pointerDown, pointerUp, pointerAbort, key, underlay, overlay, updateUi,
       // the tutorial opens the catalog straight on the item it asks for, scrolled into view
       choose(id) {
         const def = DEF[id];

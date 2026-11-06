@@ -631,3 +631,10 @@ select.input {
     transition: none !important;
   }
 }
+
+/* Amigos: the tab */
+.acc-friends { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; }
+.acc-friends .acc-form { padding: 0; }
+.acc-friends .acc-slots { margin: 0; padding: 0; }
+.acc-pad { display: block; padding: 16px; }
+.acc-slot--friend { grid-template-columns: minmax(0, 1fr) auto; }

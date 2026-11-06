@@ -9,13 +9,13 @@
    A guest doesn't simulate: it plays its own character and edits the world locally with the same build,
    crew and terminal tools as in solo. Each change is turned into a diff of that same save format ("ops")
    and sent to the host, which applies it (charging the company) and sends the world back.
-   Every player's character travels as "pos"; "say" is the shared team chat. lobby.js has the screens. */
+   Every player's character travels as "pos", its emotes as "emote"; "say" is the shared team chat. lobby.js has the screens. */
 (function () {
   'use strict';
   const DL = window.DL, D = window.DataLabDemo;
   if (!D || DL.HERO || !DL.Net || !DL.SaveService) return;
   const G = D.game, SS = DL.SaveService, T = DL.T;
-  const LOOK_KEYS = ['name', 'body', 'skin', 'hair', 'hairStyle', 'outfit', 'shirt', 'pants', 'pantsStyle', 'shoes', 'vest', 'glasses', 'beard', 'headset', 'earrings', 'hat', 'hatColor', 'shades', 'scarf', 'backpack', 'chain', 'role'];
+  const LOOK_KEYS = ['name', 'body', 'skin', 'hair', 'hairStyle', 'outfit', 'shirt', 'pants', 'pantsStyle', 'shoes', 'vest', 'glasses', 'beard', 'headset', 'earrings', 'hat', 'hatColor', 'shades', 'scarf', 'backpack', 'chain', 'role', 'gear'];
   const DIRS = ['down', 'up', 'left', 'right'];
   const LIVE_EVERY = 0.1, STRUCT_EVERY = 0.5, POS_EVERY = 0.1;
   const r1 = (v) => Math.round(v * 10) / 10;
@@ -33,8 +33,45 @@
   const playing = () => D.state.phase === 'play';
   const myProfile = () => D.crew.playerProfile || {};
   const myName = () => myProfile().name || 'Jogador';
-  // + the trail, profile frame and title equipped in the inventory (trails.js / battlepass.js)
-  function myLook() { const p = myProfile(), o = {}; for (const k of LOOK_KEYS) if (p[k] !== undefined) o[k] = p[k]; return DL.lookExtras ? Object.assign(o, DL.lookExtras()) : o; }
+  // + the accessories, and the trail, aura, profile frame, icon and title equipped in the inventory (trails.js / battlepass.js)
+  // "live" rides along with the look (so whoever joins later gets it too) but never redraws the character
+  function myLook() { const p = myProfile(), o = {}; for (const k of LOOK_KEYS) if (p[k] !== undefined) o[k] = p[k]; if (DL.lookExtras) Object.assign(o, DL.lookExtras()); o.live = myLive(); return o; }
+
+  // what the room sees of my music: never the device's name (often the owner's) and nothing for a private
+  // session or an ad (those arrive here as idle). Spotify and YouTube Music both on: whichever is playing.
+  const clip = (s, n) => String(s || '').slice(0, n);
+  function myMusic() {
+    const read = (src, now) => {
+      const t = now ? now() : null;
+      return t && !t.idle && t.title ? { src, title: clip(t.title, 120), artist: clip(t.artist, 120), image: clip(t.image, 400), url: clip(t.url, 400), on: t.playing ? 1 : 0 } : null;
+    };
+    const a = read('spotify', DL.SpotifyNow), b = read('ytm', DL.YTMusicNow);
+    return a && a.on ? a : b && b.on ? b : a || b;
+  }
+  // levels: the account's and the season pass' are the player's own wherever they play. The career belongs to
+  // the world being played (a guest's copy is the host's), so only the host tells it.
+  function myLive() {
+    const o = {}, music = myMusic();
+    if (MP.accountLevel) o.level = MP.accountLevel;
+    if (DL.Pass && DL.Pass.activated) o.pass = DL.Pass.level;
+    if (MP.role === 'host' && D.career) o.rank = D.career.title;
+    if (music) o.music = music;
+    if (MP.username) o.user = MP.username; // so that a friend request can be sent from my card (lobby.js)
+    return o;
+  }
+  function loadAccountLevel() {
+    const q = DL.Cloud && DL.Cloud.from ? DL.Cloud.from('player_progress') : null;
+    if (q) q.select('level').maybeSingle().then((r) => { if (r && r.data && r.data.level) MP.accountLevel = r.data.level; }, () => {});
+    if (DL.Auth && DL.Auth.profile) DL.Auth.profile().then((p) => { if (p && p.username) MP.username = p.username; }, () => {});
+  }
+  function sendLook() {
+    if (!MP.role || !MP.conn) return;
+    const look = myLook();
+    MP.lastLook = JSON.stringify(look);
+    MP.conn.send({ t: 'look', look });
+  }
+  // a new song, a pause, a level up: nobody announces those, so look for changes (also in a hidden tab)
+  setInterval(() => { if (MP.role && MP.conn && JSON.stringify(myLook()) !== MP.lastLook) sendLook(); }, 2000);
 
   /* ------------------------------------------------------------------ */
   /* the world's shape: the save snapshot minus what changes every tick   */
@@ -60,7 +97,7 @@
   function remoteFrame() {
     const n = this.net;
     if (n && n.seated && this.sitSheet) { const set = this.sitSheet[n.sitDir] || this.sitSheet.up; return this.blinkT > 0 ? set.blink : set.R; }
-    return DL.Actor.prototype.frame.call(this);
+    return DL.remoteEmoteFrame(this) || DL.Actor.prototype.frame.call(this);
   }
   function lookActor(a, look) {
     const L = DL.crewLook(Object.assign({}, look));
@@ -68,13 +105,18 @@
     a.sheet = DL.makeSheet(L);
     a.sitSheet = DL.makeSitSheet(L);
   }
+  const withoutLive = (look) => Object.assign({}, look, { live: 0 });
   function upsertPlayer(info) {
     if (!info || info.id === MP.id) return null;
     let p = MP.players.get(info.id);
     if (!p) { p = { id: info.id, name: info.name, role: info.role, look: null, actor: null }; MP.players.set(info.id, p); }
     if (info.name) p.name = info.name;
     if (info.role) p.role = info.role;
-    if (info.look && !same(info.look, p.look)) { p.look = info.look; if (p.actor) lookActor(p.actor, p.look); }
+    if (info.look) {
+      const redraw = !same(withoutLive(info.look), withoutLive(p.look));
+      p.look = info.look;
+      if (redraw && p.actor) lookActor(p.actor, p.look);
+    }
     return p;
   }
   function spawnActor(p, at) {
@@ -133,6 +175,14 @@
     a.seated = !!m.s;
     a.noShadow = !!m.s;
     a.sortKey = m.s ? m.k || null : null;
+  }
+  // an emote starting (or ending: id null) on someone's character
+  function sendEmote(id) {
+    if (MP.role && MP.conn) MP.conn.send({ t: 'emote', id });
+  }
+  function onEmote(m) {
+    const p = MP.players.get(m.from);
+    if (p && p.actor) DL.remoteEmote(p.actor, m.id);
   }
 
   /* ------------------------------------------------------------------ */
@@ -476,7 +526,11 @@
     } else {
       if (t.check >= 0.3) { t.check = 0; checkLocalEdits(); tryApplyLatest(); }
     }
-    for (const p of MP.players.values()) if (p.actor && p.actor.net) glide(p.actor, p.actor.net, dt);
+    for (const p of MP.players.values()) {
+      if (!p.actor) continue;
+      if (p.actor.net) glide(p.actor, p.actor.net, dt);
+      DL.remoteEmoteUpdate(p.actor, dt);
+    }
   }
 
   // a guest's frame: its crew moves where the host's crew is (crew.update doesn't run here)
@@ -502,14 +556,14 @@
       MP.id = m.id; MP.role = role; MP.room = m.room; MP.hostId = m.hostId;
       for (const p of m.players) upsertPlayer(p);
       hookChat();
+      loadAccountLevel();
       if (role === 'guest') {
         G.guest = { update: guestUpdate };
         conn.send({ t: 'sync' });
-        conn.send({ t: 'look', look: myLook() });
       } else {
         MP.dirty = true;
-        conn.send({ t: 'look', look: myLook() });
       }
+      sendLook();
       emit('state', { open: true });
     });
     conn.on('roster', (m) => {
@@ -537,6 +591,7 @@
     conn.on('pos', onPos);
     conn.on('look', (m) => { upsertPlayer({ id: m.from, look: m.look }); emit('roster', {}); });
     conn.on('say', onSay);
+    conn.on('emote', onEmote);
     if (role === 'host') {
       conn.on('sync', (m) => { sendSnap(m.from); sendPos(true); });
       conn.on('ops', (m) => {
@@ -672,8 +727,9 @@
 
   // the build tools tell the guest's edits apart (world events while the host's world is applied are not edits)
   G.on('world', () => { if (MP.role === 'host') MP.dirty = true; });
-  G.on('player-look', () => { if (MP.role && MP.conn) MP.conn.send({ t: 'look', look: myLook() }); });
-  G.on('look-extras', () => { if (MP.role && MP.conn) MP.conn.send({ t: 'look', look: myLook() }); });
+  G.on('player-look', sendLook);
+  G.on('look-extras', sendLook);
+  G.on('player-emote', sendEmote);
 
   // runs inside the game loop (demo.js step)
   G.on('step', tick);

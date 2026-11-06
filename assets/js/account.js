@@ -1,5 +1,5 @@
 /* DataLab — account window (Conta), for logged-in players only (login, sign up and recovery live in
-   the access gate, auth-gate.js): profile + progress, cloud saves and the staff panel (item grants).
+   the access gate, auth-gate.js): profile + progress, friends, cloud saves and the staff panel (item grants).
    Talks only to the services in services/*.js. */
 (function () {
   'use strict';
@@ -10,7 +10,7 @@
   const fmt = (n) => Math.round(n).toLocaleString('pt-BR');
   const when = (t) => (t ? new Date(t).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : '—');
   const el = { box: $('account'), body: $('accountBody'), btn: $('accountBtn'), dot: $('accountDot') };
-  const V = { tab: 'profile', msg: null, tone: 'info', busy: false, profile: null, progress: null, roles: [], titles: [], saves: [], users: [], log: [], pick: null };
+  const V = { tab: 'profile', msg: null, tone: 'info', busy: false, profile: null, progress: null, roles: [], titles: [], saves: [], users: [], log: [], pick: null, friendDraft: '' };
 
   const isOpen = () => el.box.classList.contains('is-open');
   function open(tab) {
@@ -38,6 +38,7 @@
     V.titles = titles;
     V.saves = saves;
     V.progress = prog;
+    if (DL.Friends) await DL.Friends.refresh();
     if (V.tab === 'admin' && !V.roles.length) V.tab = 'profile';
     render();
     status();
@@ -55,7 +56,8 @@
   const btn = (act, label, primary) => '<button type="' + (primary ? 'submit' : 'button') + '" class="btn btn--sm' + (primary ? ' btn--primary' : '') + '" data-acc="' + act + '"' + (V.busy ? ' disabled' : '') + '>' + label + '</button>';
 
   function tabs() {
-    const list = [['profile', 'Perfil'], ['saves', 'Saves']].concat(V.roles.length ? [['admin', 'Administração']] : []);
+    const asks = DL.Friends ? DL.Friends.lists.incoming.length : 0;
+    const list = [['profile', 'Perfil'], ['friends', 'Amigos' + (asks ? ' (' + asks + ')' : '')], ['saves', 'Saves']].concat(V.roles.length ? [['admin', 'Administração']] : []);
     return '<nav class="mv-tabs acc-tabs" role="tablist">' + list.map(([k, l]) => '<button type="button" role="tab" class="mv-tab' + (V.tab === k ? ' is-on' : '') + '" data-tab="' + k + '">' + l + '</button>').join('') + '</nav>';
   }
 
@@ -63,9 +65,11 @@
     const p = V.profile || {}, g = V.progress || {}, w = D.economy.wallet;
     const company = (V.saves.find((s) => s.slot === (g.last_slot || 1)) || V.saves[0] || {}).name;
     const hours = Math.floor((g.total_play_minutes || 0) / 60);
-    // the season pass' profile frame and title (battlepass.js), when equipped
+    // the season pass' profile frame and title (battlepass.js), when equipped (the golden frame wraps the
+    // face: its light runs around it, pass.css)
     const pass = DL.lookExtras ? DL.lookExtras() : {}, passT = pass.title && DL.passTitleHtml ? DL.passTitleHtml(pass.title) : '';
-    return '<div class="acc-profile"><canvas class="acc-face' + (DL.passFrameClass ? DL.passFrameClass(pass.frame) : '') + '" data-face aria-hidden="true"></canvas><div><b>@' + esc(p.username) + '</b><span class="acc-small">' + esc(p.email || '') + '</span>' +
+    const face = '<canvas class="acc-face' + (DL.passFrameClass ? DL.passFrameClass(pass.frame) : '') + '" data-face aria-hidden="true"></canvas>';
+    return '<div class="acc-profile">' + (pass.frame === 't1' ? '<span class="acc-framed">' + face + '</span>' : face) + '<div><b>@' + esc(p.username) + '</b><span class="acc-small">' + esc(p.email || '') + '</span>' +
       '<span class="acc-small">Conta criada em ' + when(p.created_at) + '</span>' + '<span class="acc-roles">' + (V.titles.length || passT ? V.titles.map(DL.titleBadge).join('') + passT : '<span class="acc-small">Sem título ainda</span>') + '</span>' + '</div>' +
       '<div class="acc-bal"><span class="cur cur--dc"></span><b class="is-gold">' + fmt(w.gold) + '</b><small>Gold</small><span class="cur cur--cr"></span><b>' + fmt(w.credits) + '</b><small>créditos</small></div></div>' +
       '<dl class="acc-stats"><div><dt class="eyebrow-sm">Empresa</dt><dd>' + esc(company || '—') + '</dd></div><div><dt class="eyebrow-sm">Nível</dt><dd>' + (g.level || 1) + '</dd></div>' +
@@ -90,6 +94,21 @@
       h += '</li>';
     }
     return h + '</ul>' + (DL.SaveService.lastSaved ? '<p class="acc-small">Último salvamento: ' + when(DL.SaveService.lastSaved) + '</p>' : '');
+  }
+  function viewFriends() {
+    const F = DL.Friends, ready = F.ready;
+    const person = (x, note, acts) => '<li class="acc-slot acc-slot--friend"><div><b>' + esc(x.display_name || x.username) + '</b><span class="acc-small">@' + esc(x.username) + (note ? ' · ' + note : '') + '</span></div><div class="acc-acts">' + acts + '</div></li>';
+    const section = (title, rows) => (rows.length ? '<span class="eyebrow-sm">' + title + '</span><ul class="acc-slots">' + rows.join('') + '</ul>' : '');
+    const { friends, incoming, outgoing } = F.lists;
+    // the field is always here: without the list (no connection, server down) a request still can be tried, and says why it failed
+    return '<div class="acc-friends"><form class="acc-form" data-form="friend" autocomplete="off">' +
+      field('Nick do amigo (nome de usuário)', input('username', 'text', 'ex.: ana_dc', V.friendDraft, 'required maxlength="21" spellcheck="false" autocapitalize="none"')) +
+      '<div class="acc-acts">' + btn('friend-add', 'Adicionar amigo', true) + (V.profile && V.profile.username ? '<span class="acc-small">O seu é <b>@' + esc(V.profile.username) + '</b></span>' : '') + '</div></form>' +
+      section('Pedidos recebidos', incoming.map((x) => person(x, '', btn('friend-yes:' + x.id, 'Aceitar') + btn('friend-no:' + x.id, 'Recusar')))) +
+      section('Amigos (' + friends.length + ')', friends.map((x) => person(x, 'desde ' + when(x.at), btn('friend-del:' + x.id, 'Remover')))) +
+      section('Pedidos enviados', outgoing.map((x) => person(x, 'aguardando resposta', btn('friend-del:' + x.id, 'Cancelar')))) +
+      (!ready ? '<p class="acc-small">Não foi possível carregar sua lista de amigos agora.</p>'
+        : friends.length || incoming.length || outgoing.length ? '' : '<p class="acc-small">Você ainda não adicionou ninguém. Digite o nick de um amigo acima, ou clique no personagem dele numa sala online.</p>') + '</div>';
   }
   function viewAdmin() {
     const isAdmin = V.roles.indexOf('admin') >= 0, canGrant = isAdmin || V.roles.indexOf('developer') >= 0;
@@ -116,7 +135,7 @@
     let h = '<header class="acc-head-px"><svg class="dl-logo dl-logo--xs" viewBox="0 0 240 44" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="DataLab SIMULADOR DE DATACENTER" shape-rendering="crispEdges" image-rendering="pixelated"><g class="dl-logo__rack"><rect x="2" y="8" width="28" height="28" rx="0" fill="#0b1120" stroke="#152033" stroke-width="2"/><rect x="6" y="12" width="20" height="3" rx="0" fill="#0f1626"/><rect x="6" y="17" width="20" height="3" rx="0" fill="#0f1626"/><rect x="6" y="22" width="20" height="3" rx="0" fill="#0f1626"/><rect x="6" y="27" width="20" height="3" rx="0" fill="#0f1626"/><rect class="dl-led dl-led--a" x="22" y="13" width="2" height="2" rx="0"/><rect class="dl-led dl-led--b" x="22" y="18" width="2" height="2" rx="0"/><rect class="dl-led dl-led--c" x="22" y="23" width="2" height="2" rx="0"/><rect class="dl-led dl-led--d" x="22" y="28" width="2" height="2" rx="0"/></g><g class="dl-logo__text"><text x="40" y="24" class="dl-logo__datalab">DATALAB</text><text x="40" y="36" class="dl-logo__sub">SIMULADOR DE DATACENTER</text></g></svg><button class="cc__x" type="button" data-acc="close" aria-label="Fechar">×</button></header>';
     h += tabs();
     if (V.msg) h += '<p class="acc-msg is-' + V.tone + '" role="status">' + esc(V.msg) + '</p>';
-    const view = { profile: viewProfile, saves: viewSaves, admin: viewAdmin }[V.tab] || viewProfile;
+    const view = { profile: viewProfile, friends: viewFriends, saves: viewSaves, admin: viewAdmin }[V.tab] || viewProfile;
     el.body.innerHTML = h + view();
     const face = el.body.querySelector('[data-face]');
     if (face) { const sh = D.player.sheet; face.width = face.height = 48; const g = face.getContext('2d'); g.imageSmoothingEnabled = false; g.drawImage(sh.down.idle, 3, 1, 16, 16, 0, 0, 48, 48); }
@@ -144,6 +163,15 @@
         await refresh();
         if (D.menu && D.menu.setAccount) D.menu.setAccount(V.profile);
         say('ok', 'Perfil salvo.');
+      } else if (kind === 'friend') {
+        const name = String(data.username || '').trim().replace(/^@/, '').toLowerCase();
+        V.friendDraft = data.username;
+        if (!/^[a-z0-9_]{3,20}$/.test(name)) return say('warn', 'Nome de usuário: 3 a 20 caracteres, letras, números ou _.');
+        const r = await DL.Friends.request(name);
+        // no answer at all (function not published, no connection): the generic message would blame the site's address
+        if (!r.ok) return say('warn', r.code === 'network' || r.code === 'http_404' ? 'O servidor de amigos não respondeu. Tente de novo em instantes.' : r.message);
+        V.friendDraft = '';
+        say('ok', r.data.status === 'accepted' ? 'Você e @' + r.data.username + ' agora são amigos.' : 'Pedido enviado para @' + r.data.username + '.');
       } else if (kind === 'find') {
         const r = await DL.AdminService.findUsers(data.query);
         if (!r.ok) return say('warn', r.message);
@@ -166,7 +194,7 @@
 
   el.body.addEventListener('click', (ev) => {
     const t = ev.target.closest('[data-tab]');
-    if (t) { V.tab = t.dataset.tab; V.msg = null; if (V.tab === 'admin') run(async () => { const lg = await DL.AdminService.log(30); if (lg.ok) V.log = lg.data; }); else render(); return; }
+    if (t) { V.tab = t.dataset.tab; V.msg = null; if (V.tab === 'friends') run(() => DL.Friends.refresh()); else if (V.tab === 'admin') run(async () => { const lg = await DL.AdminService.log(30); if (lg.ok) V.log = lg.data; }); else render(); return; }
     const r = ev.target.closest('[data-role]');
     if (r) {
       const on = !r.classList.contains('is-on');
@@ -196,6 +224,11 @@
     if (!b || b.type === 'submit') return;
     const [act, n] = b.dataset.acc.split(':'), slot = +n;
     if (act === 'close') return close();
+    if (act === 'friend-yes' || act === 'friend-no') return run(async () => { const x = await DL.Friends.respond(n, act === 'friend-yes'); if (!x.ok) say('warn', x.message); else V.msg = null; });
+    if (act === 'friend-del') {
+      if (b.dataset.confirm !== '1') { b.dataset.confirm = '1'; b.textContent = 'Confirmar'; return; }
+      return run(async () => { const x = await DL.Friends.remove(n); if (!x.ok) say('warn', x.message); else V.msg = null; });
+    }
     // signing out: the access gate takes over (the page reloads to the login)
     if (act === 'logout') return run(async () => { if (DL.SaveService.slot) await DL.SaveService.save({}); await DL.Auth.signOut(); });
     if (act === 'log') return run(async () => { const lg = await DL.AdminService.log(30); if (lg.ok) V.log = lg.data; else say('warn', lg.message); });
@@ -214,6 +247,20 @@
   DL.Cloud.on('auth', () => { status(); if (isOpen()) refresh(); });
   DL.Cloud.on('saved', () => { if (isOpen() && V.tab === 'saves') DL.SaveService.listCloud().then((s) => { V.saves = s; render(); }); });
   status();
+
+  // Jogo → Amigos goes straight to the tab; a new friend request: a notice in the game and the count on that button
+  // (the menu adds the count to the Jogo button, demo.js)
+  if (DL.Friends) {
+    const friendsBtn = $('friendsBtn'), friendsBadge = $('friendsBadge');
+    if (friendsBtn) friendsBtn.addEventListener('click', () => { friendsBtn.blur(); open('friends'); });
+    DL.Friends.on(({ fresh }) => {
+      const n = DL.Friends.lists.incoming.length;
+      if (friendsBadge) { friendsBadge.hidden = !n; friendsBadge.textContent = n; }
+      if (fresh.length) D.game.toast('info', 'Pedido de amizade', fresh.length === 1 ? '@' + fresh[0].username + ' quer ser seu amigo · Jogo → Amigos' : fresh.length + ' pedidos novos · Jogo → Amigos');
+      // keeps what the player is typing: the list catches up on the next action
+      if (isOpen() && V.tab === 'friends' && !V.busy) { const i = el.body.querySelector('[data-form="friend"] [name="username"]'); if (!i || !i.value) render(); }
+    });
+  }
 
   DL.AccountUI = { open, close, get isOpen() { return isOpen(); } };
 })();

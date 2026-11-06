@@ -610,8 +610,12 @@
     // legendary bots: golden aura (cosmetics.js)
     const aura = a.legend && DL.drawAura, at = a.auraT != null ? a.auraT : performance.now() / 1000;
     if (aura) DL.drawAura(g, x, y, at, 'back');
+    // the season pass' Aura Boot (trails.js)
+    const boot = DL.actorAura && DL.actorAura(a) === 'boot';
+    if (boot) DL.drawAuraBoot(g, x, y, at, 'back');
     g.drawImage(a.frame(), x - AX, y - AY);
     if (aura) DL.drawAura(g, x, y, at, 'front');
+    if (boot) DL.drawAuraBoot(g, x, y, at, 'front');
     // live effects: animated skins (cosmetics.js) and the actor's own (emotes)
     if (DL.charFx) DL.charFx(g, a, x, y, at);
     if (a.fx) a.fx(g, x, y, at);
