@@ -1769,14 +1769,20 @@
   const BAT_DOWN = [['wDown', 3, 15], ['wDown', 15, 15, 'm'], ['fbody', 8, 13]];
   const GRID_PETS = {
     dracache: {
-      pal: { P: '#4b2a78', p: '#2e1850', Q: '#8a62c8', W: '#3a1f62', w: '#28134a', E: '#a5f7ea', F: '#f1f1ee', k: '#1a0d2e' },
+      pal: { P: '#4b2a78', p: '#2e1850', Q: '#8a62c8', W: '#3a1f62', w: '#28134a', E: '#a5f7ea', e: '#2de2c8', F: '#f1f1ee', k: '#1a0d2e' },
       parts: {
         fbody: ['Q.....Q', 'PQ...QP', 'PPPPPPP', 'PEPPPEP', 'PPFPFPP', '.PPPPP.', '.pPPPp.', '..ppp..', '..k.k..'],
         wUp: ['Q....', 'WQ...', 'WWQ..', 'WWWQQ', 'w.wWW'],
         wMid: ['QQQQQ', 'WWWWW', 'wWwWW', 'w.w.W'],
         wDown: ['....Q', '...QW', '..QWW', '.QWWw', 'Qw.w.'],
+        hang: ['....k.k....', '....pPp....', '..QWpPpWQ..', '.QWWPPPWWQ.', '.WQWPPPWQW.', '.WWQPPPQWW.', '..WWPPPWW..', '...wPPPw...', '..PPPPPPP..', '.PPFPPPFPP.', '.PeEPPPEeP.', '.PPPPPPPPP.', '.QP.....PQ.', '.Q.......Q.'],
+        puff: ['...........', '...........', '...........', 'W.........W', 'W.........W', 'W.........W'],
+        hdim: ['..ee...ee..'],
+        hblink: ['..pp...pp..'],
       },
       idle: [BAT_UP, BAT_DOWN],
+      // upside down under a rack (pets.js hangs it when the player stops near one)
+      hang: [[['hang', 6, 2]], [['hang', 6, 2], ['puff', 6, 2]], [['hang', 6, 2], ['hdim', 6, 12]], [['hang', 6, 2], ['hblink', 6, 12]]],
       walk: [BAT_UP, BAT_MID, BAT_DOWN, BAT_MID],
     },
     guaca: {
@@ -1824,9 +1830,8 @@
       ],
     },
   };
-  function drawGridPet(g, P, f, walk) {
-    const frames = walk ? P.walk : P.idle;
-    for (const [name, x, y, m] of frames[f % frames.length]) {
+  function drawGridPet(g, P, layers) {
+    for (const [name, x, y, m] of layers) {
       P.parts[name].forEach((row, ry) => {
         for (let rx = 0; rx < row.length; rx++) {
           const ch = m === 'm' ? row[row.length - 1 - rx] : row[rx];
@@ -1838,7 +1843,8 @@
 
   // f: animation frame (0–3), walk: legs moving. Ground row = 28 (where a character's shoes end).
   function drawPet(g, kind, f, walk, alt) {
-    if (GRID_PETS[kind]) return drawGridPet(g, GRID_PETS[kind], f, walk);
+    const GP = GRID_PETS[kind];
+    if (GP) { const fr = walk ? GP.walk : GP.idle; return drawGridPet(g, GP, fr[f % fr.length]); }
     const odd = f % 2 === 1, step = walk ? f % 2 : 0;
     switch (kind) {
       case 'bug': {
@@ -1945,6 +1951,23 @@
     const right = { idle: [build(0, false), build(1, false)], walk: [0, 1, 2, 3].map((f) => build(f, true)) };
     if (kind === 'glitchcat') right.glitch = [build(0, false, true), build(1, true, true)];
     const left = { idle: right.idle.map(petMirror), walk: right.walk.map(petMirror), glitch: right.glitch && right.glitch.map(petMirror) };
+    // extra frames and sprites for the grid pets' effects (pets.js)
+    const GP = GRID_PETS[kind];
+    const layered = (layers, w, h) => { const c = DL.mk(w || DL.CHAR.FW, h || DL.CHAR.FH); drawGridPet(c.getContext('2d'), GP, layers); return petOutline(c); };
+    if (GP && GP.hang) { right.hang = GP.hang.map((l) => layered(l)); left.hang = right.hang.map(petMirror); }
+    if (kind === 'guaca') {
+      right.noPit = GP.idle.map((l) => layered(l.filter((x) => x[0] !== 'pit')));
+      left.noPit = right.noPit.map(petMirror);
+      const pit = layered([['pit', 1, 1]], 6, 6), pf = (h, v) => { const c = DL.mk(6, 6), g = c.getContext('2d'); g.translate(h ? 6 : 0, v ? 6 : 0); g.scale(h ? -1 : 1, v ? -1 : 1); g.drawImage(pit, 0, 0); return c; };
+      right.pit = left.pit = [pit, pf(true, false), pf(true, true), pf(false, true)];
+    }
+    if (kind === 'sudo') {
+      right.notes = left.notes = ['#2de2c8', '#7ee0a1', '#a5f7ea'].map((c) => {
+        const n = DL.mk(5, 6), g = n.getContext('2d');
+        ['.NN', '.N.', 'NN.', 'NN.'].forEach((row, y) => { for (let x = 0; x < 3; x++) if (row[x] === 'N') R(g, 1 + x, 1 + y, 1, 1, c); });
+        return petOutline(n);
+      });
+    }
     return (petSheets[kind] = { right, left });
   };
 
