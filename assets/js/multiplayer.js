@@ -9,7 +9,7 @@
    A guest doesn't simulate: it plays its own character and edits the world locally with the same build,
    crew and terminal tools as in solo. Each change is turned into a diff of that same save format ("ops")
    and sent to the host, which applies it (charging the company) and sends the world back.
-   Every player's character travels as "pos"; "say" is the shared team chat. lobby.js has the screens. */
+   Every player's character travels as "pos", its emotes as "emote"; "say" is the shared team chat. lobby.js has the screens. */
 (function () {
   'use strict';
   const DL = window.DL, D = window.DataLabDemo;
@@ -95,7 +95,7 @@
   function remoteFrame() {
     const n = this.net;
     if (n && n.seated && this.sitSheet) { const set = this.sitSheet[n.sitDir] || this.sitSheet.up; return this.blinkT > 0 ? set.blink : set.R; }
-    return DL.Actor.prototype.frame.call(this);
+    return DL.remoteEmoteFrame(this) || DL.Actor.prototype.frame.call(this);
   }
   function lookActor(a, look) {
     const L = DL.crewLook(Object.assign({}, look));
@@ -173,6 +173,14 @@
     a.seated = !!m.s;
     a.noShadow = !!m.s;
     a.sortKey = m.s ? m.k || null : null;
+  }
+  // an emote starting (or ending: id null) on someone's character
+  function sendEmote(id) {
+    if (MP.role && MP.conn) MP.conn.send({ t: 'emote', id });
+  }
+  function onEmote(m) {
+    const p = MP.players.get(m.from);
+    if (p && p.actor) DL.remoteEmote(p.actor, m.id);
   }
 
   /* ------------------------------------------------------------------ */
@@ -516,7 +524,11 @@
     } else {
       if (t.check >= 0.3) { t.check = 0; checkLocalEdits(); tryApplyLatest(); }
     }
-    for (const p of MP.players.values()) if (p.actor && p.actor.net) glide(p.actor, p.actor.net, dt);
+    for (const p of MP.players.values()) {
+      if (!p.actor) continue;
+      if (p.actor.net) glide(p.actor, p.actor.net, dt);
+      DL.remoteEmoteUpdate(p.actor, dt);
+    }
   }
 
   // a guest's frame: its crew moves where the host's crew is (crew.update doesn't run here)
@@ -577,6 +589,7 @@
     conn.on('pos', onPos);
     conn.on('look', (m) => { upsertPlayer({ id: m.from, look: m.look }); emit('roster', {}); });
     conn.on('say', onSay);
+    conn.on('emote', onEmote);
     if (role === 'host') {
       conn.on('sync', (m) => { sendSnap(m.from); sendPos(true); });
       conn.on('ops', (m) => {
@@ -714,6 +727,7 @@
   G.on('world', () => { if (MP.role === 'host') MP.dirty = true; });
   G.on('player-look', sendLook);
   G.on('look-extras', sendLook);
+  G.on('player-emote', sendEmote);
 
   // runs inside the game loop (demo.js step)
   G.on('step', tick);

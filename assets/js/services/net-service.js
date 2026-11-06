@@ -216,8 +216,8 @@
       // a relayed guest has no channel that closes: it says goodbye
       if (m.t === 'bye') { drop(g, 'saiu'); return; }
       const out = Object.assign({}, m, { from: g.id });
-      // characters, looks and chat go to everyone; the rest (changes to the world, requests) to the host
-      if (m.t === 'pos' || m.t === 'say' || m.t === 'look') {
+      // characters, looks, emotes and chat go to everyone; the rest (changes to the world, requests) to the host
+      if (m.t === 'pos' || m.t === 'say' || m.t === 'look' || m.t === 'emote') {
         if (m.t === 'look' && m.look) g.look = m.look;
         local(out);
         toGuests(out, g);

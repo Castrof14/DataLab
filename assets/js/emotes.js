@@ -19,7 +19,7 @@
   // the emotes this player may use: the free ones + the ones whose item is in the inventory
   DL.emoteOwned = (e) => !e.item || !!(DL.Inventory && DL.Inventory.owns(e.item));
   const HACK_DONE = 1.3; // the last seconds of Invasão: "ACESSO LIBERADO"
-  const BY_ID = {};
+  const BY_ID = Object.create(null); // ids also arrive from other players (multiplayer.js)
   for (const e of DL.EMOTES) BY_ID[e.id] = e;
   DL.emote = (id) => BY_ID[id] || null;
 
@@ -119,6 +119,50 @@
   // the download page (baixar.js) plays the emotes outside the game and draws the same smoke
   DL.emoteSmoke = smoke;
 
+  // the bubble's next line, when the emote has reached it: returns the sound of that moment (or null)
+  function advanceBubble(actor, em, t) {
+    if (!actor.bubble) return null;
+    if (em.id === 'hack' && t > em.dur - HACK_DONE && actor.bubble.text !== 'ACESSO LIBERADO') {
+      actor.bubble = { text: 'ACESSO LIBERADO', left: HACK_DONE, tone: 'emote' };
+      return 'ok';
+    }
+    if (em.id === 'reboot' && t > RB.boot && actor.bubble.text === em.emoji) {
+      actor.bubble = { text: 'LIGANDO…', left: em.dur - t, tone: 'emote' };
+      return 'tick';
+    }
+    return null;
+  }
+  // the effects drawn over a character during an emote
+  function drawFx(g, actor, em, t, X, Y) {
+    if (em.id === 'angry') smoke(g, X, Y, t);
+    if (em.id === 'hack' || em.id === 'reboot') DL.emoteFx(g, em.id, X, Y, t, em.dur, actor.frame());
+  }
+
+  // another player's emote, on their character here (multiplayer.js). Same frames, effects and bubbles as
+  // the player's own; whether they own it was already checked in their game. id null = it ended over there.
+  DL.remoteEmote = function (a, id) {
+    const em = id ? BY_ID[id] : null;
+    if (a.emote && a.bubble && a.bubble.tone === 'emote') a.bubble = null;
+    a.emote = em ? { em, t: 0 } : null;
+    if (!em) return;
+    a.bubble = { text: em.emoji, left: em.dur, tone: 'emote' };
+    a.fx = function (g, X, Y) { if (this.emote) drawFx(g, this, this.emote.em, this.emote.t, X, Y); };
+  };
+  // the emote ends by itself too, in case the message saying so never comes (the other player dropped)
+  DL.remoteEmoteUpdate = function (a, dt) {
+    const e = a.emote;
+    if (!e) return;
+    e.t += dt;
+    if (e.t >= e.em.dur) { DL.remoteEmote(a, null); return; }
+    advanceBubble(a, e.em, e.t);
+  };
+  DL.remoteEmoteFrame = function (a) {
+    const e = a.emote;
+    if (!e) return null;
+    if (!a.emoteSheet || a.emoteLook !== a.look) { a.emoteLook = a.look; a.emoteSheet = DL.makeEmoteSheet(a.look); }
+    return DL.emoteFrame(a.emoteSheet, e.em.id, e.t, e.em.dur);
+  };
+
   // game: the game API (toast, sfx); player: the player's Actor; opts.can() says if an emote may start
   DL.createEmotes = function (game, player, opts) {
     const E = { cur: null, t: 0, sheet: null, look: null };
@@ -155,19 +199,10 @@
       if (!E.cur) return;
       if (dt > 0) E.t += dt;
       if (moving || E.t >= E.cur.dur) { stop(); return; }
-      if (E.cur.id === 'hack' && E.t > E.cur.dur - HACK_DONE && player.bubble && player.bubble.text !== 'ACESSO LIBERADO') {
-        player.bubble = { text: 'ACESSO LIBERADO', left: HACK_DONE, tone: 'emote' };
-        game.sfx('ok');
-      }
-      if (E.cur.id === 'reboot' && E.t > RB.boot && player.bubble && player.bubble.text === E.cur.emoji) {
-        player.bubble = { text: 'LIGANDO…', left: E.cur.dur - E.t, tone: 'emote' };
-        game.sfx('tick');
-      }
+      const sound = advanceBubble(player, E.cur, E.t);
+      if (sound) game.sfx(sound);
     }
-    player.fx = function (g, X, Y, t) {
-      if (E.cur && E.cur.id === 'angry') smoke(g, X, Y, E.t);
-      if (E.cur && (E.cur.id === 'hack' || E.cur.id === 'reboot')) DL.emoteFx(g, E.cur.id, X, Y, E.t, E.cur.dur, player.frame());
-    };
+    player.fx = function (g, X, Y) { if (E.cur) drawFx(g, player, E.cur, E.t, X, Y); };
     return {
       play, stop, update,
       get active() { return E.cur ? E.cur.id : null; },

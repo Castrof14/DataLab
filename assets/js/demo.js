@@ -164,6 +164,7 @@
   const emotes = DL.createEmotes(G, player, {
     can: () => (S.phase === 'intro' ? 'Comece um jogo para usar os emotes'
       : P.seat || P.rest || P.glide ? 'Levante-se (F) para usar os emotes' : !canMove() ? 'Saia do modo construção / equipe para usar os emotes' : null),
+    onChange: (em) => G.emit('player-emote', em ? em.id : null), // the other players see it too (multiplayer.js)
   });
   // the walking trail (Rastros, trails.js) and the season pass (battlepass.js)
   const trails = DL.createTrails ? DL.createTrails(G) : null;
