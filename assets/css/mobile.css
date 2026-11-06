@@ -485,3 +485,46 @@
 .is-mobile .setting__ctl input[type="range"] { flex: 1; min-width: 0; }
 .is-mobile .setting__ctl { width: 100%; }
 .is-mobile .bp-cta { height: auto; min-height: 52px; padding: 12px 14px; line-height: 1.5; white-space: normal; }
+
+/* =====================================================================
+   Glass on the start and back buttons (phones only): a tinted pane that blurs
+   what is behind it, with a lit rim. Only the surface changes: the labels keep
+   their pixel fonts (Press Start 2P, Silkscreen, VT323).
+   ===================================================================== */
+.is-mobile .title .title__start, .is-mobile .title .title__start:hover,
+.is-mobile .title .mm-btn, .is-mobile .title .mm-btn:hover:not(:disabled), .is-mobile .title .mm-btn:focus-visible:not(:disabled),
+.is-mobile .title .mv__back, .is-mobile .title .mv__back:hover, .is-mobile .title .mv__back:focus-visible {
+  --glass-tint: 255, 255, 255;
+  --glass-rim: rgba(255, 255, 255, 0.5);
+  border-radius: 16px !important; /* .demo * squares every corner with !important */
+  background: linear-gradient(180deg, rgba(var(--glass-tint), 0.24), rgba(var(--glass-tint), 0.07) 48%, rgba(var(--glass-tint), 0.13));
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  backdrop-filter: blur(14px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 var(--glass-rim),
+    inset 0 0 0 1px rgba(var(--glass-tint), 0.2),
+    inset 0 -6px 12px rgba(var(--glass-tint), 0.08),
+    0 8px 22px rgba(3, 5, 10, 0.45);
+}
+/* green glass: Iniciar, Novo Jogo, and any button under the finger (:hover sticks after a tap) */
+.is-mobile .title .title__start, .is-mobile .title .title__start:hover,
+.is-mobile .title .mm-btn[data-go="new"],
+.is-mobile .title .mm-btn:hover:not(:disabled), .is-mobile .title .mm-btn:focus-visible:not(:disabled),
+.is-mobile .title .mv__back:hover, .is-mobile .title .mv__back:focus-visible {
+  --glass-tint: 61, 255, 162;
+  --glass-rim: rgba(160, 255, 210, 0.75);
+}
+.is-mobile .title .title__start, .is-mobile .title .title__start:hover { color: #eafff4; text-shadow: 0 2px #0f4a33; }
+.is-mobile .title .mv__back:hover, .is-mobile .title .mv__back:focus-visible { color: #e6ecf5; }
+.is-mobile .title .title__start:active,
+.is-mobile .title .mm-btn:active:not(:disabled),
+.is-mobile .title .mv__back:active { transform: scale(0.97); }
+/* the sub-screen header lets the list show through, so the back button has something to blur while scrolling
+   (no backdrop-filter here: the button's own blur would stop seeing past this bar) */
+.is-mobile .title .mm__view-body .mv__head { background: rgba(13, 20, 36, 0.76); }
+@media (prefers-reduced-transparency: reduce) {
+  .is-mobile .title .title__start, .is-mobile .title .mm-btn, .is-mobile .title .mv__back {
+    -webkit-backdrop-filter: none; backdrop-filter: none; background: #1a2336;
+  }
+  .is-mobile .title .mm__view-body .mv__head { background: #0d1424; }
+}
