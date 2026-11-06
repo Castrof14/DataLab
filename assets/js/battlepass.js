@@ -15,8 +15,9 @@
      counts each mission once, raises the level and puts the rewards in the account's inventory (COLETAR
      then only marks the card as collected here).
    UI (the pass' own gold-on-charcoal look, pass.css; the item art is pass-art.js): the Passe button / J
-   opens #passOv — header with the golden chip, level and the XP bar in blocks, missions, the 50 rewards in
-   a row that scrolls sideways; clicking a reward opens a big animated preview. */
+   opens #passOv — header with the golden chip and a cloud for where the progress is, two tabs (Recompensas
+   first, Missões), the level and the XP bar in blocks on one line (how XP is earned behind a "?"), the 50
+   rewards in a row that scrolls sideways; clicking a reward opens a big animated preview. */
 (function () {
   'use strict';
   const DL = window.DL;
@@ -39,7 +40,7 @@
   const REWARD = {
     1: ['bp_frame_t1'], 3: ['bp_hello'], 4: ['bp_icon_chip'], 5: ['bp_trail_binary'], 7: ['bp_graffiti'], 9: ['bp_glasses001'], 10: ['bp_pet_bitzero'],
     12: ['bp_gloves_t1'], 13: ['bp_xp2'], 14: ['bp_trail_sparks'], 15: ['bp_emote_reboot'], 17: ['bp_cooler'], 18: ['bp_term_boot'], 20: ['bp_emote_hack'],
-    22: ['bp_hacker_desk'], 23: ['bp_trail_cables'], 25: ['bp_xp2'], 26: ['bp_pet_glitchcat'], 27: ['bp_founder_chair'], 29: ['bp_cable_cape'], 30: ['bp_relic'],
+    22: ['bp_hacker_desk'], 23: ['bp_trail_bolt'], 25: ['bp_xp2'], 26: ['bp_pet_glitchcat'], 27: ['bp_founder_chair'], 29: ['bp_cable_cape'], 30: ['bp_relic'],
     32: ['bp_trail_ghost'], 33: ['bp_crt_terminal'], 35: ['bp_xp2'], 36: ['bp_arcade_boot'], 37: ['bp_led_crown'], 39: ['bp_data_wings'], 40: ['bp_trail_code'],
     42: ['bp_server_throne'], 43: ['bp_trail_glitch'], 45: ['bp_neon_boot'], 46: ['bp_aura_boot'], 48: ['bp_skin_founder'], 49: ['bp_trail_rainbow'], 50: ['bp_title_pioneer'],
   };
@@ -184,7 +185,8 @@
     // delivered); col: the levels whose reward was collected (COLETAR)
     const fresh = () => ({ v: 2, season: SEASON.id, on: false, xp: 0, got: 0, col: [], pend: 0, pendM: [], boost: 0, min: 0, day: '', d: {}, dd: {}, week: '', w: {}, wd: {} });
     let S = fresh(), key = KEY;
-    const V = { open: false, busy: false, offline: null, warned: '', evWin: 0, evXp: 0, syncT: 0, lastK: '', queue: [], showing: false, raf: 0, scrolled: false, pv: 0 };
+    // tab: 'rewards' (opens first) or 'missions'; help: the "?" next to the XP bar is open
+    const V = { open: false, busy: false, offline: null, warned: '', evWin: 0, evXp: 0, syncT: 0, lastK: '', queue: [], showing: false, raf: 0, scrolled: false, pv: 0, tab: 'rewards', help: false };
 
     function load(k) {
       key = k;
@@ -443,15 +445,15 @@
     function cardHtml(L) {
       const st = stateOf(L), its = rewardItems(L), big = BIG[L], it = its[0];
       const flash = V.flash && V.flash.indexOf(L) >= 0;
+      // only the art, the level and the name (the kind is in the preview); COLETAR when it's waiting, a
+      // small ✓ when collected
       const foot = st === 'ready' ? '<button class="bp-get" type="button" data-bp-get="' + L + '">COLETAR</button>'
-        : st === 'got' ? '<span class="bp-card__st is-got">✓ Coletado</span>'
-        : st === 'sending' ? '<span class="bp-card__st is-sending">Entregando…</span>'
-        : '<span class="bp-card__st">' + (L === level() + 1 && S.on ? 'Próximo' : 'Nível ' + L) + '</span>';
-      return '<li class="bp-card' + (big ? ' is-big' : '') + ' is-' + st + (L === level() + 1 && S.on ? ' is-next' : '') + (flash ? ' is-flash' : '') + '" data-lv="' + L + '" data-bp-pv="' + L + '" tabindex="0" role="button" aria-label="Nível ' + L + ': ' + esc(rewardName(L)) + ' · ver prévia">' +
+        : st === 'sending' ? '<span class="bp-card__st is-sending">Entregando…</span>' : '';
+      return '<li class="bp-card' + (big ? ' is-big' : '') + ' is-' + st + (L === level() + 1 && S.on ? ' is-next' : '') + (flash ? ' is-flash' : '') + '" data-lv="' + L + '" data-bp-pv="' + L + '" tabindex="0" role="button" aria-label="Nível ' + L + ': ' + esc(rewardName(L)) + (it ? ' (' + esc(kindName(it)) + ')' : '') + (st === 'got' ? ' · coletado' : '') + ' · ver prévia">' +
         '<span class="bp-card__lv">' + (big ? '★ ' : '') + 'NÍVEL ' + L + '</span>' +
-        '<span class="bp-card__art"><canvas data-bp-art="' + artId(L) + '" data-px="' + (big ? 128 : 88) + '" aria-hidden="true"></canvas>' +
-        (st === 'locked' ? '<i class="bp-lock" aria-label="Bloqueado"></i>' : '') + '</span>' +
-        '<b class="bp-card__name">' + esc(rewardName(L)) + '</b><span class="bp-card__kind">' + esc(it ? kindName(it) : 'Moedas (Gold)') + '</span>' + foot + '</li>';
+        '<span class="bp-card__art"><canvas data-bp-art="' + artId(L) + '" data-px="' + (big ? 192 : 144) + '" aria-hidden="true"></canvas>' +
+        (st === 'locked' ? '<i class="bp-lock" aria-label="Bloqueado"></i>' : '') + (st === 'got' ? '<i class="bp-card__got" aria-hidden="true">✓</i>' : '') + '</span>' +
+        '<b class="bp-card__name">' + esc(rewardName(L)) + '</b><span class="bp-card__foot">' + foot + '</span></li>';
     }
     function missionsHtml(list, prog, done, title, until) {
       return '<section class="bp-mis"><header><b>' + title + '</b><span>trocam em ' + until + '</span></header><ul>' + list.map((m) => {
@@ -472,39 +474,56 @@
       if (!el.root) return;
       const L = level(), live = active(), c = rollMissions(), now = new Date(), ready = readyLevels();
       const into = L >= MAX ? need(MAX - 1) : S.xp - total(L), span = L >= MAX ? need(MAX - 1) : need(L);
+      // where the progress is: a small cloud in the header, the message on hover
+      const cloud = !signed() ? ['is-local', 'Sem conta: o passe fica salvo neste navegador.']
+        : V.offline || !remote() ? ['is-wait', 'Progresso salvo. Vai sincronizar quando a conexão voltar.']
+        : ['is-ok', 'Progresso salvo na sua conta.'];
       let h = '<header class="bp-bar"><canvas class="bp-logo" data-bp-chip width="96" height="96" aria-hidden="true"></canvas>' +
-        '<span class="bp-title"><b>PASSE BOOT INICIAL</b><span>' + SEASON.tag + ' · Exclusivo T1 · grátis</span></span>' +
+        '<span class="bp-title"><b>PASSE BOOT INICIAL</b><span>' + SEASON.tag + '</span></span>' +
+        '<span class="bp-cloud ' + cloud[0] + '" tabindex="0" role="img" aria-label="' + cloud[1] + '" data-tip="' + cloud[1] + '"><i aria-hidden="true"></i></span>' +
         '<span class="bp-days' + (live ? '' : ' is-over') + '"><i aria-hidden="true"></i>' + (live ? '<span>Faltam</span><b>' + daysLeft() + '</b><span>dias</span>' : '<span>Temporada encerrada</span>') + '</span>' +
         '<button class="bp-x" type="button" data-bp="close" aria-label="Fechar o passe">×</button></header>';
+      const tab = S.on ? V.tab : 'rewards';
+      if (S.on) h += '<nav class="bp-tabs" role="tablist">' + [['rewards', 'Recompensas'], ['missions', 'Missões']].map(([k, t]) =>
+        '<button class="bp-tab' + (tab === k ? ' is-on' : '') + '" type="button" role="tab" aria-selected="' + (tab === k) + '" data-bp-tab="' + k + '">' + t + '</button>').join('') + '</nav>';
       h += '<div class="bp-body">';
       if (!S.on && live) {
         h += '<section class="bp-activate"><canvas data-bp-chip width="192" height="192" aria-hidden="true"></canvas><div><b>O Passe Boot Inicial é grátis para todo mundo</b>' +
           '<p>Ative e ganhe XP jogando: consertando, resolvendo problemas, colocando servidores online, completando tarefas e com as missões diárias e semanais. São 50 níveis com itens exclusivos da Temporada 1, que nunca vão para a loja.</p>' +
           '<button class="bp-cta" type="button" data-bp="activate">ATIVAR PASSE – GRÁTIS</button></div></section>';
       } else {
-        h += '<section class="bp-hero"><div class="bp-lvl"><span>NÍVEL</span><b>' + L + '</b><small>de ' + MAX + '</small></div>' +
-          '<div class="bp-xp"><div class="bp-xp__top"><b>' + (L >= MAX ? 'Passe completo!' : 'Próximo nível: ' + (L + 1)) + '</b><span>' + fmt(into) + ' / ' + fmt(span) + ' XP</span></div>' +
-          barHtml(into, span) +
-          '<p class="bp-xp__how">XP do passe: consertar (+' + XP.fix + '), resolver problemas (+' + XP.prob + '), servidores online (+' + XP.online + '), tarefas da equipe (+' + XP.job + '), cabos (+' + XP.cable + ') e +' + XP.minute + ' por minuto jogando.' +
-          (S.boost > 0 ? ' <em class="bp-boost">2× XP · ' + Math.ceil(S.boost / 60) + ' min</em>' : '') + '</p>' +
-          (signed() && (V.offline || !remote()) ? '<p class="bp-sync">Progresso salvo. Vai sincronizar quando a conexão voltar.</p>' : '') +
-          (!signed() ? '<p class="bp-note">Sem conta: o passe fica salvo neste navegador.</p>' : '') + '</div></section>';
-        if (live) h += '<div class="bp-missions">' + missionsHtml(c.daily, S.d, S.dd, 'Missões diárias', untilText(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now)) +
-          missionsHtml(c.weekly, S.w, S.wd, 'Missões semanais', untilText(monday(now).getTime() + 7 * DAY - now)) + '</div>';
-        else h += '<p class="bp-over">A Temporada 1 terminou. Os itens que você ganhou são seus para sempre; ninguém mais consegue os que faltaram.</p>';
+        // the level and the XP bar on one line; how XP is earned behind the "?"
+        h += '<section class="bp-hero"><div class="bp-lvl"><span>NÍVEL</span><b>' + L + '</b><small>/' + MAX + '</small></div>' +
+          '<div class="bp-xp"><div class="bp-xp__top"><b>' + (L >= MAX ? 'Passe completo!' : 'Próximo nível: ' + (L + 1)) + '</b>' +
+          (S.boost > 0 ? '<em class="bp-boost">2× XP · ' + Math.ceil(S.boost / 60) + ' min</em>' : '') + '<span>' + fmt(into) + ' / ' + fmt(span) + ' XP</span></div>' +
+          barHtml(into, span) + '</div>' +
+          '<span class="bp-help"><button class="bp-q' + (V.help ? ' is-on' : '') + '" type="button" data-bp="help" aria-expanded="' + !!V.help + '" aria-label="Como ganhar XP do passe">?</button>' +
+          (V.help ? '<span class="bp-pop" role="dialog" aria-label="Como ganhar XP do passe"><b>Como ganhar XP</b><ul>' +
+            [['Consertar falhas', XP.fix], ['Resolver problemas', XP.prob], ['Servidor online', XP.online], ['Tarefa da equipe', XP.job], ['Conectar cabo', XP.cable], ['Cada minuto jogando', XP.minute]]
+              .map(([t, n]) => '<li><span>' + t + '</span><b>+' + n + '</b></li>').join('') +
+            '</ul><small>E as missões diárias e semanais dão bastante XP.</small></span>' : '') + '</span></section>';
+        if (tab === 'missions') {
+          if (live) h += '<div class="bp-missions">' + missionsHtml(c.daily, S.d, S.dd, 'Missões diárias', untilText(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1) - now)) +
+            missionsHtml(c.weekly, S.w, S.wd, 'Missões semanais', untilText(monday(now).getTime() + 7 * DAY - now)) + '</div>';
+          else h += '<p class="bp-over">A Temporada 1 terminou. Os itens que você ganhou são seus para sempre; ninguém mais consegue os que faltaram.</p>';
+        }
       }
-      h += '<section class="bp-track"><header><b>Recompensas</b><span>Clique num item para ver a prévia · ★ = prêmio especial · exclusivos, nunca vendidos na loja</span>' +
-        (ready.length > 1 ? '<button class="bp-get bp-get--all" type="button" data-bp="all">COLETAR TUDO (' + ready.length + ')</button>' : '') +
-        '<span class="bp-track__nav"><button class="bp-nav" type="button" data-bp="left" aria-label="Rolar para a esquerda">‹</button><button class="bp-nav" type="button" data-bp="right" aria-label="Rolar para a direita">›</button></span></header>' +
-        '<ol class="bp-row" data-bp-row>';
-      for (let i = 1; i <= MAX; i++) h += cardHtml(i);
-      h += '</ol></section></div>';
+      if (tab === 'rewards') {
+        h += '<section class="bp-track"><header><b>Recompensas</b>' +
+          (ready.length > 1 ? '<button class="bp-get bp-get--all" type="button" data-bp="all">COLETAR TUDO (' + ready.length + ')</button>' : '') +
+          '<span class="bp-track__nav"><button class="bp-nav" type="button" data-bp="left" aria-label="Rolar para a esquerda">‹</button><button class="bp-nav" type="button" data-bp="right" aria-label="Rolar para a direita">›</button></span></header>' +
+          '<ol class="bp-row" data-bp-row>';
+        for (let i = 1; i <= MAX; i++) h += cardHtml(i);
+        h += '</ol></section>';
+      }
+      h += '</div>';
       if (V.pv) h += previewHtml(V.pv);
       const row = el.root.querySelector('[data-bp-row]'), keep = row ? row.scrollLeft : null;
       el.root.innerHTML = h;
       V.flash = null;
       const nrow = el.root.querySelector('[data-bp-row]');
-      if (keep !== null && V.scrolled) nrow.scrollLeft = keep;
+      if (!nrow) { /* the Missões tab */ }
+      else if (keep !== null && V.scrolled) nrow.scrollLeft = keep;
       else {
         const first = ready[0] || Math.max(1, Math.min(MAX, L + 1)), cur = nrow.querySelector('[data-lv="' + first + '"]');
         if (cur) nrow.scrollLeft = Math.max(0, cur.offsetLeft - 24);
@@ -551,6 +570,8 @@
       V.open = true;
       V.scrolled = false;
       V.pv = 0;
+      V.tab = 'rewards';
+      V.help = false;
       if (inventory.close) inventory.close();
       render();
       el.ov.classList.add('is-open');
@@ -568,10 +589,15 @@
       el.root.addEventListener('click', (ev) => {
         const get = ev.target.closest('[data-bp-get]');
         if (get) { collect([+get.dataset.bpGet]); return; }
+        // a click anywhere else closes the "?" window
+        if (V.help && !ev.target.closest('.bp-help')) { V.help = false; render(); }
+        const tab = ev.target.closest('[data-bp-tab]');
+        if (tab) { if (V.tab !== tab.dataset.bpTab) { V.tab = tab.dataset.bpTab; V.help = false; render(); } return; }
         const b = ev.target.closest('[data-bp]');
         if (b) {
           const row = el.root.querySelector('[data-bp-row]');
-          if (b.dataset.bp === 'close') close();
+          if (b.dataset.bp === 'help') { V.help = !V.help; render(); const q = el.root.querySelector('.bp-q'); if (q) q.focus(); }
+          else if (b.dataset.bp === 'close') close();
           else if (b.dataset.bp === 'activate') activate();
           else if (b.dataset.bp === 'all') collect(readyLevels());
           else if (b.dataset.bp === 'pvclose') closePreview();
@@ -685,6 +711,7 @@
         if (ev.code !== 'Escape') return false;
         if (!fx.hidden && fx.classList.contains('is-modal')) fxHide();
         else if (V.pv) closePreview();
+        else if (V.help) { V.help = false; render(); }
         else close();
         return true;
       },
