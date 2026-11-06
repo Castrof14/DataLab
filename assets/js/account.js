@@ -246,20 +246,15 @@
   DL.Cloud.on('saved', () => { if (isOpen() && V.tab === 'saves') DL.SaveService.listCloud().then((s) => { V.saves = s; render(); }); });
   status();
 
-  // a new friend request: a notice in the game, and the count on the buttons that lead to the tab
+  // Jogo → Amigos goes straight to the tab; a new friend request: a notice in the game and the count on that button
+  // (the menu adds the count to the Jogo button, demo.js)
   if (DL.Friends) {
-    const game = document.querySelector('[aria-controls="hudGame"]');
-    const badge = (host, n) => {
-      if (!host) return;
-      let s = host.querySelector('.acc-badge');
-      if (!s && n) { s = document.createElement('span'); s.className = 'acc-badge'; host.appendChild(s); }
-      if (s) { s.hidden = !n; s.textContent = n; }
-    };
+    const friendsBtn = $('friendsBtn'), friendsBadge = $('friendsBadge');
+    if (friendsBtn) friendsBtn.addEventListener('click', () => { friendsBtn.blur(); open('friends'); });
     DL.Friends.on(({ fresh }) => {
       const n = DL.Friends.lists.incoming.length;
-      badge(el.btn, n);
-      badge(game, n);
-      if (fresh.length) D.game.toast('info', 'Pedido de amizade', fresh.length === 1 ? '@' + fresh[0].username + ' quer ser seu amigo · Jogo → Conta → Amigos' : fresh.length + ' pedidos novos · Jogo → Conta → Amigos');
+      if (friendsBadge) { friendsBadge.hidden = !n; friendsBadge.textContent = n; }
+      if (fresh.length) D.game.toast('info', 'Pedido de amizade', fresh.length === 1 ? '@' + fresh[0].username + ' quer ser seu amigo · Jogo → Amigos' : fresh.length + ' pedidos novos · Jogo → Amigos');
       // keeps what the player is typing: the list catches up on the next action
       if (isOpen() && V.tab === 'friends' && !V.busy) { const i = el.body.querySelector('[data-form="friend"] [name="username"]'); if (!i || !i.value) render(); }
     });

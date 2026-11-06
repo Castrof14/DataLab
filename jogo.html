@@ -229,8 +229,9 @@
           </div>
         </div>
         <div class="hud-group" data-group="game">
-          <button class="btn btn--sm ops-btn hud-group__btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="hudGame">Jogo<span class="hud-group__caret" aria-hidden="true"></span></button>
+          <button class="btn btn--sm ops-btn hud-group__btn" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="hudGame">Jogo<span class="ops-badge hud-group__badge" hidden>0</span><span class="hud-group__caret" aria-hidden="true"></span></button>
           <div class="hud-group__menu" id="hudGame" role="menu" aria-label="Jogo">
+            <button class="btn btn--sm ops-btn" id="friendsBtn" type="button" title="Adicionar amigos e responder pedidos de amizade">Amigos<span class="ops-badge" id="friendsBadge" hidden>0</span></button>
             <button class="btn btn--sm acc-btn" id="accountBtn" type="button" title="Conta"><span class="acc-dot" id="accountDot" aria-hidden="true"></span>Conta</button>
             <button class="btn btn--sm ops-btn ops-btn--spot" id="spotBtn" type="button" title="Spotify: conectar e controlar a sua música" aria-controls="spot" aria-expanded="false" hidden><span class="spot-ico" aria-hidden="true"></span>Spotify</button>
             <button class="btn btn--sm ops-btn ops-btn--ytm" id="ytmBtn" type="button" title="YouTube Music (YTMDesktop): conectar e controlar a sua música" aria-controls="ytm" aria-expanded="false" hidden><span class="ytm-ico" aria-hidden="true"></span>YouTube Music</button>

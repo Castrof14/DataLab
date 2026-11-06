@@ -632,11 +632,9 @@ select.input {
   }
 }
 
-/* Amigos: the tab and the count of requests on the buttons that lead to it */
+/* Amigos: the tab */
 .acc-friends { display: flex; flex-direction: column; gap: 10px; padding: 12px 16px 16px; }
 .acc-friends .acc-form { padding: 0; }
 .acc-friends .acc-slots { margin: 0; padding: 0; }
 .acc-pad { display: block; padding: 16px; }
 .acc-slot--friend { grid-template-columns: minmax(0, 1fr) auto; }
-.acc-badge { display: inline-block; min-width: 16px; margin-left: 6px; padding: 0 4px; background: var(--teal); color: #05070d; font-size: 11px; line-height: 16px; text-align: center; }
-.acc-badge[hidden] { display: none; }
