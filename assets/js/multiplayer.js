@@ -56,11 +56,13 @@
     if (DL.Pass && DL.Pass.activated) o.pass = DL.Pass.level;
     if (MP.role === 'host' && D.career) o.rank = D.career.title;
     if (music) o.music = music;
+    if (MP.username) o.user = MP.username; // so that a friend request can be sent from my card (lobby.js)
     return o;
   }
   function loadAccountLevel() {
     const q = DL.Cloud && DL.Cloud.from ? DL.Cloud.from('player_progress') : null;
     if (q) q.select('level').maybeSingle().then((r) => { if (r && r.data && r.data.level) MP.accountLevel = r.data.level; }, () => {});
+    if (DL.Auth && DL.Auth.profile) DL.Auth.profile().then((p) => { if (p && p.username) MP.username = p.username; }, () => {});
   }
   function sendLook() {
     if (!MP.role || !MP.conn) return;

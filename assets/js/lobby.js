@@ -86,6 +86,15 @@
       row('Cabelo', swatch(look.hair) + esc(hair)) + row('Roupa', swatch(look.shirt) + esc(outfit)) + row('Calça', swatch(look.pants) + esc(pants)) + row('Sapatos', swatch(look.shoes)) +
       row('Acessórios', esc(acc.join(', '))) + worn + '</dl>';
   }
+  // add this player as a friend: their username comes with the look, so it's checked like the rest of it
+  function cardFriend(p) {
+    const F = DL.Friends, user = liveOf(p).user;
+    if (p.me || !F || !F.ready || typeof user !== 'string' || !/^[a-z0-9_]{3,20}$/.test(user)) return '';
+    const rel = F.relationOf(user);
+    if (rel && rel.kind === 'friend') return '<p class="mp-card__none">✓ Vocês são amigos</p>';
+    if (rel && rel.kind === 'outgoing') return '<button class="btn btn--sm" type="button" disabled>Pedido enviado</button>';
+    return '<button class="btn btn--sm btn--primary" type="button" data-card-friend="' + esc(user) + '">' + (rel ? 'Aceitar pedido de amizade' : 'Adicionar amigo') + '</button>';
+  }
   function cardHtml(p) {
     const look = p.look && typeof p.look === 'object' ? p.look : {}, live = liveOf(p);
     const level = levelNum(live.level), pass = levelNum(live.pass), rank = typeof live.rank === 'string' ? live.rank.slice(0, 40) : '';
@@ -95,7 +104,7 @@
       '<small>' + (p.role === 'host' ? 'Anfitrião' : 'Convidado') + (p.me ? ' · você' : '') + '</small></span></header>' +
       '<ul class="mp-card__stats"><li><small class="eyebrow-sm">Nível</small><b>' + (level || '—') + '</b></li>' +
       (pass ? '<li><small class="eyebrow-sm">Passe</small><b>' + pass + '</b></li>' : '') +
-      (rank ? '<li class="is-wide"><small class="eyebrow-sm">Patente</small><b>' + esc(rank) + '</b></li>' : '') + '</ul>' +
+      (rank ? '<li class="is-wide"><small class="eyebrow-sm">Patente</small><b>' + esc(rank) + '</b></li>' : '') + '</ul>' + cardFriend(p) +
       '<section><h3 class="eyebrow-sm">Ouvindo</h3>' + cardMusic(p) + '</section>' +
       '<section><h3 class="eyebrow-sm">Personagem</h3>' + cardLook(look) + '</section>';
   }
@@ -117,7 +126,17 @@
     } catch (e) { /* a look this version doesn't know: no picture */ }
   }
   function showPlayer(id) { C.id = id; C.key = ''; card.hidden = false; renderCard(); }
-  card.addEventListener('click', (ev) => { if (ev.target.closest('[data-card-close]')) closeCard(); });
+  card.addEventListener('click', async (ev) => {
+    if (ev.target.closest('[data-card-close]')) return closeCard();
+    const b = ev.target.closest('[data-card-friend]');
+    if (!b) return;
+    b.disabled = true;
+    const user = b.dataset.cardFriend, rel = DL.Friends.relationOf(user);
+    const r = rel ? await DL.Friends.respond(rel.id, true) : await DL.Friends.request(user);
+    if (!r.ok) { G.toast('warn', 'Amigos', r.message); b.disabled = false; return; }
+    G.toast('ok', 'Amigos', rel || r.data.status === 'accepted' ? 'Você e @' + user + ' agora são amigos' : 'Pedido enviado para @' + user);
+  });
+  if (DL.Friends) DL.Friends.on(renderCard);
   document.addEventListener('pointerdown', (ev) => { if (!card.hidden && !card.contains(ev.target)) closeCard(); }, true);
   addEventListener('keydown', (ev) => { if (ev.code === 'Escape' && !card.hidden) { closeCard(); ev.preventDefault(); ev.stopImmediatePropagation(); } }, true);
 
