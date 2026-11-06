@@ -139,15 +139,19 @@
   }
 
   /* ---------------- polling ---------------- */
+  // a hidden tab stops asking, except in an online room: the others still see what this player is hearing
+  const asleep = () => document.hidden && !(DL.MP && DL.MP.role);
+  // what multiplayer.js tells the room (it reads this every couple of seconds)
+  DL.SpotifyNow = () => (SP.connected ? V.track : null);
   function schedule(ms) {
     clearTimeout(V.timer);
     V.timer = 0;
-    if (!SP.connected || document.hidden) return;
+    if (!SP.connected || asleep()) return;
     V.timer = setTimeout(poll, ms);
   }
   async function poll() {
     clearTimeout(V.timer);
-    if (!SP.connected || document.hidden) return;
+    if (!SP.connected || asleep()) return;
     const r = await SP.nowPlaying();
     if (r.ok) {
       const prev = V.track;

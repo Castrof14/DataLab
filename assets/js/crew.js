@@ -39,6 +39,7 @@
   const OUTFITS = [['tee', 'Camiseta'], ['shirt', 'Camisa'], ['hoodie', 'Moletom'], ['blazer', 'Blazer'], ['uniform', 'Uniforme']];
   const HATS = [['', 'Nenhum'], ['cap', 'Boné'], ['beanie', 'Gorro']];
   const EXTRAS = [['glasses', 'Óculos'], ['beard', 'Barba'], ['headset', 'Headset'], ['earrings', 'Brincos'], ['vest', 'Colete']];
+  DL.LOOK_LABELS = { BODIES, STYLES, OUTFITS, EXTRAS }; // the player card of an online room (lobby.js)
   const NAMES = {
     f: ['Ana', 'Bruna', 'Camila', 'Larissa', 'Fernanda', 'Patrícia', 'Luana', 'Beatriz', 'Isabela', 'Renata', 'Carla', 'Yasmin', 'Marina'],
     m: ['Pedro', 'Lucas', 'Gabriel', 'Thiago', 'Rodrigo', 'Felipe', 'Diego', 'André', 'Caio', 'Vinícius', 'Mateus', 'Bruno'],

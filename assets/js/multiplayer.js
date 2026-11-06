@@ -34,7 +34,42 @@
   const myProfile = () => D.crew.playerProfile || {};
   const myName = () => myProfile().name || 'Jogador';
   // + the accessories, and the trail, aura, profile frame, icon and title equipped in the inventory (trails.js / battlepass.js)
-  function myLook() { const p = myProfile(), o = {}; for (const k of LOOK_KEYS) if (p[k] !== undefined) o[k] = p[k]; return DL.lookExtras ? Object.assign(o, DL.lookExtras()) : o; }
+  // "live" rides along with the look (so whoever joins later gets it too) but never redraws the character
+  function myLook() { const p = myProfile(), o = {}; for (const k of LOOK_KEYS) if (p[k] !== undefined) o[k] = p[k]; if (DL.lookExtras) Object.assign(o, DL.lookExtras()); o.live = myLive(); return o; }
+
+  // what the room sees of my music: never the device's name (often the owner's) and nothing for a private
+  // session or an ad (those arrive here as idle). Spotify and YouTube Music both on: whichever is playing.
+  const clip = (s, n) => String(s || '').slice(0, n);
+  function myMusic() {
+    const read = (src, now) => {
+      const t = now ? now() : null;
+      return t && !t.idle && t.title ? { src, title: clip(t.title, 120), artist: clip(t.artist, 120), image: clip(t.image, 400), url: clip(t.url, 400), on: t.playing ? 1 : 0 } : null;
+    };
+    const a = read('spotify', DL.SpotifyNow), b = read('ytm', DL.YTMusicNow);
+    return a && a.on ? a : b && b.on ? b : a || b;
+  }
+  // levels: the account's and the season pass' are the player's own wherever they play. The career belongs to
+  // the world being played (a guest's copy is the host's), so only the host tells it.
+  function myLive() {
+    const o = {}, music = myMusic();
+    if (MP.accountLevel) o.level = MP.accountLevel;
+    if (DL.Pass && DL.Pass.activated) o.pass = DL.Pass.level;
+    if (MP.role === 'host' && D.career) o.rank = D.career.title;
+    if (music) o.music = music;
+    return o;
+  }
+  function loadAccountLevel() {
+    const q = DL.Cloud && DL.Cloud.from ? DL.Cloud.from('player_progress') : null;
+    if (q) q.select('level').maybeSingle().then((r) => { if (r && r.data && r.data.level) MP.accountLevel = r.data.level; }, () => {});
+  }
+  function sendLook() {
+    if (!MP.role || !MP.conn) return;
+    const look = myLook();
+    MP.lastLook = JSON.stringify(look);
+    MP.conn.send({ t: 'look', look });
+  }
+  // a new song, a pause, a level up: nobody announces those, so look for changes (also in a hidden tab)
+  setInterval(() => { if (MP.role && MP.conn && JSON.stringify(myLook()) !== MP.lastLook) sendLook(); }, 2000);
 
   /* ------------------------------------------------------------------ */
   /* the world's shape: the save snapshot minus what changes every tick   */
@@ -68,13 +103,18 @@
     a.sheet = DL.makeSheet(L);
     a.sitSheet = DL.makeSitSheet(L);
   }
+  const withoutLive = (look) => Object.assign({}, look, { live: 0 });
   function upsertPlayer(info) {
     if (!info || info.id === MP.id) return null;
     let p = MP.players.get(info.id);
     if (!p) { p = { id: info.id, name: info.name, role: info.role, look: null, actor: null }; MP.players.set(info.id, p); }
     if (info.name) p.name = info.name;
     if (info.role) p.role = info.role;
-    if (info.look && !same(info.look, p.look)) { p.look = info.look; if (p.actor) lookActor(p.actor, p.look); }
+    if (info.look) {
+      const redraw = !same(withoutLive(info.look), withoutLive(p.look));
+      p.look = info.look;
+      if (redraw && p.actor) lookActor(p.actor, p.look);
+    }
     return p;
   }
   function spawnActor(p, at) {
@@ -502,14 +542,14 @@
       MP.id = m.id; MP.role = role; MP.room = m.room; MP.hostId = m.hostId;
       for (const p of m.players) upsertPlayer(p);
       hookChat();
+      loadAccountLevel();
       if (role === 'guest') {
         G.guest = { update: guestUpdate };
         conn.send({ t: 'sync' });
-        conn.send({ t: 'look', look: myLook() });
       } else {
         MP.dirty = true;
-        conn.send({ t: 'look', look: myLook() });
       }
+      sendLook();
       emit('state', { open: true });
     });
     conn.on('roster', (m) => {
@@ -672,8 +712,8 @@
 
   // the build tools tell the guest's edits apart (world events while the host's world is applied are not edits)
   G.on('world', () => { if (MP.role === 'host') MP.dirty = true; });
-  G.on('player-look', () => { if (MP.role && MP.conn) MP.conn.send({ t: 'look', look: myLook() }); });
-  G.on('look-extras', () => { if (MP.role && MP.conn) MP.conn.send({ t: 'look', look: myLook() }); });
+  G.on('player-look', sendLook);
+  G.on('look-extras', sendLook);
 
   // runs inside the game loop (demo.js step)
   G.on('step', tick);

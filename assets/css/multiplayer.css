@@ -84,3 +84,68 @@
 }
 .mp-tag--say { text-transform: none; letter-spacing: 0; font-size: 12px; white-space: normal; background: rgba(240, 244, 250, 0.95); }
 .is-build .mp-tags { opacity: 0.5; }
+/* what they are listening to, under the name */
+.mp-tag.has-song { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; border-radius: var(--r-sm, 6px); }
+.mp-tag__name, .mp-tag__song { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.mp-tag__song { text-transform: none; letter-spacing: 0; font-size: 11px; }
+
+/* ---------------- room panel: a player's name opens the card, the song goes under it ---------------- */
+button.mp-hud__who { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+button.mp-hud__who:hover b, button.mp-hud__who:focus-visible b { color: var(--teal); }
+.mp-hud__song { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mp-hud__who .mp-hud__song--spotify { color: #1ed760; }
+.mp-hud__who .mp-hud__song--ytm { color: #ff5c7a; }
+
+/* ---------------- the card of a player ---------------- */
+.mp-card {
+  position: absolute;
+  top: 72px;
+  right: calc(var(--s-xl, 24px) + 256px);
+  width: 280px;
+  max-height: calc(100% - 96px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-sm, 6px);
+  background: rgba(11, 11, 12, 0.94);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  color: var(--ink);
+  overflow-y: auto;
+  z-index: 6;
+}
+.mp-card[hidden] { display: none; }
+.is-title .mp-card { display: none; }
+.mp-card__x { position: absolute; top: 8px; right: 8px; }
+.mp-card section { display: flex; flex-direction: column; gap: 6px; }
+.mp-card h3 { margin: 0; font-weight: 400; color: var(--mute); }
+.mp-card__head { display: flex; align-items: center; gap: 12px; padding-right: 24px; }
+.mp-card__body { flex: none; display: flex; padding: 4px; background: rgba(255, 255, 255, 0.04); }
+.mp-card__body canvas { display: block; height: 72px; width: auto; image-rendering: pixelated; }
+.mp-card__who { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.mp-card__who b { font-weight: 400; font-size: 16px; line-height: 20px; overflow-wrap: anywhere; }
+.mp-card__who small, .mp-card__none { margin: 0; font-size: 12px; line-height: 16px; color: var(--mute); }
+.mp-card__stats { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; }
+.mp-card__stats li { flex: 1 1 72px; display: flex; flex-direction: column; gap: 2px; min-width: 0; padding: 6px 8px; border: 1px solid var(--hairline); }
+.mp-card__stats li.is-wide { flex-basis: 100%; }
+.mp-card__stats small { color: var(--mute); }
+.mp-card__stats b { font-weight: 400; font-size: 15px; line-height: 18px; color: var(--teal); overflow-wrap: anywhere; }
+.mp-card__music { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mp-card__art { flex: none; width: 48px; height: 48px; display: grid; place-items: center; background: rgba(255, 255, 255, 0.06); color: var(--mute); }
+.mp-card__art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mp-card__track { display: flex; flex-direction: column; min-width: 0; font-size: 12px; line-height: 16px; }
+.mp-card__track b { font-weight: 400; font-size: 14px; line-height: 18px; overflow-wrap: anywhere; }
+.mp-card__track a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.mp-card__track small { font-size: 11px; line-height: 15px; }
+.mp-card__music--spotify small { color: #1ed760; }
+.mp-card__music--ytm small { color: #ff5c7a; }
+.mp-card__rows { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12px; line-height: 17px; }
+.mp-card__rows > div { display: contents; }
+.mp-card__rows dt { color: var(--mute); }
+.mp-card__rows dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.mp-card__sw { display: inline-block; width: 11px; height: 11px; margin-right: 6px; vertical-align: -1px; border: 1px solid rgba(255, 255, 255, 0.35); }
+@media (max-width: 860px) {
+  .mp-card { top: 64px; left: 8px; right: 8px; width: auto; max-height: calc(100% - 80px); }
+}

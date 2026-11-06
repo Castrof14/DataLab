@@ -162,17 +162,21 @@
     const t = V.track;
     if (t && t.playing && trackKey(t) && (!prev || !prev.playing || trackKey(prev) !== trackKey(t))) peek();
   }
+  // a hidden tab stops asking, except in an online room: the others still see what this player is hearing
+  const asleep = () => document.hidden && !(DL.MP && DL.MP.role);
+  // what multiplayer.js tells the room (it reads this every couple of seconds)
+  DL.YTMusicNow = () => (YT.connected ? V.track : null);
   function schedule(ms) {
     clearTimeout(V.timer);
     V.timer = 0;
-    if (!YT.connected || document.hidden || YT.live) return;
+    if (!YT.connected || asleep() || YT.live) return;
     // never ask before the 5 s window is over (the app would answer 429)
     V.timer = setTimeout(poll, Math.max(ms, V.lastState + STATE_GAP - Date.now()));
   }
   async function poll() {
     clearTimeout(V.timer);
     V.timer = 0;
-    if (!YT.connected || document.hidden) return;
+    if (!YT.connected || asleep()) return;
     if (Date.now() - V.lastState < STATE_GAP) { schedule(0); return; }
     V.lastState = Date.now();
     const r = await YT.nowPlaying();

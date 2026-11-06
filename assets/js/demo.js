@@ -801,9 +801,20 @@
     const w = scene.screenToWorld(x, y);
     return !!crew.pickActor(w.x, w.y, [player]);
   };
+  // another player's character in an online room: a click opens their card (lobby.js)
+  const friendAt = (x, y) => {
+    if (!DL.Lobby || S.mode === 'build') return null;
+    const others = scene.actors.filter((a) => a.remotePlayer && !a.hidden);
+    if (!others.length) return null;
+    if (scene.iso) return scene.pickAt(x, y, (o) => others.indexOf(o) >= 0);
+    const w = scene.screenToWorld(x, y);
+    return crew.pickActor(w.x, w.y, others);
+  };
   canvas.addEventListener('pointerdown', (ev) => {
     if (S.phase === 'intro' || isOverlayOpen()) return;
     const [x, y] = local(ev);
+    const friend = ev.button === 0 ? friendAt(x, y) : null;
+    if (friend) { DL.Lobby.showPlayer(friend.remotePlayer.id); return; }
     if (ev.button === 0 && onMe(x, y)) { if (DL.SpotifyBubble) DL.SpotifyBubble.toggle(); if (DL.YTMusicBubble) DL.YTMusicBubble.toggle(); return; }
     if (ev.pointerType === 'touch' && S.mode === 'explore') return;
     if (ev.button === 0) canvas.setPointerCapture(ev.pointerId);
@@ -828,7 +839,7 @@
     }
     if (S.mode === 'build') builder.pointerMove(x, y);
     else crew.pointerMove(x, y);
-    if (onMe(x, y)) setCursor('pointer');
+    if (onMe(x, y) || friendAt(x, y)) setCursor('pointer');
   });
   const up = () => {
     if (S.drag && S.drag.on) setCursor('');

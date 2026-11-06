@@ -1,7 +1,8 @@
 /* DataLab — multiplayer screens (multiplayer.js does the work):
    - Main Menu → Jogar On-Line: create a room (it gets a code) or join one with a code / invitation link;
    - in game: "Abrir sala" (the running world becomes a room), the room panel with the code, who is
-     connected, saving and leaving; name tags over the other players; what happens when a connection drops.
+     connected, saving and leaving; name tags over the other players; what happens when a connection drops;
+   - what each player is listening to (tag + panel) and the card a click on a character opens.
    Nothing to install: the host's own browser is the room (services/net-service.js). */
 (function () {
   'use strict';
@@ -27,6 +28,99 @@
       g.drawImage(sheet.down.idle, 3, 1, 16, 16, 0, 0, 32, 32);
     } catch (e) { /* a look this version doesn't know: no face */ }
   }
+
+  /* ------------------------------------------------------------------ */
+  /* the music and levels of a look: it comes from another player, so    */
+  /* nothing in it is trusted (links and covers only from these services) */
+  /* ------------------------------------------------------------------ */
+  const MUSIC = {
+    spotify: { name: 'Spotify', img: /(^|\.)(scdn\.co|spotifycdn\.com)$/, link: /^open\.spotify\.com$/ },
+    ytm: { name: 'YouTube Music', img: /(^|\.)(ytimg\.com|googleusercontent\.com|ggpht\.com)$/, link: /^music\.youtube\.com$/ },
+  };
+  const safeUrl = (u, host) => { try { const x = new URL(u); return x.protocol === 'https:' && host.test(x.hostname) ? x.href : ''; } catch (e) { return ''; } };
+  const liveOf = (p) => (p && p.look && p.look.live && typeof p.look.live === 'object' ? p.look.live : {});
+  function musicOf(p) {
+    const m = liveOf(p).music;
+    if (!m || (m.src !== 'spotify' && m.src !== 'ytm') || typeof m.title !== 'string' || !m.title) return null;
+    const s = MUSIC[m.src];
+    return { src: m.src, service: s.name, title: m.title.slice(0, 120), artist: String(m.artist || '').slice(0, 120), image: safeUrl(m.image, s.img), url: safeUrl(m.url, s.link), on: !!m.on };
+  }
+  const levelNum = (v) => { const n = Math.floor(Number(v)); return n >= 1 && n <= 9999 ? n : 0; };
+
+  /* ------------------------------------------------------------------ */
+  /* in game: the card of a player (a click on the character, or the     */
+  /* name in the room panel)                                             */
+  /* ------------------------------------------------------------------ */
+  const card = document.createElement('aside');
+  card.className = 'mp-card';
+  card.hidden = true;
+  card.setAttribute('aria-label', 'Perfil do jogador');
+  if ($('mpHud')) $('mpHud').parentNode.appendChild(card);
+  const C = { id: null, key: '' };
+
+  const cosmeticName = (slot, value) => { const it = (DL.COSMETICS || []).find((c) => c.slot === slot && c.value === value); return it ? it.name : ''; };
+  const labelOf = (list, v) => (list.find((x) => x[0] === v) || [])[1] || '';
+  const swatch = (c) => (/^#[0-9a-f]{3,8}$/i.test(c) ? '<i class="mp-card__sw" style="background:' + c + '"></i>' : '');
+  const row = (label, value) => (value ? '<div><dt class="eyebrow-sm">' + label + '</dt><dd>' + value + '</dd></div>' : '');
+
+  function cardMusic(p) {
+    const m = musicOf(p);
+    if (!m) return '<p class="mp-card__none">Nada tocando agora</p>';
+    const title = m.url ? '<a href="' + esc(m.url) + '" target="_blank" rel="noopener noreferrer" title="Abrir no ' + m.service + '">' + esc(m.title) + '</a>' : esc(m.title);
+    return '<div class="mp-card__music mp-card__music--' + m.src + '"><span class="mp-card__art">' + (m.image ? '<img src="' + esc(m.image) + '" alt="" referrerpolicy="no-referrer">' : '♪') + '</span>' +
+      '<span class="mp-card__track"><b>' + title + '</b><span>' + esc(m.artist) + '</span><small>' + m.service + (m.on ? '' : ' · pausado') + '</small></span></div>';
+  }
+  function cardLook(look) {
+    const LL = DL.LOOK_LABELS || { BODIES: [], STYLES: [], OUTFITS: [], EXTRAS: [] };
+    const role = DL.ROLES && Object.prototype.hasOwnProperty.call(DL.ROLES, look.role) ? DL.ROLES[look.role] : null;
+    const hair = labelOf(LL.STYLES, look.hairStyle) || cosmeticName('hair', look.hairStyle);
+    const outfit = labelOf(LL.OUTFITS, look.outfit) || cosmeticName('shirt', look.outfit);
+    const pants = look.pantsStyle ? cosmeticName('pants', look.pantsStyle) : 'Reta';
+    const acc = LL.EXTRAS.concat([['shades', 'Óculos escuros'], ['scarf', 'Cachecol'], ['backpack', 'Mochila'], ['chain', 'Corrente']]).filter(([k]) => look[k]).map((x) => x[1]);
+    if (look.hat) acc.push(cosmeticName('hat', look.hat) || 'Chapéu');
+    if (look.gear && typeof look.gear === 'object') for (const slot of Object.keys(look.gear)) { const n = cosmeticName(slot, look.gear[slot]); if (n) acc.push(n); }
+    const worn = [['trail', 'Rastro'], ['aura', 'Aura'], ['frame', 'Moldura'], ['icon', 'Ícone'], ['title', 'Título']]
+      .map(([slot, label]) => row(label, esc(cosmeticName(slot, look[slot])))).join('');
+    return '<dl class="mp-card__rows">' +
+      row('Função', role ? esc(role.name) : '') + row('Aparência', esc(labelOf(LL.BODIES, look.body))) + row('Pele', swatch(look.skin)) +
+      row('Cabelo', swatch(look.hair) + esc(hair)) + row('Roupa', swatch(look.shirt) + esc(outfit)) + row('Calça', swatch(look.pants) + esc(pants)) + row('Sapatos', swatch(look.shoes)) +
+      row('Acessórios', esc(acc.join(', '))) + worn + '</dl>';
+  }
+  function cardHtml(p) {
+    const look = p.look && typeof p.look === 'object' ? p.look : {}, live = liveOf(p);
+    const level = levelNum(live.level), pass = levelNum(live.pass), rank = typeof live.rank === 'string' ? live.rank.slice(0, 40) : '';
+    return '<button class="cc__x mp-card__x" type="button" data-card-close aria-label="Fechar">×</button>' +
+      '<header class="mp-card__head"><span class="mp-card__body' + (DL.passFrameClass ? DL.passFrameClass(look.frame) : '') + '"><canvas data-card-body aria-hidden="true"></canvas></span>' +
+      '<span class="mp-card__who"><b>' + (DL.passIconHtml ? DL.passIconHtml(look.icon) : '') + esc(p.name) + '</b>' + (look.title && DL.passTitleHtml ? DL.passTitleHtml(look.title) : '') +
+      '<small>' + (p.role === 'host' ? 'Anfitrião' : 'Convidado') + (p.me ? ' · você' : '') + '</small></span></header>' +
+      '<ul class="mp-card__stats"><li><small class="eyebrow-sm">Nível</small><b>' + (level || '—') + '</b></li>' +
+      (pass ? '<li><small class="eyebrow-sm">Passe</small><b>' + pass + '</b></li>' : '') +
+      (rank ? '<li class="is-wide"><small class="eyebrow-sm">Patente</small><b>' + esc(rank) + '</b></li>' : '') + '</ul>' +
+      '<section><h3 class="eyebrow-sm">Ouvindo</h3>' + cardMusic(p) + '</section>' +
+      '<section><h3 class="eyebrow-sm">Personagem</h3>' + cardLook(look) + '</section>';
+  }
+  function closeCard() { C.id = null; C.key = ''; card.hidden = true; card.innerHTML = ''; }
+  function renderCard() {
+    if (C.id === null) return;
+    const p = MP.role ? MP.players().find((x) => x.id === C.id) : null;
+    if (!p) return closeCard();
+    const html = cardHtml(p);
+    // redrawn every few seconds: leave the cover and the character alone when nothing changed
+    if (html === C.key) return;
+    C.key = html;
+    card.innerHTML = html;
+    const cv = card.querySelector('[data-card-body]');
+    try {
+      const f = DL.makeSheet(DL.crewLook(Object.assign({}, p.look || {}))).down.idle;
+      cv.width = f.width; cv.height = f.height;
+      cv.getContext('2d').drawImage(f, 0, 0);
+    } catch (e) { /* a look this version doesn't know: no picture */ }
+  }
+  function showPlayer(id) { C.id = id; C.key = ''; card.hidden = false; renderCard(); }
+  card.addEventListener('click', (ev) => { if (ev.target.closest('[data-card-close]')) closeCard(); });
+  document.addEventListener('pointerdown', (ev) => { if (!card.hidden && !card.contains(ev.target)) closeCard(); }, true);
+  addEventListener('keydown', (ev) => { if (ev.code === 'Escape' && !card.hidden) { closeCard(); ev.preventDefault(); ev.stopImmediatePropagation(); } }, true);
+
   function copy(text, done) {
     const ok = () => G.toast('ok', 'Copiado', done);
     if (navigator.clipboard) navigator.clipboard.writeText(text).then(ok, () => G.toast('info', 'Convite', text));
@@ -135,6 +229,12 @@
   /* ------------------------------------------------------------------ */
   const hud = $('mpHud');
   let hudOpen = innerWidth >= 860;
+  function hudSong(p) {
+    const m = musicOf(p);
+    if (!m || !m.on) return '';
+    const text = '♪ ' + m.title + (m.artist ? ' · ' + m.artist : '');
+    return '<small class="mp-hud__song mp-hud__song--' + m.src + '" title="' + esc(text + ' (' + m.service + ')') + '">' + esc(text) + '</small>';
+  }
   function renderHud() {
     if (!hud) return;
     const role = MP.role;
@@ -152,8 +252,8 @@
           '<span class="mp-hud__copy"><button class="btn btn--sm" type="button" data-mp-act="copy-code">Copiar código</button><button class="btn btn--sm" type="button" data-mp-act="copy-link">Copiar convite</button></span></div>';
       }
       h += '<ul class="mp-hud__list">' + list.map((p) =>
-        '<li><span class="mp-hud__face' + (p.look && DL.passFrameClass ? DL.passFrameClass(p.look.frame) : '') + '"><canvas data-mp-face="' + esc(p.id) + '" aria-hidden="true"></canvas></span><span class="mp-hud__who"><b>' + (p.look && DL.passIconHtml ? DL.passIconHtml(p.look.icon) : '') + esc(p.name) + '</b>' +
-        (p.look && p.look.title && DL.passTitleHtml ? DL.passTitleHtml(p.look.title) : '') + '<small>' + (p.role === 'host' ? 'Anfitrião' : 'Convidado') + (p.me ? ' · você' + (role === 'guest' && MP.rtt ? ' · ' + MP.rtt + ' ms' : '') : '') + '</small></span>' +
+        '<li><span class="mp-hud__face' + (p.look && DL.passFrameClass ? DL.passFrameClass(p.look.frame) : '') + '"><canvas data-mp-face="' + esc(p.id) + '" aria-hidden="true"></canvas></span><button class="mp-hud__who" type="button" data-mp-act="card" data-id="' + esc(p.id) + '" title="Ver o perfil de ' + esc(p.name) + '"><b>' + (p.look && DL.passIconHtml ? DL.passIconHtml(p.look.icon) : '') + esc(p.name) + '</b>' +
+        (p.look && p.look.title && DL.passTitleHtml ? DL.passTitleHtml(p.look.title) : '') + '<small>' + (p.role === 'host' ? 'Anfitrião' : 'Convidado') + (p.me ? ' · você' + (role === 'guest' && MP.rtt ? ' · ' + MP.rtt + ' ms' : '') : '') + '</small>' + hudSong(p) + '</button>' +
         (host && !p.me ? '<button class="cc__x" type="button" data-mp-act="kick" data-id="' + esc(p.id) + '" title="Remover da sala" aria-label="Remover ' + esc(p.name) + ' da sala">×</button>' : '') + '</li>').join('') + '</ul>';
       h += '<div class="mp-hud__acts">' + (host ? '<button class="btn btn--sm" type="button" data-mp-act="save">Salvar mundo</button><button class="btn btn--sm" type="button" data-mp-act="leave">Fechar sala</button>'
         : '<button class="btn btn--sm" type="button" data-mp-act="leave">Sair da sala</button>') + '</div>';
@@ -171,6 +271,7 @@
       if (!b) return;
       const act = b.dataset.mpAct, code = MP.room && MP.room.code;
       if (act === 'toggle') { hudOpen = !hudOpen; renderHud(); }
+      else if (act === 'card') showPlayer(b.dataset.id);
       else if (act === 'kick') MP.kick(b.dataset.id);
       else if (act === 'copy-code' && code) copy(Net.showCode(code), 'Código ' + Net.showCode(code) + ' · passe para quem vai jogar');
       else if (act === 'copy-link' && code) copy(Net.inviteLink(code), 'Link de convite · quem abrir entra direto na sala');
@@ -184,7 +285,7 @@
     });
     hud.addEventListener('pointerdown', (ev) => ev.stopPropagation());
   }
-  setInterval(() => { if (MP.role && hudOpen) renderHud(); }, 3000);
+  setInterval(() => { if (MP.role && hudOpen) renderHud(); renderCard(); }, 3000);
 
   async function leaveRoom() {
     if (MP.role === 'guest') {
@@ -238,6 +339,7 @@
   /* ------------------------------------------------------------------ */
   MP.on('state', ({ open }) => {
     renderHud();
+    if (!open) closeCard();
     if (open && MP.role === 'host') {
       hudOpen = true;
       renderHud();
@@ -245,6 +347,7 @@
     }
   });
   MP.on('roster', renderHud);
+  MP.on('roster', renderCard);
   MP.on('saved', renderHud);
   MP.on('ready', () => {
     L.busy = false;
@@ -305,12 +408,15 @@
         // the season pass' title (Pioneiro) goes under the name, its icon (Chip Boot) before it (battlepass.js)
         const title = !b && p.look && p.look.title && DL.passTitleHtml ? DL.passTitleHtml(p.look.title) : '';
         const icon = !b && p.look && DL.passIconHtml ? DL.passIconHtml(p.look.icon) : '';
-        const text = (b || p.name) + '|' + title + '|' + icon;
+        // and what they are listening to, while it plays
+        const m = b ? null : musicOf(p), song = m && m.on ? m.title : '';
+        const text = (b || p.name) + '|' + title + '|' + icon + '|' + song;
         if (el.dataset.text !== text) {
           el.dataset.text = text;
-          if (title || icon) el.innerHTML = '<span class="mp-tag__name">' + icon + esc(p.name) + '</span>' + title; else el.textContent = b || p.name;
+          if (title || icon || song) el.innerHTML = '<span class="mp-tag__name">' + icon + esc(p.name) + '</span>' + title + (song ? '<span class="mp-tag__song">♪ ' + esc(song) + '</span>' : ''); else el.textContent = b || p.name;
           el.classList.toggle('mp-tag--say', !!b);
           el.classList.toggle('has-ptitle', !!title);
+          el.classList.toggle('has-song', !!song);
         }
         const s = D.scene.worldToScreen(a.x, a.y, a.seated ? 27 : 33);
         el.style.transform = 'translate(' + Math.round(s.x) + 'px,' + Math.round(s.y) + 'px) translate(-50%, -100%)';
@@ -340,6 +446,7 @@
 
   DL.Lobby = {
     html,
+    showPlayer,
     // the menu's clicks and forms inside this screen
     click(ev) {
       const t = ev.target.closest('[data-mp-tab]');
