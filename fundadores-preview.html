@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Coleção Criadores</title>
+<title>Coleção Criador</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Silkscreen&display=swap" rel="stylesheet">
@@ -80,8 +80,8 @@
   .incl { font: 10px 'Silkscreen', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
 
   /* one column per skin */
-  .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
-  @media (max-width: 900px) { .pair { grid-template-columns: minmax(0, 1fr); } }
+  .pair { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  @media (max-width: 1100px) { .pair { grid-template-columns: minmax(0, 1fr); } }
   .skin__head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .skin__head small { font: 10px 'Silkscreen', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
   .anim { border-top: 2px solid var(--line-2); }
@@ -115,8 +115,8 @@
 <div class="wrap">
   <header>
     <p class="kicker">Loja · Personagem · Coleção Criador</p>
-    <h1>Dev Pierre &amp; Abner</h1>
-    <p class="sub">As duas skins dos criadores do DataLab. Esta página roda o <code>sprites.js</code>, o <code>cosmetics.js</code> e o <code>emotes.js</code> do jogo, então o que aparece aqui é o que aparece no mapa: quadro de 22×31 px, contorno de 1 px.</p>
+    <h1>Dev Pierre, Abner &amp; João Pedro</h1>
+    <p class="sub">As skins dos três criadores do DataLab. Esta página roda o <code>sprites.js</code>, o <code>cosmetics.js</code> e o <code>emotes.js</code> do jogo, então o que aparece aqui é o que aparece no mapa: quadro de 22×31 px, contorno de 1 px.</p>
   </header>
 
   <div class="box">
@@ -134,6 +134,7 @@
       <span class="seg" role="group" aria-label="Acessórios">
         <button type="button" class="btn" data-toggle="dev_pierre" aria-pressed="true">Óculos do Pierre: ligados</button>
         <button type="button" class="btn" data-toggle="abner" aria-pressed="true">Relax do Abner: ligado</button>
+        <button type="button" class="btn" data-toggle="joao_pedro" aria-pressed="true">Notebook do JP: ligado</button>
       </span>
     </div>
   </div>
@@ -148,10 +149,10 @@
     <div class="box__head"><h2>No jogo</h2></div>
     <div class="notes">
       <ul>
-        <li><code>assets/js/cosmetics.js</code>: <code>dev_pierre</code> (lendária, 400 Gold, selo ★ CRIADOR), <code>gear_wayfarer</code> (épico, 90 Gold) e <code>abner</code> (lendária, 400 Gold, selo ★ CRIADOR), com cabelos, roupas, tênis, pulsos e poses.</li>
-        <li><code>assets/js/sprites.js</code> + <code>scene.js</code>: o respiro parado das duas skins, a selfie e o frame sentado relaxado do Abner.</li>
+        <li><code>assets/js/cosmetics.js</code>: <code>dev_pierre</code> (lendária, 400 Gold, selo ★ CRIADOR), <code>gear_wayfarer</code> (épico, 90 Gold) e <code>abner</code> (lendária, 400 Gold, selo ★ CRIADOR), <code>gear_lounge</code> (pose, épico, 90 Gold), <code>joao_pedro</code> (lendária, 400 Gold, selo ★ CRIADOR) e <code>gear_netbook</code> (mãos, épico, 90 Gold), com cabelos, roupas, tênis, pulsos e poses.</li>
+        <li><code>assets/js/sprites.js</code> + <code>scene.js</code>: o respiro parado das três skins, os frames da selfie e do ping, e o frame sentado relaxado.</li>
         <li><code>assets/js/demo.js</code>: o Abner senta relaxado nos sofás e pufes, e no chão quando fica 5 s parado encostado num rack.</li>
-        <li><code>assets/js/emotes.js</code>: emote Selfie na tecla 6, para quem tem o Dev Pierre.</li>
+        <li><code>assets/js/emotes.js</code>: emote Selfie na tecla 6 (Dev Pierre) e Ping na tecla 7 (João Pedro).</li>
         <li><code>assets/js/inventory.js</code> + <code>assets/css/store.css</code>: os selos no card e no detalhe da loja.</li>
         <li><code>supabase/migrations/</code>: <code>20261106000300_dev_pierre.sql</code> e <code>20261106000400_abner.sql</code>, os itens no catálogo do servidor.</li>
       </ul>
@@ -173,17 +174,17 @@
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const calm = matchMedia('(prefers-reduced-motion: reduce)');
   // each skin's accessory: Pierre's wayfarers, Abner's Relax do Criador (on = equipped)
-  const S = { on: { dev_pierre: true, abner: true }, mode: 'spin', t0: performance.now() };
+  const S = { on: { dev_pierre: true, abner: true, joao_pedro: true }, mode: 'spin', t0: performance.now() };
 
   // the player's own look under the skins (each costume replaces skin, hair, clothes and shoes)
   const BASE = { body: 'm', skin: '#e0ac7e', hair: '#5a3a25', hairStyle: 'short', shirt: '#2f3a4d', pants: '#232a36', shoes: '#16181d' };
-  const D = DL.DEV, A = DL.ABN;
+  const D = DL.DEV, A = DL.ABN, J = DL.JP;
   const SKINS = [
     {
       id: 'dev_pierre', name: 'Dev Pierre', who: 'o criador', rarity: 'legendary', rarName: 'Lendário',
       looks: { on: Object.assign({}, BASE, { outfit: 'dev_pierre', gear: { face: 'wayfarer' } }), off: Object.assign({}, BASE, { outfit: 'dev_pierre', gear: {} }) },
       idleText: 'Mão direita no bolso, relógio branco no pulso esquerdo, respirando parado.',
-      extra: 'selfie', extraName: 'Selfie no espelho', extraText: 'Emote 6, vem com a skin: celular erguido, a outra mão no bolso, dois flashes.',
+      extra: 'emote', emote: 'selfie', extraName: 'Selfie no espelho', extraText: 'Emote 6, vem com a skin: celular erguido, a outra mão no bolso, dois flashes.',
       foot: '+ emote Selfie',
       legend: [['Pele morena clara', D.skin], ['Cabelo preto', D.hair], ['Sobrancelha / bigode', D.brow], ['Camiseta preta', D.tee], ['Broche prateado', D.pin], ['Jogger preta', D.pants], ['Relógio branco', D.watch], ['Tênis azul', D.shoe], ['Sola branca', D.sole], ['Lente dos óculos', D.lens]],
     },
@@ -194,6 +195,14 @@
       extra: 'lounge', extraName: 'Sentado relaxado', extraText: 'Acessório Relax do Criador: pernas abertas, uma mão no joelho, o outro braço no encosto. No jogo: nos sofás e pufes, e no chão encostado num rack. Desligado, ele fica em pé.',
       foot: 'streetwear',
       legend: [['Pele clara', A.skin], ['Cachos castanho-escuros', A.hair], ['Camiseta preta', A.tee], ['Cargo oliva', A.camo], ['Camuflado marrom', A.camoB], ['Camuflado preto', A.camoK], ['Pulseira azul', A.band], ['Relógio escuro', A.watch], ['Cano alto preto', A.shoe], ['Azul royal', A.blue], ['Sola branca', A.sole]],
+    },
+    {
+      id: 'joao_pedro', name: 'João Pedro', who: 'o criador · redes', rarity: 'legendary', rarName: 'Lendário',
+      looks: { on: Object.assign({}, BASE, { outfit: 'joao_pedro', gear: { hands: 'netbook' } }), off: Object.assign({}, BASE, { outfit: 'joao_pedro', gear: {} }) },
+      idleText: 'Sem o notebook: braços cruzados e sorriso de canto. Com o Notebook de Redes: abre na frente do peito e o código verde rola na tela. Andando, vai fechado debaixo do braço.',
+      extra: 'emote', emote: 'ping', extraName: 'Ping', extraText: 'Emote 7, vem com a skin: digita rápido no notebook, os pacotes saem verdes e voltam azuis, 64 bytes em 1 ms.',
+      foot: '+ emote Ping',
+      legend: [['Pele morena clara', J.skin], ['Cabelo escuro', J.hair], ['Barba', J.beard], ['Boné azul-marinho', J.cap], ['Tricô preto', J.knit], ['Calça grafite', J.pants], ['Relógio escuro', J.watch], ['Tênis cinza', J.shoe], ['Sola branca', J.sole], ['Código verde', J.code]],
     },
   ];
   for (const s of SKINS) {
@@ -220,7 +229,7 @@
   }
 
   /* ---------------- the stage: a corner of the datacenter ---------------- */
-  const SW = 150, SH = 78, stage = document.getElementById('stage');
+  const SW = 196, SH = 78, stage = document.getElementById('stage');
   function rack(g, x, y, t, seed) {
     R(g, x, y, 16, 30, '#121826'); R(g, x, y, 16, 1, '#26324a'); R(g, x, y, 1, 30, '#1c2538'); R(g, x + 15, y, 1, 30, '#0a0e17');
     for (let i = 0; i < 6; i++) {
@@ -243,7 +252,7 @@
     R(g, 0, 0, SW, SH, '#050a14');
     R(g, 0, 0, SW, 36, '#08101f'); R(g, 0, 34, SW, 2, '#0b1730');
     R(g, 0, 6, SW, 1, 'rgba(45,226,200,' + (0.35 + 0.15 * Math.sin(t * 1.4)).toFixed(2) + ')');
-    rack(g, 6, 6, t, 1); rack(g, 24, 6, t, 2); rack(g, 110, 6, t, 3); rack(g, 128, 6, t, 4);
+    rack(g, 4, 6, t, 1); rack(g, 22, 6, t, 2); rack(g, 156, 6, t, 3); rack(g, 174, 6, t, 4);
     R(g, 0, 36, SW, SH - 36, '#070d1a');
     g.fillStyle = '#0d1a30';
     for (let i = -10; i < 24; i++) for (let s = 0; s < 44; s++) {
@@ -252,7 +261,7 @@
       if (x >= 0 && x < SW) g.fillRect(x, y, 1, 1);
       if (x2 >= 0 && x2 < SW) g.fillRect(x2, y, 1, 1);
     }
-    for (const [cx, c] of [[52, 'rgba(255,181,71,0.10)'], [98, 'rgba(242,193,78,0.08)']]) { g.fillStyle = c; g.beginPath(); g.ellipse(cx, 68, 18, 5, 0, 0, Math.PI * 2); g.fill(); }
+    for (const [cx, c] of [[52, 'rgba(255,181,71,0.10)'], [98, 'rgba(242,193,78,0.08)'], [144, 'rgba(57,255,20,0.06)']]) { g.fillStyle = c; g.beginPath(); g.ellipse(cx, 68, 18, 5, 0, 0, Math.PI * 2); g.fill(); }
     if (withSofa) sofa(g, 84, 46);
   }
   function bubble(g, x, y, text) {
@@ -263,7 +272,7 @@
   let nowText = '';
   function drawStage(t) {
     const k = Math.max(2, Math.floor((stage.parentElement.clientWidth || 600) * (devicePixelRatio || 1) / SW));
-    const g = setup(stage, SW, SH, k), [P, AB] = SKINS, PX = 52, AXS = 98, Y = 68;
+    const g = setup(stage, SW, SH, k), [P, AB, JP] = SKINS, PX = 52, AXS = 98, JX = 144, Y = 68;
     backdrop(g, t, S.mode === 'extra');
     let label;
     if (S.mode === 'extra') {
@@ -275,11 +284,16 @@
       const sit = seated(AB, 'down');
       if (sit) DL.drawActor(g, Object.assign(actor(AB, AXS + 1, Y - 6, sit, 'down', false, false), { noShadow: true }), k);
       else DL.drawActor(g, actor(AB, AXS + 1, Y + 2, idleFrame(sheet(AB), 'down', t), 'down', false, false), k);
-      label = 'Pierre: selfie · Abner: no sofá';
+      // João Pedro: the Ping on a loop
+      const PING = DL.emote('ping'), pl = PING.dur + 0.9, pt = (t + 0.7) % pl, pon = pt < PING.dur;
+      const pimg = pon ? DL.emoteFrame(JP.emo[key(JP)], 'ping', pt, PING.dur) : idleFrame(sheet(JP), 'down', t);
+      DL.drawActor(g, actor(JP, JX, Y, pimg, 'down', false, pon), k);
+      if (pon) { DL.emoteFx(g, 'ping', JX, Y, pt, PING.dur, pimg); bubble(g, JX - 9, Y - 33, pt > PING.dur - 1.2 ? '✓' : '📡'); }
+      label = 'Pierre: selfie · Abner: no sofá · JP: ping';
     } else {
       const walk = S.mode === 'walk', dir = DIRS[Math.floor(t / (walk ? 2.4 : 1.6)) % 4];
-      for (const [s, x] of [[P, PX], [AB, AXS]]) {
-        const sh = sheet(s), img = walk ? sh[dir].walk[Math.floor(t * 7) % 4] : idleFrame(sh, dir, t + (s === AB ? 0.5 : 0));
+      for (const [s, x, ph] of [[P, PX, 0], [AB, AXS, 0.5], [JP, JX, 1]]) {
+        const sh = sheet(s), img = walk ? sh[dir].walk[Math.floor(t * 7) % 4] : idleFrame(sh, dir, t + ph);
         DL.drawActor(g, actor(s, x, Y, img, dir, walk, false), k);
       }
       label = (walk ? 'Andando · ' : 'Parados · ') + DIR_NAME[dir];
@@ -291,15 +305,17 @@
   const cards = [
     { s: SKINS[0], it: SKINS[0].item }, { s: SKINS[1], it: SKINS[1].item },
     { s: SKINS[0], it: item('gear_wayfarer'), head: true },
+    { s: SKINS[2], it: SKINS[2].item },
     { s: SKINS[1], it: item('gear_lounge'), pose: true },
+    { s: SKINS[2], it: item('gear_netbook'), hands: true },
   ];
   document.getElementById('cards').innerHTML = cards.map((c, i) => {
     const it = c.it;
     return '<article class="st-card rar-' + it.rarity + '" aria-label="Card da loja: ' + esc(it.name) + '">' +
       '<div class="st-card__art"><canvas data-card="' + i + '" aria-hidden="true"></canvas><span class="st-ev">★ CRIADOR</span></div>' +
-      '<div class="st-card__body"><b>' + esc(it.name) + '</b><div class="tags"><span class="rar">' + DL.RARITY[it.rarity].name + '</span><span class="tag">★ Criador</span>' + (c.head || c.pose ? '<span class="incl">Acessório · ' + (c.head ? 'Rosto' : 'Pose') + '</span>' : '') + '</div>' +
+      '<div class="st-card__body"><b>' + esc(it.name) + '</b><div class="tags"><span class="rar">' + DL.RARITY[it.rarity].name + '</span><span class="tag">★ Criador</span>' + (c.head || c.pose || c.hands ? '<span class="incl">Acessório · ' + (c.head ? 'Rosto' : c.pose ? 'Pose' : 'Mãos') + '</span>' : '') + '</div>' +
       '<p class="st-card__desc">' + esc(it.desc) + '</p></div>' +
-      '<div class="st-card__foot"><span class="price"><i>⬢</i>' + it.price + '</span><span class="incl">' + (c.head || c.pose ? 'põe e tira' : esc(c.s.foot)) + '</span></div></article>';
+      '<div class="st-card__foot"><span class="price"><i>⬢</i>' + it.price + '</span><span class="incl">' + (c.head || c.pose || c.hands ? 'põe e tira' : esc(c.s.foot)) + '</span></div></article>';
   }).join('');
   const cardCv = [...document.querySelectorAll('[data-card]')];
   function drawCards(t) {
@@ -314,6 +330,8 @@
       }
       const g = setup(cardCv[i], 48, 48, 4), dir = DIRS[Math.floor(t / 1.4) % 4];
       // the pose's card: Abner sitting back, turning around, always wearing it
+      // the notebook's card: João Pedro holding it open, code running
+      if (c.hands) { const a = actor(c.s, 24, 42, idleFrame(c.s.sheets.on, 'down', t), 'down', false, false); a.look = c.s.looks.on; DL.drawActor(g, a, 4); return; }
       if (c.pose) { DL.drawActor(g, Object.assign(actor(c.s, 24, 42, c.s.sheets.on[dir].lounge, dir, false, false), { noShadow: true }), 4); return; }
       DL.drawActor(g, actor(c.s, 24, 42, idleFrame(sheet(c.s), dir, t), dir, false, false), 4);
     });
@@ -345,9 +363,9 @@
     for (const d of DIRS) s.live.idle[d] = mkCanvas(col.querySelector('[data-live=idle]'), DIR_NAME[d], FW * 3, FH * 3);
     for (const d of DIRS) s.live.walk[d] = mkCanvas(col.querySelector('[data-live=walk]'), DIR_NAME[d], FW * 3, FH * 3);
     const ex = col.querySelector('[data-live=extra]');
-    if (s.extra === 'selfie') s.live.extra.push(mkCanvas(ex, '', 34 * 4, 40 * 4));
+    if (s.extra === 'emote') s.live.extra.push(mkCanvas(ex, '', 40 * 4, 40 * 4));
     else for (const d of ['down', 'right', 'left']) s.live.extra.push(Object.assign(mkCanvas(ex, d === 'down' ? 'no sofá' : 'no rack · ' + DIR_NAME[d], 34 * 3, 31 * 3), { face: d }));
-    if (s.extra === 'selfie') ex.querySelector('canvas').style.cssText = 'width:136px;height:160px';
+    if (s.extra === 'emote') ex.querySelector('canvas').style.cssText = 'width:160px;height:160px';
     col.querySelector('[data-dl=svg]').addEventListener('click', () => download(s.id + (key(s) === 'off' ? '-sem-oculos' : '') + '.svg', URL.createObjectURL(new Blob([toSvg(s)], { type: 'image/svg+xml' }))));
     col.querySelector('[data-dl=png]').addEventListener('click', () => download(s.id + (key(s) === 'off' ? '-sem-oculos' : '') + '.png', flat(s).toDataURL('image/png')));
   }
@@ -361,11 +379,11 @@
         g = setup(s.live.walk[d], FW, FH, 3);
         DL.drawActor(g, actor(s, AX, AY, sh[d].walk[Math.floor(t * 7) % 4], d, true, false), 3);
       }
-      if (s.extra === 'selfie') {
-        const g = setup(s.live.extra[0], 34, 40, 4), loop = SELFIE.dur + 0.6, et = t % loop, X = 17, Y = 38;
-        const on = et < SELFIE.dur, img = on ? DL.emoteFrame(s.emo[key(s)], 'selfie', et, SELFIE.dur) : idleFrame(sh, 'down', t);
+      if (s.extra === 'emote') {
+        const em = DL.emote(s.emote), g = setup(s.live.extra[0], 40, 40, 4), loop = em.dur + 0.6, et = t % loop, X = 17, Y = 38;
+        const on = et < em.dur, img = on ? DL.emoteFrame(s.emo[key(s)], s.emote, et, em.dur) : idleFrame(sh, 'down', t);
         DL.drawActor(g, actor(s, X, Y, img, 'down', false, on), 4);
-        if (on) DL.emoteFx(g, 'selfie', X, Y, et, SELFIE.dur, img);
+        if (on) DL.emoteFx(g, s.emote, X, Y, et, em.dur, img);
       } else {
         for (const cv of s.live.extra) {
           const g = setup(cv, 34, 31, 3), d = cv.face;
@@ -391,7 +409,8 @@
       row(fi, 'parado · respiro · piscando', [sh.down.idle, sh.down.sway, sh.down.blink, sh.right.idle, sh.right.sway, sh.up.idle, sh.up.sway]);
       row(fw, 'de frente · direita', sh.down.walk.concat(sh.right.walk));
       row(fw, 'de costas · esquerda', sh.up.walk.concat(sh.left.walk));
-      if (s.extra === 'selfie') row(fx, 'segurando · balanço', [em.selfieA, em.selfieB]);
+      if (s.emote === 'selfie') row(fx, 'segurando · balanço', [em.selfieA, em.selfieB]);
+      else if (s.emote === 'ping') row(fx, 'digitando', [em.pingA, em.pingB]);
       else row(fx, sh.down.lounge ? 'de frente · direita · de costas · esquerda' : 'acessório desligado: em pé', DIRS.map((d) => sh[d].lounge || sh[d].idle));
       drawSheet(s);
     }
@@ -402,7 +421,7 @@
   function sheetRows(s) {
     const sh = sheet(s), em = s.emo[key(s)], rows = [];
     for (const d of DIRS) rows.push({ name: DIR_NAME[d], frames: [sh[d].idle, sh[d].sway].concat(sh[d].walk) });
-    rows.push(s.extra === 'selfie' ? { name: 'selfie', frames: [em.selfieA, em.selfieB, sh.down.blink] } : { name: sh.down.lounge ? 'sentado' : 'em pé', frames: DIRS.map((d) => sh[d].lounge || sh[d].idle).concat(sh.down.blink) });
+    rows.push(s.emote === 'selfie' ? { name: 'selfie', frames: [em.selfieA, em.selfieB, sh.down.blink] } : s.emote === 'ping' ? { name: 'ping', frames: [em.pingA, em.pingB, sh.down.blink] } : { name: sh.down.lounge ? 'sentado' : 'em pé', frames: DIRS.map((d) => sh[d].lounge || sh[d].idle).concat(sh.down.blink) });
     return rows;
   }
   function flat(s) {
@@ -459,7 +478,7 @@
   document.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', () => {
     const id = b.dataset.toggle, on = (S.on[id] = !S.on[id]);
     b.setAttribute('aria-pressed', String(on));
-    b.textContent = id === 'abner' ? 'Relax do Abner: ' + (on ? 'ligado' : 'desligado') : 'Óculos do Pierre: ' + (on ? 'ligados' : 'desligados');
+    b.textContent = id === 'abner' ? 'Relax do Abner: ' + (on ? 'ligado' : 'desligado') : id === 'joao_pedro' ? 'Notebook do JP: ' + (on ? 'ligado' : 'desligado') : 'Óculos do Pierre: ' + (on ? 'ligados' : 'desligados');
     stills();
   }));
 

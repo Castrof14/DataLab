@@ -77,6 +77,10 @@
   // His way of sitting is its own accessory (Relax do Criador, slot 'pose'), put on and taken off like the
   // wayfarers: on sofas, and on the floor against a rack (sprites.js 'sitLounge', demo.js)
   add({ id: 'abner', cat: 'char', slot: 'shirt', value: 'abner', name: 'Abner', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Metade deste datacenter saiu da minha cabeça. A outra metade eu resolvo sentado no chão, encostado no rack.' });
+  // João Pedro, the creator who looks after the network: cap, full beard, knit turtleneck. Arms crossed when
+  // standing; comes with the Ping emote (emotes.js, key 7). His notebook is its own accessory (hands slot).
+  add({ id: 'joao_pedro', cat: 'char', slot: 'shirt', value: 'joao_pedro', name: 'João Pedro', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Cada cabo deste datacenter passou pela minha mão. Se o pacote chegou, é porque eu deixei (tecla 7).' });
+  add({ id: 'gear_netbook', cat: 'char', slot: 'hands', value: 'netbook', name: 'Notebook de Redes', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Fechado debaixo do braço quando você anda; parado, abre e o código verde começa a rolar. Põe e tira quando quiser.' });
   add({ id: 'gear_lounge', cat: 'char', slot: 'pose', value: 'lounge', name: 'Relax do Criador', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Pernas abertas e braço no encosto: senta assim nos sofás e no chão, encostado no rack. Põe e tira quando quiser.' });
   add({ id: 'gear_wayfarer', cat: 'char', slot: 'face', value: 'wayfarer', name: 'Wayfarer do Criador', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Armação preta, lentes marrom-alaranjadas e um reflexo que passa de vez em quando. Põe e tira quando quiser.' });
   // full-body costumes from the previous collection that stay on sale (recolour legs, hands and boots and
@@ -651,12 +655,23 @@
   };
   DL.ABN = ABN;
   // skins whose standing frame breathes (sprites.js builds the extra frame, scene.js plays it)
-  DL.charSway = (L) => L.outfit === 'dev_pierre' || L.outfit === 'abner';
+  // João Pedro: black knit turtleneck, graphite trousers, grey sneakers on white soles, light brown skin, dark
+  // short hair under a navy cap with a curved brim, a full trimmed beard, a dark watch; the Notebook de Redes
+  const JP = {
+    knit: '#121318', knitL: '#22242b', knitD: '#08090c', pants: '#2b2f37', shoe: '#4a505b', shoeL: '#79808c', sole: '#f2f2f6', soleD: '#c4c4cf',
+    skin: '#c49068', hair: '#17110e', beard: '#1d1613', beardL: '#30251f', lip: '#7a3f33',
+    cap: '#16244a', capL: '#2b3f73', capD: '#0c1630', brim: '#101c3c',
+    watch: '#24272e', watchL: '#59616f',
+    lid: '#2b2f38', lidL: '#4a5160', deck: '#3a404b', screen: '#04110a', code: '#39ff14', codeD: '#1f8f0f', led: '#6dff8f',
+  };
+  DL.JP = JP;
+  DL.charSway = (L) => L.outfit === 'dev_pierre' || L.outfit === 'abner' || L.outfit === 'joao_pedro';
   // the relaxed seated frame (sprites.js 'sitLounge': on a sofa, or on the floor against a rack) comes with the
   // Relax do Criador accessory (slot 'pose'), on any skin
   DL.charLounge = (L) => !!(L.gear && L.gear.pose === 'lounge');
   DL.charCostume = function (L) {
     switch (L.outfit) {
+      case 'joao_pedro': return Object.assign({}, OPEN, SUIT, { shirt: JP.knit, pants: JP.pants, shoes: JP.shoe, skin: JP.skin, hair: JP.hair, hairStyle: 'jp_cap', body: 'm', beard: false, earrings: false, glasses: false, pantsStyle: '' });
       case 'abner': return Object.assign({}, OPEN, SUIT, { shirt: ABN.tee, pants: ABN.camo, shoes: ABN.shoe, skin: ABN.skin, hair: ABN.hair, hairStyle: 'abner_curls', body: 'm', beard: false, earrings: false, glasses: true, pantsStyle: '' });
       case 'dev_pierre': return Object.assign({}, OPEN, SUIT, { shirt: DEV.tee, pants: DEV.pants, shoes: DEV.shoe, skin: DEV.skin, hair: DEV.hair, hairStyle: 'dev_quiff', body: 'm', beard: false, earrings: false, pantsStyle: '' });
       case 'hx_hoodie': return Object.assign({}, BARE, SUIT, { shirt: HX.navy, pants: HX.slateD, shoes: HX.ink });
@@ -693,6 +708,11 @@
   DL.charOutfit = function (g, dir, ty, L, shirt, shirtD, shirtL) {
     const ax = AX, o = L.outfit, side = dir !== 'down' && dir !== 'up';
     switch (o) {
+      case 'joao_pedro':
+        // knit: vertical ribs down the front and back, a darker hem
+        if (dir === 'down' || dir === 'up') { for (let x = ax - 3; x <= ax + 2; x += 2) R(g, x, ty + 2, 1, 5, JP.knitL); R(g, ax - 4, ty + 7, 8, 1, JP.knitD); }
+        else { R(g, ax - 1, ty + 2, 1, 5, JP.knitL); R(g, ax + 1, ty + 2, 1, 5, JP.knitL); R(g, ax - 3, ty + 7, 6, 1, JP.knitD); }
+        return true;
       case 'abner':
         // a plain tee: only the crew neck
         if (dir === 'down' || dir === 'up') R(g, ax - 2, ty, 4, 1, '#07080b');
@@ -1052,6 +1072,24 @@
   DL.charHair = function (g, dir, L, H, hair, hairD, hairL) {
     const side = dir !== 'down' && dir !== 'up';
     switch (L.hairStyle) {
+      case 'jp_cap': {
+        // short dark hair showing under a navy cap with a curved brim (no logo)
+        const c = JP;
+        if (dir === 'down') {
+          H(-5, 2, 1, 2); H(4, 2, 1, 2); H(-4, 2, 8, 1, hairD);
+          H(-4, -2, 8, 1, c.cap); H(-5, -1, 10, 3, c.cap); H(-3, -1, 3, 1, c.capL); H(-1, -3, 2, 1, c.capD); H(-1, -2, 1, 3, c.capD);
+          H(-5, 2, 10, 1, c.capD); H(-4, 3, 8, 1, c.brim); H(-3, 3, 4, 1, c.capL);
+        } else if (dir === 'up') {
+          H(-5, 2, 10, 5); H(-4, 7, 8, 1, hairD);
+          H(-4, -2, 8, 1, c.cap); H(-5, -1, 10, 3, c.cap); H(-1, -3, 2, 1, c.capD); H(-1, -2, 1, 3, c.capD);
+          H(-5, 2, 10, 1, c.capD); H(-2, 2, 4, 1, hair); H(-1, 2, 2, 1, c.capL);
+        } else {
+          H(-5, 2, 4, 3); H(-1, 2, 2, 2, hairD); H(-4, 5, 3, 1, hairD);
+          H(-4, -2, 8, 1, c.cap); H(-5, -1, 10, 3, c.cap); H(-2, -1, 3, 1, c.capL); H(0, -3, 2, 1, c.capD);
+          H(-5, 2, 9, 1, c.capD); H(3, 2, 3, 1, c.brim); H(4, 3, 3, 1, c.brim); H(4, 2, 2, 1, c.capL);
+        }
+        return true;
+      }
       case 'abner_curls': {
         // a mass of curls on top (a bumpy outline, light and dark dots), short sides
         const dots = (pts, c) => pts.forEach(([x, y]) => H(x, y, 1, 1, c));
@@ -1388,6 +1426,106 @@
     }
   }
 
+  // João Pedro's pieces drawn after the body: broad shoulders, the beard, moustache and half smile, the high
+  // knit collar, the dark watch, the grey sneakers' white soles and, standing still, his arms crossed (unless
+  // the notebook is in his hands)
+  function jpTop(g, dir, pose, L, o) {
+    const ax = AX, ay = AY, ty = o.ty, hy = o.hy, hx = o.hx, side = o.side, sit = o.sit, c = JP;
+    const sk = L.skin, shirt = L.shirt, shirtD = shade(shirt, -0.3);
+    const book = L.gear && L.gear.hands === 'netbook';
+    if (!sit) {
+      const sole = (x, dy, w, up) => { R(g, x, ay - 1 + dy, w, 1, up ? c.soleD : c.sole); };
+      if (!side) {
+        const lDy = pose === 'B' || pose === 'danceB' ? -1 : 0, rDy = pose === 'A' || pose === 'danceA' ? -1 : 0;
+        sole(ax - 3, lDy, 3, dir === 'up'); sole(ax, rDy, 3, dir === 'up');
+        if (dir === 'down') { R(g, ax - 3, ay - 2 + lDy, 1, 1, c.shoeL); R(g, ax + 2, ay - 2 + rDy, 1, 1, c.shoeL); }
+        // broad shoulders
+        R(g, ax - 5, ty, 1, 1, shirt); R(g, ax + 4, ty, 1, 1, shirtD);
+      } else {
+        let back = ax - 2, front = ax - 1;
+        if (pose === 'A') { back = ax - 4; front = ax + 1; }
+        if (pose === 'B') { back = ax + 1; front = ax - 4; }
+        sole(back, 0, 3, true); sole(front, 0, 4, false); R(g, front + 3, ay - 2, 1, 1, c.shoeL);
+      }
+    }
+    const walkArms = pose === 'idle' || pose === 'A' || pose === 'B' || pose === 'pass' || pose === 'talk';
+    const crossed = pose === 'idle' && !book && !sit;
+    if (crossed && !side) {
+      // arms crossed over the chest: the forearms across, a hand peeking out at each end
+      g.clearRect(ax - 6, ty + 4, 2, 4); g.clearRect(ax + 4, ty + 4, 2, 4);
+      R(g, ax - 6, ty + 1, 2, 4, shirt); R(g, ax + 4, ty + 1, 2, 4, shirt);
+      R(g, ax - 6, ty + 3, 12, 2, shirt); R(g, ax - 6, ty + 3, 12, 1, c.knitL); R(g, ax - 6, ty + 5, 12, 1, shirtD);
+      if (dir === 'down') { R(g, ax + 2, ty + 3, 2, 1, sk); R(g, ax + 2, ty + 3, 1, 1, c.watch); R(g, ax - 4, ty + 4, 2, 1, sk); }
+    } else if (crossed) {
+      // profile: the forearm across the front, the hand at the far arm
+      R(g, ax - 1, ty + 6, 2, 1, shirt); R(g, ax - 1, ty + 7, 2, 1, shirtD);
+      R(g, ax - 1, ty + 3, 4, 2, shirt); R(g, ax - 1, ty + 3, 4, 1, c.knitL); R(g, ax + 3, ty + 3, 1, 2, sk);
+    } else if (!sit && walkArms && !book) {
+      // the dark watch on the left wrist, just above the hand
+      const sw = pose === 'A' ? -1 : pose === 'B' ? 1 : 0;
+      if (!side) { const wx = dir === 'down' ? ax + 4 : ax - 6, wdy = dir === 'down' ? -sw : sw; R(g, wx, ty + 5 + wdy, 2, 1, c.watch); R(g, wx + 1, ty + 5 + wdy, 1, 1, c.watchL); }
+      else { const x = ax - 1 + (pose === 'A' ? 1 : pose === 'B' ? -1 : 0); R(g, x, ty + 5, 2, 1, c.watch); }
+    }
+    // beard, moustache and the half smile; the turtleneck's collar over the neck
+    if (dir === 'down') {
+      R(g, hx - 5, hy + 6, 1, 3, c.beard); R(g, hx + 4, hy + 6, 1, 3, c.beard);
+      R(g, hx - 4, hy + 7, 8, 3, c.beard); R(g, hx - 4, hy + 7, 1, 1, c.beardL); R(g, hx + 3, hy + 7, 1, 1, c.beardL);
+      R(g, hx - 1, hy + 8, 2, 1, c.lip); R(g, hx + 1, hy + 7, 1, 1, c.lip);
+      R(g, hx - 3, hy + 9, 6, 1, c.beardL);
+      R(g, hx - 3, hy + 10, 6, 1, shirt); R(g, hx - 3, hy + 10, 6, 1, c.knitL);
+    } else if (side) {
+      R(g, hx - 1, hy + 4, 1, 4, c.beard); R(g, hx, hy + 7, 5, 3, c.beard); R(g, hx + 3, hy + 7, 2, 1, c.beard);
+      R(g, hx + 4, hy + 8, 1, 1, c.lip); R(g, hx + 1, hy + 9, 3, 1, c.beardL);
+      R(g, hx - 2, hy + 10, 5, 1, c.knitL);
+    } else {
+      R(g, hx - 5, hy + 5, 1, 4, c.beard); R(g, hx + 4, hy + 5, 1, 4, c.beard);
+      R(g, hx - 3, hy + 9, 6, 2, shirt); R(g, hx - 3, hy + 9, 6, 1, c.knitL);
+    }
+  }
+
+  // Notebook de Redes (hands slot, any skin): closed under the arm while walking; standing still it is open,
+  // held in both hands with the screen to the camera and green code on it (charFx scrolls it); typeA/typeB
+  // are the Ping emote's frames, one hand tapping the deck
+  function netbook(g, dir, pose, L, o) {
+    const ax = AX, ty = o.ty, side = o.side, c = JP;
+    if (o.sit) return;
+    const glove = DL.charGlove && DL.charGlove(L), hand = glove ? glove.c : L.skin, sleeve = L.shirt;
+    const typing = pose === 'typeA' || pose === 'typeB';
+    const open = typing || pose === 'idle' || pose === 'talk';
+    if (!open) {
+      if (dir === 'down') { R(g, ax + 6, ty + 1, 2, 6, c.lid); R(g, ax + 6, ty + 1, 2, 1, c.lidL); R(g, ax + 7, ty + 5, 1, 1, c.led); }
+      else if (dir === 'up') { R(g, ax - 8, ty + 1, 2, 6, c.lid); R(g, ax - 8, ty + 1, 2, 1, c.lidL); }
+      else { R(g, ax - 3, ty + 4, 7, 2, c.lid); R(g, ax - 3, ty + 4, 7, 1, c.lidL); R(g, ax + 3, ty + 5, 1, 1, c.led); }
+      return;
+    }
+    if (dir === 'up') {
+      // from behind: the elbows bent forward, the lid's glow at the sides
+      g.clearRect(ax - 6, ty + 5, 2, 3); g.clearRect(ax + 4, ty + 5, 2, 3);
+      R(g, ax - 6, ty + 4, 2, 1, sleeve); R(g, ax + 4, ty + 4, 2, 1, sleeve);
+      R(g, ax - 5, ty + 2, 1, 1, c.codeD); R(g, ax + 4, ty + 2, 1, 1, c.codeD);
+      return;
+    }
+    if (side) {
+      // profile: the deck flat in front, the lid up facing him
+      R(g, ax + 1, ty + 4, 6, 1, c.deck); R(g, ax + 6, ty - 1, 1, 5, c.lid); R(g, ax + 5, ty, 1, 4, c.codeD);
+      R(g, ax + 1, ty + 5, 2, 1, hand);
+      return;
+    }
+    // facing the camera: forearms in, the open notebook at the chest, the hands under the deck
+    g.clearRect(ax - 6, ty + 4, 2, 4); g.clearRect(ax + 4, ty + 4, 2, 4);
+    R(g, ax - 6, ty + 4, 2, 1, sleeve); R(g, ax + 4, ty + 4, 2, 1, sleeve);
+    R(g, ax - 4, ty, 8, 6, c.lid); R(g, ax - 4, ty, 8, 1, c.lidL);
+    R(g, ax - 3, ty + 1, 6, 4, c.screen);
+    R(g, ax - 3, ty + 1, 3, 1, c.code); R(g, ax - 2, ty + 2, 4, 1, c.codeD); R(g, ax - 3, ty + 3, 2, 1, c.code); R(g, ax - 1, ty + 4, 3, 1, c.codeD);
+    R(g, ax - 5, ty + 6, 10, 1, c.deck);
+    if (typing) {
+      // the left hand under the deck, the right one tapping its edge
+      R(g, ax + 3, ty + 6, 2, 2, hand);
+      R(g, ax - 6, ty + 5, 2, 1, sleeve);
+      if (pose === 'typeA') R(g, ax - 4, ty + 5, 2, 1, hand); else R(g, ax - 3, ty + 4, 2, 1, hand);
+    } else { R(g, ax - 5, ty + 6, 2, 2, hand); R(g, ax + 3, ty + 6, 2, 2, hand); }
+  }
+
   // Abner's pieces drawn after the body: the baggy camo cargo with a thigh pocket, the black high-tops with
   // royal blue and white soles, short sleeves, the blue bracelet (right wrist) and the dark watch (left),
   // the hand on the chin while standing (the "thinking" idle) and the relaxed seated pose ('sitLounge')
@@ -1624,6 +1762,7 @@
     if (L.outfit === 'bp_founder') founderTop(g, dir, pose, o);
     if (L.outfit === 'dev_pierre') devTop(g, dir, pose, L, o);
     if (L.outfit === 'abner') abnerTop(g, dir, pose, L, o);
+    if (L.outfit === 'joao_pedro') jpTop(g, dir, pose, L, o);
     if (pose === 'sitLounge') loungeTop(g, dir, L, o);
     if (L.outfit === 'astronaut') {
       // glass dome helmet: a white shell, a green-tinted visor and a neon rim
@@ -1866,6 +2005,8 @@
     if (L.gear) gear(g, dir, L, o, pose);
     // the phone goes in front of everything on the face
     if ((pose === 'selfie' || pose === 'selfieB') && !o.sit) selfieArms(g, L, o, pose);
+    // the notebook in the hands (or the Ping emote's, which brings its own)
+    if ((L.gear && L.gear.hands === 'netbook') || pose === 'typeA' || pose === 'typeB') netbook(g, dir, pose, L, o);
   };
 
   // after a frame is drawn and outlined: the Digital Ghost is half see-through, with faint scan lines
@@ -1929,7 +2070,20 @@
   // standing still, facing the camera: a glint runs across the wayfarers every few seconds and Dev Pierre's
   // pin catches the light now and then (dy follows the breathing frame, scene.js)
   DL.idleSway = (t) => t % 1.6 > 1;
+  // the open notebook's screen: green lines of code scrolling up (standing still, facing the camera)
+  function netbookFx(g, L, X, Y, t, fast) {
+    const dy = DL.charSway(L) && DL.idleSway(t) ? 1 : 0, sx = X - 3, sy = Y - AY + 17 + dy;
+    R(g, sx, sy, 6, 4, JP.screen);
+    const off = Math.floor(t * (fast ? 14 : 3));
+    for (let r = 0; r < 4; r++) {
+      const k = off + r, len = 1 + Math.floor(DL.hash(k * 7) * 5), ind = Math.floor(DL.hash(k * 13) * 2);
+      R(g, sx + ind, sy + r, Math.min(len, 6 - ind), 1, r === 3 ? JP.code : JP.codeD);
+    }
+    if (Math.floor(t * 2.5) % 2) R(g, sx + 5, sy + 3, 1, 1, JP.led);
+  }
+  DL.netbookFx = netbookFx;
   function devFx(g, L, X, Y, t) {
+    if (L.gear && L.gear.hands === 'netbook') netbookFx(g, L, X, Y, t, false);
     const dev = L.outfit === 'dev_pierre', way = L.gear && L.gear.face === 'wayfarer';
     if (!dev && !way) return;
     const dy = DL.charSway(L) && DL.idleSway(t) ? 1 : 0, hy = Y - AY + 6 + dy;

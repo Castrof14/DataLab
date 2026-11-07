@@ -606,6 +606,8 @@
       danceA: build('danceA', -1), danceB: build('danceB', 1),
       // Selfie (comes with the Dev Pierre skin): the phone up in front of the face, held still / a pixel lower
       selfieA: build('selfie'), selfieB: build('selfieB'),
+      // Ping (comes with the João Pedro skin): the notebook open at the chest, one hand tapping
+      pingA: build('typeA'), pingB: build('typeB'),
       waveA: build('wave'), waveB: build('waveB'),
       angry1: build('idle', 0, 0.22), angry2: build('idle', 0, 0.45),
       // Invasão (season pass): hands on an invisible keyboard, typing fast

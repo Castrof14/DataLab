@@ -54,6 +54,7 @@ services/admin-service ┘                       ▼
 | `migrations/20261106000300_dev_pierre.sql` | Coleção Criador: skin lendária **Dev Pierre** (selo CRIADOR, traz o emote Selfie) e os óculos **Wayfarer do Criador** |
 | `migrations/20261106000400_abner.sql` | Coleção Criador: skin lendária **Abner** (selo CRIADOR) |
 | `migrations/20261106000500_relax_do_criador.sql` | Coleção Criador: acessório **Relax do Criador** (slot `pose`): senta relaxado nos sofás e encostado nos racks, com qualquer skin |
+| `migrations/20261106000600_joao_pedro.sql` | Coleção Criador: skin lendária **João Pedro** (selo CRIADOR, traz o emote Ping) e o acessório **Notebook de Redes** (slot `hands`) |
 | `seed_scenarios.sql` | lições do terminal, problemas, passos, ajudas e patentes (gerado de `assets/js/problems-data.js` + `terminal.js`) |
 | `functions/{shop,inventory,economy,game,admin,payments,payments-webhook,feedback,pass,friends}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |

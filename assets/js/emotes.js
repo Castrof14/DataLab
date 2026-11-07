@@ -3,7 +3,7 @@
    sprites.js (DL.makeEmoteSheet), so the skin, the accessories and the pet stay on during the emote.
    The emoji shows over the head in the speech bubble (crew.js draws the player's bubble).
    4 = Invasão and 5 = Reboot, rewards of the season pass (battlepass.js): only for whoever owns their item.
-   6 = Selfie comes with the Dev Pierre skin. */
+   6 = Selfie comes with the Dev Pierre skin, 7 = Ping with the João Pedro skin. */
 (function () {
   'use strict';
   const DL = window.DL;
@@ -16,7 +16,10 @@
     { id: 'reboot', key: '5', emoji: '🔌', name: 'Reboot', dur: 3.6, item: 'bp_emote_reboot', desc: 'Desliga, fica com a tela azul no rosto e liga de novo, com barra de carregamento.' },
     // 6 = Selfie: comes with the Dev Pierre skin (cosmetics.js)
     { id: 'selfie', key: '6', emoji: '🤳', name: 'Selfie', dur: 3.2, item: 'dev_pierre', desc: 'Mão no bolso, celular erguido na frente do rosto e o flash disparando: selfie no espelho.' },
+    // 7 = Ping: comes with the João Pedro skin (cosmetics.js)
+    { id: 'ping', key: '7', emoji: '📡', name: 'Ping', dur: 3.4, item: 'joao_pedro', desc: 'Abre o notebook, digita rápido, os pacotes saem e voltam: 64 bytes em 1 ms.' },
   ];
+  const PING_BACK = 1.2; // the last seconds of Ping: the reply is in
   // Selfie: when the flash goes off (s)
   const SELFIE_FLASH = [1.1, 2.3];
   // Reboot: the moments of the emote (s)
@@ -43,6 +46,8 @@
     if (id === 'reboot') return sheet.hackB;
     // holds the phone up, bobbing a pixel while framing the shot
     if (id === 'selfie') return Math.floor(t / 0.5) % 2 ? sheet.selfieB : sheet.selfieA;
+    // types fast, then holds still while the reply comes back
+    if (id === 'ping') return t > dur - PING_BACK ? sheet.pingB : Math.floor(t / 0.1) % 2 ? sheet.pingB : sheet.pingA;
     return null;
   };
 
@@ -88,7 +93,27 @@
     if (id === 'hack') hack(g, X, Y, t, dur);
     else if (id === 'reboot') reboot(g, X, Y, t, dur, frame);
     else if (id === 'selfie') selfie(g, X, Y, t);
+    else if (id === 'ping') ping(g, X, Y, t, dur);
   };
+
+  // Ping: code racing on the notebook's screen, green packets flying out to the right and coming back
+  // (blue, the reply), then a green flash on the screen when the last one lands
+  function ping(g, X, Y, t, dur) {
+    const R = DL.R, C = DL.CHAR, ga = g.globalAlpha, back = t > dur - PING_BACK;
+    if (DL.netbookFx) DL.netbookFx(g, { outfit: '' }, X, Y, t, !back);
+    const sy = Y - C.AY + 16;
+    for (let i = 0; i < 3; i++) {
+      const ph = (t * 1.3 + i / 3) % 1, out = !back, x = out ? X + 5 + Math.round(ph * 14) : X + 19 - Math.round(ph * 14);
+      g.globalAlpha = ga * (out ? 1 - ph * 0.6 : 0.4 + ph * 0.6);
+      R(g, x, sy - (i % 2), 2, 1, out ? '#39ff14' : '#7fb2f0');
+    }
+    if (back) {
+      const k = (t - (dur - PING_BACK)) / PING_BACK;
+      g.globalAlpha = ga * Math.max(0, 0.6 - k);
+      R(g, X - 3, Y - 12, 6, 4, '#b6ff9a');
+    }
+    g.globalAlpha = ga;
+  }
 
   // Selfie: the flash goes off twice from the phone's camera (a burst of light, then a fading glow)
   function selfie(g, X, Y, t) {
@@ -152,6 +177,10 @@
       actor.bubble = { text: 'ACESSO LIBERADO', left: HACK_DONE, tone: 'emote' };
       return 'ok';
     }
+    if (em.id === 'ping' && t > em.dur - PING_BACK && actor.bubble.text === em.emoji) {
+      actor.bubble = { text: '64 bytes · 1 ms', left: PING_BACK, tone: 'emote' };
+      return 'ok';
+    }
     if (em.id === 'reboot' && t > RB.boot && actor.bubble.text === em.emoji) {
       actor.bubble = { text: 'LIGANDO…', left: em.dur - t, tone: 'emote' };
       return 'tick';
@@ -161,7 +190,7 @@
   // the effects drawn over a character during an emote
   function drawFx(g, actor, em, t, X, Y) {
     if (em.id === 'angry') smoke(g, X, Y, t);
-    if (em.id === 'hack' || em.id === 'reboot' || em.id === 'selfie') DL.emoteFx(g, em.id, X, Y, t, em.dur, actor.frame());
+    if (em.id === 'hack' || em.id === 'reboot' || em.id === 'selfie' || em.id === 'ping') DL.emoteFx(g, em.id, X, Y, t, em.dur, actor.frame());
   }
 
   // another player's emote, on their character here (multiplayer.js). Same frames, effects and bubbles as
@@ -238,9 +267,9 @@
       get active() { return E.cur ? E.cur.id : null; },
       // the emote's frame for the player right now (null when no emote is running)
       frame() { return E.cur ? DL.emoteFrame(sheet(), E.cur.id, E.t, E.cur.dur) : null; },
-      // keyboard: 1 / 2 / 3, 4 for Invasão, 5 for Reboot and 6 for Selfie (top row or numpad)
+      // keyboard: 1 / 2 / 3, 4 for Invasão, 5 for Reboot, 6 for Selfie and 7 for Ping (top row or numpad)
       key(ev) {
-        const m = /^(?:Digit|Numpad)([1-6])$/.exec(ev.code);
+        const m = /^(?:Digit|Numpad)([1-7])$/.exec(ev.code);
         if (!m || ev.repeat) return false;
         play(DL.EMOTES[+m[1] - 1].id);
         return true;
