@@ -73,9 +73,9 @@
   // It comes with the Selfie emote (emotes.js, key 6); the wayfarers are their own face accessory, so the
   // player puts them on and takes them off like any other.
   add({ id: 'dev_pierre', cat: 'char', slot: 'shirt', value: 'dev_pierre', name: 'Dev Pierre', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Eu construí este datacenter linha por linha. Agora venho conferir de perto, de mão no bolso e com selfie no espelho (tecla 6).' });
-  // Abner, founding member (the MEMBRO FUNDADOR seal, inventory.js): streetwear, thinks with a hand on the chin
+  // Abner, the game's other creator (the CRIADOR seal, inventory.js): streetwear, thinks with a hand on the chin
   // and sits back relaxed on sofas and against racks (sprites.js 'sitLounge', demo.js)
-  add({ id: 'abner', cat: 'char', slot: 'shirt', value: 'abner', name: 'Abner', theme: 'Fundador', founder: true, rarity: 'epic', price: 180, desc: 'Cargo camuflada larga, cano alto azul royal e cachos no topo: streetwear de fundador direto do corredor dos racks.' });
+  add({ id: 'abner', cat: 'char', slot: 'shirt', value: 'abner', name: 'Abner', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Cargo camuflada larga, cano alto azul royal e cachos no topo: streetwear de criador direto do corredor dos racks.' });
   add({ id: 'gear_wayfarer', cat: 'char', slot: 'face', value: 'wayfarer', name: 'Wayfarer do Criador', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Armação preta, lentes marrom-alaranjadas e um reflexo que passa de vez em quando. Põe e tira quando quiser.' });
   // full-body costumes from the previous collection that stay on sale (recolour legs, hands and boots and
   // cover the head: DL.charCostume + charOutfit + charTop below)

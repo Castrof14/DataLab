@@ -449,6 +449,3 @@
 .st-card.is-creator { outline: 2px solid rgba(255, 183, 77, 0.55); outline-offset: -2px; }
 .st-card.is-creator:hover, .st-card.is-creator.is-sel { outline-color: #ffc56a; }
 .ev-tag.is-creator { background: linear-gradient(180deg, #ffd78a, #f2a33a); color: #1a0d03; border: 1px solid #1a0d03; }
-/* Membro Fundador: the same seal as CRIADOR (warm gold plate, dark border, glow), in a cooler silver-gold */
-.st-ev.st-ev--founder { background: linear-gradient(180deg, #fff3c4, #e8c35a 55%, #a87a1e); box-shadow: 2px 2px 0 #000, 0 0 10px rgba(242, 193, 78, 0.6); }
-.ev-tag.is-founder { background: linear-gradient(180deg, #fff3c4, #e8c35a); }

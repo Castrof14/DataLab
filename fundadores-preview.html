@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Coleção Fundadores</title>
+<title>Coleção Criadores</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=Silkscreen&display=swap" rel="stylesheet">
@@ -64,7 +64,6 @@
   .st-card__art { position: relative; display: grid; place-items: center; padding: 30px 0 6px; }
   .st-card__art canvas { width: 168px; height: 168px; }
   .st-ev { position: absolute; right: 8px; top: 8px; padding: 4px 6px; font: 10px 'Silkscreen', monospace; letter-spacing: 1px; background: linear-gradient(180deg, #ffd78a, #f2a33a 55%, #c96a1c); color: #1a0d03; border: 2px solid #1a0d03; box-shadow: 2px 2px 0 #000, 0 0 10px rgba(255, 183, 77, 0.65); }
-  .st-ev--founder { background: linear-gradient(180deg, #fff3c4, #e8c35a 55%, #a87a1e); box-shadow: 2px 2px 0 #000, 0 0 10px rgba(242, 193, 78, 0.6); }
   .st-card__body { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px 0; }
   .st-card__body b { font: 12px/1.5 'Press Start 2P', monospace; font-weight: 400; text-shadow: 2px 2px 0 var(--shadow); }
   .rar-legendary .st-card__body b { color: var(--gold); }
@@ -74,7 +73,6 @@
   .rar-legendary .rar { background: rgba(242, 193, 78, 0.14); color: var(--gold); border: 1px solid rgba(242, 193, 78, 0.5); }
   .rar-epic .rar { background: rgba(192, 132, 252, 0.14); color: var(--epic); border: 1px solid rgba(192, 132, 252, 0.5); }
   .tag { background: linear-gradient(180deg, #ffd78a, #f2a33a); color: #1a0d03; border: 1px solid #1a0d03; }
-  .tag--founder { background: linear-gradient(180deg, #fff3c4, #e8c35a); }
   .st-card__desc { margin: 2px 0 0; }
   .st-card__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px 12px; margin-top: auto; }
   .price { display: inline-flex; align-items: center; gap: 6px; font: 13px 'Press Start 2P', monospace; color: var(--gold); text-shadow: 2px 2px 0 var(--shadow); }
@@ -116,9 +114,9 @@
 <body>
 <div class="wrap">
   <header>
-    <p class="kicker">Loja · Personagem · Coleção Fundadores</p>
+    <p class="kicker">Loja · Personagem · Coleção Criador</p>
     <h1>Dev Pierre &amp; Abner</h1>
-    <p class="sub">As duas skins dos fundadores do DataLab. Esta página roda o <code>sprites.js</code>, o <code>cosmetics.js</code> e o <code>emotes.js</code> do jogo, então o que aparece aqui é o que aparece no mapa: quadro de 22×31 px, contorno de 1 px.</p>
+    <p class="sub">As duas skins dos criadores do DataLab. Esta página roda o <code>sprites.js</code>, o <code>cosmetics.js</code> e o <code>emotes.js</code> do jogo, então o que aparece aqui é o que aparece no mapa: quadro de 22×31 px, contorno de 1 px.</p>
   </header>
 
   <div class="box">
@@ -147,7 +145,7 @@
     <div class="box__head"><h2>No jogo</h2></div>
     <div class="notes">
       <ul>
-        <li><code>assets/js/cosmetics.js</code>: <code>dev_pierre</code> (lendária, 400 Gold, selo ★ CRIADOR), <code>gear_wayfarer</code> (épico, 90 Gold) e <code>abner</code> (épica, 180 Gold, selo ◆ MEMBRO FUNDADOR), com cabelos, roupas, tênis, pulsos e poses.</li>
+        <li><code>assets/js/cosmetics.js</code>: <code>dev_pierre</code> (lendária, 400 Gold, selo ★ CRIADOR), <code>gear_wayfarer</code> (épico, 90 Gold) e <code>abner</code> (lendária, 400 Gold, selo ★ CRIADOR), com cabelos, roupas, tênis, pulsos e poses.</li>
         <li><code>assets/js/sprites.js</code> + <code>scene.js</code>: o respiro parado das duas skins, a selfie e o frame sentado relaxado do Abner.</li>
         <li><code>assets/js/demo.js</code>: o Abner senta relaxado nos sofás e pufes, e no chão quando fica 5 s parado encostado num rack.</li>
         <li><code>assets/js/emotes.js</code>: emote Selfie na tecla 6, para quem tem o Dev Pierre.</li>
@@ -178,7 +176,7 @@
   const D = DL.DEV, A = DL.ABN;
   const SKINS = [
     {
-      id: 'dev_pierre', name: 'Dev Pierre', who: 'o criador', seal: '★ CRIADOR', sealCls: '', tagCls: '', rarity: 'legendary', rarName: 'Lendário',
+      id: 'dev_pierre', name: 'Dev Pierre', who: 'o criador', rarity: 'legendary', rarName: 'Lendário',
       looks: { on: Object.assign({}, BASE, { outfit: 'dev_pierre', gear: { face: 'wayfarer' } }), off: Object.assign({}, BASE, { outfit: 'dev_pierre', gear: {} }) },
       idleText: 'Mão direita no bolso, relógio branco no pulso esquerdo, respirando parado.',
       extra: 'selfie', extraName: 'Selfie no espelho', extraText: 'Emote 6, vem com a skin: celular erguido, a outra mão no bolso, dois flashes.',
@@ -186,7 +184,7 @@
       legend: [['Pele morena clara', D.skin], ['Cabelo preto', D.hair], ['Sobrancelha / bigode', D.brow], ['Camiseta preta', D.tee], ['Broche prateado', D.pin], ['Jogger preta', D.pants], ['Relógio branco', D.watch], ['Tênis azul', D.shoe], ['Sola branca', D.sole], ['Lente dos óculos', D.lens]],
     },
     {
-      id: 'abner', name: 'Abner', who: 'membro fundador', seal: '◆ MEMBRO FUNDADOR', sealCls: ' st-ev--founder', tagCls: ' tag--founder', rarity: 'epic', rarName: 'Épico',
+      id: 'abner', name: 'Abner', who: 'o criador', rarity: 'legendary', rarName: 'Lendário',
       looks: { on: Object.assign({}, BASE, { outfit: 'abner', gear: {} }) },
       idleText: 'Pensativo: a mão sob o queixo, balançando de leve. Pulseira azul na direita, relógio escuro na esquerda.',
       extra: 'lounge', extraName: 'Sentado relaxado', extraText: 'Pernas abertas, uma mão no joelho, o outro braço no encosto. No jogo: nos sofás e pufes, e no chão encostado num rack.',
@@ -287,10 +285,10 @@
     { s: SKINS[0], it: item('gear_wayfarer'), head: true },
   ];
   document.getElementById('cards').innerHTML = cards.map((c, i) => {
-    const it = c.it, founder = !!it.founder, seal = founder ? '◆ MEMBRO FUNDADOR' : '★ CRIADOR';
+    const it = c.it;
     return '<article class="st-card rar-' + it.rarity + '" aria-label="Card da loja: ' + esc(it.name) + '">' +
-      '<div class="st-card__art"><canvas data-card="' + i + '" aria-hidden="true"></canvas><span class="st-ev' + (founder ? ' st-ev--founder' : '') + '">' + seal + '</span></div>' +
-      '<div class="st-card__body"><b>' + esc(it.name) + '</b><div class="tags"><span class="rar">' + DL.RARITY[it.rarity].name + '</span><span class="tag' + (founder ? ' tag--founder' : '') + '">' + (founder ? '◆ Membro Fundador' : '★ Criador') + '</span>' + (c.head ? '<span class="incl">Acessório · Rosto</span>' : '') + '</div>' +
+      '<div class="st-card__art"><canvas data-card="' + i + '" aria-hidden="true"></canvas><span class="st-ev">★ CRIADOR</span></div>' +
+      '<div class="st-card__body"><b>' + esc(it.name) + '</b><div class="tags"><span class="rar">' + DL.RARITY[it.rarity].name + '</span><span class="tag">★ Criador</span>' + (c.head ? '<span class="incl">Acessório · Rosto</span>' : '') + '</div>' +
       '<p class="st-card__desc">' + esc(it.desc) + '</p></div>' +
       '<div class="st-card__foot"><span class="price"><i>⬢</i>' + it.price + '</span><span class="incl">' + (c.head ? 'põe e tira' : esc(c.s.foot)) + '</span></div></article>';
   }).join('');

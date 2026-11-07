@@ -556,8 +556,8 @@
     }
     function card(it, mode, sel) {
       const n = qty(it.id), st = mode === 'inv' ? statusOf(it) : shopState(it);
-      return '<button type="button" class="st-card rar-' + it.rarity + (it.creator ? ' is-creator' : '') + (it.founder ? ' is-creator is-founder' : '') + (sel ? ' is-sel' : '') + (st === 'Equipado' || st === 'No mapa' || /trabalhando|Ativa/.test(st) ? ' is-eq' : '') + (mode === 'shop' && broke(it) ? ' is-broke' : '') + '" data-pick="' + it.id + '">' +
-        '<span class="st-card__art"><canvas data-art="' + it.id + '" aria-hidden="true"></canvas>' + (mode === 'inv' && n > 1 ? '<span class="st-qty">×' + n + '</span>' : '') + (it.event ? '<span class="st-ev">EVENTO</span>' : '') + (it.pass ? '<span class="st-ev st-ev--t1">PASSE T1</span>' : '') + (it.creator ? '<span class="st-ev st-ev--creator" title="Feito pelo criador do DataLab">★ CRIADOR</span>' : '') + (it.founder ? '<span class="st-ev st-ev--creator st-ev--founder" title="Membro fundador do DataLab">◆ MEMBRO FUNDADOR</span>' : '') + '</span>' +
+      return '<button type="button" class="st-card rar-' + it.rarity + (it.creator ? ' is-creator' : '') + (sel ? ' is-sel' : '') + (st === 'Equipado' || st === 'No mapa' || /trabalhando|Ativa/.test(st) ? ' is-eq' : '') + (mode === 'shop' && broke(it) ? ' is-broke' : '') + '" data-pick="' + it.id + '">' +
+        '<span class="st-card__art"><canvas data-art="' + it.id + '" aria-hidden="true"></canvas>' + (mode === 'inv' && n > 1 ? '<span class="st-qty">×' + n + '</span>' : '') + (it.event ? '<span class="st-ev">EVENTO</span>' : '') + (it.pass ? '<span class="st-ev st-ev--t1">PASSE T1</span>' : '') + (it.creator ? '<span class="st-ev st-ev--creator" title="Feito pelo criador do DataLab">★ CRIADOR</span>' : '') + '</span>' +
         '<span class="st-card__body"><b>' + esc(it.name) + '</b>' + rarTag(it) + '</span>' +
         '<span class="st-card__foot">' + (mode === 'shop' ? priceHtml(it) : '<span class="eyebrow-sm">' + esc(groupName(DL.groupOf(it))) + '</span>') + (st ? '<span class="st-state">' + esc(st) + '</span>' : '') + '</span></button>';
     }
@@ -600,7 +600,7 @@
       if (!it) return '<div class="st-empty"><b>Escolha um item</b><p>Veja a prévia, a raridade e o que dá para fazer com ele.</p></div>';
       const e = D.items[it.id], ev = it.event && DL.EVENTS[it.event];
       let h = '<div class="st-detail rar-' + it.rarity + '"><div class="st-detail__art"><canvas data-art="' + it.id + '" data-big="1" aria-label="Prévia de ' + esc(it.name) + '"></canvas></div>';
-      h += '<div class="st-detail__tags">' + rarTag(it) + evTag(it) + (it.creator ? '<span class="ev-tag is-creator">★ Criador</span>' : it.founder ? '<span class="ev-tag is-creator is-founder">◆ Membro Fundador</span>' : it.theme && !it.event ? '<span class="ev-tag is-theme">' + esc(it.theme) + '</span>' : '') + '</div>';
+      h += '<div class="st-detail__tags">' + rarTag(it) + evTag(it) + (it.creator ? '<span class="ev-tag is-creator">★ Criador</span>' : it.theme && !it.event ? '<span class="ev-tag is-theme">' + esc(it.theme) + '</span>' : '') + '</div>';
       h += '<h3 class="st-detail__name">' + esc(it.name) + '</h3><p class="st-detail__desc">' + esc(it.desc) + '</p>';
       h += '<dl class="st-detail__meta"><dt>Categoria</dt><dd>' + esc(groupName(DL.groupOf(it))) + '</dd>';
       if (DL.GEAR_POS[it.slot]) h += '<dt>Posição</dt><dd>' + DL.GEAR_POS[it.slot] + ' · funciona com qualquer skin</dd>';
