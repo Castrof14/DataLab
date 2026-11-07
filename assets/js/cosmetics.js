@@ -73,6 +73,9 @@
   // It comes with the Selfie emote (emotes.js, key 6); the wayfarers are their own face accessory, so the
   // player puts them on and takes them off like any other.
   add({ id: 'dev_pierre', cat: 'char', slot: 'shirt', value: 'dev_pierre', name: 'Dev Pierre', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Eu construí este datacenter linha por linha. Agora venho conferir de perto, de mão no bolso e com selfie no espelho (tecla 6).' });
+  // Abner, founding member (the MEMBRO FUNDADOR seal, inventory.js): streetwear, thinks with a hand on the chin
+  // and sits back relaxed on sofas and against racks (sprites.js 'sitLounge', demo.js)
+  add({ id: 'abner', cat: 'char', slot: 'shirt', value: 'abner', name: 'Abner', theme: 'Fundador', founder: true, rarity: 'epic', price: 180, desc: 'Cargo camuflada larga, cano alto azul royal e cachos no topo: streetwear de fundador direto do corredor dos racks.' });
   add({ id: 'gear_wayfarer', cat: 'char', slot: 'face', value: 'wayfarer', name: 'Wayfarer do Criador', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Armação preta, lentes marrom-alaranjadas e um reflexo que passa de vez em quando. Põe e tira quando quiser.' });
   // full-body costumes from the previous collection that stay on sale (recolour legs, hands and boots and
   // cover the head: DL.charCostume + charOutfit + charTop below)
@@ -637,10 +640,21 @@
     phone: '#2a5cb0', phoneL: '#8fbcff', cam: '#0b0b10', camL: '#6f9be0',
   };
   DL.DEV = DEV;
+  // Abner: black tee, baggy olive / brown / black camo cargo, black high-tops with royal blue and white soles,
+  // light skin, dark brown curls, prescription glasses, a blue bracelet (right wrist) and a dark watch (left)
+  const ABN = {
+    tee: '#14161c', camo: '#4f5733', camoL: '#6c7546', camoB: '#5f4229', camoK: '#17180f', pocket: '#3b4126',
+    shoe: '#121317', shoeL: '#2a2c33', blue: '#1f4fd1', blueL: '#5d86ff', sole: '#f4f4f8', soleD: '#c9c9d6',
+    skin: '#f0cfb3', hair: '#3a2416', band: '#2f7bff', bandL: '#8ab6ff', watch: '#24272e', watchL: '#59616f',
+  };
+  DL.ABN = ABN;
   // skins whose standing frame breathes (sprites.js builds the extra frame, scene.js plays it)
-  DL.charSway = (L) => L.outfit === 'dev_pierre';
+  DL.charSway = (L) => L.outfit === 'dev_pierre' || L.outfit === 'abner';
+  // skins with the relaxed seated frame (sprites.js 'sitLounge': on a sofa, or on the floor against a rack)
+  DL.charLounge = (L) => L.outfit === 'abner';
   DL.charCostume = function (L) {
     switch (L.outfit) {
+      case 'abner': return Object.assign({}, OPEN, SUIT, { shirt: ABN.tee, pants: ABN.camo, shoes: ABN.shoe, skin: ABN.skin, hair: ABN.hair, hairStyle: 'abner_curls', body: 'm', beard: false, earrings: false, glasses: true, pantsStyle: '' });
       case 'dev_pierre': return Object.assign({}, OPEN, SUIT, { shirt: DEV.tee, pants: DEV.pants, shoes: DEV.shoe, skin: DEV.skin, hair: DEV.hair, hairStyle: 'dev_quiff', body: 'm', beard: false, earrings: false, pantsStyle: '' });
       case 'hx_hoodie': return Object.assign({}, BARE, SUIT, { shirt: HX.navy, pants: HX.slateD, shoes: HX.ink });
       case 'hx_leather': return Object.assign({}, OPEN, SUIT, { shirt: HX.leather, pants: HX.navyD, shoes: HX.ink });
@@ -676,6 +690,11 @@
   DL.charOutfit = function (g, dir, ty, L, shirt, shirtD, shirtL) {
     const ax = AX, o = L.outfit, side = dir !== 'down' && dir !== 'up';
     switch (o) {
+      case 'abner':
+        // a plain tee: only the crew neck
+        if (dir === 'down' || dir === 'up') R(g, ax - 2, ty, 4, 1, '#07080b');
+        else R(g, ax + 1, ty, 2, 1, '#07080b');
+        return true;
       case 'dev_pierre':
         // a plain tee: only the crew neck and the small silver pin on the left side of the chest
         if (dir === 'down') { R(g, ax - 2, ty, 4, 1, '#07080b'); R(g, ax + 1, ty + 2, 1, 1, DEV.pin); R(g, ax + 1, ty + 3, 1, 1, DEV.pinD); }
@@ -1030,6 +1049,27 @@
   DL.charHair = function (g, dir, L, H, hair, hairD, hairL) {
     const side = dir !== 'down' && dir !== 'up';
     switch (L.hairStyle) {
+      case 'abner_curls': {
+        // a mass of curls on top (a bumpy outline, light and dark dots), short sides
+        const dots = (pts, c) => pts.forEach(([x, y]) => H(x, y, 1, 1, c));
+        if (dir === 'down') {
+          H(-4, -4, 2, 1); H(-1, -4, 3, 1); H(3, -4, 1, 1); H(-5, -3, 10, 2); H(-6, -1, 12, 2); H(-5, 1, 10, 1);
+          H(-5, 2, 1, 2, hairD); H(4, 2, 1, 2, hairD);
+          dots([[-4, -4], [-1, -4], [2, -3], [-5, -2], [-2, -2], [1, -2], [4, -1], [-3, 0], [0, 0], [3, 1]], hairL);
+          dots([[-3, -3], [0, -3], [3, -2], [-4, -1], [-1, -1], [2, 0], [-5, 1], [-6, 0], [5, 0]], hairD);
+        } else if (dir === 'up') {
+          H(-4, -4, 2, 1); H(-1, -4, 3, 1); H(3, -4, 1, 1); H(-5, -3, 10, 2); H(-6, -1, 12, 3); H(-5, 2, 10, 4); H(-4, 6, 8, 1, hairD);
+          H(-5, 4, 1, 2, hairD); H(4, 4, 1, 2, hairD);
+          dots([[-4, -4], [0, -4], [-2, -2], [2, -2], [-5, 0], [0, 0], [4, 0], [-3, 2], [2, 2]], hairL);
+          dots([[-3, -3], [1, -3], [-1, -1], [3, -1], [-4, 1], [1, 1], [-1, 3], [3, 3]], hairD);
+        } else {
+          H(-4, -4, 2, 1); H(-1, -4, 3, 1); H(3, -4, 1, 1); H(-5, -3, 10, 2); H(-6, -1, 12, 2); H(-6, 1, 6, 3); H(-5, 4, 4, 2, hairD);
+          H(1, 1, 3, 1); H(-1, 2, 1, 2, hairD);
+          dots([[-4, -4], [0, -4], [-3, -2], [1, -2], [4, -1], [-5, 0], [-2, 0], [2, 1], [-4, 2]], hairL);
+          dots([[-2, -3], [2, -3], [-1, -1], [3, 0], [-6, 0], [5, -1], [-3, 1]], hairD);
+        }
+        return true;
+      }
       case 'dev_quiff':
         // lots of volume on top, combed to the side and back; short faded sides, the forehead clear
         if (dir === 'down') {
@@ -1345,6 +1385,134 @@
     }
   }
 
+  // Abner's pieces drawn after the body: the baggy camo cargo with a thigh pocket, the black high-tops with
+  // royal blue and white soles, short sleeves, the blue bracelet (right wrist) and the dark watch (left),
+  // the hand on the chin while standing (the "thinking" idle) and the relaxed seated pose ('sitLounge')
+  function camo(g, x, y, w, h, seed) {
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) {
+      const v = DL.hash((x + i) * 13 + (y + j) * 7 + seed * 101);
+      if (v < 0.2) R(g, x + i, y + j, 1, 1, ABN.camoB); else if (v < 0.34) R(g, x + i, y + j, 1, 1, ABN.camoK); else if (v > 0.86) R(g, x + i, y + j, 1, 1, ABN.camoL);
+    }
+  }
+  function hiTop(g, x, y, toe, back, up) {
+    // y = the collar row (ankle); then the upper and the sole
+    const A = ABN;
+    R(g, x, y, 3, 1, A.shoe); R(g, x + (back ? 2 : 0), y, 1, 1, A.blue);
+    R(g, x, y + 1, 3 + toe, 1, A.shoe); R(g, x + 1, y + 1, 1, 1, back ? A.blue : A.blueL);
+    R(g, x, y + 2, 3 + toe, 1, up ? A.soleD : A.sole);
+  }
+  function wrists(g, x, y, kind) {
+    if (kind === 'band') { R(g, x, y, 2, 1, ABN.band); R(g, x, y, 1, 1, ABN.bandL); }
+    else { R(g, x, y, 2, 1, ABN.watch); R(g, x + 1, y, 1, 1, ABN.watchL); }
+  }
+  function abnerTop(g, dir, pose, L, o) {
+    const ax = AX, ay = AY, ty = o.ty, side = o.side, sit = o.sit, A = ABN;
+    const sk = L.skin, skD = shade(sk, -0.16), shirt = L.shirt, shirtD = shade(shirt, -0.3), pants = L.pants, pantsD = shade(pants, -0.35);
+    if (pose === 'sitLounge') { abnerLounge(g, dir, L, o); return; }
+    const think = pose === 'idle';
+    const walkArms = think || pose === 'A' || pose === 'B' || pose === 'pass' || pose === 'talk';
+    if (!sit) {
+      if (!side) {
+        const lDy = pose === 'B' || pose === 'danceB' ? -1 : 0, rDy = pose === 'A' || pose === 'danceA' ? -1 : 0;
+        for (const [x, dy, outer, k] of [[ax - 3, lDy, ax - 4, 1], [ax, rDy, ax + 3, 2]]) {
+          // baggy: a pixel wider at the shin, the camo, the cargo pocket on the outside of the thigh
+          camo(g, x, ay - 6 + dy, 3, 3, k);
+          R(g, outer, ay - 5 + dy, 1, 2, pants); R(g, outer, ay - 4 + dy, 1, 1, pantsD);
+          const px = outer < x ? x : x + 1;
+          R(g, px, ay - 5 + dy, 2, 2, A.pocket); R(g, px, ay - 5 + dy, 2, 1, A.camoL);
+          hiTop(g, x, ay - 3 + dy, 0, dir === 'up', dir === 'up');
+        }
+      } else {
+        let back = ax - 2, front = ax - 1;
+        if (pose === 'A') { back = ax - 4; front = ax + 1; }
+        if (pose === 'B') { back = ax + 1; front = ax - 4; }
+        hiTop(g, back, ay - 3, 0, true, false);
+        camo(g, front, ay - 6, 3, 3, 3);
+        R(g, front - 1, ay - 5, 1, 2, pants);
+        R(g, front, ay - 5, 2, 2, A.pocket); R(g, front, ay - 5, 2, 1, A.camoL);
+        hiTop(g, front, ay - 3, 1, false, false);
+      }
+    }
+    if (!sit && !side && walkArms) {
+      const sw = pose === 'A' ? -1 : pose === 'B' ? 1 : 0, lx = ax - 6, rx = ax + 4, ldy = sw, rdy = -sw;
+      R(g, lx, ty + 4 + ldy, 2, 2, sk); R(g, lx, ty + 4 + ldy, 1, 2, skD);
+      R(g, rx, ty + 4 + rdy, 2, 2, sk); R(g, rx + 1, ty + 4 + rdy, 1, 2, skD);
+      // facing the camera the right wrist is on the viewer's left
+      const band = dir === 'down' ? [lx, ldy] : [rx, rdy], watch = dir === 'down' ? [rx, rdy] : [lx, ldy];
+      if (think && dir === 'down') {
+        // thinking: the right forearm comes up across the chest, the hand under the chin
+        g.clearRect(lx, ty + 5, 2, 3);
+        R(g, lx, ty + 4, 2, 1, sk);
+        R(g, ax - 5, ty + 3, 2, 1, sk); R(g, ax - 4, ty + 2, 2, 1, sk);
+        wrists(g, ax - 3, ty + 1, 'band');
+        R(g, ax - 2, ty - 1, 3, 2, sk); R(g, ax - 2, ty, 3, 1, skD);
+      } else if (think) {
+        // from behind: only the elbow out to the side shows
+        g.clearRect(rx, ty + 5, 2, 3);
+        R(g, rx, ty + 4, 2, 1, sk); R(g, rx + 1, ty + 4, 1, 1, skD);
+      } else wrists(g, band[0], ty + 5 + band[1], 'band');
+      if (!(think && dir === 'up' && watch[0] === rx)) wrists(g, watch[0], ty + 5 + watch[1], 'watch');
+    } else if (!sit && side && walkArms) {
+      const sw = pose === 'A' ? 1 : pose === 'B' ? -1 : 0, x = ax - 1 + sw;
+      if (think) {
+        // profile: the forearm up in front, the hand at the chin
+        R(g, x, ty + 6, 2, 1, shirt); R(g, x, ty + 7, 2, 1, shirtD);
+        R(g, x, ty + 4, 2, 1, sk); R(g, x + 1, ty + 3, 2, 1, sk); R(g, x + 2, ty + 2, 2, 1, sk);
+        wrists(g, x + 3, ty + 1, 'band');
+        R(g, x + 3, ty - 1, 3, 2, sk); R(g, x + 3, ty, 3, 1, skD);
+      } else {
+        R(g, x, ty + 4, 2, 2, sk); R(g, x - 1, ty + 4, 1, 2, skD);
+        wrists(g, x, ty + 5, 'band');
+      }
+    }
+  }
+  // sitting back, legs open, knees up, one hand on a knee and the other arm along the backrest (a sofa) or
+  // the rack behind; drawn over sprites.js' seated body (lowered 4 px, no legs)
+  function abnerLounge(g, dir, L, o) {
+    const ax = AX, ay = AY, ty = o.ty, A = ABN;
+    const sk = L.skin, skD = shade(sk, -0.16), shirt = L.shirt, shirtD = shade(shirt, -0.3), shirtL = shade(shirt, 0.14);
+    const pants = L.pants, pantsD = shade(pants, -0.35);
+    if (o.side) {
+      // the seated arm reaching for the keyboard goes: repaint the torso where it was
+      g.clearRect(ax + 3, ty + 4, 3, 2); g.clearRect(ax + 3, ay - 1, 4, 3);
+      R(g, ax - 3, ty + 4, 6, 2, shirt); R(g, ax - 3, ty + 4, 1, 2, shirtD); R(g, ax + 2, ty + 4, 1, 2, shirtL);
+      // far leg open to the side, near knee up, the foot flat on the floor
+      R(g, ax + 1, ay - 2, 3, 2, pantsD); R(g, ax + 1, ay, 3, 1, A.soleD); R(g, ax + 1, ay - 1, 3, 1, A.shoe);
+      R(g, ax - 2, ay - 4, 5, 3, pants); camo(g, ax - 2, ay - 4, 5, 2, 5);
+      R(g, ax + 2, ay - 6, 3, 3, pants); camo(g, ax + 2, ay - 6, 3, 2, 6); R(g, ax + 2, ay - 6, 3, 1, A.camoL);
+      R(g, ax + 4, ay - 3, 3, 1, pants); R(g, ax + 4, ay - 3, 3, 1, pantsD);
+      hiTop(g, ax + 4, ay - 2, 1, false, false);
+      // the near arm thrown back over the backrest, the bracelet at the wrist
+      R(g, ax - 3, ty + 1, 2, 2, shirt); R(g, ax - 3, ty + 1, 2, 1, shirtL);
+      R(g, ax - 5, ty + 1, 2, 2, sk); R(g, ax - 5, ty + 2, 2, 1, skD);
+      R(g, ax - 6, ty + 1, 1, 2, A.band);
+      R(g, ax - 8, ty + 2, 2, 2, sk);
+      return;
+    }
+    // facing the camera, or from behind (mirrored: the arms change sides)
+    const m = dir === 'down' ? (x, w) => x : (x, w) => 2 * ax - x - w;
+    const P = (x, y, w, h, c) => R(g, m(x, w), y, w, h, c);
+    const Pc = (x, y, w, h, seed) => camo(g, m(x, w), y, w, h, seed);
+    g.clearRect(ax - 6, ty + 1, 2, 7); g.clearRect(ax + 4, ty + 1, 2, 7); g.clearRect(ax - 5, ty + 6, 1, 2); g.clearRect(ax + 4, ty + 6, 1, 2);
+    R(g, ax - 4, ty + 6, 8, 1, shirt); R(g, ax - 4, ty + 7, 8, 1, shirtD);
+    // hips on the seat, knees up and wide, feet apart on the floor
+    P(ax - 4, ay - 1, 8, 1, pantsD);
+    for (const [kx, sx, fx, seed] of [[ax - 7, ax - 6, ax - 9, 7], [ax + 4, ax + 3, ax + 5, 8]]) {
+      P(sx, ay - 3, 3, 2, pants); P(kx, ay - 5, 3, 3, pants);
+      Pc(kx, ay - 5, 3, 3, seed); P(kx, ay - 5, 3, 1, A.camoL);
+      P(fx + (kx < ax ? 2 : 0), ay - 2, 2, 1, pantsD);
+      R(g, m(fx, 4), ay - 1, 4, 1, A.shoe); P(fx + 1, ay - 1, 1, 1, A.blue);
+      R(g, m(fx, 4), ay, 4, 1, dir === 'up' ? A.soleD : A.sole);
+    }
+    // the right hand resting on the knee
+    P(ax - 6, ty + 1, 2, 2, shirt); P(ax - 6, ty + 1, 2, 1, shirtL);
+    P(ax - 6, ty + 3, 2, 1, sk); P(ax - 6, ty + 4, 2, 1, A.band); P(ax - 7, ty + 5, 2, 1, sk); P(ax - 7, ty + 5, 1, 1, skD);
+    // the left arm along the backrest, the watch at the wrist, the hand hanging over it
+    P(ax + 4, ty, 3, 2, shirt); P(ax + 4, ty, 3, 1, shirtL);
+    P(ax + 7, ty, 1, 2, sk); P(ax + 8, ty, 1, 2, A.watch);
+    P(ax + 9, ty, 2, 2, sk); P(ax + 9, ty + 2, 2, 1, skD);
+  }
+
   // Dev Pierre's pieces drawn after the body (they need the pose): short sleeves, the big white watch on
   // the left wrist, the right hand in the pocket while standing, the joggers' cuffs, the blue shoes'
   // white soles, the marked brows and the thin moustache
@@ -1443,6 +1611,7 @@
     hxHead(g, dir, L, o);
     if (L.outfit === 'bp_founder') founderTop(g, dir, pose, o);
     if (L.outfit === 'dev_pierre') devTop(g, dir, pose, L, o);
+    if (L.outfit === 'abner') abnerTop(g, dir, pose, L, o);
     if (L.outfit === 'astronaut') {
       // glass dome helmet: a white shell, a green-tinted visor and a neon rim
       const shell = '#dfe7ed', shellD = '#b6c1ca', shellL = '#ffffff';

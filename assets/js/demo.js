@@ -625,7 +625,8 @@
     if (em) return em;
     if (this.seated && this.sitSheet) {
       const set = this.sitSheet[P.seat ? P.seat.dir : P.rest ? P.rest.dir : 'up'] || this.sitSheet.up;
-      const pose = P.rest ? 'R' : P.pose;
+      // resting on a sofa / pouf: skins with a relaxed seated frame sit back in it (cosmetics.js)
+      const pose = P.rest ? (set.lounge ? 'lounge' : 'R') : P.pose;
       if (pose === 'R' && this.blinkT > 0) return set.blink;
       return set[pose] || set.R;
     }
@@ -636,6 +637,8 @@
       // hands on the equipment while its panel is open
       if (S.panel && S.panel.kind !== 'desk' && Math.floor(t * 2.4) % 3) return s.reach;
     }
+    // standing still for a while against a rack: skins with a relaxed seated frame sit down on the floor
+    if (!this.moving && S.lounge && this.sheet[this.dir] && this.sheet[this.dir].lounge) return this.sheet[this.dir].lounge;
     return DL.Actor.prototype.frame.call(this);
   };
 
@@ -965,6 +968,7 @@
   }
 
   /* ---------------- player / camera ---------------- */
+  const LOUNGE_AFTER = 5;
   function updatePlayer(dt) {
     let ix = 0, iy = 0;
     if (P.actT > 0) P.actT -= dt;
@@ -1037,6 +1041,11 @@
     if (player.moving && Math.floor((player.dist + moved) / 13) !== Math.floor(player.dist / 13)) DL.audio.play('foot');
     player.dist += moved;
     S.walked += moved;
+    // after LOUNGE_AFTER s standing still next to a rack (no emote, panel or conversation) the player sits
+    // against it, if the skin has the frame (sprites.js 'sitLounge'); any move gets up
+    S.idleT = player.moving || len > 0.1 || emotes.active || S.panel || talk.active ? 0 : (S.idleT || 0) + dt;
+    S.lounge = S.idleT > LOUNGE_AFTER && !!(player.sheet.down && player.sheet.down.lounge) &&
+      W.items.some((e) => e.kind === 'rack' && Math.abs(e.px + 8 - player.x) < 20 && Math.abs(e.py + 8 - player.y) < 20);
 
     if (len > 0.1) {
       const ax = Math.abs(ix), ay = Math.abs(iy);

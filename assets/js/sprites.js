@@ -534,7 +534,7 @@
       return post(outline(c), L);
     };
     const sheet = {};
-    const sway = DL.charSway && DL.charSway(L);
+    const sway = DL.charSway && DL.charSway(L), lounge = DL.charLounge && DL.charLounge(L);
     for (const d of ['down', 'up', 'right']) {
       const pass = build(d, 'pass', false);
       sheet[d] = {
@@ -543,6 +543,8 @@
         walk: POSES.map((p) => (p === 'pass' ? pass : build(d, p, false))),
       };
       if (sway) sheet[d].sway = breathe(sheet[d].idle);
+      // relaxed on the floor (against a rack: demo.js)
+      if (lounge) sheet[d].lounge = build(d, 'sitLounge', false);
     }
     sheet.left = {
       idle: mirror(sheet.right.idle),
@@ -550,6 +552,7 @@
       walk: sheet.right.walk.map(mirror),
     };
     if (sway) sheet.left.sway = mirror(sheet.right.sway);
+    if (lounge) sheet.left.lounge = mirror(sheet.right.lounge);
     return sheet;
   };
 
@@ -560,7 +563,10 @@
       drawChar(c.getContext('2d'), dir, pose, L, closed);
       return post(outline(c), L);
     };
-    const set = (dir) => ({ A: build(dir, 'sitA'), B: build(dir, 'sitB'), R: build(dir, 'sitR'), L: build(dir, 'sitL'), blink: build(dir, 'sitR', true) });
+    const lounge = DL.charLounge && DL.charLounge(L);
+    const set = (dir) => Object.assign({ A: build(dir, 'sitA'), B: build(dir, 'sitB'), R: build(dir, 'sitR'), L: build(dir, 'sitL'), blink: build(dir, 'sitR', true) },
+      // skins with a relaxed seated frame use it on sofas and poufs (demo.js)
+      lounge ? { lounge: build(dir, 'sitLounge') } : null);
     // profile frames for desks turned sideways (left = the right ones mirrored)
     const right = set('right'), left = {};
     for (const k of Object.keys(right)) left[k] = mirror(right[k]);
