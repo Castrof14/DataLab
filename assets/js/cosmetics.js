@@ -627,14 +627,14 @@
     leather: '#161c28', leatherL: '#2a3344', metal: '#4a5d7a', metalL: '#8aa0c2', metalD: '#2c3a52', screen: '#06121a', shadow: '#05090f',
   };
   DL.HX = HX;
-  // Dev Pierre: plain black tee and joggers, lavender running shoes on white soles, light brown skin, dark
-  // brown hair, white watch, silver pin; the wayfarers' frame and orange-brown lenses (gear_wayfarer)
+  // Dev Pierre: plain black tee and joggers, blue running shoes on white soles, light brown skin, black
+  // hair, white watch, silver pin; the wayfarers' frame and orange-brown lenses (gear_wayfarer)
   const DEV = {
-    tee: '#14161c', pants: '#0f1014', cuff: '#24272f', shoe: '#a8a2f2', shoeL: '#d4d0ff', sole: '#f4f4f8', soleD: '#c9c9d6',
-    skin: '#c8956b', hair: '#3d2517', brow: '#170d07', stache: '#2b190f', pocket: '#050608',
+    tee: '#14161c', pants: '#0f1014', cuff: '#24272f', shoe: '#2f6fd6', shoeL: '#8fbcff', sole: '#f4f4f8', soleD: '#c9c9d6',
+    skin: '#c8956b', hair: '#1d1a1a', brow: '#0b0909', stache: '#141111', pocket: '#050608',
     watch: '#f6f7f9', watchD: '#c3c9d3', pin: '#e3e8ef', pinD: '#8d97a6',
     frame: '#0b0b0e', frameL: '#2c2c33', lens: '#b8642a', lensD: '#6f3513', glint: '#ffe2bd',
-    phone: '#5d5896', phoneL: '#b9b4ff', cam: '#0b0b10', camL: '#6f9be0',
+    phone: '#2a5cb0', phoneL: '#8fbcff', cam: '#0b0b10', camL: '#6f9be0',
   };
   DL.DEV = DEV;
   // skins whose standing frame breathes (sprites.js builds the extra frame, scene.js plays it)
@@ -1346,7 +1346,7 @@
   }
 
   // Dev Pierre's pieces drawn after the body (they need the pose): short sleeves, the big white watch on
-  // the left wrist, the right hand in the pocket while standing, the joggers' cuffs, the lavender shoes'
+  // the left wrist, the right hand in the pocket while standing, the joggers' cuffs, the blue shoes'
   // white soles, the marked brows and the thin moustache
   function devTop(g, dir, pose, L, o) {
     const ax = AX, ay = AY, ty = o.ty, hy = o.hy, hx = o.hx, side = o.side, sit = o.sit, D = DEV;
@@ -1354,7 +1354,7 @@
     const pocket = pose === 'idle' || pose === 'talk';
     const walkArms = pocket || pose === 'A' || pose === 'B' || pose === 'pass';
     if (!sit) {
-      // cuff, lavender upper, white sole (toe: one more pixel forward in profile)
+      // cuff, blue upper, white sole (toe: one more pixel forward in profile)
       const shoe = (x, dy, toe) => {
         R(g, x, ay - 3 + dy, 3, 1, D.cuff);
         R(g, x, ay - 2 + dy, 3 + toe, 1, D.shoe);

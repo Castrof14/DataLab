@@ -20,7 +20,7 @@
     --gold: #f2c14e;
     --creator: #ffb547;
     --creator-d: #c96a1c;
-    --lav: #a8a2f2;
+    --lav: #2f6fd6;
     --shadow: #02050b;
     color-scheme: dark;
   }
@@ -275,7 +275,7 @@
     }
     g.fillStyle = 'rgba(255,181,71,0.10)';
     g.beginPath(); g.ellipse(60, 66, 20, 6, 0, 0, Math.PI * 2); g.fill();
-    g.fillStyle = 'rgba(168,162,242,0.10)';
+    g.fillStyle = 'rgba(47,111,214,0.12)';
     g.beginPath(); g.ellipse(60, 66, 11, 3, 0, 0, Math.PI * 2); g.fill();
   }
   function bubble(g, x, y, text) {
@@ -428,8 +428,8 @@
   // palette under the grid
   const D = DL.DEV;
   document.getElementById('legend').innerHTML = [
-    ['Pele morena clara', D.skin], ['Cabelo castanho-escuro', D.hair], ['Sobrancelha / bigode', D.brow], ['Camiseta preta', D.tee], ['Broche prateado', D.pin],
-    ['Jogger preta', D.pants], ['Relógio branco', D.watch], ['Tênis lavanda', D.shoe], ['Sola branca', D.sole], ['Lente dos óculos', D.lens], ['Armação', D.frame],
+    ['Pele morena clara', D.skin], ['Cabelo preto', D.hair], ['Sobrancelha / bigode', D.brow], ['Camiseta preta', D.tee], ['Broche prateado', D.pin],
+    ['Jogger preta', D.pants], ['Relógio branco', D.watch], ['Tênis azul', D.shoe], ['Sola branca', D.sole], ['Lente dos óculos', D.lens], ['Armação', D.frame],
   ].map(([n, c]) => '<span class="sw"><i style="background:' + c + '"></i>' + n + '</span>').join('');
 
   /* ---------------- controls + loop ---------------- */
