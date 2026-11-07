@@ -2,7 +2,8 @@
    1 = dance, 2 = wave, 3 = anger. One at a time; walking stops it. The frames come from
    sprites.js (DL.makeEmoteSheet), so the skin, the accessories and the pet stay on during the emote.
    The emoji shows over the head in the speech bubble (crew.js draws the player's bubble).
-   4 = Invasão and 5 = Reboot, rewards of the season pass (battlepass.js): only for whoever owns their item. */
+   4 = Invasão and 5 = Reboot, rewards of the season pass (battlepass.js): only for whoever owns their item.
+   6 = Selfie comes with the Dev Pierre skin. */
 (function () {
   'use strict';
   const DL = window.DL;
@@ -13,7 +14,11 @@
     { id: 'angry', key: '3', emoji: '😡', name: 'Raiva', dur: 2.6, desc: 'A cabeça fica vermelha e sai fumaça. Para quando o servidor cai de novo.' },
     { id: 'hack', key: '4', emoji: '⌨️', name: 'Invasão', dur: 3.4, item: 'bp_emote_hack', desc: 'Digita rápido num teclado no ar e aparece "ACESSO LIBERADO" em cima do personagem.' },
     { id: 'reboot', key: '5', emoji: '🔌', name: 'Reboot', dur: 3.6, item: 'bp_emote_reboot', desc: 'Desliga, fica com a tela azul no rosto e liga de novo, com barra de carregamento.' },
+    // 6 = Selfie: comes with the Dev Pierre skin (cosmetics.js)
+    { id: 'selfie', key: '6', emoji: '🤳', name: 'Selfie', dur: 3.2, item: 'dev_pierre', desc: 'Mão no bolso, celular erguido na frente do rosto e o flash disparando: selfie no espelho.' },
   ];
+  // Selfie: when the flash goes off (s)
+  const SELFIE_FLASH = [1.1, 2.3];
   // Reboot: the moments of the emote (s)
   const RB = { off: 0.45, boot: 2.2 };
   // the emotes this player may use: the free ones + the ones whose item is in the inventory
@@ -36,6 +41,8 @@
     if (id === 'hack') return t > dur - HACK_DONE ? sheet.hackB : Math.floor(t / 0.09) % 2 ? sheet.hackB : sheet.hackA;
     // standing still while it shuts down and boots again (the effect is drawn over the frame)
     if (id === 'reboot') return sheet.hackB;
+    // holds the phone up, bobbing a pixel while framing the shot
+    if (id === 'selfie') return Math.floor(t / 0.5) % 2 ? sheet.selfieB : sheet.selfieA;
     return null;
   };
 
@@ -80,7 +87,26 @@
   DL.emoteFx = function (g, id, X, Y, t, dur, frame) {
     if (id === 'hack') hack(g, X, Y, t, dur);
     else if (id === 'reboot') reboot(g, X, Y, t, dur, frame);
+    else if (id === 'selfie') selfie(g, X, Y, t);
   };
+
+  // Selfie: the flash goes off twice from the phone's camera (a burst of light, then a fading glow)
+  function selfie(g, X, Y, t) {
+    const R = DL.R, C = DL.CHAR, dy = Math.floor(t / 0.5) % 2 ? 1 : 0;
+    const cx = X + 2, cy = Y - C.AY + 9 + dy, ga = g.globalAlpha; // the phone's camera (cosmetics.js selfieArms)
+    for (const at of SELFIE_FLASH) {
+      const k = (t - at) / 0.32;
+      if (k < 0 || k > 1) continue;
+      g.globalAlpha = ga * (1 - k);
+      R(g, cx - 1, cy - 1, 3, 3, '#ffffff');
+      const r = 2 + Math.round(k * 5);
+      R(g, cx - r, cy, r * 2 + 1, 1, '#fff6d8'); R(g, cx, cy - r, 1, r * 2 + 1, '#fff6d8');
+      R(g, cx - r + 1, cy - r + 1, 1, 1, '#ffe7a8'); R(g, cx + r - 1, cy - r + 1, 1, 1, '#ffe7a8');
+      R(g, cx - r + 1, cy + r - 1, 1, 1, '#ffe7a8'); R(g, cx + r - 1, cy + r - 1, 1, 1, '#ffe7a8');
+      if (k < 0.25) { g.globalAlpha = ga * 0.22; R(g, X - 10, Y - 34, 21, 35, '#ffffff'); }
+    }
+    g.globalAlpha = ga;
+  }
 
   // Invasão: a holographic keyboard in front of the player, code flying up from it, then a green flash
   function hack(g, X, Y, t, dur) {
@@ -135,7 +161,7 @@
   // the effects drawn over a character during an emote
   function drawFx(g, actor, em, t, X, Y) {
     if (em.id === 'angry') smoke(g, X, Y, t);
-    if (em.id === 'hack' || em.id === 'reboot') DL.emoteFx(g, em.id, X, Y, t, em.dur, actor.frame());
+    if (em.id === 'hack' || em.id === 'reboot' || em.id === 'selfie') DL.emoteFx(g, em.id, X, Y, t, em.dur, actor.frame());
   }
 
   // another player's emote, on their character here (multiplayer.js). Same frames, effects and bubbles as
@@ -175,7 +201,11 @@
     function play(id) {
       const em = BY_ID[id];
       if (!em) return false;
-      if (!DL.emoteOwned(em)) { game.toast('info', 'Emote ' + em.name, 'Recompensa do Passe Boot Inicial' + (DL.Pass && DL.Pass.levelOf(em.item) ? ' (nível ' + DL.Pass.levelOf(em.item) + ')' : '')); return false; }
+      if (!DL.emoteOwned(em)) {
+        const lvl = DL.Pass && DL.Pass.levelOf(em.item), it = !lvl && (DL.COSMETICS || []).find((c) => c.id === em.item);
+        game.toast('info', 'Emote ' + em.name, it ? 'Vem com a skin ' + it.name + ', na loja' : 'Recompensa do Passe Boot Inicial' + (lvl ? ' (nível ' + lvl + ')' : ''));
+        return false;
+      }
       if (E.cur) return false; // one at a time
       const why = can();
       if (why) { if (typeof why === 'string') game.toast('info', 'Emote', why); return false; }
@@ -208,9 +238,9 @@
       get active() { return E.cur ? E.cur.id : null; },
       // the emote's frame for the player right now (null when no emote is running)
       frame() { return E.cur ? DL.emoteFrame(sheet(), E.cur.id, E.t, E.cur.dur) : null; },
-      // keyboard: 1 / 2 / 3, 4 for Invasão and 5 for Reboot (top row or numpad)
+      // keyboard: 1 / 2 / 3, 4 for Invasão, 5 for Reboot and 6 for Selfie (top row or numpad)
       key(ev) {
-        const m = /^(?:Digit|Numpad)([1-5])$/.exec(ev.code);
+        const m = /^(?:Digit|Numpad)([1-6])$/.exec(ev.code);
         if (!m || ev.repeat) return false;
         play(DL.EMOTES[+m[1] - 1].id);
         return true;

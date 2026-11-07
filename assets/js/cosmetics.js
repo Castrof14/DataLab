@@ -69,6 +69,11 @@
   add({ id: 'hx_bot', cat: 'char', slot: 'shirt', value: 'hx_bot', name: 'Robô do Terminal', theme: 'Hacker', rarity: 'epic', price: 220, desc: 'Corpo de metal azulado e uma tela no lugar do rosto, com o cursor do terminal piscando.' });
   add({ id: 'hx_ghost', cat: 'char', slot: 'shirt', value: 'hx_ghost', name: 'Fantasma Digital', theme: 'Hacker', rarity: 'legendary', price: 320, desc: 'Meio transparente, feito de luz azul, com falhas de glitch que fazem o corpo tremer.' });
   add({ id: 'hx_master', cat: 'char', slot: 'shirt', value: 'hx_master', name: 'Mestre do Terminal', theme: 'Hacker', rarity: 'legendary', price: 380, desc: 'Capa longa coberta de linhas de código turquesa e capuz de quem já viu todos os logs.' });
+  // --- Coleção Criador: the game's creator as a skin (the CRIADOR seal on the shop card, inventory.js).
+  // It comes with the Selfie emote (emotes.js, key 6); the wayfarers are their own face accessory, so the
+  // player puts them on and takes them off like any other.
+  add({ id: 'dev_pierre', cat: 'char', slot: 'shirt', value: 'dev_pierre', name: 'Dev Pierre', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Eu construí este datacenter linha por linha. Agora venho conferir de perto, de mão no bolso e com selfie no espelho (tecla 6).' });
+  add({ id: 'gear_wayfarer', cat: 'char', slot: 'face', value: 'wayfarer', name: 'Wayfarer do Criador', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Armação preta, lentes marrom-alaranjadas e um reflexo que passa de vez em quando. Põe e tira quando quiser.' });
   // full-body costumes from the previous collection that stay on sale (recolour legs, hands and boots and
   // cover the head: DL.charCostume + charOutfit + charTop below)
   add({ id: 'costume_astronaut', cat: 'char', slot: 'shirt', value: 'astronaut', name: 'Astronauta', rarity: 'epic', price: 120, desc: 'Traje branco pressurizado com capacete de vidro e painel neon. Pronto para o próximo deploy fora do planeta.' });
@@ -622,8 +627,21 @@
     leather: '#161c28', leatherL: '#2a3344', metal: '#4a5d7a', metalL: '#8aa0c2', metalD: '#2c3a52', screen: '#06121a', shadow: '#05090f',
   };
   DL.HX = HX;
+  // Dev Pierre: plain black tee and joggers, lavender running shoes on white soles, light brown skin, dark
+  // brown hair, white watch, silver pin; the wayfarers' frame and orange-brown lenses (gear_wayfarer)
+  const DEV = {
+    tee: '#14161c', pants: '#0f1014', cuff: '#24272f', shoe: '#a8a2f2', shoeL: '#d4d0ff', sole: '#f4f4f8', soleD: '#c9c9d6',
+    skin: '#c8956b', hair: '#3d2517', brow: '#170d07', stache: '#2b190f', pocket: '#050608',
+    watch: '#f6f7f9', watchD: '#c3c9d3', pin: '#e3e8ef', pinD: '#8d97a6',
+    frame: '#0b0b0e', frameL: '#2c2c33', lens: '#b8642a', lensD: '#6f3513', glint: '#ffe2bd',
+    phone: '#5d5896', phoneL: '#b9b4ff', cam: '#0b0b10', camL: '#6f9be0',
+  };
+  DL.DEV = DEV;
+  // skins whose standing frame breathes (sprites.js builds the extra frame, scene.js plays it)
+  DL.charSway = (L) => L.outfit === 'dev_pierre';
   DL.charCostume = function (L) {
     switch (L.outfit) {
+      case 'dev_pierre': return Object.assign({}, OPEN, SUIT, { shirt: DEV.tee, pants: DEV.pants, shoes: DEV.shoe, skin: DEV.skin, hair: DEV.hair, hairStyle: 'dev_quiff', body: 'm', beard: false, earrings: false, pantsStyle: '' });
       case 'hx_hoodie': return Object.assign({}, BARE, SUIT, { shirt: HX.navy, pants: HX.slateD, shoes: HX.ink });
       case 'hx_leather': return Object.assign({}, OPEN, SUIT, { shirt: HX.leather, pants: HX.navyD, shoes: HX.ink });
       case 'hx_agent': return Object.assign({}, OPEN, SUIT, { shirt: '#0c0f16', pants: '#0c0f16', shoes: HX.ink });
@@ -658,6 +676,12 @@
   DL.charOutfit = function (g, dir, ty, L, shirt, shirtD, shirtL) {
     const ax = AX, o = L.outfit, side = dir !== 'down' && dir !== 'up';
     switch (o) {
+      case 'dev_pierre':
+        // a plain tee: only the crew neck and the small silver pin on the left side of the chest
+        if (dir === 'down') { R(g, ax - 2, ty, 4, 1, '#07080b'); R(g, ax + 1, ty + 2, 1, 1, DEV.pin); R(g, ax + 1, ty + 3, 1, 1, DEV.pinD); }
+        else if (dir === 'up') R(g, ax - 2, ty, 4, 1, '#07080b');
+        else { R(g, ax + 1, ty, 2, 1, '#07080b'); R(g, ax + 1, ty + 2, 1, 1, DEV.pin); }
+        return true;
       case 'hx_hoodie':
         // drawstrings, two dots of code on the chest and the front pocket
         if (dir === 'down') {
@@ -1006,6 +1030,22 @@
   DL.charHair = function (g, dir, L, H, hair, hairD, hairL) {
     const side = dir !== 'down' && dir !== 'up';
     switch (L.hairStyle) {
+      case 'dev_quiff':
+        // lots of volume on top, combed to the side and back; short faded sides, the forehead clear
+        if (dir === 'down') {
+          H(-3, -3, 6, 1); H(-4, -2, 9, 1); H(-5, -1, 10, 2); H(-5, 1, 2, 1); H(-2, 1, 6, 1);
+          H(-5, 2, 1, 2, hairD); H(4, 1, 1, 3, hairD);
+          H(-2, -3, 3, 1, hairL); H(0, -2, 3, 1, hairL); H(2, -1, 2, 1, hairL); H(-4, 0, 2, 1, hairD);
+        } else if (dir === 'up') {
+          H(-3, -3, 6, 1); H(-4, -2, 9, 1); H(-5, -1, 10, 8); H(-4, 7, 8, 1, hairD);
+          H(-5, 4, 1, 3, hairD); H(4, 4, 1, 3, hairD);
+          H(-1, -3, 3, 1, hairL); H(1, -2, 3, 1, hairL); H(-3, 0, 2, 1, hairL); H(0, 1, 3, 1, hairL);
+        } else {
+          H(-3, -3, 7, 1); H(-5, -2, 10, 1); H(-6, -1, 11, 2); H(-5, 1, 6, 3); H(-5, 4, 4, 2, hairD);
+          H(1, 1, 3, 1); H(-1, 2, 1, 2, hairD);
+          H(-1, -3, 4, 1, hairL); H(1, -2, 3, 1, hairL); H(-4, -1, 2, 1, hairD);
+        }
+        return true;
       case 'undercut':
         if (dir === 'down') { H(-5, -2, 10, 2); H(-3, -3, 7, 1); H(-5, 0, 10, 1); H(-5, 1, 1, 3, hairD); H(4, 1, 1, 3, hairD); H(0, -2, 4, 1, hairL); }
         else if (dir === 'up') { H(-5, -2, 10, 3); H(-5, 1, 10, 6, hairD); }
@@ -1187,6 +1227,21 @@
       } else { R(g, ax + 1, ty, 1, 3, HX.slateL); R(g, ax + 1, ty + 3, 1, 3, HX.blue); R(g, ax + 1, ty + 5, 1, 1, HX.turq); }
     }
     switch (G.face) {
+      case 'wayfarer':
+        // Wayfarer do Criador: thick black frame, orange-brown lenses darker at the bottom, a lit corner
+        if (dir === 'down') {
+          R(g, hx - 5, hy + 4, 10, 1, DEV.frame); R(g, hx - 5, hy + 5, 1, 1, DEV.frame); R(g, hx + 4, hy + 5, 1, 1, DEV.frame);
+          R(g, hx - 4, hy + 5, 3, 2, DEV.lens); R(g, hx + 1, hy + 5, 3, 2, DEV.lens);
+          R(g, hx - 4, hy + 6, 3, 1, DEV.lensD); R(g, hx + 1, hy + 6, 3, 1, DEV.lensD);
+          R(g, hx - 1, hy + 5, 2, 1, DEV.frame);
+          R(g, hx - 4, hy + 5, 1, 1, DEV.glint); R(g, hx + 1, hy + 5, 1, 1, DEV.glint);
+          R(g, hx - 4, hy + 4, 1, 1, DEV.frameL); R(g, hx + 1, hy + 4, 1, 1, DEV.frameL);
+        } else if (side) {
+          R(g, hx + 1, hy + 4, 5, 1, DEV.frame); R(g, hx + 5, hy + 5, 1, 1, DEV.frame);
+          R(g, hx + 2, hy + 5, 3, 2, DEV.lens); R(g, hx + 2, hy + 6, 3, 1, DEV.lensD); R(g, hx + 4, hy + 5, 1, 1, DEV.glint);
+          R(g, hx - 2, hy + 4, 3, 1, DEV.frame);
+        } else { R(g, hx - 5, hy + 4, 1, 2, DEV.frame); R(g, hx + 4, hy + 4, 1, 2, DEV.frame); }
+        break;
       case 'g001':
         // Passe T1: black shades, a turquoise "0 0" lit in the lenses and the "1" on the bridge
         if (dir === 'down') {
@@ -1290,12 +1345,104 @@
     }
   }
 
+  // Dev Pierre's pieces drawn after the body (they need the pose): short sleeves, the big white watch on
+  // the left wrist, the right hand in the pocket while standing, the joggers' cuffs, the lavender shoes'
+  // white soles, the marked brows and the thin moustache
+  function devTop(g, dir, pose, L, o) {
+    const ax = AX, ay = AY, ty = o.ty, hy = o.hy, hx = o.hx, side = o.side, sit = o.sit, D = DEV;
+    const sk = L.skin, skD = shade(sk, -0.16), shirt = L.shirt;
+    const pocket = pose === 'idle' || pose === 'talk';
+    const walkArms = pocket || pose === 'A' || pose === 'B' || pose === 'pass';
+    if (!sit) {
+      // cuff, lavender upper, white sole (toe: one more pixel forward in profile)
+      const shoe = (x, dy, toe) => {
+        R(g, x, ay - 3 + dy, 3, 1, D.cuff);
+        R(g, x, ay - 2 + dy, 3 + toe, 1, D.shoe);
+        R(g, x, ay - 1 + dy, 3 + toe, 1, D.sole);
+      };
+      if (!side) {
+        const lDy = pose === 'B' || pose === 'danceB' ? -1 : 0, rDy = pose === 'A' || pose === 'danceA' ? -1 : 0;
+        shoe(ax - 3, lDy, 0); shoe(ax, rDy, 0);
+        if (dir === 'down') { R(g, ax - 3, ay - 2 + lDy, 1, 1, D.shoeL); R(g, ax + 2, ay - 2 + rDy, 1, 1, D.shoeL); }
+        else { R(g, ax - 3, ay - 1 + lDy, 3, 1, D.soleD); R(g, ax, ay - 1 + rDy, 3, 1, D.soleD); }
+      } else {
+        let back = ax - 2, front = ax - 1;
+        if (pose === 'A') { back = ax - 4; front = ax + 1; }
+        if (pose === 'B') { back = ax + 1; front = ax - 4; }
+        shoe(back, 0, 0); R(g, back, ay - 2, 3, 1, shade(D.shoe, -0.25));
+        shoe(front, 0, 1); R(g, front + 3, ay - 2, 1, 1, D.shoeL);
+      }
+    }
+    if (!sit && !side && walkArms) {
+      const sw = pose === 'A' ? -1 : pose === 'B' ? 1 : 0;
+      // arms as sprites.js drew them: the one on the viewer's left swings with sw, the other against it
+      const lx = ax - 6, rx = ax + 4, ldy = sw, rdy = -sw;
+      R(g, lx, ty + 4 + ldy, 2, 2, sk); R(g, lx, ty + 4 + ldy, 1, 2, skD);
+      R(g, rx, ty + 4 + rdy, 2, 2, sk); R(g, rx + 1, ty + 4 + rdy, 1, 2, skD);
+      // facing the camera the left wrist is on the viewer's right; from behind, on the viewer's left
+      const wx = dir === 'down' ? rx : lx, wdy = dir === 'down' ? rdy : ldy;
+      if (pocket) {
+        // the right hand goes into the pocket: forearm bent in to the hip, the hand hidden
+        if (dir === 'down') {
+          g.clearRect(lx, ty + 5, 2, 3);
+          R(g, lx, ty + 4, 2, 1, sk); R(g, lx + 1, ty + 5, 2, 1, sk); R(g, lx + 2, ty + 6, 1, 1, skD); R(g, lx + 2, ty + 7, 2, 1, D.pocket);
+        } else {
+          g.clearRect(rx, ty + 5, 2, 3);
+          R(g, rx, ty + 4, 2, 1, sk); R(g, rx - 1, ty + 5, 2, 1, sk); R(g, rx - 1, ty + 6, 1, 1, skD); R(g, rx - 2, ty + 7, 2, 1, D.pocket);
+        }
+      }
+      R(g, wx, ty + 5 + wdy, 2, 1, D.watch); R(g, wx + (dir === 'down' ? 1 : 0), ty + 5 + wdy, 1, 1, D.watchD);
+    } else if (!sit && side && walkArms) {
+      const sw = pose === 'A' ? 1 : pose === 'B' ? -1 : 0, x = ax - 1 + sw;
+      if (pocket) {
+        // profile: the hand slides into the front pocket (the torso is repainted where the hand was)
+        R(g, x, ty + 6, 2, 1, shirt); R(g, x, ty + 7, 2, 1, shade(shirt, -0.3));
+        R(g, x, ty + 4, 2, 1, D.watch); R(g, x + 1, ty + 4, 1, 1, D.watchD);
+        R(g, x + 1, ty + 5, 2, 1, sk); R(g, x + 2, ty + 6, 1, 1, skD); R(g, x + 2, ty + 7, 1, 1, D.pocket);
+      } else {
+        R(g, x, ty + 4, 2, 2, sk); R(g, x - 1, ty + 4, 1, 2, skD);
+        R(g, x, ty + 5, 2, 1, D.watch); R(g, x + 1, ty + 5, 1, 1, D.watchD);
+      }
+    }
+    // marked dark brows and the thin moustache
+    if (dir === 'down') {
+      R(g, hx - 4, hy + 4, 3, 1, D.brow); R(g, hx + 1, hy + 4, 3, 1, D.brow);
+      R(g, hx - 2, hy + 7, 4, 1, D.stache);
+    } else if (side) {
+      R(g, hx + 1, hy + 4, 3, 1, D.brow);
+      R(g, hx + 3, hy + 7, 2, 1, D.stache);
+    }
+  }
+
+  // the Selfie emote's frames (emotes.js; any skin): the right hand in the pocket, the left arm up holding
+  // the phone in front of the face, as in a mirror. selfieB holds it a pixel lower (the pose breathes).
+  function selfieArms(g, L, o, pose) {
+    const ax = AX, ty = o.ty, dy = pose === 'selfieB' ? 1 : 0, D = DEV;
+    const sk = L.skin, skD = shade(sk, -0.16), sh = L.shirt, shD = shade(sh, -0.3);
+    const fore = L.outfit === 'dev_pierre' ? sk : sh;
+    const glove = DL.charGlove && DL.charGlove(L), hand = glove ? glove.c : sk;
+    // the right hand in the pocket
+    g.clearRect(ax - 6, ty + 5, 2, 3);
+    R(g, ax - 6, ty + 4, 2, 1, fore); R(g, ax - 5, ty + 5, 2, 1, fore); R(g, ax - 4, ty + 6, 1, 1, skD); R(g, ax - 4, ty + 7, 2, 1, D.pocket);
+    // the left arm: elbow out at the side, forearm up, the watch at the wrist
+    g.clearRect(ax + 4, ty + 1, 2, 7);
+    R(g, ax + 4, ty + 1, 3, 2, sh); R(g, ax + 4, ty + 3, 2, 1, shD); R(g, ax + 4, ty + 1, 3, 1, shade(sh, 0.14));
+    R(g, ax + 5, ty - 2 + dy, 2, 3 - dy, fore); R(g, ax + 6, ty - 2 + dy, 1, 3 - dy, shade(fore, -0.16));
+    R(g, ax + 5, ty - 2 + dy, 2, 1, D.watch); R(g, ax + 6, ty - 2 + dy, 1, 1, D.watchD);
+    // the phone, its back to the mirror: camera, top edge lit, the fingers around its side
+    const py = ty - 8 + dy;
+    R(g, ax + 1, py, 4, 6, D.phone); R(g, ax + 1, py, 4, 1, D.phoneL); R(g, ax + 1, py, 1, 6, D.phoneL);
+    R(g, ax + 2, py + 1, 2, 2, D.cam); R(g, ax + 2, py + 1, 1, 1, D.camL);
+    R(g, ax + 4, py + 3, 2, 3, hand); R(g, ax + 5, py + 3, 1, 3, shade(hand, -0.16));
+  }
+
   // skin heads, then the costumes' head pieces and the legendary visor; accessories last, on top of all
   DL.charTop = function (g, dir, pose, L, o) {
     const ax = AX, ty = o.ty, hy = o.hy, side = o.side;
     const hx = o.hx;
     hxHead(g, dir, L, o);
     if (L.outfit === 'bp_founder') founderTop(g, dir, pose, o);
+    if (L.outfit === 'dev_pierre') devTop(g, dir, pose, L, o);
     if (L.outfit === 'astronaut') {
       // glass dome helmet: a white shell, a green-tinted visor and a neon rim
       const shell = '#dfe7ed', shellD = '#b6c1ca', shellL = '#ffffff';
@@ -1535,6 +1682,8 @@
       else R(g, ax - 5, hy + 4, 10, 1, GOLD_D);
     }
     if (L.gear) gear(g, dir, L, o, pose);
+    // the phone goes in front of everything on the face
+    if ((pose === 'selfie' || pose === 'selfieB') && !o.sit) selfieArms(g, L, o, pose);
   };
 
   // after a frame is drawn and outlined: the Digital Ghost is half see-through, with faint scan lines
@@ -1595,10 +1744,32 @@
     }
   }
 
+  // standing still, facing the camera: a glint runs across the wayfarers every few seconds and Dev Pierre's
+  // pin catches the light now and then (dy follows the breathing frame, scene.js)
+  DL.idleSway = (t) => t % 1.6 > 1;
+  function devFx(g, L, X, Y, t) {
+    const dev = L.outfit === 'dev_pierre', way = L.gear && L.gear.face === 'wayfarer';
+    if (!dev && !way) return;
+    const dy = DL.charSway(L) && DL.idleSway(t) ? 1 : 0, hy = Y - AY + 6 + dy;
+    if (way) {
+      const k = (t % 3.4) / 0.55;
+      if (k < 1) {
+        const x = -4 + Math.floor(k * 9);
+        if (x <= -2 || x >= 1) { R(g, X + x, hy + 5, 1, 1, '#fffaf0'); if (x !== -2 && x !== 3) R(g, X + x + 1, hy + 6, 1, 1, DEV.glint); }
+      }
+    }
+    if (dev && (t % 4.6) < 0.22) {
+      const py = Y - 13 + 2 + dy;
+      R(g, X + 1, py, 1, 1, '#ffffff');
+      R(g, X + 1, py - 1, 1, 1, 'rgba(255,255,255,0.55)'); R(g, X + 2, py, 1, 1, 'rgba(255,255,255,0.55)');
+    }
+  }
+
   // live effects drawn over a character every frame (sprites.js / iso.js drawActor): the code that
   // runs down the hoodie's face, the ghost's glitches, the robot's blinking cursor
   DL.charFx = function (g, a, X, Y, t) {
     const L = a.look;
+    if (L && !a.seated && !a.moving && !a.emote && !(a.bubble && a.bubble.tone === 'emote') && (a.dir === 'down' || !a.dir)) devFx(g, L, X, Y, t);
     if (L && L.gear && !a.seated) passGearFx(g, a, L.gear, X, Y, t);
     if (L && L.outfit === 'bp_founder' && !a.seated && !a.moving) {
       const k = 0.5 + 0.5 * Math.sin(t * 1.8), ga = g.globalAlpha;

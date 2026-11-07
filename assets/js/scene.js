@@ -29,7 +29,11 @@
     }
     frame() {
       const f = this.sheet[this.dir];
-      if (!this.moving) return this.blinkT > 0 ? f.blink : f.idle;
+      if (!this.moving) {
+        if (this.blinkT > 0) return f.blink;
+        // skins that breathe while standing (cosmetics.js): the idle frame and the one a pixel lower
+        return f.sway && DL.idleSway(performance.now() / 1000) ? f.sway : f.idle;
+      }
       return f.walk[Math.floor(this.dist / 6.5) % 4];
     }
   }

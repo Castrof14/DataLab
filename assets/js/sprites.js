@@ -516,6 +516,14 @@
   }
 
   const POSES = ['A', 'pass', 'B', 'pass'];
+  // the standing frame breathing out: everything above the knees a pixel lower, the feet where they were
+  // (skins with DL.charSway; scene.js alternates it with the idle frame)
+  function breathe(src) {
+    const c = mk(FW, FH), g = c.getContext('2d'), k = AY - 5;
+    g.drawImage(src, 0, k, FW, FH - k, 0, k, FW, FH - k);
+    g.drawImage(src, 0, 0, FW, k, 0, 1, FW, k);
+    return c;
+  }
   // after the outline: costume effects on the whole frame (cosmetics.js)
   const post = (c, L) => (DL.charPost ? DL.charPost(c, L) : c);
 
@@ -526,6 +534,7 @@
       return post(outline(c), L);
     };
     const sheet = {};
+    const sway = DL.charSway && DL.charSway(L);
     for (const d of ['down', 'up', 'right']) {
       const pass = build(d, 'pass', false);
       sheet[d] = {
@@ -533,12 +542,14 @@
         blink: build(d, 'idle', true),
         walk: POSES.map((p) => (p === 'pass' ? pass : build(d, p, false))),
       };
+      if (sway) sheet[d].sway = breathe(sheet[d].idle);
     }
     sheet.left = {
       idle: mirror(sheet.right.idle),
       blink: mirror(sheet.right.blink),
       walk: sheet.right.walk.map(mirror),
     };
+    if (sway) sheet.left.sway = mirror(sheet.right.sway);
     return sheet;
   };
 
@@ -587,6 +598,8 @@
     };
     return {
       danceA: build('danceA', -1), danceB: build('danceB', 1),
+      // Selfie (comes with the Dev Pierre skin): the phone up in front of the face, held still / a pixel lower
+      selfieA: build('selfie'), selfieB: build('selfieB'),
       waveA: build('wave'), waveB: build('waveB'),
       angry1: build('idle', 0, 0.22), angry2: build('idle', 0, 0.45),
       // Invasão (season pass): hands on an invisible keyboard, typing fast
