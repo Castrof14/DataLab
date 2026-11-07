@@ -462,6 +462,13 @@
         return;
       }
       const C = DL.CHAR;
+      // a pose (Relax do Criador): the player's own look sitting back, turning around in the big preview
+      if (it.slot === 'pose') {
+        const sh = sheetFor(previewProfile(it)), dirs = ['down', 'right', 'up', 'left'];
+        const d = big ? dirs[Math.floor(t / 1.4) % 4] : 'down';
+        if (sh[d].lounge) g.drawImage(sh[d].lounge, 24 - C.AX, 42 - C.AY);
+        return;
+      }
       // trails (trails.js) loop a short walk across the card; the frame shows around the player's face
       if (it.slot === 'trail') { if (DL.drawTrailPreview) DL.drawTrailPreview(g, it.value, t, sheetFor(profile())); return; }
       if (it.slot === 'frame') {

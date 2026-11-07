@@ -131,7 +131,10 @@
     <div class="stage"><canvas id="stage" aria-label="Dev Pierre e Abner no datacenter"></canvas></div>
     <div class="stage__bar">
       <span class="now" id="now">Parados · de frente</span>
-      <button type="button" class="btn" id="shades" aria-pressed="true">Óculos do Pierre: ligados</button>
+      <span class="seg" role="group" aria-label="Acessórios">
+        <button type="button" class="btn" data-toggle="dev_pierre" aria-pressed="true">Óculos do Pierre: ligados</button>
+        <button type="button" class="btn" data-toggle="abner" aria-pressed="true">Relax do Abner: ligado</button>
+      </span>
     </div>
   </div>
 
@@ -169,7 +172,8 @@
   const item = (id) => DL.COSMETICS.find((c) => c.id === id);
   const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const calm = matchMedia('(prefers-reduced-motion: reduce)');
-  const S = { shades: true, mode: 'spin', t0: performance.now() };
+  // each skin's accessory: Pierre's wayfarers, Abner's Relax do Criador (on = equipped)
+  const S = { on: { dev_pierre: true, abner: true }, mode: 'spin', t0: performance.now() };
 
   // the player's own look under the skins (each costume replaces skin, hair, clothes and shoes)
   const BASE = { body: 'm', skin: '#e0ac7e', hair: '#5a3a25', hairStyle: 'short', shirt: '#2f3a4d', pants: '#232a36', shoes: '#16181d' };
@@ -185,9 +189,9 @@
     },
     {
       id: 'abner', name: 'Abner', who: 'o criador', rarity: 'legendary', rarName: 'Lendário',
-      looks: { on: Object.assign({}, BASE, { outfit: 'abner', gear: {} }) },
+      looks: { on: Object.assign({}, BASE, { outfit: 'abner', gear: { pose: 'lounge' } }), off: Object.assign({}, BASE, { outfit: 'abner', gear: {} }) },
       idleText: 'Pensativo: a mão sob o queixo, balançando de leve. Pulseira azul na direita, relógio escuro na esquerda.',
-      extra: 'lounge', extraName: 'Sentado relaxado', extraText: 'Pernas abertas, uma mão no joelho, o outro braço no encosto. No jogo: nos sofás e pufes, e no chão encostado num rack.',
+      extra: 'lounge', extraName: 'Sentado relaxado', extraText: 'Acessório Relax do Criador: pernas abertas, uma mão no joelho, o outro braço no encosto. No jogo: nos sofás e pufes, e no chão encostado num rack. Desligado, ele fica em pé.',
       foot: 'streetwear',
       legend: [['Pele clara', A.skin], ['Cachos castanho-escuros', A.hair], ['Camiseta preta', A.tee], ['Cargo oliva', A.camo], ['Camuflado marrom', A.camoB], ['Camuflado preto', A.camoK], ['Pulseira azul', A.band], ['Relógio escuro', A.watch], ['Cano alto preto', A.shoe], ['Azul royal', A.blue], ['Sola branca', A.sole]],
     },
@@ -197,7 +201,9 @@
     s.sheets = {}; s.emo = {}; s.sits = {};
     for (const k of Object.keys(s.looks)) { s.sheets[k] = DL.makeSheet(s.looks[k]); s.emo[k] = DL.makeEmoteSheet(s.looks[k]); }
   }
-  const key = (s) => (s.looks.off && !S.shades ? 'off' : 'on');
+  const key = (s) => (s.looks.off && !S.on[s.id] ? 'off' : 'on');
+  // the relaxed frame, or standing when the accessory is off
+  const seated = (s, d, t) => sheet(s)[d].lounge || null;
   const sheet = (s) => s.sheets[key(s)];
   const look = (s) => s.looks[key(s)];
   const idleFrame = (sh, dir, t) => (t % 3.1 < 0.13 ? sh[dir].blink : sh[dir].sway && DL.idleSway(t) ? sh[dir].sway : sh[dir].idle);
@@ -266,7 +272,9 @@
       const img = on ? DL.emoteFrame(P.emo[key(P)], 'selfie', et, SELFIE.dur) : idleFrame(sheet(P), 'down', t);
       DL.drawActor(g, actor(P, PX, Y, img, 'down', false, on), k);
       if (on) { DL.emoteFx(g, 'selfie', PX, Y, et, SELFIE.dur, img); bubble(g, PX - 9, Y - 33, '🤳'); }
-      DL.drawActor(g, Object.assign(actor(AB, AXS + 1, Y - 6, sheet(AB).down.lounge, 'down', false, false), { noShadow: true }), k);
+      const sit = seated(AB, 'down');
+      if (sit) DL.drawActor(g, Object.assign(actor(AB, AXS + 1, Y - 6, sit, 'down', false, false), { noShadow: true }), k);
+      else DL.drawActor(g, actor(AB, AXS + 1, Y + 2, idleFrame(sheet(AB), 'down', t), 'down', false, false), k);
       label = 'Pierre: selfie · Abner: no sofá';
     } else {
       const walk = S.mode === 'walk', dir = DIRS[Math.floor(t / (walk ? 2.4 : 1.6)) % 4];
@@ -283,14 +291,15 @@
   const cards = [
     { s: SKINS[0], it: SKINS[0].item }, { s: SKINS[1], it: SKINS[1].item },
     { s: SKINS[0], it: item('gear_wayfarer'), head: true },
+    { s: SKINS[1], it: item('gear_lounge'), pose: true },
   ];
   document.getElementById('cards').innerHTML = cards.map((c, i) => {
     const it = c.it;
     return '<article class="st-card rar-' + it.rarity + '" aria-label="Card da loja: ' + esc(it.name) + '">' +
       '<div class="st-card__art"><canvas data-card="' + i + '" aria-hidden="true"></canvas><span class="st-ev">★ CRIADOR</span></div>' +
-      '<div class="st-card__body"><b>' + esc(it.name) + '</b><div class="tags"><span class="rar">' + DL.RARITY[it.rarity].name + '</span><span class="tag">★ Criador</span>' + (c.head ? '<span class="incl">Acessório · Rosto</span>' : '') + '</div>' +
+      '<div class="st-card__body"><b>' + esc(it.name) + '</b><div class="tags"><span class="rar">' + DL.RARITY[it.rarity].name + '</span><span class="tag">★ Criador</span>' + (c.head || c.pose ? '<span class="incl">Acessório · ' + (c.head ? 'Rosto' : 'Pose') + '</span>' : '') + '</div>' +
       '<p class="st-card__desc">' + esc(it.desc) + '</p></div>' +
-      '<div class="st-card__foot"><span class="price"><i>⬢</i>' + it.price + '</span><span class="incl">' + (c.head ? 'põe e tira' : esc(c.s.foot)) + '</span></div></article>';
+      '<div class="st-card__foot"><span class="price"><i>⬢</i>' + it.price + '</span><span class="incl">' + (c.head || c.pose ? 'põe e tira' : esc(c.s.foot)) + '</span></div></article>';
   }).join('');
   const cardCv = [...document.querySelectorAll('[data-card]')];
   function drawCards(t) {
@@ -304,6 +313,8 @@
         return;
       }
       const g = setup(cardCv[i], 48, 48, 4), dir = DIRS[Math.floor(t / 1.4) % 4];
+      // the pose's card: Abner sitting back, turning around, always wearing it
+      if (c.pose) { DL.drawActor(g, Object.assign(actor(c.s, 24, 42, c.s.sheets.on[dir].lounge, dir, false, false), { noShadow: true }), 4); return; }
       DL.drawActor(g, actor(c.s, 24, 42, idleFrame(sheet(c.s), dir, t), dir, false, false), 4);
     });
   }
@@ -358,8 +369,9 @@
       } else {
         for (const cv of s.live.extra) {
           const g = setup(cv, 34, 31, 3), d = cv.face;
-          if (d === 'down') { sofa(g, 2, 9); DL.drawActor(g, Object.assign(actor(s, 17, 25, sh.down.lounge, 'down', false, false), { noShadow: true }), 3); }
-          else { rack(g, d === 'right' ? 1 : 17, 0, t, d === 'right' ? 2 : 5); R(g, 0, 29, 34, 2, '#0b1730'); DL.drawActor(g, actor(s, 17, 29, sh[d].lounge, d, false, false), 3); }
+          const sit = seated(s, d);
+          if (d === 'down') { sofa(g, 2, 9); if (sit) DL.drawActor(g, Object.assign(actor(s, 17, 25, sit, 'down', false, false), { noShadow: true }), 3); else DL.drawActor(g, actor(s, 17, 30, idleFrame(sh, 'down', t), 'down', false, false), 3); }
+          else { rack(g, d === 'right' ? 1 : 17, 0, t, d === 'right' ? 2 : 5); R(g, 0, 29, 34, 2, '#0b1730'); DL.drawActor(g, actor(s, 17, 29, sit || idleFrame(sh, d, t), d, false, false), 3); }
         }
       }
     }
@@ -380,7 +392,7 @@
       row(fw, 'de frente · direita', sh.down.walk.concat(sh.right.walk));
       row(fw, 'de costas · esquerda', sh.up.walk.concat(sh.left.walk));
       if (s.extra === 'selfie') row(fx, 'segurando · balanço', [em.selfieA, em.selfieB]);
-      else row(fx, 'de frente · direita · de costas · esquerda', DIRS.map((d) => sh[d].lounge));
+      else row(fx, sh.down.lounge ? 'de frente · direita · de costas · esquerda' : 'acessório desligado: em pé', DIRS.map((d) => sh[d].lounge || sh[d].idle));
       drawSheet(s);
     }
   }
@@ -390,7 +402,7 @@
   function sheetRows(s) {
     const sh = sheet(s), em = s.emo[key(s)], rows = [];
     for (const d of DIRS) rows.push({ name: DIR_NAME[d], frames: [sh[d].idle, sh[d].sway].concat(sh[d].walk) });
-    rows.push(s.extra === 'selfie' ? { name: 'selfie', frames: [em.selfieA, em.selfieB, sh.down.blink] } : { name: 'sentado', frames: DIRS.map((d) => sh[d].lounge).concat(sh.down.blink) });
+    rows.push(s.extra === 'selfie' ? { name: 'selfie', frames: [em.selfieA, em.selfieB, sh.down.blink] } : { name: sh.down.lounge ? 'sentado' : 'em pé', frames: DIRS.map((d) => sh[d].lounge || sh[d].idle).concat(sh.down.blink) });
     return rows;
   }
   function flat(s) {
@@ -444,13 +456,12 @@
     document.querySelectorAll('[data-mode]').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
     S.t0 = performance.now();
   }));
-  const shadesBtn = document.getElementById('shades');
-  shadesBtn.addEventListener('click', () => {
-    S.shades = !S.shades;
-    shadesBtn.setAttribute('aria-pressed', String(S.shades));
-    shadesBtn.textContent = 'Óculos do Pierre: ' + (S.shades ? 'ligados' : 'desligados');
+  document.querySelectorAll('[data-toggle]').forEach((b) => b.addEventListener('click', () => {
+    const id = b.dataset.toggle, on = (S.on[id] = !S.on[id]);
+    b.setAttribute('aria-pressed', String(on));
+    b.textContent = id === 'abner' ? 'Relax do Abner: ' + (on ? 'ligado' : 'desligado') : 'Óculos do Pierre: ' + (on ? 'ligados' : 'desligados');
     stills();
-  });
+  }));
 
   function frame(ts) {
     const t = Math.max(0, (ts - S.t0) / 1000);
