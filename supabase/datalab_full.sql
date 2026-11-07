@@ -4792,7 +4792,7 @@ on conflict (item_id) do update set target = excluded.target, theme = excluded.t
 -- Coleção Criador: a skin Abner (lendária, selo CRIADOR na loja; o jeito de sentar dele é o acessório
 -- Relax do Criador, 20261106000500) (cosmetics.js)
 insert into public.items (id, category_id, slot, value, name, description, rarity_id, currency_id, price, stackable, max_quantity, sellable, purchasable, gift, grant_type, event_id, color) values
-  ('abner', 'char', 'shirt', '"abner"'::jsonb, 'Abner', 'Metade deste datacenter saiu da minha cabeça. A outra metade eu resolvo sentado no chão, encostado no rack.', 'legendary', 'gold', 400, false, null, true, true, false, 'shop', null, null)
+  ('abner', 'char', 'shirt', '"abner"'::jsonb, 'Dev Abner', 'Metade deste datacenter saiu da minha cabeça. A outra metade eu resolvo sentado no chão, encostado no rack.', 'legendary', 'gold', 400, false, null, true, true, false, 'shop', null, null)
 on conflict (id) do update set category_id = excluded.category_id, slot = excluded.slot, value = excluded.value, name = excluded.name, description = excluded.description, rarity_id = excluded.rarity_id, price = excluded.price, stackable = excluded.stackable, max_quantity = excluded.max_quantity, sellable = excluded.sellable, purchasable = excluded.purchasable, gift = excluded.gift, grant_type = excluded.grant_type, event_id = excluded.event_id, color = excluded.color, active = true;
 insert into public.skins (item_id, target, theme) values ('abner', 'character', 'Criador')
 on conflict (item_id) do update set target = excluded.target, theme = excluded.theme;
@@ -4816,9 +4816,29 @@ on conflict (item_id) do update set target = excluded.target, theme = excluded.t
 -- Notebook de Redes (slot 'hands': fechado debaixo do braço andando, aberto com código verde parado),
 -- que se põe e tira à parte (cosmetics.js)
 insert into public.items (id, category_id, slot, value, name, description, rarity_id, currency_id, price, stackable, max_quantity, sellable, purchasable, gift, grant_type, event_id, color) values
-  ('joao_pedro', 'char', 'shirt', '"joao_pedro"'::jsonb, 'João Pedro', 'Cada cabo deste datacenter passou pela minha mão. Se o pacote chegou, é porque eu deixei (tecla 7).', 'legendary', 'gold', 400, false, null, true, true, false, 'shop', null, null),
+  ('joao_pedro', 'char', 'shirt', '"joao_pedro"'::jsonb, 'Dev João Pedro', 'Cada cabo deste datacenter passou pela minha mão. Se o pacote chegou, é porque eu deixei (tecla 7).', 'legendary', 'gold', 400, false, null, true, true, false, 'shop', null, null),
   ('gear_netbook', 'char', 'hands', '"netbook"'::jsonb, 'Notebook de Redes', 'Fechado debaixo do braço quando você anda; parado, abre e o código verde começa a rolar. Põe e tira quando quiser.', 'epic', 'gold', 90, false, null, true, true, false, 'shop', null, null)
 on conflict (id) do update set category_id = excluded.category_id, slot = excluded.slot, value = excluded.value, name = excluded.name, description = excluded.description, rarity_id = excluded.rarity_id, price = excluded.price, stackable = excluded.stackable, max_quantity = excluded.max_quantity, sellable = excluded.sellable, purchasable = excluded.purchasable, gift = excluded.gift, grant_type = excluded.grant_type, event_id = excluded.event_id, color = excluded.color, active = true;
 insert into public.skins (item_id, target, theme) values
   ('joao_pedro', 'character', 'Criador'), ('gear_netbook', 'character', 'Criador')
 on conflict (item_id) do update set target = excluded.target, theme = excluded.theme;
+
+-- ===================================================================
+-- 20261106000700_tiago.sql
+-- ===================================================================
+-- Coleção Criador: a skin Tiago (lendária, selo CRIADOR na loja, cyber security; traz os emotes Firewall e
+-- Bloqueio, teclas 8 e 9) (cosmetics.js, emotes.js)
+insert into public.items (id, category_id, slot, value, name, description, rarity_id, currency_id, price, stackable, max_quantity, sellable, purchasable, gift, grant_type, event_id, color) values
+  ('tiago', 'char', 'shirt', '"tiago"'::jsonb, 'Dev Tiago', 'Ninguém entra neste datacenter sem eu saber. Pode tentar: eu já vi o pacote antes dele sair (teclas 8 e 9).', 'legendary', 'gold', 400, false, null, true, true, false, 'shop', null, null)
+on conflict (id) do update set category_id = excluded.category_id, slot = excluded.slot, value = excluded.value, name = excluded.name, description = excluded.description, rarity_id = excluded.rarity_id, price = excluded.price, stackable = excluded.stackable, max_quantity = excluded.max_quantity, sellable = excluded.sellable, purchasable = excluded.purchasable, gift = excluded.gift, grant_type = excluded.grant_type, event_id = excluded.event_id, color = excluded.color, active = true;
+insert into public.skins (item_id, target, theme) values ('tiago', 'character', 'Criador')
+on conflict (item_id) do update set target = excluded.target, theme = excluded.theme;
+
+-- ===================================================================
+-- 20261107000100_dev_names.sql
+-- ===================================================================
+-- Coleção Criador: as skins dos criadores com "Dev" antes do nome (Dev Abner, Dev João Pedro, Dev Tiago), para
+-- bancos onde as migrações 20261106000400 / 0600 / 0700 já rodaram com o nome antigo
+update public.items set name = 'Dev Abner' where id = 'abner';
+update public.items set name = 'Dev João Pedro' where id = 'joao_pedro';
+update public.items set name = 'Dev Tiago' where id = 'tiago';

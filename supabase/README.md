@@ -52,9 +52,11 @@ services/admin-service ┘                       ▼
 | `migrations/20261106000100_friends.sql` | **Amigos**: `friendships` (uma linha por par de jogadores, pedido → aceito) e `private.friend_*`; nada é legível pelo navegador, tudo passa pela função `friends` |
 | `migrations/20261106000200_pets_dracache_guaca_sudo.sql` | Pets **Drácache**, **Guaca.exe** e **Sudo** na loja |
 | `migrations/20261106000300_dev_pierre.sql` | Coleção Criador: skin lendária **Dev Pierre** (selo CRIADOR, traz o emote Selfie) e os óculos **Wayfarer do Criador** |
-| `migrations/20261106000400_abner.sql` | Coleção Criador: skin lendária **Abner** (selo CRIADOR) |
+| `migrations/20261106000400_abner.sql` | Coleção Criador: skin lendária **Dev Abner** (selo CRIADOR) |
 | `migrations/20261106000500_relax_do_criador.sql` | Coleção Criador: acessório **Relax do Criador** (slot `pose`): senta relaxado nos sofás e encostado nos racks, com qualquer skin |
-| `migrations/20261106000600_joao_pedro.sql` | Coleção Criador: skin lendária **João Pedro** (selo CRIADOR, traz o emote Ping) e o acessório **Notebook de Redes** (slot `hands`) |
+| `migrations/20261106000600_joao_pedro.sql` | Coleção Criador: skin lendária **Dev João Pedro** (selo CRIADOR, traz o emote Ping) e o acessório **Notebook de Redes** (slot `hands`) |
+| `migrations/20261106000700_tiago.sql` | Coleção Criador: skin lendária **Dev Tiago** (selo CRIADOR, cyber security; traz os emotes Firewall e Bloqueio) |
+| `migrations/20261107000100_dev_names.sql` | Coleção Criador: "Dev" antes do nome das skins dos criadores (Dev Abner, Dev João Pedro, Dev Tiago) |
 | `seed_scenarios.sql` | lições do terminal, problemas, passos, ajudas e patentes (gerado de `assets/js/problems-data.js` + `terminal.js`) |
 | `functions/{shop,inventory,economy,game,admin,payments,payments-webhook,feedback,pass,friends}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |

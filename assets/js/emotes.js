@@ -3,7 +3,8 @@
    sprites.js (DL.makeEmoteSheet), so the skin, the accessories and the pet stay on during the emote.
    The emoji shows over the head in the speech bubble (crew.js draws the player's bubble).
    4 = Invasão and 5 = Reboot, rewards of the season pass (battlepass.js): only for whoever owns their item.
-   6 = Selfie comes with the Dev Pierre skin, 7 = Ping with the João Pedro skin. */
+   6 = Selfie comes with the Dev Pierre skin, 7 = Ping with the João Pedro skin, 8 = Firewall and
+   9 = Bloqueio with the Tiago skin. */
 (function () {
   'use strict';
   const DL = window.DL;
@@ -18,8 +19,13 @@
     { id: 'selfie', key: '6', emoji: '🤳', name: 'Selfie', dur: 3.2, item: 'dev_pierre', desc: 'Mão no bolso, celular erguido na frente do rosto e o flash disparando: selfie no espelho.' },
     // 7 = Ping: comes with the João Pedro skin (cosmetics.js)
     { id: 'ping', key: '7', emoji: '📡', name: 'Ping', dur: 3.4, item: 'joao_pedro', desc: 'Abre o notebook, digita rápido, os pacotes saem e voltam: 64 bytes em 1 ms.' },
+    // 8 = Firewall and 9 = Bloqueio: come with the Tiago skin (cosmetics.js)
+    { id: 'firewall', key: '8', emoji: '🛡️', name: 'Firewall', dur: 3.6, item: 'tiago', desc: 'Digita rápido num terminal flutuante de texto verde e um escudo de firewall sobe na frente dele.' },
+    { id: 'block', key: '9', emoji: '✋', name: 'Bloqueio', dur: 2.8, item: 'tiago', desc: 'Um pacote invasor vermelho vem voando e ele bloqueia com a palma da mão. Pacote descartado.' },
   ];
-  const PING_BACK = 1.2; // the last seconds of Ping: the reply is in
+  const PING_BACK = 1.2;
+  const FW_UP = 1.5;      // Firewall: when the shield starts to rise (s)
+  const BLOCK_HIT = 1.15; // Bloqueio: when the packet hits the palm (s) // the last seconds of Ping: the reply is in
   // Selfie: when the flash goes off (s)
   const SELFIE_FLASH = [1.1, 2.3];
   // Reboot: the moments of the emote (s)
@@ -47,6 +53,8 @@
     // holds the phone up, bobbing a pixel while framing the shot
     if (id === 'selfie') return Math.floor(t / 0.5) % 2 ? sheet.selfieB : sheet.selfieA;
     // types fast, then holds still while the reply comes back
+    if (id === 'firewall') return Math.floor(t / 0.09) % 2 ? sheet.fwB : sheet.fwA;
+    if (id === 'block') return t < BLOCK_HIT - 0.25 ? sheet.blockA : sheet.blockB;
     if (id === 'ping') return t > dur - PING_BACK ? sheet.pingB : Math.floor(t / 0.1) % 2 ? sheet.pingB : sheet.pingA;
     return null;
   };
@@ -94,7 +102,61 @@
     else if (id === 'reboot') reboot(g, X, Y, t, dur, frame);
     else if (id === 'selfie') selfie(g, X, Y, t);
     else if (id === 'ping') ping(g, X, Y, t, dur);
+    else if (id === 'firewall') firewall(g, X, Y, t, dur);
+    else if (id === 'block') block(g, X, Y, t, dur);
   };
+
+  // Firewall: a floating green terminal at the hands, code typing in; then a shield of orange bricks rises in
+  // front of him and pulses
+  function firewall(g, X, Y, t, dur) {
+    const R = DL.R, ga = g.globalAlpha, T = DL.TG || {};
+    const a = Math.min(1, t * 5) * Math.min(1, (dur - t) * 3);
+    // the terminal
+    g.globalAlpha = ga * a * 0.85;
+    const ty = Y - 12; // the floating terminal, just under the hands
+    R(g, X - 8, ty, 16, 1, '#39ff14'); R(g, X - 8, ty, 1, 7, '#1f8f0f'); R(g, X + 7, ty, 1, 7, '#1f8f0f'); R(g, X - 8, ty + 6, 16, 1, '#1f8f0f');
+    g.globalAlpha = ga * a * 0.55; R(g, X - 7, ty + 1, 14, 5, '#04110a');
+    g.globalAlpha = ga * a;
+    const off = Math.floor(t * 12);
+    for (let r = 0; r < 4; r++) {
+      const k = off + r, len = 2 + Math.floor(DL.hash(k * 11) * 9);
+      R(g, X - 6, ty + 1 + r, Math.min(len, 12), 1, r === 3 ? '#39ff14' : '#1f8f0f');
+    }
+    if (Math.floor(t * 4) % 2) R(g, X - 6 + Math.min(12, 2 + Math.floor(DL.hash((off + 3) * 11) * 9)), ty + 4, 1, 1, '#b6ff9a');
+    // the shield
+    if (t > FW_UP) {
+      const k = Math.min(1, (t - FW_UP) / 0.5), h = Math.round(18 * k), top = Y - 4 - h, pulse = 0.38 + 0.18 * Math.sin(t * 9);
+      const fire = T.fire || '#ff7a17', fireL = T.fireL || '#ffc285';
+      g.globalAlpha = ga * a * 0.12; R(g, X - 9, top, 18, h, fire);
+      g.globalAlpha = ga * a * pulse;
+      for (let y = top; y < Y - 4; y += 3) { R(g, X - 9, y, 18, 1, fire); const sh = ((y - top) / 3) % 2 ? 0 : 3; for (let x = X - 9 + sh; x < X + 9; x += 6) R(g, x, y + 1, 1, 2, fire); }
+      R(g, X - 10, top, 1, h, fireL); R(g, X + 9, top, 1, h, fireL); R(g, X - 9, top, 18, 1, fireL);
+    }
+    g.globalAlpha = ga;
+  }
+
+  // Bloqueio: a red packet flies in from the right and stops at the palm: it shatters into red pixels and a
+  // turquoise ring opens from the hand
+  function block(g, X, Y, t, dur) {
+    const R = DL.R, ga = g.globalAlpha, px = X + 10, py = Y - 14;
+    if (t < BLOCK_HIT) {
+      const k = t / BLOCK_HIT, x = Math.round(px + 2 + (1 - k) * 22), y = py + Math.round(Math.sin(k * 9) * 1.5);
+      R(g, x, y, 3, 3, '#ff2b3a'); R(g, x, y, 3, 1, '#ff8a92'); R(g, x + 1, y + 1, 1, 1, '#5a0a12');
+      g.globalAlpha = ga * 0.5; R(g, x + 3, y + 1, 4, 1, '#ff2b3a'); g.globalAlpha = ga;
+      return;
+    }
+    const k = (t - BLOCK_HIT) / 0.8;
+    if (k < 1) {
+      g.globalAlpha = ga * (1 - k);
+      for (let i = 0; i < 6; i++) {
+        const ang = i * 1.05 + 0.4, d = Math.round(2 + k * 7);
+        R(g, px + 2 + Math.round(Math.cos(ang) * d), py + 1 + Math.round(Math.sin(ang) * d * 0.7), 1, 1, i % 2 ? '#ff2b3a' : '#ff8a92');
+      }
+      const r = Math.round(1 + k * 5);
+      R(g, px - r + 1, py - r, 1, r * 2 + 2, '#2de2c8'); R(g, px + r + 1, py - r, 1, r * 2 + 2, '#a5f7ea');
+      g.globalAlpha = ga;
+    }
+  }
 
   // Ping: code racing on the notebook's screen, green packets flying out to the right and coming back
   // (blue, the reply), then a green flash on the screen when the last one lands
@@ -177,6 +239,14 @@
       actor.bubble = { text: 'ACESSO LIBERADO', left: HACK_DONE, tone: 'emote' };
       return 'ok';
     }
+    if (em.id === 'firewall' && t > FW_UP + 0.4 && actor.bubble.text === em.emoji) {
+      actor.bubble = { text: 'FIREWALL ATIVO', left: em.dur - t, tone: 'emote' };
+      return 'ok';
+    }
+    if (em.id === 'block' && t > BLOCK_HIT && actor.bubble.text === em.emoji) {
+      actor.bubble = { text: 'BLOQUEADO', left: em.dur - t, tone: 'emote' };
+      return 'ok';
+    }
     if (em.id === 'ping' && t > em.dur - PING_BACK && actor.bubble.text === em.emoji) {
       actor.bubble = { text: '64 bytes · 1 ms', left: PING_BACK, tone: 'emote' };
       return 'ok';
@@ -190,7 +260,7 @@
   // the effects drawn over a character during an emote
   function drawFx(g, actor, em, t, X, Y) {
     if (em.id === 'angry') smoke(g, X, Y, t);
-    if (em.id === 'hack' || em.id === 'reboot' || em.id === 'selfie' || em.id === 'ping') DL.emoteFx(g, em.id, X, Y, t, em.dur, actor.frame());
+    if (em.id === 'hack' || em.id === 'reboot' || em.id === 'selfie' || em.id === 'ping' || em.id === 'firewall' || em.id === 'block') DL.emoteFx(g, em.id, X, Y, t, em.dur, actor.frame());
   }
 
   // another player's emote, on their character here (multiplayer.js). Same frames, effects and bubbles as
@@ -267,9 +337,9 @@
       get active() { return E.cur ? E.cur.id : null; },
       // the emote's frame for the player right now (null when no emote is running)
       frame() { return E.cur ? DL.emoteFrame(sheet(), E.cur.id, E.t, E.cur.dur) : null; },
-      // keyboard: 1 / 2 / 3, 4 for Invasão, 5 for Reboot, 6 for Selfie and 7 for Ping (top row or numpad)
+      // keyboard: 1 / 2 / 3, 4 Invasão, 5 Reboot, 6 Selfie, 7 Ping, 8 Firewall, 9 Bloqueio (top row or numpad)
       key(ev) {
-        const m = /^(?:Digit|Numpad)([1-7])$/.exec(ev.code);
+        const m = /^(?:Digit|Numpad)([1-9])$/.exec(ev.code);
         if (!m || ev.repeat) return false;
         play(DL.EMOTES[+m[1] - 1].id);
         return true;

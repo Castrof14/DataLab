@@ -608,6 +608,8 @@
       selfieA: build('selfie'), selfieB: build('selfieB'),
       // Ping (comes with the João Pedro skin): the notebook open at the chest, one hand tapping
       pingA: build('typeA'), pingB: build('typeB'),
+      // Firewall and Bloqueio (come with the Tiago skin): typing on a floating terminal; ready, then the palm up
+      fwA: build('tgTypeA'), fwB: build('tgTypeB'), blockA: build('pass'), blockB: build('tgBlock'),
       waveA: build('wave'), waveB: build('waveB'),
       angry1: build('idle', 0, 0.22), angry2: build('idle', 0, 0.45),
       // Invasão (season pass): hands on an invisible keyboard, typing fast

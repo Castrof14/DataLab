@@ -76,10 +76,14 @@
   // Abner, the game's other creator (the CRIADOR seal, inventory.js): streetwear, thinks with a hand on the chin.
   // His way of sitting is its own accessory (Relax do Criador, slot 'pose'), put on and taken off like the
   // wayfarers: on sofas, and on the floor against a rack (sprites.js 'sitLounge', demo.js)
-  add({ id: 'abner', cat: 'char', slot: 'shirt', value: 'abner', name: 'Abner', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Metade deste datacenter saiu da minha cabeça. A outra metade eu resolvo sentado no chão, encostado no rack.' });
+  add({ id: 'abner', cat: 'char', slot: 'shirt', value: 'abner', name: 'Dev Abner', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Metade deste datacenter saiu da minha cabeça. A outra metade eu resolvo sentado no chão, encostado no rack.' });
   // João Pedro, the creator who looks after the network: cap, full beard, knit turtleneck. Arms crossed when
   // standing; comes with the Ping emote (emotes.js, key 7). His notebook is its own accessory (hands slot).
-  add({ id: 'joao_pedro', cat: 'char', slot: 'shirt', value: 'joao_pedro', name: 'João Pedro', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Cada cabo deste datacenter passou pela minha mão. Se o pacote chegou, é porque eu deixei (tecla 7).' });
+  add({ id: 'joao_pedro', cat: 'char', slot: 'shirt', value: 'joao_pedro', name: 'Dev João Pedro', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Cada cabo deste datacenter passou pela minha mão. Se o pacote chegou, é porque eu deixei (tecla 7).' });
+  // Tiago, the creator who keeps the datacenter safe: a racing-team jersey with the game's own patches (a lock on
+  // the chest, a shield on the shoulder, 01 on the back), arms crossed with a holographic lock turning beside
+  // him; comes with the Firewall (key 8) and Bloqueio (key 9) emotes
+  add({ id: 'tiago', cat: 'char', slot: 'shirt', value: 'tiago', name: 'Dev Tiago', theme: 'Criador', creator: true, rarity: 'legendary', price: 400, desc: 'Ninguém entra neste datacenter sem eu saber. Pode tentar: eu já vi o pacote antes dele sair (teclas 8 e 9).' });
   add({ id: 'gear_netbook', cat: 'char', slot: 'hands', value: 'netbook', name: 'Notebook de Redes', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Fechado debaixo do braço quando você anda; parado, abre e o código verde começa a rolar. Põe e tira quando quiser.' });
   add({ id: 'gear_lounge', cat: 'char', slot: 'pose', value: 'lounge', name: 'Relax do Criador', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Pernas abertas e braço no encosto: senta assim nos sofás e no chão, encostado no rack. Põe e tira quando quiser.' });
   add({ id: 'gear_wayfarer', cat: 'char', slot: 'face', value: 'wayfarer', name: 'Wayfarer do Criador', theme: 'Criador', creator: true, rarity: 'epic', price: 90, desc: 'Armação preta, lentes marrom-alaranjadas e um reflexo que passa de vez em quando. Põe e tira quando quiser.' });
@@ -665,12 +669,22 @@
     lid: '#2b2f38', lidL: '#4a5160', deck: '#3a404b', screen: '#04110a', code: '#39ff14', codeD: '#1f8f0f', led: '#6dff8f',
   };
   DL.JP = JP;
-  DL.charSway = (L) => L.outfit === 'dev_pierre' || L.outfit === 'abner' || L.outfit === 'joao_pedro';
+  // Tiago: a very dark navy racing jersey with a red round collar, red side stripes and a yellow / red shoulder,
+  // black trousers, dark shoes with red; light skin, straight dark brown hair parted on the side
+  const TG = {
+    jersey: '#0c1430', jerseyL: '#1a2650', red: '#d62839', redD: '#8f1622', yellow: '#f2c14e', silver: '#c9d1db', silverD: '#7d8794',
+    pants: '#121317', shoe: '#1b1d22', shoeL: '#3a3d45', sole: '#2c2f36',
+    skin: '#eecbae', hair: '#3b2617', brow: '#1d120b', mouth: '#a8705c',
+    holo: '#2de2c8', holoL: '#a5f7ea', holoD: '#14897a', term: '#39ff14', termD: '#1f8f0f', fire: '#ff7a17', fireL: '#ffc285',
+  };
+  DL.TG = TG;
+  DL.charSway = (L) => L.outfit === 'dev_pierre' || L.outfit === 'abner' || L.outfit === 'joao_pedro' || L.outfit === 'tiago';
   // the relaxed seated frame (sprites.js 'sitLounge': on a sofa, or on the floor against a rack) comes with the
   // Relax do Criador accessory (slot 'pose'), on any skin
   DL.charLounge = (L) => !!(L.gear && L.gear.pose === 'lounge');
   DL.charCostume = function (L) {
     switch (L.outfit) {
+      case 'tiago': return Object.assign({}, OPEN, SUIT, { shirt: TG.jersey, pants: TG.pants, shoes: TG.shoe, skin: TG.skin, hair: TG.hair, hairStyle: 'tg_side', body: 'm', beard: false, earrings: false, glasses: false, pantsStyle: '' });
       case 'joao_pedro': return Object.assign({}, OPEN, SUIT, { shirt: JP.knit, pants: JP.pants, shoes: JP.shoe, skin: JP.skin, hair: JP.hair, hairStyle: 'jp_cap', body: 'm', beard: false, earrings: false, glasses: false, pantsStyle: '' });
       case 'abner': return Object.assign({}, OPEN, SUIT, { shirt: ABN.tee, pants: ABN.camo, shoes: ABN.shoe, skin: ABN.skin, hair: ABN.hair, hairStyle: 'abner_curls', body: 'm', beard: false, earrings: false, glasses: true, pantsStyle: '' });
       case 'dev_pierre': return Object.assign({}, OPEN, SUIT, { shirt: DEV.tee, pants: DEV.pants, shoes: DEV.shoe, skin: DEV.skin, hair: DEV.hair, hairStyle: 'dev_quiff', body: 'm', beard: false, earrings: false, pantsStyle: '' });
@@ -708,6 +722,22 @@
   DL.charOutfit = function (g, dir, ty, L, shirt, shirtD, shirtL) {
     const ax = AX, o = L.outfit, side = dir !== 'down' && dir !== 'up';
     switch (o) {
+      case 'tiago':
+        // racing jersey: red round collar, red side stripes, the lock patch on the chest; "01" on the back
+        if (dir === 'down') {
+          R(g, ax - 2, ty, 4, 1, TG.red); R(g, ax - 3, ty, 1, 1, TG.redD); R(g, ax + 2, ty, 1, 1, TG.redD);
+          R(g, ax - 4, ty + 1, 1, 6, TG.red); R(g, ax + 3, ty + 1, 1, 6, TG.redD);
+          R(g, ax + 1, ty + 2, 2, 1, TG.silver); R(g, ax + 1, ty + 3, 2, 2, TG.yellow); R(g, ax + 1, ty + 4, 1, 1, TG.redD);
+        } else if (dir === 'up') {
+          R(g, ax - 3, ty, 6, 1, TG.red);
+          R(g, ax - 4, ty + 1, 1, 6, TG.red); R(g, ax + 3, ty + 1, 1, 6, TG.redD);
+          // 0 and 1, 3 px tall
+          R(g, ax - 3, ty + 2, 3, 1, '#f1f1ee'); R(g, ax - 3, ty + 4, 3, 1, '#f1f1ee'); R(g, ax - 3, ty + 3, 1, 1, '#f1f1ee'); R(g, ax - 1, ty + 3, 1, 1, '#f1f1ee');
+          R(g, ax + 1, ty + 2, 1, 3, '#f1f1ee'); R(g, ax, ty + 2, 1, 1, '#f1f1ee');
+        } else {
+          R(g, ax + 1, ty, 2, 1, TG.red); R(g, ax - 3, ty + 1, 1, 6, TG.red); R(g, ax + 2, ty + 2, 1, 1, TG.yellow);
+        }
+        return true;
       case 'joao_pedro':
         // knit: vertical ribs down the front and back, a darker hem
         if (dir === 'down' || dir === 'up') { for (let x = ax - 3; x <= ax + 2; x += 2) R(g, x, ty + 2, 1, 5, JP.knitL); R(g, ax - 4, ty + 7, 8, 1, JP.knitD); }
@@ -1072,6 +1102,22 @@
   DL.charHair = function (g, dir, L, H, hair, hairD, hairL) {
     const side = dir !== 'down' && dir !== 'up';
     switch (L.hairStyle) {
+      case 'tg_side': {
+        // straight, medium length, parted on the side, strands falling over the forehead
+        if (dir === 'down') {
+          H(-4, -2, 8, 1); H(-5, -1, 10, 3); H(-5, 2, 7, 1); H(-4, 3, 4, 1); H(-2, 4, 1, 1);
+          H(-5, 2, 1, 5); H(4, 2, 1, 4); H(-5, 6, 1, 1, hairD); H(4, 5, 1, 1, hairD);
+          H(1, -2, 1, 2, hairD); H(-3, -1, 3, 1, hairL); H(2, 0, 2, 1, hairL); H(-4, 2, 2, 1, hairL);
+        } else if (dir === 'up') {
+          H(-4, -2, 8, 1); H(-5, -1, 10, 9); H(-4, 8, 8, 1, hairD); H(1, -2, 1, 2, hairD);
+          H(-3, 0, 2, 1, hairL); H(2, 1, 2, 1, hairL); H(-5, 4, 1, 4, hairD); H(4, 4, 1, 4, hairD);
+        } else {
+          H(-4, -2, 8, 1); H(-5, -1, 10, 3); H(-6, 1, 6, 6); H(-5, 7, 4, 1, hairD);
+          H(1, 2, 4, 1); H(2, 3, 2, 1); H(-1, 2, 2, 3, hairD);
+          H(-2, -1, 4, 1, hairL); H(2, 2, 2, 1, hairL);
+        }
+        return true;
+      }
       case 'jp_cap': {
         // short dark hair showing under a navy cap with a curved brim (no logo)
         const c = JP;
@@ -1426,6 +1472,95 @@
     }
   }
 
+  // Tiago's pieces drawn after the body: the shoulder (yellow and red) and the shield patch, short sleeves,
+  // the dark shoes' red detail, focused brows and a straight mouth, arms crossed standing and the eyes to the
+  // side (towards the holographic lock, charFx); the Firewall and Bloqueio emotes' arms
+  function tgArm(g, x, top, L, fore) {
+    // one arm: sleeve, forearm, hand
+    R(g, x, top, 2, 3, L.shirt); R(g, x, top, 2, 1, shade(L.shirt, 0.14));
+    R(g, x, top + 3, 2, 2, fore); R(g, x, top + 5, 2, 2, L.skin); R(g, x, top + 6, 2, 1, shade(L.skin, -0.16));
+  }
+  // the Firewall and Bloqueio emotes' arms (emotes.js; any skin, always facing the camera)
+  function tgEmoteArms(g, pose, L, o) {
+    const ax = AX, ty = o.ty, c = TG, tee = L.outfit === 'tiago' || L.outfit === 'abner' || L.outfit === 'dev_pierre';
+    const sk = L.skin, skD = shade(sk, -0.16), shirt = L.shirt, fore = tee ? sk : shirt;
+    if (pose === 'tgTypeA' || pose === 'tgTypeB') {
+      // both hands up and forward over a floating keyboard, one a pixel lower each frame
+      g.clearRect(ax - 6, ty + 1, 2, 7); g.clearRect(ax + 4, ty + 1, 2, 7);
+      const a = pose === 'tgTypeA' ? 0 : 1;
+      tgArm(g, ax - 6, ty - 2 + a, L, fore); tgArm(g, ax + 4, ty - 1 - a, L, fore);
+      if (L.outfit === 'tiago') R(g, ax - 6, ty - 2 + a, 2, 1, c.yellow);
+    } else {
+      // the left arm straight out to the side, palm up against what is coming
+      g.clearRect(ax + 4, ty + 1, 2, 7);
+      R(g, ax + 4, ty + 1, 3, 2, shirt); R(g, ax + 4, ty + 1, 3, 1, shade(shirt, 0.14));
+      if (L.outfit === 'tiago') R(g, ax + 4, ty + 1, 2, 1, c.silver);
+      R(g, ax + 7, ty + 1, 2, 2, fore); R(g, ax + 7, ty + 2, 2, 1, shade(fore, -0.16));
+      R(g, ax + 9, ty - 1, 1, 4, sk); R(g, ax + 10, ty - 1, 1, 1, sk); R(g, ax + 10, ty + 1, 1, 1, sk); R(g, ax + 9, ty + 2, 1, 1, skD);
+    }
+  }
+  function tgTop(g, dir, pose, L, o) {
+    const ax = AX, ay = AY, ty = o.ty, hy = o.hy, hx = o.hx, side = o.side, sit = o.sit, c = TG;
+    const sk = L.skin, skD = shade(sk, -0.16), shirt = L.shirt, shirtD = shade(shirt, -0.3);
+    const emote = pose === 'tgTypeA' || pose === 'tgTypeB' || pose === 'tgBlock';
+    if (!sit) {
+      if (!side) {
+        const lDy = pose === 'B' || pose === 'danceB' ? -1 : 0, rDy = pose === 'A' || pose === 'danceA' ? -1 : 0;
+        R(g, ax - 3, ay - 1 + lDy, 3, 1, c.sole); R(g, ax, ay - 1 + rDy, 3, 1, c.sole);
+        R(g, ax - 2, ay - 2 + lDy, 1, 1, c.red); R(g, ax + 1, ay - 2 + rDy, 1, 1, c.red);
+      } else {
+        let back = ax - 2, front = ax - 1;
+        if (pose === 'A') { back = ax - 4; front = ax + 1; }
+        if (pose === 'B') { back = ax + 1; front = ax - 4; }
+        R(g, back, ay - 1, 3, 1, c.sole); R(g, front, ay - 1, 4, 1, c.sole); R(g, front + 2, ay - 2, 2, 1, c.red);
+      }
+    }
+    const walkArms = pose === 'A' || pose === 'B' || pose === 'pass' || pose === 'talk';
+    const crossed = pose === 'idle' && !sit;
+    if (!sit && !side && !crossed && !emote && walkArms) {
+      const sw = pose === 'A' ? -1 : pose === 'B' ? 1 : 0;
+      R(g, ax - 6, ty + 4 + sw, 2, 2, sk); R(g, ax + 4, ty + 4 - sw, 2, 2, sk); R(g, ax + 5, ty + 4 - sw, 1, 2, skD);
+    } else if (!sit && side && !crossed && walkArms) {
+      const x = ax - 1 + (pose === 'A' ? 1 : pose === 'B' ? -1 : 0);
+      R(g, x, ty + 4, 2, 2, sk); R(g, x - 1, ty + 4, 1, 2, skD);
+    }
+    if (crossed && dir === 'up') {
+      // from behind: only the elbows out at the sides
+      g.clearRect(ax - 6, ty + 5, 2, 3); g.clearRect(ax + 4, ty + 5, 2, 3);
+      R(g, ax - 6, ty + 1, 2, 3, shirt); R(g, ax + 4, ty + 1, 2, 3, shirt);
+      R(g, ax - 6, ty + 4, 2, 1, sk); R(g, ax + 4, ty + 4, 2, 1, sk); R(g, ax - 6, ty + 4, 1, 1, skD); R(g, ax + 5, ty + 4, 1, 1, skD);
+    } else if (crossed && !side) {
+      g.clearRect(ax - 6, ty + 4, 2, 4); g.clearRect(ax + 4, ty + 4, 2, 4);
+      R(g, ax - 6, ty + 1, 2, 3, shirt); R(g, ax + 4, ty + 1, 2, 3, shirt);
+      R(g, ax - 6, ty + 3, 12, 2, sk); R(g, ax - 6, ty + 4, 12, 1, skD);
+      R(g, ax - 6, ty + 3, 2, 1, shirt); R(g, ax + 4, ty + 3, 2, 1, shirt);
+      if (dir === 'down') { R(g, ax - 3, ty + 3, 1, 2, shirtD); R(g, ax + 2, ty + 3, 1, 2, shirtD); }
+    } else if (crossed) {
+      R(g, ax - 1, ty + 6, 2, 1, shirt); R(g, ax - 1, ty + 7, 2, 1, shirtD);
+      R(g, ax - 1, ty + 3, 4, 2, sk); R(g, ax - 1, ty + 4, 4, 1, skD); R(g, ax - 1, ty + 1, 2, 2, shirt);
+    }
+    // the shoulder: yellow and red on the right, the shield patch on the left
+    if (!side && !sit) {
+      const rs = dir === 'down' ? ax - 6 : ax + 4, ls = dir === 'down' ? ax + 4 : ax - 6;
+      if (!(pose === 'tgBlock' && ls === ax + 4)) { R(g, ls, ty + 1, 2, 1, c.silver); R(g, ls + (dir === 'down' ? 0 : 1), ty + 2, 1, 1, c.silverD); }
+      R(g, rs, ty + 1, 2, 1, c.yellow); R(g, rs, ty + 2, 2, 1, c.red);
+    } else if (side && !sit) { R(g, ax - 1, ty + 1, 2, 1, c.yellow); R(g, ax - 1, ty + 2, 2, 1, c.red); }
+    // focused brows, a straight mouth, the eyes to the side while standing with the arms crossed
+    if (dir === 'down') {
+      R(g, hx - 4, hy + 3, 1, 1, c.brow); R(g, hx - 3, hy + 4, 2, 1, c.brow);
+      R(g, hx + 3, hy + 3, 1, 1, c.brow); R(g, hx + 1, hy + 4, 2, 1, c.brow);
+      R(g, hx - 4, hy + 7, 1, 1, sk); R(g, hx + 3, hy + 7, 1, 1, sk);
+      R(g, hx - 1, hy + 8, 2, 1, c.mouth);
+      if (crossed && !o.closed) {
+        R(g, hx - 3, hy + 5, 1, 2, sk); R(g, hx + 2, hy + 5, 1, 2, sk);
+        R(g, hx - 2, hy + 5, 1, 2, '#121218'); R(g, hx + 3, hy + 5, 1, 2, '#121218');
+      }
+    } else if (side) {
+      R(g, hx + 1, hy + 4, 2, 1, c.brow); R(g, hx + 3, hy + 3, 1, 1, c.brow);
+      R(g, hx + 3, hy + 7, 1, 1, sk); R(g, hx + 4, hy + 8, 1, 1, c.mouth);
+    }
+  }
+
   // João Pedro's pieces drawn after the body: broad shoulders, the beard, moustache and half smile, the high
   // knit collar, the dark watch, the grey sneakers' white soles and, standing still, his arms crossed (unless
   // the notebook is in his hands)
@@ -1763,6 +1898,7 @@
     if (L.outfit === 'dev_pierre') devTop(g, dir, pose, L, o);
     if (L.outfit === 'abner') abnerTop(g, dir, pose, L, o);
     if (L.outfit === 'joao_pedro') jpTop(g, dir, pose, L, o);
+    if (L.outfit === 'tiago') tgTop(g, dir, pose, L, o);
     if (pose === 'sitLounge') loungeTop(g, dir, L, o);
     if (L.outfit === 'astronaut') {
       // glass dome helmet: a white shell, a green-tinted visor and a neon rim
@@ -2005,6 +2141,7 @@
     if (L.gear) gear(g, dir, L, o, pose);
     // the phone goes in front of everything on the face
     if ((pose === 'selfie' || pose === 'selfieB') && !o.sit) selfieArms(g, L, o, pose);
+    if ((pose === 'tgTypeA' || pose === 'tgTypeB' || pose === 'tgBlock') && !o.sit) tgEmoteArms(g, pose, L, o);
     // the notebook in the hands (or the Ping emote's, which brings its own)
     if ((L.gear && L.gear.hands === 'netbook') || pose === 'typeA' || pose === 'typeB') netbook(g, dir, pose, L, o);
   };
@@ -2082,6 +2219,21 @@
     if (Math.floor(t * 2.5) % 2) R(g, sx + 5, sy + 3, 1, 1, JP.led);
   }
   DL.netbookFx = netbookFx;
+  // Tiago's holographic lock, turning and bobbing beside him while he stands still (any direction)
+  function tgLock(g, X, Y, t) {
+    const c = TG, k = Math.floor(t * 6) % 6, w = [5, 4, 2, 1, 2, 4][k], x = X + 10 - Math.floor(w / 2), y = Y - 22 + Math.round(Math.sin(t * 2.2));
+    const ga = g.globalAlpha;
+    g.globalAlpha = ga * 0.85;
+    // shackle, body, keyhole (the keyhole only when it faces us)
+    if (w > 1) { R(g, x, y, w, 1, c.holoL); R(g, x, y + 1, 1, 2, c.holo); R(g, x + w - 1, y + 1, 1, 2, c.holo); }
+    else R(g, x, y, 1, 3, c.holoL);
+    R(g, x - (w > 2 ? 1 : 0), y + 3, w + (w > 2 ? 2 : 0), 4, c.holo); R(g, x - (w > 2 ? 1 : 0), y + 3, w + (w > 2 ? 2 : 0), 1, c.holoL);
+    if (w >= 4) R(g, x + Math.floor(w / 2) - (w === 4 ? 1 : 0), y + 4, 1, 2, c.holoD);
+    g.globalAlpha = ga * 0.25;
+    R(g, x - 2, y + 8, w + 4, 1, c.holo);
+    g.globalAlpha = ga;
+  }
+  DL.tgLock = tgLock;
   function devFx(g, L, X, Y, t) {
     if (L.gear && L.gear.hands === 'netbook') netbookFx(g, L, X, Y, t, false);
     const dev = L.outfit === 'dev_pierre', way = L.gear && L.gear.face === 'wayfarer';
@@ -2106,6 +2258,7 @@
   DL.charFx = function (g, a, X, Y, t) {
     const L = a.look;
     if (L && !a.seated && !a.moving && !a.emote && !(a.bubble && a.bubble.tone === 'emote') && (a.dir === 'down' || !a.dir)) devFx(g, L, X, Y, t);
+    if (L && L.outfit === 'tiago' && !a.seated && !a.moving && !a.emote && !(a.bubble && a.bubble.tone === 'emote')) tgLock(g, X, Y, t);
     if (L && L.gear && !a.seated) passGearFx(g, a, L.gear, X, Y, t);
     if (L && L.outfit === 'bp_founder' && !a.seated && !a.moving) {
       const k = 0.5 + 0.5 * Math.sin(t * 1.8), ga = g.globalAlpha;
