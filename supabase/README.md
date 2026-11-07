@@ -51,6 +51,7 @@ services/admin-service ┘                       ▼
 | `migrations/20261101000300_trail_bolt.sql` | Passe Boot: **Rastro Relâmpago** (`bp_trail_bolt`) no nível 23 no lugar do Rastro de Cabos; quem tinha o Rastro de Cabos recebe o Relâmpago (equipado, se estava) e o item antigo sai do catálogo |
 | `migrations/20261106000100_friends.sql` | **Amigos**: `friendships` (uma linha por par de jogadores, pedido → aceito) e `private.friend_*`; nada é legível pelo navegador, tudo passa pela função `friends` |
 | `migrations/20261106000200_pets_dracache_guaca_sudo.sql` | Pets **Drácache**, **Guaca.exe** e **Sudo** na loja |
+| `migrations/20261106000300_dev_pierre.sql` | Coleção Criador: skin lendária **Dev Pierre** (selo CRIADOR, traz o emote Selfie) e os óculos **Wayfarer do Criador** |
 | `seed_scenarios.sql` | lições do terminal, problemas, passos, ajudas e patentes (gerado de `assets/js/problems-data.js` + `terminal.js`) |
 | `functions/{shop,inventory,economy,game,admin,payments,payments-webhook,feedback,pass,friends}` | Edge Functions; `functions/_shared` traz http, auth, db e a API da AbacatePay |
 | `scripts/export-catalog.js` + `scripts/build-seed.mjs` | regeram o `seed.sql` a partir do catálogo do jogo |
